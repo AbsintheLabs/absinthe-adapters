@@ -8,3 +8,6 @@
 /.idea
 /dist
 *.env
+/data
+balances.json
+.DS_Store
