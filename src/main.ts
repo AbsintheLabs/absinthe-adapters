@@ -7,6 +7,7 @@ import { EvmBatchProcessor } from '@subsquid/evm-processor'
 import { TypeormDatabase } from '@subsquid/typeorm-store'
 import { Database, LocalDest } from '@subsquid/file-store'
 import { Balances } from './tables';
+import Bottleneck from 'bottleneck';
 
 // usdcAbi is a utility module generated from the JSON ABI of the USDC contract.
 // It contains methods for event decoding, direct RPC queries and some useful
@@ -21,38 +22,33 @@ const USDC_CONTRACT_ADDRESS =
   // '0xb5b1b659da79a2507c27aad509f15b4874edc0cc'
   // '0x04C618CDbc1D59142dFEB4B9864835A06983EC2d'
   // '0xa3F4341C3fEf5963AB04135D2014AC7d68222E19'
-  '0xa26b04b41162b0d7c2e1e2f9a33b752e28304a49'
+  '0xa26b04b41162b0d7c2e1e2f9a33b752e28304a49';
+
+const limiter = new Bottleneck({
+  maxConcurrent: 1,
+  minTime: 110, // space out the calls and slightly more to not hit against the window
+  // reservoir: 0, // Start with 10 tokens
+  // reservoirRefreshAmount: 10, // Refill 10 tokens per second
+  // reservoirRefreshInterval: 1000, // Refresh every .1 seconds
+});
 
 // First we configure data retrieval.
 const processor = new EvmBatchProcessor()
-  // SQD Network gateways are the primary source of blockchain data in
-  // squids, providing pre-filtered data in chunks of roughly 1-10k blocks.
-  // Set this for a fast sync.
+  // Find all gateways here for your network: https://docs.sqd.ai/subsquid-network/reference/networks/
   .setGateway('https://v2.archive.subsquid.io/network/ethereum-mainnet')
-  // Another data source squid processors can use is chain RPC.
-  // In this particular squid it is used to retrieve the very latest chain data
-  // (including unfinalized blocks) in real time. It can also be used to
-  //   - make direct RPC queries to get extra data during indexing
-  //   - sync a squid without a gateway (slow)
-  // .setRpcEndpoint('https://rpc.ankr.com/eth')
+  // You can use RPCs to get extra data during indexing
+  // If a gateway is not available for your network, you must supply an RPC endpoint
   .setRpcEndpoint('https://eth.llamarpc.com')
   // The processor needs to know how many newest blocks it should mark as "hot".
   // If it detects a blockchain fork, it will roll back any changes to the
   // database made due to orphaned blocks, then re-run the processing for the
   // main chain blocks.
   .setFinalityConfirmation(75)
-  // .addXXX() methods request data items. In this case we're asking for
-  // Transfer(address,address,uint256) event logs emitted by the USDC contract.
-  //
-  // We could have omitted the "address" filter to get Transfer events from
-  // all contracts, or the "topic0" filter to get all events from the USDC
-  // contract, or both to get all event logs chainwide. We also could have
-  // requested some related data, such as the parent transaction or its traces.
-  //
-  // Other .addXXX() methods (.addTransaction(), .addTrace(), .addStateDiff()
-  // on EVM) are similarly feature-rich.
+  // .addXXX() methods request data items.
+  // .addTransaction(), .addTrace(), .addStateDiff() are also available
   .addLog({
     // range: { from: 21557766 },
+    // You should supply the "from" to be the contract creation block
     range: { from: 21557766, to: 21615680 },
     address: [USDC_CONTRACT_ADDRESS],
     topic0: [usdcAbi.events.Transfer.topic],
@@ -65,7 +61,8 @@ const processor = new EvmBatchProcessor()
     },
   })
 
-const db = new Database({ tables: { Tokens, Balances }, dest: new LocalDest('./data'), chunkSizeMb: 1 });
+// const db = new Database({ tables: { Tokens, Balances }, dest: new LocalDest('./data'), chunkSizeMb: 1 });
+const db = new TypeormDatabase({ supportHotBlocks: false })
 let nextHourlyFlush = 0;
 let lastInterpolatedTs: number | null = null;
 const addressMap = new Map<string, { balance: bigint, windowStartTs: number }>();
@@ -164,14 +161,14 @@ async function sendBalancesToApi(balances: AddressBalance[]): Promise<void> {
 
   while (!success && retryCount < MAX_RETRIES) {
     try {
-      const response = await fetchWithRetry('http://localhost:3000/api/log', {
+      const response = await limiter.schedule(() => fetchWithRetry('http://localhost:3000/api/log', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'x-api-key': 'api_key_2',
         },
         body: JSON.stringify(convertBigIntToString({ balances: balancesCopy })),
-      });
+      }));
 
       if (response.status === 200) {
         console.log("Successfully sent balance data to API");
@@ -279,12 +276,13 @@ processor.run(db, async (ctx) => {
         // Write balance records to Balances table after each hourly flush
         if (balances.length > 0) {
           console.log(`Writing ${balances.length} balance records from hourly flush`);
-          await ctx.store.Balances.writeMany(balances.map(b => ({
-            address: b.address,
-            balance: b.balance,
-            windowStartTs: b.windowStartTs,
-            windowEndTs: b.windowEndTs,
-          })));
+          // NOTE: removing the store to deal with this later
+          // await ctx.store.Balances.writeMany(balances.map(b => ({
+          //   address: b.address,
+          //   balance: b.balance,
+          //   windowStartTs: b.windowStartTs,
+          //   windowEndTs: b.windowEndTs,
+          // })));
           console.log("balances", balances);
 
           // Ensure API calls succeed before clearing balances
@@ -316,12 +314,13 @@ processor.run(db, async (ctx) => {
 
     // Write the balances to the Balances table
     if (balances.length > 0) {
-      await ctx.store.Balances.writeMany(balances.map(b => ({
-        address: b.address,
-        balance: b.balance,
-        windowStartTs: b.windowStartTs,
-        windowEndTs: b.windowEndTs,
-      })));
+      // NOTE: removing the store to deal with this later
+      // await ctx.store.insert(Balances.values(balances.map(b => ({
+      //   address: b.address,
+      //   balance: b.balance,
+      //   windowStartTs: b.windowStartTs,
+      //   windowEndTs: b.windowEndTs,
+      // })));
       console.log("balances", balances);
 
       // Ensure API calls succeed before moving on
@@ -332,7 +331,7 @@ processor.run(db, async (ctx) => {
       console.log("No balance records to write");
     }
 
-    ctx.store.setForceFlush(true);
+    // ctx.store.setForceFlush(true);
   } catch (error) {
     console.error("Error in processing block batch:", error);
     // Rethrow to let the processor handle the error

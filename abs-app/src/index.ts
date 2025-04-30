@@ -34,8 +34,8 @@ app.use(express.json({
 
 // API keys (in a real app, store these securely)
 const validApiKeys: ApiKeys = {
-    'api_key_1': { points: 10, duration: 10 }, // 10 requests per minute
-    'api_key_2': { points: 20, duration: 3 } // 1000 requests per minute
+    'api_key_1': { points: 10, duration: 1 }, // 10 requests per second
+    'api_key_2': { points: 10, duration: 1 } // 10 requests per second
 };
 
 // Create rate limiters for each API key
