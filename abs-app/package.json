@@ -1,0 +1,24 @@
+{
+    "name": "rate-limited-api",
+    "version": "1.0.0",
+    "description": "Express API with rate limiting by API key",
+    "main": "dist/index.js",
+    "scripts": {
+        "start": "node dist/index.js",
+        "dev": "nodemon src/index.ts",
+        "build": "tsc",
+        "postinstall": "npm run build"
+    },
+    "dependencies": {
+        "express": "^4.18.2",
+        "rate-limiter-flexible": "^3.0.0",
+        "dotenv": "^16.3.1"
+    },
+    "devDependencies": {
+        "@types/express": "^4.17.21",
+        "@types/node": "^20.10.4",
+        "nodemon": "^3.0.1",
+        "ts-node": "^10.9.1",
+        "typescript": "^5.3.3"
+    }
+}
