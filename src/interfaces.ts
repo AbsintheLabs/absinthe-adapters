@@ -5,12 +5,12 @@ type TokenType = 'erc20' | 'erc721' | 'erc1155';
 interface Chain {
     networkId: number;
     name: string;
+    chainType: ChainType;
 }
 
 interface BaseToken {
     token_amount: bigint;
     token_type: TokenType;
-    chain: Chain;
 }
 
 interface ERC20Token extends BaseToken {
@@ -37,31 +37,77 @@ interface UnpricedToken {
     type: 'unpriced';
 }
 
-type Price = (PricedToken | UnpricedToken) & Token;
+/**
+ - Describes a unique data source (a protocol pool on a chain), 
+   including adapter versioning and optional runtime metadata.
+*/
+export interface DataSource<M = unknown> {
+    /**
+     - Deterministic key for deduplication.
+     - e.g. SHA-256(networkId:protocolName:poolAddress:adapterVersion)
+    */
+    sourceId: string
 
-type dataType = 'transaction' | 'time_weighted_balance';
+    /** The EVM network ID (e.g. 1 for mainnet, 137 for Polygon) */
+    chainId: number
 
-export interface TimeWeightedBalance<M = unknown> {
-    dataType: dataType;
-    user: string;
-    chainType: ChainType;
-    price: Price;
+    /** Protocol identifier (e.g. 'uniswapv2', 'velodrome') (lowercased) */
+    protocolName: string
+
+    /** Contract address of the pool or token (lower-cased hex) */
+    poolAddress: string
+
+    /** Adapter version string (semver or git SHA) */
+    adapterVersion: string
+
+    /** Optional ID for the specific runner instance (for provenance/troubleshooting) */
+    runnerId?: string
+
+    /** Any additional per-source metadata (client info, tags, etc) */
+    metadata?: M
+}
+
+interface TimeWindow {
     startTs: number; // unix timestamp
     endTs: number; // unix timestamp
     startBlocknumber: bigint;
     endBlocknumber: bigint;
-    txHash?: string;
-    metadata?: M;
+    windowId: number; // floor(startBlock / block_interval)
+}
+
+type Price = (PricedToken | UnpricedToken) & Token;
+
+type dataType = 'transaction' | 'time_weighted_balance';
+
+export interface Provenance {
+    runnerId: string;             // e.g. wallet or host fingerprint
+    adapterVersion: string;       // git SHA or semver
+    indexedAt: number;            // unix epoch
+    sourceCodeHash?: string;      // optional docker / nix hash
+}
+
+// TODO: we need a pool address or token address or something to identify the topic partition
+export interface TimeWeightedBalance<M = unknown> {
+    version: number;
+    dataType: dataType;
+    user: string;
+    chain: Chain;
+    price: Price;
+    timeWindow: TimeWindow;
+    source: DataSource;  // Reference to the data source that provided this balance
+    adapterContext?: M;
 }
 
 export interface Transaction<M = unknown> {
+    version: number;
     dataType: dataType;
     user: string;
-    chainType: ChainType;
+    chain: Chain;
     price: Price;
     timestamp: number; // unix timestamp
     blockNumber: bigint;
     txHash: string;
     logIndex: number; // should we have an index to identify if there were multiple in a transaction
-    metadata?: M;
+    source: DataSource;  // Reference to the data source that provided this transaction
+    adapterContext?: M;
 }
