@@ -1,5 +1,5 @@
 // This is the main executable of the squid indexer.
-import fs from 'fs'; // todo; remove
+import fs from 'fs'; // todo; remove for production version
 import { TypeormDatabase } from '@subsquid/typeorm-store'
 import { ApiClient, convertBigIntToString } from './services/apiClient';
 import { processor } from './processor';
@@ -37,21 +37,10 @@ const balanceHistoryWindows: HistoryWindow[] = [];
 // warn: this was premature optimization, opting for a single map instead for one pool
 // const activeBalancesMap = new Map<string, Map<string, ActiveBalance>>();
 
-
-// // Create data source for this specific protocol
-// const PROTOCOL_NAME = "velodrome";
-// const CHAIN_ID = 10; // Optimism
-// const ADAPTER_VERSION = "1.0.0";
-// const dataSource = createDataSource(
-//   CHAIN_ID,
-//   PROTOCOL_NAME,
-//   LP_TOKEN_CONTRACT_ADDRESS,
-//   ADAPTER_VERSION,
-//   "squid-processor-1" // runner ID
-// );
-
-const priceCache = new Map<string, Map<Date, number>>();
-
+// >>>>>>>>>>>>>>>>> PRICING STUFF <<<<<<<<<<<<<<<<<<<
+// price state
+const hourlyPriceCache = new Map<string, number>();
+// price getter functions
 async function getPriceFromCoingecko(coingeckoId: string, timestampMs: number): Promise<number> {
   const COINGECKO_API_KEY = process.env.COINGECKO_API_KEY!;
   if (!COINGECKO_API_KEY) {
@@ -74,9 +63,46 @@ async function getPriceFromCoingecko(coingeckoId: string, timestampMs: number): 
   const formattedDate = `${date.getDate().toString().padStart(2, '0')}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getFullYear()}`;
   const priceUrl = `https://pro-api.coingecko.com/api/v3/coins/${coingeckoId}/history?date=${formattedDate}&localization=false`;
   const priceResp = await (await fetch(priceUrl, options)).json();
+  if (priceResp?.status?.error_code) {
+    throw new Error(`Error fetching price for ${coingeckoId} on ${formattedDate}: ${priceResp.status.error_message}`);
+  }
   const price = priceResp.market_data.current_price.usd;
   return price;
 }
+
+async function getHourlyPrice(coingeckoId: string, timestampMs: number): Promise<number> {
+  // round timestamp down to the start of its hour
+  const date = new Date(timestampMs)
+  date.setMinutes(0, 0, 0)
+  const hourBucket = date.getTime() // ms since epoch at top of hour
+
+  const cacheKey = `${coingeckoId}-${hourBucket}` // todo: this could just be the hour, without the id
+  const cached = hourlyPriceCache.get(cacheKey)
+  if (cached !== undefined) {
+    return cached
+  }
+
+  // not in cache → fetch and store
+  const price = await getPriceFromCoingecko(coingeckoId, timestampMs)
+  hourlyPriceCache.set(cacheKey, price)
+  return price
+}
+
+// end price getter functions
+
+// pricing stuff
+interface Token {
+  address: string;
+  decimals: number;
+  coingeckoId?: string; // only relevant for token0 and token1
+}
+interface Pool {
+  token0: Token;
+  token1: Token;
+}
+
+let pool: Pool | null = null;
+let lpToken: Token | null = null;
 
 // processor.run() executes data processing with a handler called on each data batch.
 // Data is available via ctx.blocks; handler can also use external data sources.
@@ -86,29 +112,37 @@ processor.run(db, async (ctx) => {
     for (let log of block.logs) {
       // todo; make this more efficient by moving the contract call if we don't have the price
       const contract = new velodromeAbi.Contract(ctx, block.header, LP_TOKEN_CONTRACT_ADDRESS);
-      const token0 = await contract.token0();
-      const token1 = await contract.token1();
-      const token0Contract = new erc20Abi.Contract(ctx, block.header, token0);
-      const token1Contract = new erc20Abi.Contract(ctx, block.header, token1);
-      const token0Decimals = await token0Contract.decimals();
-      const token1Decimals = await token1Contract.decimals();
-      const lpDecimals = await contract.decimals();
+      if (!pool) {
+        const token0 = await contract.token0();
+        const token1 = await contract.token1();
+        const token0Contract = new erc20Abi.Contract(ctx, block.header, token0);
+        const token1Contract = new erc20Abi.Contract(ctx, block.header, token1);
+        const token0Decimals = await token0Contract.decimals();
+        const token1Decimals = await token1Contract.decimals();
+        const token0CoingeckoId = process.env.TOKEN0_COINGECKO_ID!;
+        const token1CoingeckoId = process.env.TOKEN1_COINGECKO_ID!;
+        pool = { token0: { address: token0, decimals: token0Decimals, coingeckoId: token0CoingeckoId }, token1: { address: token1, decimals: token1Decimals, coingeckoId: token1CoingeckoId } };
+      }
+      if (!lpToken) {
+        const lpDecimals = await contract.decimals();
+        lpToken = { address: LP_TOKEN_CONTRACT_ADDRESS, decimals: lpDecimals };
+      }
       const reserve = await contract.getReserves();
       const totalSupply = await contract.totalSupply();
 
       const r0 = reserve._reserve0;
       const r1 = reserve._reserve1;
-      const token0Price = new Big(5); // for sake of example
-      const token1Price = new Big(10); // for sake of example
+      const token0Price = await getHourlyPrice(pool!.token0.coingeckoId!, block.header.timestamp);
+      const token1Price = await getHourlyPrice(pool!.token1.coingeckoId!, block.header.timestamp);
 
       // Calculate token0 value in USD
       const token0Value = new Big(r0.toString())
-        .div(new Big(10).pow(token0Decimals))
+        .div(new Big(10).pow(pool!.token0.decimals))
         .mul(token0Price);
 
       // Calculate token1 value in USD
       const token1Value = new Big(r1.toString())
-        .div(new Big(10).pow(token1Decimals))
+        .div(new Big(10).pow(pool!.token1.decimals))
         .mul(token1Price);
 
       // Total value in the pool
@@ -117,7 +151,7 @@ processor.run(db, async (ctx) => {
       // Calculate price per LP token
       const price = totalPoolValue
         .div(new Big(totalSupply.toString())
-          .div(new Big(10).pow(lpDecimals)))
+          .div(new Big(10).pow(lpToken!.decimals)))
         .toNumber();
       console.log(`price: ${price}`);
 
