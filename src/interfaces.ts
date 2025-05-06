@@ -67,13 +67,25 @@ export interface DataSource<M = unknown> {
     metadata?: M
 }
 
-interface TimeWindow {
+interface BaseTimeWindow {
     startTs: number; // unix timestamp
     endTs: number; // unix timestamp
-    startBlocknumber: bigint;
-    endBlocknumber: bigint;
     windowId: number; // floor(startBlock / block_interval)
 }
+
+interface TransferTimeWindow extends BaseTimeWindow {
+    trigger: 'transfer';
+    startBlocknumber: bigint;
+    endBlocknumber: bigint;
+}
+
+interface WindowExhaustedTimeWindow extends BaseTimeWindow {
+    trigger: 'window_exhausted';
+    startBlocknumber?: bigint;
+    endBlocknumber?: bigint;
+}
+
+type TimeWindow = TransferTimeWindow | WindowExhaustedTimeWindow;
 
 type Price = (PricedToken | UnpricedToken) & Token;
 
@@ -94,8 +106,8 @@ export interface TimeWeightedBalance<M = unknown> {
     chain: Chain;
     price: Price;
     timeWindow: TimeWindow;
-    source: DataSource;  // Reference to the data source that provided this balance
-    adapterContext?: M;
+    source?: DataSource;  // Reference to the data source that provided this balance. Do this later...
+    protocolMetadata?: M;
 }
 
 export interface Transaction<M = unknown> {
@@ -109,5 +121,5 @@ export interface Transaction<M = unknown> {
     txHash: string;
     logIndex: number; // should we have an index to identify if there were multiple in a transaction
     source: DataSource;  // Reference to the data source that provided this transaction
-    adapterContext?: M;
+    protocolMetadata?: M;
 }

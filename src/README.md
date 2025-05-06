@@ -37,3 +37,14 @@
 
 ### In English
 
+How pricing will be done for LP:
+1. when we push a new window, we'll see if we have the price for the token in the cache
+2. if not, we make the rpc calls to get the price
+   1. getReserve0 - each time
+   2. getReserve1 - each time
+   3. total token supply - each time
+   4. getDecimals0 - one time
+   5. getDecimals1 - one time
+3. Question: what blockheight do we call if we're doing the interpolated time intervals? 
+   1. A: we can try to get the nearest blocknumber to the timestamp?
+   2. A: we can make the timestamp not ON the hour, but instead the block that's closest to the hour mark (so we do get a blocknumber for each entry)

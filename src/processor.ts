@@ -14,6 +14,7 @@ const contractAddress = process.env.CONTRACT_ADDRESS!.toLowerCase()
 
 export const processor = new EvmBatchProcessor()
     .setGateway(process.env.GATEWAY_URL!)
+    .setRpcEndpoint(process.env.RPC_URL!)
     .setBlockRange({
         from: Number(process.env.FROM_BLOCK!),
         ...(process.env.TO_BLOCK ? { to: Number(process.env.TO_BLOCK) } : {})
@@ -27,9 +28,6 @@ export const processor = new EvmBatchProcessor()
         log: {
             transactionHash: true,
         },
-        block: {
-            timestamp: true,
-        }
     })
 
 // TODO: what is this supposed to be for?
