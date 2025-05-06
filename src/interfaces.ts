@@ -79,13 +79,13 @@ interface TransferTimeWindow extends BaseTimeWindow {
     endBlocknumber: bigint;
 }
 
-interface WindowExhaustedTimeWindow extends BaseTimeWindow {
-    trigger: 'window_exhausted';
+interface ExhaustedTimeWindow extends BaseTimeWindow {
+    trigger: 'exhausted';
     startBlocknumber?: bigint;
     endBlocknumber?: bigint;
 }
 
-type TimeWindow = TransferTimeWindow | WindowExhaustedTimeWindow;
+type TimeWindow = TransferTimeWindow | ExhaustedTimeWindow;
 
 type Price = (PricedToken | UnpricedToken) & Token;
 

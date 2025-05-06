@@ -88,6 +88,32 @@ async function getHourlyPrice(coingeckoId: string, timestampMs: number): Promise
   return price
 }
 
+async function computeLpTokenPrice(pool: Pool, timestampMs?: number): Promise<number> {
+  const { config, state } = pool;
+  const token0Price = await getHourlyPrice(config.token0.coingeckoId!, timestampMs ?? state.lastTsMs);
+  const token1Price = await getHourlyPrice(config.token1.coingeckoId!, timestampMs ?? state.lastTsMs);
+
+  const token0Value = new Big(state.reserve0.toString())
+    .div(new Big(10).pow(config.token0.decimals))
+    .mul(token0Price);
+
+  // Calculate token1 value in USD
+  const token1Value = new Big(state.reserve1.toString())
+    .div(new Big(10).pow(config.token1.decimals))
+    .mul(token1Price);
+
+  // Total value in the pool
+  const totalPoolValue = token0Value.add(token1Value);
+
+  // Calculate price per LP token
+  const price = totalPoolValue
+    .div(new Big(state.totalSupply.toString())
+      .div(new Big(10).pow(config.lpToken.decimals)))
+    .toNumber();
+
+  return price;
+}
+
 // end price getter functions
 
 // pricing stuff
@@ -96,13 +122,24 @@ interface Token {
   decimals: number;
   coingeckoId?: string; // only relevant for token0 and token1
 }
-interface Pool {
+interface PoolConfig {
   token0: Token;
   token1: Token;
+  lpToken: Token;
+}
+interface PoolState {
+  reserve0: bigint;
+  reserve1: bigint;
+  totalSupply: bigint;
+  lastBlock: number;
+  lastTsMs: number
+}
+interface Pool {
+  config: PoolConfig;
+  state: PoolState;
 }
 
-let pool: Pool | null = null;
-let lpToken: Token | null = null;
+let pool: Partial<Pool> = {};
 
 // processor.run() executes data processing with a handler called on each data batch.
 // Data is available via ctx.blocks; handler can also use external data sources.
@@ -110,54 +147,45 @@ processor.run(db, async (ctx) => {
   // We'll make db and network operations at the end of the batch saving massively on IO
   for (let block of ctx.blocks) {
     for (let log of block.logs) {
-      // todo; make this more efficient by moving the contract call if we don't have the price
-      const contract = new velodromeAbi.Contract(ctx, block.header, LP_TOKEN_CONTRACT_ADDRESS);
-      if (!pool) {
-        const token0 = await contract.token0();
-        const token1 = await contract.token1();
-        const token0Contract = new erc20Abi.Contract(ctx, block.header, token0);
-        const token1Contract = new erc20Abi.Contract(ctx, block.header, token1);
-        const token0Decimals = await token0Contract.decimals();
-        const token1Decimals = await token1Contract.decimals();
-        const token0CoingeckoId = process.env.TOKEN0_COINGECKO_ID!;
-        const token1CoingeckoId = process.env.TOKEN1_COINGECKO_ID!;
-        pool = { token0: { address: token0, decimals: token0Decimals, coingeckoId: token0CoingeckoId }, token1: { address: token1, decimals: token1Decimals, coingeckoId: token1CoingeckoId } };
+      if (log.address === LP_TOKEN_CONTRACT_ADDRESS && log.topics[0] === velodromeAbi.events.Sync.topic) {
+        const contract = new velodromeAbi.Contract(ctx, block.header, LP_TOKEN_CONTRACT_ADDRESS);
+        // do this once on initialization
+        if (!pool.config) {
+          const token0 = await contract.token0();
+          const token1 = await contract.token1();
+          const token0Contract = new erc20Abi.Contract(ctx, block.header, token0);
+          const token1Contract = new erc20Abi.Contract(ctx, block.header, token1);
+          const token0Decimals = await token0Contract.decimals();
+          const token1Decimals = await token1Contract.decimals();
+          const token0CoingeckoId = process.env.TOKEN0_COINGECKO_ID!;
+          const token1CoingeckoId = process.env.TOKEN1_COINGECKO_ID!;
+          const lpDecimals = await contract.decimals();
+          pool.config = {
+            token0: { address: token0, decimals: token0Decimals, coingeckoId: token0CoingeckoId },
+            token1: { address: token1, decimals: token1Decimals, coingeckoId: token1CoingeckoId },
+            lpToken: { address: LP_TOKEN_CONTRACT_ADDRESS, decimals: lpDecimals }
+          }
+        }
+        // do this for each sync event
+        const reserve = await contract.getReserves();
+        const r0 = reserve._reserve0;
+        const r1 = reserve._reserve1;
+        const totalSupply = await contract.totalSupply();
+        pool.state = {
+          reserve0: r0,
+          reserve1: r1,
+          totalSupply: totalSupply,
+          lastBlock: block.header.height,
+          lastTsMs: block.header.timestamp
+        }
       }
-      if (!lpToken) {
-        const lpDecimals = await contract.decimals();
-        lpToken = { address: LP_TOKEN_CONTRACT_ADDRESS, decimals: lpDecimals };
-      }
-      const reserve = await contract.getReserves();
-      const totalSupply = await contract.totalSupply();
 
-      const r0 = reserve._reserve0;
-      const r1 = reserve._reserve1;
-      const token0Price = await getHourlyPrice(pool!.token0.coingeckoId!, block.header.timestamp);
-      const token1Price = await getHourlyPrice(pool!.token1.coingeckoId!, block.header.timestamp);
-
-      // Calculate token0 value in USD
-      const token0Value = new Big(r0.toString())
-        .div(new Big(10).pow(pool!.token0.decimals))
-        .mul(token0Price);
-
-      // Calculate token1 value in USD
-      const token1Value = new Big(r1.toString())
-        .div(new Big(10).pow(pool!.token1.decimals))
-        .mul(token1Price);
-
-      // Total value in the pool
-      const totalPoolValue = token0Value.add(token1Value);
-
-      // Calculate price per LP token
-      const price = totalPoolValue
-        .div(new Big(totalSupply.toString())
-          .div(new Big(10).pow(lpToken!.decimals)))
-        .toNumber();
-      console.log(`price: ${price}`);
-
+      // warn: transfers: assume that we will always index from the beginning of all events so we need pool state + pool config
+      // warn: swaps: we can index from anywhere so we only need the pool config (can handle that separately in the swap topic handler)
       // Case 1: Emit events on transfer
       if (log.address === LP_TOKEN_CONTRACT_ADDRESS && log.topics[0] === velodromeAbi.events.Transfer.topic) {
         const { from, to, value } = velodromeAbi.events.Transfer.decode(log);
+        console.log('price of LP triggered by transfer: ', await computeLpTokenPrice(pool as Pool, block.header.timestamp));
         await processValueChange({
           assetAddress: LP_TOKEN_CONTRACT_ADDRESS,
           from,
@@ -172,6 +200,7 @@ processor.run(db, async (ctx) => {
       }
     }
 
+    // for each block...
     // Case 2: Interpolate balances based on block range and flush balances after the time period is exhausted
     // We do this for each block since we don't want to miss the case where we leave a gap in the data if there are 2 transfers spaced far apart in the same batch
     const currentTs = block.header.timestamp;
@@ -188,6 +217,7 @@ processor.run(db, async (ctx) => {
       for (let [userAddress, data] of activeBalancesMap.entries()) {
         const oldStart = data.updated_at_block_ts;
         if (data.balance > 0 && oldStart < nextBoundaryTs) {
+          // here, we want to recompute the price (we don't need to re-do the rpc calls since we know the reserves + total supply haven't changed BUT the underlying price may have)
           // bug: the updated_at_block_height is not correct since we're not doing it on the block, but instead on the last interpolated timestamp
           balanceHistoryWindows.push({ userAddress, assetAddress: LP_TOKEN_CONTRACT_ADDRESS, balance: data.balance, ts_start: oldStart, ts_end: nextBoundaryTs, block_start: data.updated_at_block_height, block_end: block.header.height });
           activeBalancesMap.set(userAddress, { balance: data.balance, updated_at_block_ts: nextBoundaryTs, updated_at_block_height: block.header.height });

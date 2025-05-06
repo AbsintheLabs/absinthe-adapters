@@ -22,7 +22,7 @@ export const processor = new EvmBatchProcessor()
     .setFinalityConfirmation(75)
     .addLog({
         address: [contractAddress],
-        topic0: [velodromeAbi.events.Transfer.topic],
+        topic0: [velodromeAbi.events.Transfer.topic, velodromeAbi.events.Sync.topic],
     })
     .setFields({
         log: {
@@ -30,7 +30,6 @@ export const processor = new EvmBatchProcessor()
         },
     })
 
-// TODO: what is this supposed to be for?
 export type Fields = EvmBatchProcessorFields<typeof processor>
 export type Block = BlockHeader<Fields>
 export type Log = _Log<Fields>
