@@ -29,10 +29,13 @@ const WINDOW_DURATION_MS = 3600 * 1000 * 12; // 1 day
 // todo: these should be pulled from the db state on each batch run
 export type ActiveBalance = { balance: bigint, updated_at_block_ts: number, updated_at_block_height: number }
 export type HistoryWindow = { userAddress: string, assetAddress: string, balance: bigint, ts_start: number, ts_end: number, block_start: number, block_end: number }
-const activeBalancesMap = new Map<string, Map<string, ActiveBalance>>();
+const activeBalancesMap = new Map<string, ActiveBalance>();
 const balanceHistoryWindows: HistoryWindow[] = [];
 // NOTE: we should use the TimeWeightedBalance interface instead. but for now, we can skip while we do pricing...
 // const balanceHistoryWindows: TimeWeightedBalance[] = [];
+
+// warn: this was premature optimization, opting for a single map instead for one pool
+// const activeBalancesMap = new Map<string, Map<string, ActiveBalance>>();
 
 
 // // Create data source for this specific protocol
@@ -49,52 +52,27 @@ const balanceHistoryWindows: HistoryWindow[] = [];
 
 const priceCache = new Map<string, Map<Date, number>>();
 
-/**
- * Gets the price of a UniswapV2 LP token at a specific timestamp.
- * 
- * @param timestamp - The timestamp in milliseconds to get the price for
- * @returns The price of the LP token in USD, or 0 if not found
- */
-
-function getUniV2LPTokenPrice(timestampMs: number, blockHeight: number): number {
-  const date = new Date(timestampMs);
-  // Set minutes, seconds, and milliseconds to 0 to get the nearest hour (floor)
-  date.setMinutes(0, 0, 0);
-
-  // note; i don't think we need these acrobatics here -- seems redudant
-  // Get the floored hour timestamp
-  const flooredTimestamp = Math.floor(date.getTime() / 1000); // Convert back to seconds
-  // Check if we have the price in cache for this hour
-  const hourDate = new Date(flooredTimestamp * 1000);
-
-  const price = priceCache.get(LP_TOKEN_CONTRACT_ADDRESS)?.get(hourDate);
-  if (price) {
-    return price;
-  }
-
-  // if we don't have the price, we need to fetch it from the API
-  // const contract = new abi
-
-  return 0;
-}
-
-async function getPriceFromCoingecko(chainId: number, tokenAddress: string, timestampMs: number): Promise<number> {
+async function getPriceFromCoingecko(coingeckoId: string, timestampMs: number): Promise<number> {
   const COINGECKO_API_KEY = process.env.COINGECKO_API_KEY!;
+  if (!COINGECKO_API_KEY) {
+    throw new Error('COINGECKO_API_KEY is not set');
+  }
   const options = {
     method: 'GET',
     headers: { accept: 'application/json', 'x-cg-pro-api-key': COINGECKO_API_KEY }
   };
   // First - get the token id from the contract address
-  const tokenDataUrl = `https://pro-api.coingecko.com/api/v3/${chainId}coins/id/contract/${tokenAddress}`;
-  const tokenDataResp = await (await fetch(tokenDataUrl, options)).json();
-  const tokenId = tokenDataResp.id;
-  if (!tokenId) {
-    throw new Error(`Token id not found for contract address ${tokenAddress}`);
-  }
+  // This doesn't work for obscure assets
+  // const tokenDataUrl = `https://pro-api.coingecko.com/api/v3/${chainId}coins/id/contract/${tokenAddress}`;
+  // const tokenDataResp = await (await fetch(tokenDataUrl, options)).json();
+  // const tokenId = tokenDataResp.id;
+  // if (!tokenId) {
+  //   throw new Error(`Token id not found for contract address ${tokenAddress}`);
+  // }
   // Second - get the price from the token id
   const date = new Date(timestampMs);
   const formattedDate = `${date.getDate().toString().padStart(2, '0')}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getFullYear()}`;
-  const priceUrl = `https://pro-api.coingecko.com/api/v3/coins/${tokenId}/history?date=${formattedDate}&localization=false`;
+  const priceUrl = `https://pro-api.coingecko.com/api/v3/coins/${coingeckoId}/history?date=${formattedDate}&localization=false`;
   const priceResp = await (await fetch(priceUrl, options)).json();
   const price = priceResp.market_data.current_price.usd;
   return price;
@@ -172,16 +150,16 @@ processor.run(db, async (ctx) => {
       // Calculate the next window boundary by multiplying by window duration
       const nextBoundaryTs: number = (windowsSinceEpoch + 1) * WINDOW_DURATION_MS;
       // ... do periodic flush for each asset in the map ...
-      for (let [assetAddress, mapping] of activeBalancesMap.entries()) {
-        for (let [userAddress, data] of mapping.entries()) {
-          const oldStart = data.updated_at_block_ts;
-          if (data.balance > 0 && oldStart < nextBoundaryTs) {
-            // bug: the updated_at_block_height is not correct since we're not doing it on the block, but instead on the last interpolated timestamp
-            balanceHistoryWindows.push({ userAddress, assetAddress, balance: data.balance, ts_start: oldStart, ts_end: nextBoundaryTs, block_start: data.updated_at_block_height, block_end: block.header.height });
-            mapping.set(userAddress, { balance: data.balance, updated_at_block_ts: nextBoundaryTs, updated_at_block_height: block.header.height });
-          }
+      // for (let [assetAddress, mapping] of activeBalancesMap.entries()) {
+      for (let [userAddress, data] of activeBalancesMap.entries()) {
+        const oldStart = data.updated_at_block_ts;
+        if (data.balance > 0 && oldStart < nextBoundaryTs) {
+          // bug: the updated_at_block_height is not correct since we're not doing it on the block, but instead on the last interpolated timestamp
+          balanceHistoryWindows.push({ userAddress, assetAddress: LP_TOKEN_CONTRACT_ADDRESS, balance: data.balance, ts_start: oldStart, ts_end: nextBoundaryTs, block_start: data.updated_at_block_height, block_end: block.header.height });
+          activeBalancesMap.set(userAddress, { balance: data.balance, updated_at_block_ts: nextBoundaryTs, updated_at_block_height: block.header.height });
         }
       }
+      // }
       lastInterpolatedTs = nextBoundaryTs;
     }
 
