@@ -1,5 +1,6 @@
 type ChainType = 'evm'; // support for other chains will be added in the future
 type TokenType = 'erc20' | 'erc721' | 'erc1155';
+type Currency = 'usd';
 
 // NOTE: for the time being until we figure out a better more static version for chain information
 interface Chain {
@@ -16,6 +17,8 @@ interface BaseToken {
 interface ERC20Token extends BaseToken {
     token_type: 'erc20';
     decimals: number;
+    token_address: string;
+    currency: Currency;
 }
 
 interface ERC721Token extends BaseToken {
@@ -99,9 +102,14 @@ export interface Provenance {
 }
 
 // TODO: we need a pool address or token address or something to identify the topic partition
+// amount + type of asset + declaration of currency (mark that it's usd)
+// 1 eth or 1000 usdc
+// how to constrain the body of the data? + schema consistency
+// can use a schema registry for the structure of that metadata + consistency
+// should filter out metadata object that is larger than a certain size
 export interface TimeWeightedBalance<M = unknown> {
-    version: number;
-    dataType: dataType;
+    version: 1;
+    dataType: 'time_weighted_balance';
     user: string;
     chain: Chain;
     price: Price;

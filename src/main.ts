@@ -147,6 +147,7 @@ processor.run(db, async (ctx) => {
   // We'll make db and network operations at the end of the batch saving massively on IO
   for (let block of ctx.blocks) {
     for (let log of block.logs) {
+      // Sync Event
       if (log.address === LP_TOKEN_CONTRACT_ADDRESS && log.topics[0] === velodromeAbi.events.Sync.topic) {
         const contract = new velodromeAbi.Contract(ctx, block.header, LP_TOKEN_CONTRACT_ADDRESS);
         // do this once on initialization
@@ -182,8 +183,9 @@ processor.run(db, async (ctx) => {
 
       // warn: transfers: assume that we will always index from the beginning of all events so we need pool state + pool config
       // warn: swaps: we can index from anywhere so we only need the pool config (can handle that separately in the swap topic handler)
-      // Case 1: Emit events on transfer
+      // Transfer Event
       if (log.address === LP_TOKEN_CONTRACT_ADDRESS && log.topics[0] === velodromeAbi.events.Transfer.topic) {
+        // Case 1: Emit events on transfer
         const { from, to, value } = velodromeAbi.events.Transfer.decode(log);
         console.log('price of LP triggered by transfer: ', await computeLpTokenPrice(pool as Pool, block.header.timestamp));
         await processValueChange({
@@ -217,7 +219,6 @@ processor.run(db, async (ctx) => {
       for (let [userAddress, data] of activeBalancesMap.entries()) {
         const oldStart = data.updated_at_block_ts;
         if (data.balance > 0 && oldStart < nextBoundaryTs) {
-          // here, we want to recompute the price (we don't need to re-do the rpc calls since we know the reserves + total supply haven't changed BUT the underlying price may have)
           // bug: the updated_at_block_height is not correct since we're not doing it on the block, but instead on the last interpolated timestamp
           balanceHistoryWindows.push({ userAddress, assetAddress: LP_TOKEN_CONTRACT_ADDRESS, balance: data.balance, ts_start: oldStart, ts_end: nextBoundaryTs, block_start: data.updated_at_block_height, block_end: block.header.height });
           activeBalancesMap.set(userAddress, { balance: data.balance, updated_at_block_ts: nextBoundaryTs, updated_at_block_height: block.header.height });
