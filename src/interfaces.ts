@@ -1,5 +1,4 @@
 type ChainType = 'evm'; // support for other chains will be added in the future
-type TokenType = 'erc20' | 'erc721' | 'erc1155';
 type Currency = 'usd';
 
 // NOTE: for the time being until we figure out a better more static version for chain information
@@ -9,35 +8,19 @@ interface Chain {
     chainType: ChainType;
 }
 
-interface BaseToken {
-    token_amount: bigint;
-    token_type: TokenType;
-}
-
-interface ERC20Token extends BaseToken {
-    token_type: 'erc20';
-    decimals: number;
-    token_address: string;
+interface Price {
     currency: Currency;
+    tokenPrice: number;
+    updatedAtMs: number;
 }
 
-interface ERC721Token extends BaseToken {
-    token_type: 'erc721';
-}
-
-interface ERC1155Token extends BaseToken {
-    token_type: 'erc1155';
-}
-
-type Token = ERC20Token | ERC721Token | ERC1155Token;
-
-interface PricedToken {
-    type: 'priced';
-    usd_denominated: number;
-}
-
-interface UnpricedToken {
-    type: 'unpriced';
+interface Erc20Token {
+    tokenType: 'erc20';
+    tokenAddress: string;
+    tokenName: string;
+    tokenSymbol: string;
+    decimals: number;
+    price?: Price;
 }
 
 /**
@@ -73,7 +56,8 @@ export interface DataSource<M = unknown> {
 interface BaseTimeWindow {
     startTs: number; // unix timestamp
     endTs: number; // unix timestamp
-    windowId: number; // floor(startBlock / block_interval)
+    windowDurationMs: number;
+    windowId: number; // floor(startTs / window_duration)
 }
 
 interface TransferTimeWindow extends BaseTimeWindow {
@@ -84,18 +68,12 @@ interface TransferTimeWindow extends BaseTimeWindow {
 
 interface ExhaustedTimeWindow extends BaseTimeWindow {
     trigger: 'exhausted';
-    startBlocknumber?: bigint;
-    endBlocknumber?: bigint;
 }
 
 type TimeWindow = TransferTimeWindow | ExhaustedTimeWindow;
 
-type Price = (PricedToken | UnpricedToken) & Token;
-
-type dataType = 'transaction' | 'time_weighted_balance';
-
 export interface Provenance {
-    runnerId: string;             // e.g. wallet or host fingerprint
+    runnerId: string;             // e.g. machine fingerprint
     adapterVersion: string;       // git SHA or semver
     indexedAt: number;            // unix epoch
     sourceCodeHash?: string;      // optional docker / nix hash
@@ -107,27 +85,43 @@ export interface Provenance {
 // how to constrain the body of the data? + schema consistency
 // can use a schema registry for the structure of that metadata + consistency
 // should filter out metadata object that is larger than a certain size
+
+// a timeweightedbalance just needs a: value to operate on
 export interface TimeWeightedBalance<M = unknown> {
     version: 1;
     dataType: 'time_weighted_balance';
     user: string;
     chain: Chain;
-    price: Price;
+    value: number;
     timeWindow: TimeWindow;
     source?: DataSource;  // Reference to the data source that provided this balance. Do this later...
     protocolMetadata?: M;
 }
 
+// in a swap, we also care only about the value
 export interface Transaction<M = unknown> {
-    version: number;
-    dataType: dataType;
+    version: 1;
+    dataType: 'transaction';
     user: string;
     chain: Chain;
-    price: Price;
-    timestamp: number; // unix timestamp
+    value: number;
+    timestampMs: number; // unix timestamp
     blockNumber: bigint;
     txHash: string;
     logIndex: number; // should we have an index to identify if there were multiple in a transaction
     source: DataSource;  // Reference to the data source that provided this transaction
     protocolMetadata?: M;
+}
+
+// Uniswap Protocol Metadata
+interface UniswapV2TWBMetadata {
+    poolAddress: string;
+}
+
+interface UniswapV2SwapMetadata {
+    poolAddress: string;
+    token0: Erc20Token;
+    token1: Erc20Token;
+    token0Amount: bigint;
+    token1Amount: bigint;
 }
