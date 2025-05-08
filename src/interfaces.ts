@@ -70,7 +70,7 @@ interface ExhaustedTimeWindow extends BaseTimeWindow {
     trigger: 'exhausted';
 }
 
-type TimeWindow = TransferTimeWindow | ExhaustedTimeWindow;
+export type TimeWindow = TransferTimeWindow | ExhaustedTimeWindow;
 
 export interface Provenance {
     runnerId: string;             // e.g. machine fingerprint
@@ -94,8 +94,8 @@ export interface TimeWeightedBalance<M = unknown> {
     chain: Chain;
     value: number;
     timeWindow: TimeWindow;
-    source?: DataSource;  // Reference to the data source that provided this balance. Do this later...
     protocolMetadata?: M;
+    source?: DataSource;  // Reference to the data source that provided this balance. Do this later...
 }
 
 // in a swap, we also care only about the value
@@ -114,11 +114,12 @@ export interface Transaction<M = unknown> {
 }
 
 // Uniswap Protocol Metadata
-interface UniswapV2TWBMetadata {
+export interface UniswapV2TWBMetadata {
     poolAddress: string;
+    lpTokenAmount: bigint;
 }
 
-interface UniswapV2SwapMetadata {
+export interface UniswapV2SwapMetadata {
     poolAddress: string;
     token0: Erc20Token;
     token1: Erc20Token;

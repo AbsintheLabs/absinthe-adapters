@@ -5,6 +5,7 @@ interface ValueChangeArgs {
     from?: string             // user sending tokens (omit or undefined for “mint”)
     to?: string               // user receiving tokens (omit or undefined for “burn”)
     amount: bigint            // positive amount moved
+    usdValue: number          // value of the amount in USD
     blockTimestamp: number       // for windowing
     txHash?: string
     blockHeight: number
@@ -19,6 +20,7 @@ export function processValueChange({
     from,
     to,
     amount,
+    usdValue,
     blockTimestamp,
     txHash,
     blockHeight,
@@ -42,10 +44,12 @@ export function processValueChange({
                 userAddress: user,
                 assetAddress,
                 balance: prev.balance,
+                usdValue,
                 ts_start: prev.updated_at_block_ts,
                 ts_end: blockTimestamp,
                 block_start: prev.updated_at_block_height,
                 block_end: blockHeight,
+                trigger: 'transfer'
             })
         }
         // apply the change

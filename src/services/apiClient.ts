@@ -1,5 +1,5 @@
 import Bottleneck from 'bottleneck';
-
+import { TimeWeightedBalance } from '../interfaces';
 // Helper function to convert BigInt values to strings for JSON serialization
 export const convertBigIntToString = (obj: any): any => {
     if (obj === null || obj === undefined) {
@@ -133,7 +133,7 @@ export class ApiClient {
      * Specialized method for sending balance data
      * @param balances Array of balance records
      */
-    async sendBalances(balances: any[]): Promise<void> {
+    async sendBalances(balances: TimeWeightedBalance[]): Promise<void> {
         if (balances.length === 0) {
             console.log("No balances to send");
             return;
@@ -141,10 +141,7 @@ export class ApiClient {
 
         console.log(`Sending ${balances.length} balance records to API...`);
 
-        // Copy balances to ensure data isn't lost if there's an error
-        const balancesCopy = [...balances];
-
-        const response = await this.sendData('api/log', { balances: balancesCopy });
+        const response = await this.sendData('api/log', { balances });
 
         if (!response.ok) {
             throw new Error(`Failed to send balances: ${response.status} ${response.statusText}`);

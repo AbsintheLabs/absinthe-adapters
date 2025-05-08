@@ -7,7 +7,7 @@ import * as velodromeAbi from './abi/velodrome';
 import * as erc20Abi from './abi/usdc';
 import { processValueChange } from './utils/valueChangeHandler';
 import { createDataSource } from './utils/sourceId';
-import { TimeWeightedBalance } from './interfaces';
+import { TimeWeightedBalance, UniswapV2TWBMetadata, TimeWindow } from './interfaces';
 import { exit } from 'process';
 import Big from 'big.js';
 
@@ -27,8 +27,23 @@ let lastInterpolatedTs: number | null = null;
 const WINDOW_DURATION_MS = 3600 * 1000 * 12; // 1 day
 
 // todo: these should be pulled from the db state on each batch run
-export type ActiveBalance = { balance: bigint, updated_at_block_ts: number, updated_at_block_height: number }
-export type HistoryWindow = { userAddress: string, assetAddress: string, balance: bigint, ts_start: number, ts_end: number, block_start: number, block_end: number }
+export type ActiveBalance = {
+  balance: bigint,
+  updated_at_block_ts: number,
+  updated_at_block_height: number
+}
+
+export type HistoryWindow = {
+  userAddress: string,
+  assetAddress: string,
+  balance: bigint,
+  usdValue: number,
+  ts_start: number,
+  ts_end: number,
+  block_start?: number,
+  block_end?: number,
+  trigger: 'transfer' | 'exhausted'
+}
 const activeBalancesMap = new Map<string, ActiveBalance>();
 const balanceHistoryWindows: HistoryWindow[] = [];
 // NOTE: we should use the TimeWeightedBalance interface instead. but for now, we can skip while we do pricing...
@@ -50,15 +65,6 @@ async function getPriceFromCoingecko(coingeckoId: string, timestampMs: number): 
     method: 'GET',
     headers: { accept: 'application/json', 'x-cg-pro-api-key': COINGECKO_API_KEY }
   };
-  // First - get the token id from the contract address
-  // This doesn't work for obscure assets
-  // const tokenDataUrl = `https://pro-api.coingecko.com/api/v3/${chainId}coins/id/contract/${tokenAddress}`;
-  // const tokenDataResp = await (await fetch(tokenDataUrl, options)).json();
-  // const tokenId = tokenDataResp.id;
-  // if (!tokenId) {
-  //   throw new Error(`Token id not found for contract address ${tokenAddress}`);
-  // }
-  // Second - get the price from the token id
   const date = new Date(timestampMs);
   const formattedDate = `${date.getDate().toString().padStart(2, '0')}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getFullYear()}`;
   const priceUrl = `https://pro-api.coingecko.com/api/v3/coins/${coingeckoId}/history?date=${formattedDate}&localization=false`;
@@ -116,7 +122,7 @@ async function computeLpTokenPrice(pool: Pool, timestampMs?: number): Promise<nu
 
 // end price getter functions
 
-// pricing stuff
+// Pool Configs
 interface Token {
   address: string;
   decimals: number;
@@ -187,12 +193,12 @@ processor.run(db, async (ctx) => {
       if (log.address === LP_TOKEN_CONTRACT_ADDRESS && log.topics[0] === velodromeAbi.events.Transfer.topic) {
         // Case 1: Emit events on transfer
         const { from, to, value } = velodromeAbi.events.Transfer.decode(log);
-        console.log('price of LP triggered by transfer: ', await computeLpTokenPrice(pool as Pool, block.header.timestamp));
         await processValueChange({
           assetAddress: LP_TOKEN_CONTRACT_ADDRESS,
           from,
           to,
           amount: value,
+          usdValue: await computeLpTokenPrice(pool as Pool, block.header.timestamp),
           blockTimestamp: block.header.timestamp,
           blockHeight: block.header.height,
           txHash: log.transactionHash, // currently not used for anything
@@ -220,7 +226,7 @@ processor.run(db, async (ctx) => {
         const oldStart = data.updated_at_block_ts;
         if (data.balance > 0 && oldStart < nextBoundaryTs) {
           // bug: the updated_at_block_height is not correct since we're not doing it on the block, but instead on the last interpolated timestamp
-          balanceHistoryWindows.push({ userAddress, assetAddress: LP_TOKEN_CONTRACT_ADDRESS, balance: data.balance, ts_start: oldStart, ts_end: nextBoundaryTs, block_start: data.updated_at_block_height, block_end: block.header.height });
+          balanceHistoryWindows.push({ userAddress, assetAddress: LP_TOKEN_CONTRACT_ADDRESS, balance: data.balance, usdValue: await computeLpTokenPrice(pool as Pool, currentBlockHeight), ts_start: oldStart, ts_end: nextBoundaryTs, trigger: 'exhausted' });
           activeBalancesMap.set(userAddress, { balance: data.balance, updated_at_block_ts: nextBoundaryTs, updated_at_block_height: block.header.height });
         }
       }
@@ -228,15 +234,57 @@ processor.run(db, async (ctx) => {
       lastInterpolatedTs = nextBoundaryTs;
     }
 
-    // warn: this should be removed before creating the production build
-    // this is temporary to flush the data to a file for debugging
-    if (block.header.height === Number(process.env.TO_BLOCK!)) {
-      const redacted = convertBigIntToString(balanceHistoryWindows);
-      const withReadableTS = redacted.map((e: any) => ({ ...e, ts_start: new Date(e.ts_start).toISOString(), ts_end: new Date(e.ts_end).toISOString() }));
-      fs.writeFileSync('flushed-auditai-data.json', JSON.stringify(withReadableTS, null, 2));
-    }
+    // // warn: this should be removed before creating the production build
+    // // this is temporary to flush the data to a file for debugging
+    // if (block.header.height === Number(process.env.TO_BLOCK!)) {
+    //   const redacted = convertBigIntToString(balanceHistoryWindows);
+    //   const withReadableTS = redacted.map((e: any) => ({ ...e, ts_start: new Date(e.ts_start).toISOString(), ts_end: new Date(e.ts_end).toISOString() }));
+    //   fs.writeFileSync('flushed-auditai-data.json', JSON.stringify(withReadableTS, null, 2));
+    // }
 
     // Write balance records to Balances table after each periodic flush
-    await apiClient.sendBalances(balanceHistoryWindows);
+    // Prepare the data to fit the TimeWeightedBalance interface
+    const balances: TimeWeightedBalance<UniswapV2TWBMetadata>[] = balanceHistoryWindows.map((e) => {
+      const trigger = e.trigger === 'exhausted' ? 'exhausted' as const : 'transfer' as const;
+      const windowId = Math.floor(e.ts_start / WINDOW_DURATION_MS);
+
+      // Create appropriate timeWindow based on trigger type
+      const baseTimeWindow = {
+        startTs: e.ts_start,
+        endTs: e.ts_end,
+        windowDurationMs: WINDOW_DURATION_MS,
+        windowId
+      };
+
+      // Add block numbers for transfer triggers
+      const timeWindow: TimeWindow = trigger === 'transfer'
+        ? {
+          ...baseTimeWindow,
+          trigger,
+          startBlocknumber: BigInt(e.block_start || 0),
+          endBlocknumber: BigInt(e.block_end || 0)
+        }
+        : {
+          startTs: e.ts_start,
+          endTs: e.ts_end,
+          windowDurationMs: WINDOW_DURATION_MS,
+          windowId,
+          trigger
+        };
+
+      return {
+        version: 1,
+        dataType: 'time_weighted_balance',
+        user: e.userAddress,
+        chain: { networkId: 1, name: 'mainnet', chainType: 'evm' },
+        value: Number(e.usdValue),
+        timeWindow,
+        protocolMetadata: {
+          poolAddress: LP_TOKEN_CONTRACT_ADDRESS,
+          lpTokenAmount: e.balance,
+        },
+      }
+    });
+    await apiClient.sendBalances(balances);
   }
 })
