@@ -10,7 +10,7 @@ import { createDataSource } from './utils/sourceId';
 import { TimeWeightedBalance, UniswapV2TWBMetadata, TimeWindow } from './interfaces';
 import { exit } from 'process';
 import Big from 'big.js';
-import { Token, PoolConfig, PoolState } from './model';
+import { Token, PoolConfig, PoolState, ActiveBalances } from './model';
 
 const LP_TOKEN_CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS!;
 
@@ -151,6 +151,34 @@ async function computeLpTokenPrice(poolConfig: PoolConfig, poolState: PoolState,
   return price;
 }
 
+// Helper functions to convert between Map and JSON for storage
+function mapToJson(map: Map<string, ActiveBalance>): Record<string, any> {
+  const result: Record<string, any> = {};
+  for (const [key, value] of map.entries()) {
+    result[key] = {
+      balance: value.balance.toString(),
+      updated_at_block_ts: value.updated_at_block_ts,
+      updated_at_block_height: value.updated_at_block_height
+    };
+  }
+  return result;
+}
+
+function jsonToMap(json: Record<string, any>): Map<string, ActiveBalance> {
+  const result = new Map<string, ActiveBalance>();
+  if (!json) return result;
+
+  for (const [key, value] of Object.entries(json)) {
+    if (key === '__metadata') continue;
+    result.set(key, {
+      balance: BigInt(value.balance),
+      updated_at_block_ts: value.updated_at_block_ts,
+      updated_at_block_height: value.updated_at_block_height
+    });
+  }
+  return result;
+}
+
 // processor.run() executes data processing with a handler called on each data batch.
 // Data is available via ctx.blocks; handler can also use external data sources.
 processor.run(db, async (ctx) => {
@@ -165,6 +193,25 @@ processor.run(db, async (ctx) => {
       relations: { pool: true }
     }) :
     undefined;
+
+  // Load active balances state from database
+  const ACTIVE_BALANCES_ID = 'active-balances';
+  let activeBalancesEntity = await ctx.store.get(ActiveBalances, ACTIVE_BALANCES_ID);
+
+  // Initialize activeBalancesMap from stored state if it exists
+  if (activeBalancesEntity) {
+    const storedMap = jsonToMap(activeBalancesEntity.activeBalancesMap);
+    // Clear the in-memory map and populate it with stored values
+    activeBalancesMap.clear();
+    for (const [key, value] of storedMap.entries()) {
+      activeBalancesMap.set(key, value);
+    }
+
+    // Also restore lastInterpolatedTs if it exists in metadata
+    if (activeBalancesEntity.activeBalancesMap.__metadata?.lastInterpolatedTs) {
+      lastInterpolatedTs = activeBalancesEntity.activeBalancesMap.__metadata.lastInterpolatedTs;
+    }
+  }
 
   // We'll make db and network operations at the end of the batch saving massively on IO
   for (let block of ctx.blocks) {
@@ -447,4 +494,23 @@ processor.run(db, async (ctx) => {
     });
     await apiClient.sendBalances(balances);
   }
+
+  // Save active balances to database
+  const mapToSave = mapToJson(activeBalancesMap);
+  // Store metadata like lastInterpolatedTs
+  mapToSave.__metadata = {
+    lastInterpolatedTs: lastInterpolatedTs,
+    lastUpdated: new Date().toISOString()
+  };
+
+  if (!activeBalancesEntity) {
+    activeBalancesEntity = new ActiveBalances({
+      id: ACTIVE_BALANCES_ID,
+      activeBalancesMap: mapToSave
+    });
+  } else {
+    activeBalancesEntity.activeBalancesMap = mapToSave;
+  }
+
+  await ctx.store.upsert(activeBalancesEntity);
 })

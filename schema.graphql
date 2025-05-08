@@ -32,3 +32,7 @@ type PoolState @entity {
   updatedAt: DateTime!
 }
 
+type ActiveBalances @entity {
+  id: ID!
+  activeBalancesMap: JSON!
+}
