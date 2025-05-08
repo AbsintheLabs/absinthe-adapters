@@ -72,6 +72,12 @@ COINGECKO_API_KEY=<coingecko_key>
 - pnpm
 - PostgreSQL database
 
+### Setup
+```bash
+npx squid-typeorm-codegen
+npx squid-typeorm-migration generate
+```
+
 ### Installation
 ```bash
 pnpm install

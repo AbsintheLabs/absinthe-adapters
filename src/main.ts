@@ -10,6 +10,7 @@ import { createDataSource } from './utils/sourceId';
 import { TimeWeightedBalance, UniswapV2TWBMetadata, TimeWindow } from './interfaces';
 import { exit } from 'process';
 import Big from 'big.js';
+import { Token, PoolConfig, PoolState } from './model';
 
 const LP_TOKEN_CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS!;
 
@@ -49,9 +50,6 @@ const balanceHistoryWindows: HistoryWindow[] = [];
 // NOTE: we should use the TimeWeightedBalance interface instead. but for now, we can skip while we do pricing...
 // const balanceHistoryWindows: TimeWeightedBalance[] = [];
 
-// warn: this was premature optimization, opting for a single map instead for one pool
-// const activeBalancesMap = new Map<string, Map<string, ActiveBalance>>();
-
 // >>>>>>>>>>>>>>>>> PRICING STUFF <<<<<<<<<<<<<<<<<<<
 // price state
 const hourlyPriceCache = new Map<string, number>();
@@ -77,6 +75,14 @@ async function getPriceFromCoingecko(coingeckoId: string, timestampMs: number): 
 }
 
 async function getHourlyPrice(coingeckoId: string, timestampMs: number): Promise<number> {
+  if (!coingeckoId) {
+    throw new Error(`Cannot get price: coingeckoId is ${coingeckoId}`);
+  }
+
+  if (!timestampMs) {
+    throw new Error(`Cannot get price: timestampMs is ${timestampMs}`);
+  }
+
   // round timestamp down to the start of its hour
   const date = new Date(timestampMs)
   date.setMinutes(0, 0, 0)
@@ -94,18 +100,43 @@ async function getHourlyPrice(coingeckoId: string, timestampMs: number): Promise
   return price
 }
 
-async function computeLpTokenPrice(pool: Pool, timestampMs?: number): Promise<number> {
-  const { config, state } = pool;
-  const token0Price = await getHourlyPrice(config.token0.coingeckoId!, timestampMs ?? state.lastTsMs);
-  const token1Price = await getHourlyPrice(config.token1.coingeckoId!, timestampMs ?? state.lastTsMs);
+async function computeLpTokenPrice(poolConfig: PoolConfig, poolState: PoolState, timestampMs?: number): Promise<number> {
+  if (!poolConfig) {
+    throw new Error('No poolConfig provided to computeLpTokenPrice');
+  }
 
-  const token0Value = new Big(state.reserve0.toString())
-    .div(new Big(10).pow(config.token0.decimals))
+  if (!poolState) {
+    throw new Error('No poolState provided to computeLpTokenPrice');
+  }
+
+  if (!poolConfig.token0) {
+    throw new Error(`poolConfig.token0 is missing in poolConfig ${poolConfig.id}`);
+  }
+
+  if (!poolConfig.token1) {
+    throw new Error(`poolConfig.token1 is missing in poolConfig ${poolConfig.id}`);
+  }
+
+  if (!poolConfig.lpToken) {
+    throw new Error(`poolConfig.lpToken is missing in poolConfig ${poolConfig.id}`);
+  }
+
+  if (!poolConfig.token0.coingeckoId || !poolConfig.token1.coingeckoId) {
+    console.log(`poolConfig: ${JSON.stringify(poolConfig)}`);
+    console.log(`poolState: ${JSON.stringify(poolState)}`);
+    throw new Error('No coingecko id found for token0 or token1');
+  }
+
+  const token0Price = await getHourlyPrice(poolConfig.token0.coingeckoId, timestampMs ?? Number(poolState.lastTsMs));
+  const token1Price = await getHourlyPrice(poolConfig.token1.coingeckoId, timestampMs ?? Number(poolState.lastTsMs));
+
+  const token0Value = new Big(poolState.reserve0.toString())
+    .div(new Big(10).pow(poolConfig.token0.decimals))
     .mul(token0Price);
 
   // Calculate token1 value in USD
-  const token1Value = new Big(state.reserve1.toString())
-    .div(new Big(10).pow(config.token1.decimals))
+  const token1Value = new Big(poolState.reserve1.toString())
+    .div(new Big(10).pow(poolConfig.token1.decimals))
     .mul(token1Price);
 
   // Total value in the pool
@@ -113,77 +144,146 @@ async function computeLpTokenPrice(pool: Pool, timestampMs?: number): Promise<nu
 
   // Calculate price per LP token
   const price = totalPoolValue
-    .div(new Big(state.totalSupply.toString())
-      .div(new Big(10).pow(config.lpToken.decimals)))
+    .div(new Big(poolState.totalSupply.toString())
+      .div(new Big(10).pow(poolConfig.lpToken.decimals)))
     .toNumber();
 
   return price;
 }
 
-// end price getter functions
-
-// Pool Configs
-interface Token {
-  address: string;
-  decimals: number;
-  coingeckoId?: string; // only relevant for token0 and token1
-}
-interface PoolConfig {
-  token0: Token;
-  token1: Token;
-  lpToken: Token;
-}
-interface PoolState {
-  reserve0: bigint;
-  reserve1: bigint;
-  totalSupply: bigint;
-  lastBlock: number;
-  lastTsMs: number
-}
-interface Pool {
-  config: PoolConfig;
-  state: PoolState;
-}
-
-let pool: Partial<Pool> = {};
-
 // processor.run() executes data processing with a handler called on each data batch.
 // Data is available via ctx.blocks; handler can also use external data sources.
 processor.run(db, async (ctx) => {
+  // Load existing poolConfig and poolState or create new ones
+  let poolConfig: PoolConfig | undefined = await ctx.store.findOne(PoolConfig, {
+    where: { id: LP_TOKEN_CONTRACT_ADDRESS },
+    relations: { token0: true, token1: true, lpToken: true }
+  });
+  let poolState: PoolState | undefined = poolConfig ?
+    await ctx.store.findOne(PoolState, {
+      where: { pool: { id: poolConfig.id } },
+      relations: { pool: true }
+    }) :
+    undefined;
+
   // We'll make db and network operations at the end of the batch saving massively on IO
   for (let block of ctx.blocks) {
     for (let log of block.logs) {
       // Sync Event
       if (log.address === LP_TOKEN_CONTRACT_ADDRESS && log.topics[0] === velodromeAbi.events.Sync.topic) {
         const contract = new velodromeAbi.Contract(ctx, block.header, LP_TOKEN_CONTRACT_ADDRESS);
-        // do this once on initialization
-        if (!pool.config) {
-          const token0 = await contract.token0();
-          const token1 = await contract.token1();
-          const token0Contract = new erc20Abi.Contract(ctx, block.header, token0);
-          const token1Contract = new erc20Abi.Contract(ctx, block.header, token1);
+        // do this once on initialization or if we don't have poolConfig
+        if (!poolConfig) {
+          const token0Address = await contract.token0();
+          const token1Address = await contract.token1();
+          const token0Contract = new erc20Abi.Contract(ctx, block.header, token0Address);
+          const token1Contract = new erc20Abi.Contract(ctx, block.header, token1Address);
           const token0Decimals = await token0Contract.decimals();
           const token1Decimals = await token1Contract.decimals();
           const token0CoingeckoId = process.env.TOKEN0_COINGECKO_ID!;
           const token1CoingeckoId = process.env.TOKEN1_COINGECKO_ID!;
           const lpDecimals = await contract.decimals();
-          pool.config = {
-            token0: { address: token0, decimals: token0Decimals, coingeckoId: token0CoingeckoId },
-            token1: { address: token1, decimals: token1Decimals, coingeckoId: token1CoingeckoId },
-            lpToken: { address: LP_TOKEN_CONTRACT_ADDRESS, decimals: lpDecimals }
+
+          // Create or get tokens
+          let token0 = await ctx.store.get(Token, token0Address);
+          if (!token0) {
+            if (!token0CoingeckoId) {
+              ctx.log.error(`No coingeckoId provided for token0 (${token0Address}). Please set TOKEN0_COINGECKO_ID in environment variables.`);
+              throw new Error(`TOKEN0_COINGECKO_ID environment variable is required`);
+            }
+            token0 = new Token({
+              id: token0Address,
+              address: token0Address,
+              decimals: token0Decimals,
+              coingeckoId: token0CoingeckoId
+            });
+            await ctx.store.upsert(token0);
+          } else if (!token0.coingeckoId && token0CoingeckoId) {
+            // Update coingeckoId if it's missing but we have it now
+            token0.coingeckoId = token0CoingeckoId;
+            await ctx.store.upsert(token0);
           }
+
+          let token1 = await ctx.store.get(Token, token1Address);
+          if (!token1) {
+            if (!token1CoingeckoId) {
+              ctx.log.error(`No coingeckoId provided for token1 (${token1Address}). Please set TOKEN1_COINGECKO_ID in environment variables.`);
+              throw new Error(`TOKEN1_COINGECKO_ID environment variable is required`);
+            }
+            token1 = new Token({
+              id: token1Address,
+              address: token1Address,
+              decimals: token1Decimals,
+              coingeckoId: token1CoingeckoId
+            });
+            await ctx.store.upsert(token1);
+          } else if (!token1.coingeckoId && token1CoingeckoId) {
+            // Update coingeckoId if it's missing but we have it now
+            token1.coingeckoId = token1CoingeckoId;
+            await ctx.store.upsert(token1);
+          }
+
+          let lpToken = await ctx.store.get(Token, LP_TOKEN_CONTRACT_ADDRESS);
+          if (!lpToken) {
+            lpToken = new Token({
+              id: LP_TOKEN_CONTRACT_ADDRESS,
+              address: LP_TOKEN_CONTRACT_ADDRESS,
+              decimals: lpDecimals
+            });
+            await ctx.store.upsert(lpToken);
+          }
+
+          // Create pool config
+          poolConfig = new PoolConfig({
+            id: LP_TOKEN_CONTRACT_ADDRESS,
+            token0,
+            token1,
+            lpToken
+          });
+          await ctx.store.upsert(poolConfig);
+
+          // Also refresh our poolConfig with the fully loaded relations
+          poolConfig = await ctx.store.findOne(PoolConfig, {
+            where: { id: LP_TOKEN_CONTRACT_ADDRESS },
+            relations: { token0: true, token1: true, lpToken: true }
+          });
         }
-        // do this for each sync event
+
+        // Update pool state with the new Sync event data
         const reserve = await contract.getReserves();
         const r0 = reserve._reserve0;
         const r1 = reserve._reserve1;
         const totalSupply = await contract.totalSupply();
-        pool.state = {
-          reserve0: r0,
-          reserve1: r1,
-          totalSupply: totalSupply,
-          lastBlock: block.header.height,
-          lastTsMs: block.header.timestamp
+
+        if (!poolState && poolConfig) {
+          poolState = new PoolState({
+            id: `${LP_TOKEN_CONTRACT_ADDRESS}-state`,
+            pool: poolConfig,
+            reserve0: r0,
+            reserve1: r1,
+            totalSupply,
+            lastBlock: block.header.height,
+            lastTsMs: BigInt(block.header.timestamp),
+            updatedAt: new Date(block.header.timestamp)
+          });
+        } else if (poolState && poolConfig) {
+          poolState.pool = poolConfig;
+          poolState.reserve0 = r0;
+          poolState.reserve1 = r1;
+          poolState.totalSupply = totalSupply;
+          poolState.lastBlock = block.header.height;
+          poolState.lastTsMs = BigInt(block.header.timestamp);
+          poolState.updatedAt = new Date(block.header.timestamp);
+        }
+
+        if (poolState) {
+          await ctx.store.upsert(poolState);
+
+          // Reload poolState with all relations to ensure they're available
+          poolState = await ctx.store.findOne(PoolState, {
+            where: { id: poolState.id },
+            relations: { pool: { token0: true, token1: true, lpToken: true } }
+          });
         }
       }
 
@@ -191,6 +291,32 @@ processor.run(db, async (ctx) => {
       // warn: swaps: we can index from anywhere so we only need the pool config (can handle that separately in the swap topic handler)
       // Transfer Event
       if (log.address === LP_TOKEN_CONTRACT_ADDRESS && log.topics[0] === velodromeAbi.events.Transfer.topic) {
+        if (!poolConfig) {
+          ctx.log.warn(`Cannot process transfer: poolConfig is undefined`);
+          continue;
+        }
+
+        if (!poolState) {
+          ctx.log.warn(`Cannot process transfer: poolState is undefined`);
+          continue;
+        }
+
+        // Check if required relationships are loaded
+        if (!poolConfig.token0 || !poolConfig.token1 || !poolConfig.lpToken) {
+          ctx.log.warn(`Cannot process transfer: poolConfig relationships not fully loaded: ${JSON.stringify(poolConfig)}`);
+
+          // Try to reload the poolConfig with relationships
+          poolConfig = await ctx.store.findOne(PoolConfig, {
+            where: { id: LP_TOKEN_CONTRACT_ADDRESS },
+            relations: { token0: true, token1: true, lpToken: true }
+          });
+
+          if (!poolConfig || !poolConfig.token0 || !poolConfig.token1 || !poolConfig.lpToken) {
+            ctx.log.error(`Failed to reload poolConfig with relationships`);
+            continue;
+          }
+        }
+
         // Case 1: Emit events on transfer
         const { from, to, value } = velodromeAbi.events.Transfer.decode(log);
         await processValueChange({
@@ -198,7 +324,7 @@ processor.run(db, async (ctx) => {
           from,
           to,
           amount: value,
-          usdValue: await computeLpTokenPrice(pool as Pool, block.header.timestamp),
+          usdValue: await computeLpTokenPrice(poolConfig, poolState, block.header.timestamp),
           blockTimestamp: block.header.timestamp,
           blockHeight: block.header.height,
           txHash: log.transactionHash, // currently not used for anything
@@ -210,7 +336,32 @@ processor.run(db, async (ctx) => {
 
     // for each block...
     // Case 2: Interpolate balances based on block range and flush balances after the time period is exhausted
-    // We do this for each block since we don't want to miss the case where we leave a gap in the data if there are 2 transfers spaced far apart in the same batch
+    if (!poolConfig) {
+      ctx.log.warn(`Cannot interpolate balances: poolConfig is undefined`);
+      continue;
+    }
+
+    if (!poolState) {
+      ctx.log.warn(`Cannot interpolate balances: poolState is undefined`);
+      continue;
+    }
+
+    // Check if required relationships are loaded
+    if (!poolConfig.token0 || !poolConfig.token1 || !poolConfig.lpToken) {
+      ctx.log.warn(`Cannot interpolate balances: poolConfig relationships not fully loaded: ${JSON.stringify(poolConfig)}`);
+
+      // Try to reload the poolConfig with relationships
+      poolConfig = await ctx.store.findOne(PoolConfig, {
+        where: { id: LP_TOKEN_CONTRACT_ADDRESS },
+        relations: { token0: true, token1: true, lpToken: true }
+      });
+
+      if (!poolConfig || !poolConfig.token0 || !poolConfig.token1 || !poolConfig.lpToken) {
+        ctx.log.error(`Failed to reload poolConfig with relationships for interpolation`);
+        continue;
+      }
+    }
+
     const currentTs = block.header.timestamp;
     const currentBlockHeight = block.header.height;
     // set the last interpolated timestamp to the current timestamp if it's not set
@@ -221,16 +372,25 @@ processor.run(db, async (ctx) => {
       // Calculate the next window boundary by multiplying by window duration
       const nextBoundaryTs: number = (windowsSinceEpoch + 1) * WINDOW_DURATION_MS;
       // ... do periodic flush for each asset in the map ...
-      // for (let [assetAddress, mapping] of activeBalancesMap.entries()) {
       for (let [userAddress, data] of activeBalancesMap.entries()) {
         const oldStart = data.updated_at_block_ts;
         if (data.balance > 0 && oldStart < nextBoundaryTs) {
-          // bug: the updated_at_block_height is not correct since we're not doing it on the block, but instead on the last interpolated timestamp
-          balanceHistoryWindows.push({ userAddress, assetAddress: LP_TOKEN_CONTRACT_ADDRESS, balance: data.balance, usdValue: await computeLpTokenPrice(pool as Pool, currentBlockHeight), ts_start: oldStart, ts_end: nextBoundaryTs, trigger: 'exhausted' });
-          activeBalancesMap.set(userAddress, { balance: data.balance, updated_at_block_ts: nextBoundaryTs, updated_at_block_height: block.header.height });
+          balanceHistoryWindows.push({
+            userAddress,
+            assetAddress: LP_TOKEN_CONTRACT_ADDRESS,
+            balance: data.balance,
+            usdValue: await computeLpTokenPrice(poolConfig, poolState, currentBlockHeight),
+            ts_start: oldStart,
+            ts_end: nextBoundaryTs,
+            trigger: 'exhausted'
+          });
+          activeBalancesMap.set(userAddress, {
+            balance: data.balance,
+            updated_at_block_ts: nextBoundaryTs,
+            updated_at_block_height: block.header.height
+          });
         }
       }
-      // }
       lastInterpolatedTs = nextBoundaryTs;
     }
 

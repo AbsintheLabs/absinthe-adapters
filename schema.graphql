@@ -6,3 +6,29 @@ type UsdcTransfer @entity {
   value: BigInt!
   txnHash: String! @index
 }
+
+type Token @entity {
+  id: ID!
+  address: String! @index
+  decimals: Int!
+  coingeckoId: String
+}
+
+type PoolConfig @entity {
+  id: ID!
+  token0: Token!
+  token1: Token!
+  lpToken: Token!
+}
+
+type PoolState @entity {
+  id: ID!
+  pool: PoolConfig! @index
+  reserve0: BigInt!
+  reserve1: BigInt!
+  totalSupply: BigInt!
+  lastBlock: Int!
+  lastTsMs: BigInt!
+  updatedAt: DateTime!
+}
+
