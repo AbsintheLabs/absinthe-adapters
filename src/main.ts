@@ -3,7 +3,7 @@ import fs from 'fs'; // todo; remove for production version
 import { TypeormDatabase } from '@subsquid/typeorm-store'
 import { ApiClient, convertBigIntToString } from './services/apiClient';
 import { processor } from './processor';
-import * as velodromeAbi from './abi/velodrome';
+import * as univ2Abi from './abi/univ2';
 import * as erc20Abi from './abi/usdc';
 import { processValueChange } from './utils/valueChangeHandler';
 import { createDataSource } from './utils/sourceId';
@@ -59,6 +59,8 @@ const balanceHistoryWindows: HistoryWindow[] = [];
 const hourlyPriceCache = new Map<string, number>();
 // price getter functions
 async function getPriceFromCoingecko(coingeckoId: string, timestampMs: number): Promise<number> {
+  // short circuit for now to not pay $ while debugging
+  return 0;
   if (!env.coingeckoApiKey) {
     throw new Error('COINGECKO_API_KEY is not set');
   }
@@ -217,22 +219,26 @@ processor.run(db, async (ctx) => {
 
   // We'll make db and network operations at the end of the batch saving massively on IO
   for (let block of ctx.blocks) {
-    console.log("Blocknumber: ", block.header.height)
+    // console.log("Blocknumber: ", block.header.height)
     // get pool info for each block
     let { poolState, poolConfig } = await getPoolInfo(ctx, block, env.contractAddress);
+    // console.log("Pool state: ", poolState)
+    // console.log("Pool config: ", poolConfig)
     for (let log of block.logs) {
       console.log("Log: ", log.transactionHash)
       // Sync Event
-      if (log.address === env.contractAddress && log.topics[0] === velodromeAbi.events.Sync.topic) {
+      if (log.address === env.contractAddress && log.topics[0] === univ2Abi.events.Sync.topic) {
+        console.log("Sync event: ", log.transactionHash)
         poolState = await updatePoolState(ctx, block, env.contractAddress);
       }
+      return;
 
       // warn: transfers: assume that we will always index from the beginning of all events so we need pool state + pool config
       // warn: swaps: we can index from anywhere so we only need the pool config (can handle that separately in the swap topic handler)
       // Transfer Event
-      if (log.address === env.contractAddress && log.topics[0] === velodromeAbi.events.Transfer.topic) {
+      if (log.address === env.contractAddress && log.topics[0] === univ2Abi.events.Transfer.topic) {
         // Case 1: Emit events on transfer
-        const { from, to, value } = velodromeAbi.events.Transfer.decode(log);
+        const { from, to, value } = univ2Abi.events.Transfer.decode(log);
         await processValueChange({
           assetAddress: env.contractAddress,
           from,

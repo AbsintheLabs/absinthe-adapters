@@ -63,7 +63,12 @@ async function getPoolConfig(ctx: DataHandlerContext<Store>, block: BlockData, c
     });
 
     await ctx.store.upsert(newPoolConfig);
-    return newPoolConfig;
+    const storedPoolConfig = await ctx.store.findOne(PoolConfig, {
+        where: { id: `${contractAddress}-config` },
+        relations: { token0: true, token1: true, lpToken: true }
+    });
+    if (!storedPoolConfig) throw new Error("Error creating pool config");
+    return storedPoolConfig;
 }
 
 /**
@@ -98,10 +103,14 @@ async function updatePoolState(ctx: DataHandlerContext<Store>, block: BlockData,
     });
 
     await ctx.store.upsert(newPoolState);
-    return newPoolState;
+    const storedPoolState = await ctx.store.findOne(PoolState, {
+        where: { id: `${contractAddress}-state` },
+        relations: { pool: true }
+    });
+    if (!storedPoolState) throw new Error("Error creating pool state");
+    return storedPoolState;
 }
 
-// async function getPoolState(ctx: DataHandlerContext<Store>, block: BlockData, contractAddress: string): Promise<PoolState> {
 async function getPoolInfo(ctx: DataHandlerContext<Store>, block: BlockData, contractAddress: string): Promise<{ poolState: PoolState, poolConfig: PoolConfig }> {
     const poolConfig = await getPoolConfig(ctx, block, contractAddress);
 
