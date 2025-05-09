@@ -1,0 +1,75 @@
+import { z } from 'zod';
+
+export interface ValidatedEnv {
+    dbName: string;
+    dbPort: number;
+    gqlPort: number;
+    gatewayUrl: string;
+    chainId: number;
+    rpcUrl: string;
+    contractAddress: string;
+    fromBlock: number;
+    toBlock?: number;
+    token0CoingeckoId: string;
+    token1CoingeckoId: string;
+    absintheApiUrl: string;
+    absintheApiKey: string;
+    coingeckoApiKey: string;
+}
+
+export function validateEnv(): ValidatedEnv {
+    // Create schema for environment variables
+    const envSchema = z.object({
+        DB_NAME: z.string().min(1, 'DB_NAME is required'),
+        DB_PORT: z.string().transform(val => parseInt(val, 10)).refine(val => !isNaN(val), 'DB_PORT must be a valid number'),
+        GQL_PORT: z.string().transform(val => parseInt(val, 10)).refine(val => !isNaN(val), 'GQL_PORT must be a valid number'),
+        GATEWAY_URL: z.string().url('GATEWAY_URL must be a valid URL'),
+        CHAIN_ID: z.string().transform(val => parseInt(val, 10)).refine(val => !isNaN(val), 'CHAIN_ID must be a valid number'),
+        RPC_URL: z.string().url('RPC_URL must be a valid URL'),
+        CONTRACT_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'CONTRACT_ADDRESS must be a valid Ethereum address'),
+        FROM_BLOCK: z.string().transform(val => parseInt(val, 10)).refine(val => !isNaN(val), 'FROM_BLOCK must be a valid number'),
+        TO_BLOCK: z.string().transform(val => parseInt(val, 10)).refine(val => !isNaN(val), 'TO_BLOCK must be a valid number').optional(),
+        TOKEN0_COINGECKO_ID: z.string().min(1, 'TOKEN0_COINGECKO_ID is required'),
+        TOKEN1_COINGECKO_ID: z.string().min(1, 'TOKEN1_COINGECKO_ID is required'),
+        ABSINTHE_API_URL: z.string().url('ABSINTHE_API_URL must be a valid URL'),
+        ABSINTHE_API_KEY: z.string().min(1, 'ABSINTHE_API_KEY is required'),
+        COINGECKO_API_KEY: z.string().min(1, 'COINGECKO_API_KEY is required'),
+    });
+
+    try {
+        // Validate environment variables
+        const result = envSchema.safeParse(process.env);
+
+        if (!result.success) {
+            // Format error messages
+            const errorMessages = result.error.errors.map(err =>
+                `${err.path.join('.')}: ${err.message}`
+            ).join('\n');
+
+            throw new Error(`Environment validation failed:\n${errorMessages}`);
+        }
+
+        // Return validated environment variables with proper types
+        return {
+            dbName: result.data.DB_NAME,
+            dbPort: result.data.DB_PORT,
+            gqlPort: result.data.GQL_PORT,
+            gatewayUrl: result.data.GATEWAY_URL,
+            chainId: result.data.CHAIN_ID,
+            rpcUrl: result.data.RPC_URL,
+            contractAddress: result.data.CONTRACT_ADDRESS,
+            fromBlock: result.data.FROM_BLOCK,
+            toBlock: result.data.TO_BLOCK,
+            token0CoingeckoId: result.data.TOKEN0_COINGECKO_ID,
+            token1CoingeckoId: result.data.TOKEN1_COINGECKO_ID,
+            absintheApiUrl: result.data.ABSINTHE_API_URL,
+            absintheApiKey: result.data.ABSINTHE_API_KEY,
+            coingeckoApiKey: result.data.COINGECKO_API_KEY,
+        };
+    } catch (error) {
+        if (error instanceof Error) {
+            throw error;
+        }
+        throw new Error(`Environment validation failed: ${String(error)}`);
+    }
+}

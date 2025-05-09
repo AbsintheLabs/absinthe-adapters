@@ -74,6 +74,7 @@ COINGECKO_API_KEY=<coingecko_key>
 
 ### Setup
 ```bash
+npx squid-evm-typegen src/abi ./abi/<abi.json>
 npx squid-typeorm-codegen
 npx squid-typeorm-migration generate
 ```

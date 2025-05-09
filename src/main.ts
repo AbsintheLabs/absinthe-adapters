@@ -1,4 +1,4 @@
-// This is the main executable of the squid indexer.
+// imports
 import fs from 'fs'; // todo; remove for production version
 import { TypeormDatabase } from '@subsquid/typeorm-store'
 import { ApiClient, convertBigIntToString } from './services/apiClient';
@@ -11,13 +11,16 @@ import { TimeWeightedBalance, UniswapV2TWBMetadata, TimeWindow } from './interfa
 import { exit } from 'process';
 import Big from 'big.js';
 import { Token, PoolConfig, PoolState, ActiveBalances } from './model';
+import { validateEnv } from './utils/validateEnv';
+import { updatePoolState, getPoolInfo } from './utils/pool';
 
-const LP_TOKEN_CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS!;
+// Validate environment variables at the start
+const env = validateEnv();
 
 // Create API client for sending data
 const apiClient = new ApiClient({
-  baseUrl: process.env.ABSINTHE_API_URL!,
-  apiKey: process.env.ABSINTHE_API_KEY!
+  baseUrl: env.absintheApiUrl,
+  apiKey: env.absintheApiKey
 });
 
 // Set supportHotBlocks to false to only send finalized blocks
@@ -43,7 +46,8 @@ export type HistoryWindow = {
   ts_end: number,
   block_start?: number,
   block_end?: number,
-  trigger: 'transfer' | 'exhausted'
+  trigger: 'transfer' | 'exhausted',
+  txHash?: string
 }
 const activeBalancesMap = new Map<string, ActiveBalance>();
 const balanceHistoryWindows: HistoryWindow[] = [];
@@ -55,13 +59,12 @@ const balanceHistoryWindows: HistoryWindow[] = [];
 const hourlyPriceCache = new Map<string, number>();
 // price getter functions
 async function getPriceFromCoingecko(coingeckoId: string, timestampMs: number): Promise<number> {
-  const COINGECKO_API_KEY = process.env.COINGECKO_API_KEY!;
-  if (!COINGECKO_API_KEY) {
+  if (!env.coingeckoApiKey) {
     throw new Error('COINGECKO_API_KEY is not set');
   }
   const options = {
     method: 'GET',
-    headers: { accept: 'application/json', 'x-cg-pro-api-key': COINGECKO_API_KEY }
+    headers: { accept: 'application/json', 'x-cg-pro-api-key': env.coingeckoApiKey }
   };
   const date = new Date(timestampMs);
   const formattedDate = `${date.getDate().toString().padStart(2, '0')}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getFullYear()}`;
@@ -70,8 +73,13 @@ async function getPriceFromCoingecko(coingeckoId: string, timestampMs: number): 
   if (priceResp?.status?.error_code) {
     throw new Error(`Error fetching price for ${coingeckoId} on ${formattedDate}: ${priceResp.status.error_message}`);
   }
-  const price = priceResp.market_data.current_price.usd;
-  return price;
+  try {
+    const price = priceResp.market_data.current_price.usd;
+    return price;
+  } catch (error) {
+    console.error(`Error fetching price for ${coingeckoId} on ${formattedDate}: ${error}`);
+    return 0;
+  }
 }
 
 async function getHourlyPrice(coingeckoId: string, timestampMs: number): Promise<number> {
@@ -179,21 +187,15 @@ function jsonToMap(json: Record<string, any>): Map<string, ActiveBalance> {
   return result;
 }
 
+
+// -------------------------------------------------------------------
+// -------------------------------------------------------------------
+// --------------------------PROCESSOR.RUN()--------------------------
+// -------------------------------------------------------------------
+// -------------------------------------------------------------------
 // processor.run() executes data processing with a handler called on each data batch.
 // Data is available via ctx.blocks; handler can also use external data sources.
 processor.run(db, async (ctx) => {
-  // Load existing poolConfig and poolState or create new ones
-  let poolConfig: PoolConfig | undefined = await ctx.store.findOne(PoolConfig, {
-    where: { id: LP_TOKEN_CONTRACT_ADDRESS },
-    relations: { token0: true, token1: true, lpToken: true }
-  });
-  let poolState: PoolState | undefined = poolConfig ?
-    await ctx.store.findOne(PoolState, {
-      where: { pool: { id: poolConfig.id } },
-      relations: { pool: true }
-    }) :
-    undefined;
-
   // Load active balances state from database
   const ACTIVE_BALANCES_ID = 'active-balances';
   let activeBalancesEntity = await ctx.store.get(ActiveBalances, ACTIVE_BALANCES_ID);
@@ -215,159 +217,24 @@ processor.run(db, async (ctx) => {
 
   // We'll make db and network operations at the end of the batch saving massively on IO
   for (let block of ctx.blocks) {
+    console.log("Blocknumber: ", block.header.height)
+    // get pool info for each block
+    let { poolState, poolConfig } = await getPoolInfo(ctx, block, env.contractAddress);
     for (let log of block.logs) {
+      console.log("Log: ", log.transactionHash)
       // Sync Event
-      if (log.address === LP_TOKEN_CONTRACT_ADDRESS && log.topics[0] === velodromeAbi.events.Sync.topic) {
-        const contract = new velodromeAbi.Contract(ctx, block.header, LP_TOKEN_CONTRACT_ADDRESS);
-        // do this once on initialization or if we don't have poolConfig
-        if (!poolConfig) {
-          const token0Address = await contract.token0();
-          const token1Address = await contract.token1();
-          const token0Contract = new erc20Abi.Contract(ctx, block.header, token0Address);
-          const token1Contract = new erc20Abi.Contract(ctx, block.header, token1Address);
-          const token0Decimals = await token0Contract.decimals();
-          const token1Decimals = await token1Contract.decimals();
-          const token0CoingeckoId = process.env.TOKEN0_COINGECKO_ID!;
-          const token1CoingeckoId = process.env.TOKEN1_COINGECKO_ID!;
-          const lpDecimals = await contract.decimals();
-
-          // Create or get tokens
-          let token0 = await ctx.store.get(Token, token0Address);
-          if (!token0) {
-            if (!token0CoingeckoId) {
-              ctx.log.error(`No coingeckoId provided for token0 (${token0Address}). Please set TOKEN0_COINGECKO_ID in environment variables.`);
-              throw new Error(`TOKEN0_COINGECKO_ID environment variable is required`);
-            }
-            token0 = new Token({
-              id: token0Address,
-              address: token0Address,
-              decimals: token0Decimals,
-              coingeckoId: token0CoingeckoId
-            });
-            await ctx.store.upsert(token0);
-          } else if (!token0.coingeckoId && token0CoingeckoId) {
-            // Update coingeckoId if it's missing but we have it now
-            token0.coingeckoId = token0CoingeckoId;
-            await ctx.store.upsert(token0);
-          }
-
-          let token1 = await ctx.store.get(Token, token1Address);
-          if (!token1) {
-            if (!token1CoingeckoId) {
-              ctx.log.error(`No coingeckoId provided for token1 (${token1Address}). Please set TOKEN1_COINGECKO_ID in environment variables.`);
-              throw new Error(`TOKEN1_COINGECKO_ID environment variable is required`);
-            }
-            token1 = new Token({
-              id: token1Address,
-              address: token1Address,
-              decimals: token1Decimals,
-              coingeckoId: token1CoingeckoId
-            });
-            await ctx.store.upsert(token1);
-          } else if (!token1.coingeckoId && token1CoingeckoId) {
-            // Update coingeckoId if it's missing but we have it now
-            token1.coingeckoId = token1CoingeckoId;
-            await ctx.store.upsert(token1);
-          }
-
-          let lpToken = await ctx.store.get(Token, LP_TOKEN_CONTRACT_ADDRESS);
-          if (!lpToken) {
-            lpToken = new Token({
-              id: LP_TOKEN_CONTRACT_ADDRESS,
-              address: LP_TOKEN_CONTRACT_ADDRESS,
-              decimals: lpDecimals
-            });
-            await ctx.store.upsert(lpToken);
-          }
-
-          // Create pool config
-          poolConfig = new PoolConfig({
-            id: LP_TOKEN_CONTRACT_ADDRESS,
-            token0,
-            token1,
-            lpToken
-          });
-          await ctx.store.upsert(poolConfig);
-
-          // Also refresh our poolConfig with the fully loaded relations
-          poolConfig = await ctx.store.findOne(PoolConfig, {
-            where: { id: LP_TOKEN_CONTRACT_ADDRESS },
-            relations: { token0: true, token1: true, lpToken: true }
-          });
-        }
-
-        // Update pool state with the new Sync event data
-        const reserve = await contract.getReserves();
-        const r0 = reserve._reserve0;
-        const r1 = reserve._reserve1;
-        const totalSupply = await contract.totalSupply();
-
-        if (!poolState && poolConfig) {
-          poolState = new PoolState({
-            id: `${LP_TOKEN_CONTRACT_ADDRESS}-state`,
-            pool: poolConfig,
-            reserve0: r0,
-            reserve1: r1,
-            totalSupply,
-            lastBlock: block.header.height,
-            lastTsMs: BigInt(block.header.timestamp),
-            updatedAt: new Date(block.header.timestamp)
-          });
-        } else if (poolState && poolConfig) {
-          poolState.pool = poolConfig;
-          poolState.reserve0 = r0;
-          poolState.reserve1 = r1;
-          poolState.totalSupply = totalSupply;
-          poolState.lastBlock = block.header.height;
-          poolState.lastTsMs = BigInt(block.header.timestamp);
-          poolState.updatedAt = new Date(block.header.timestamp);
-        }
-
-        if (poolState) {
-          await ctx.store.upsert(poolState);
-
-          // Reload poolState with all relations to ensure they're available
-          poolState = await ctx.store.findOne(PoolState, {
-            where: { id: poolState.id },
-            relations: { pool: { token0: true, token1: true, lpToken: true } }
-          });
-        }
+      if (log.address === env.contractAddress && log.topics[0] === velodromeAbi.events.Sync.topic) {
+        poolState = await updatePoolState(ctx, block, env.contractAddress);
       }
 
       // warn: transfers: assume that we will always index from the beginning of all events so we need pool state + pool config
       // warn: swaps: we can index from anywhere so we only need the pool config (can handle that separately in the swap topic handler)
       // Transfer Event
-      if (log.address === LP_TOKEN_CONTRACT_ADDRESS && log.topics[0] === velodromeAbi.events.Transfer.topic) {
-        if (!poolConfig) {
-          ctx.log.warn(`Cannot process transfer: poolConfig is undefined`);
-          continue;
-        }
-
-        if (!poolState) {
-          ctx.log.warn(`Cannot process transfer: poolState is undefined`);
-          continue;
-        }
-
-        // Check if required relationships are loaded
-        if (!poolConfig.token0 || !poolConfig.token1 || !poolConfig.lpToken) {
-          ctx.log.warn(`Cannot process transfer: poolConfig relationships not fully loaded: ${JSON.stringify(poolConfig)}`);
-
-          // Try to reload the poolConfig with relationships
-          poolConfig = await ctx.store.findOne(PoolConfig, {
-            where: { id: LP_TOKEN_CONTRACT_ADDRESS },
-            relations: { token0: true, token1: true, lpToken: true }
-          });
-
-          if (!poolConfig || !poolConfig.token0 || !poolConfig.token1 || !poolConfig.lpToken) {
-            ctx.log.error(`Failed to reload poolConfig with relationships`);
-            continue;
-          }
-        }
-
+      if (log.address === env.contractAddress && log.topics[0] === velodromeAbi.events.Transfer.topic) {
         // Case 1: Emit events on transfer
         const { from, to, value } = velodromeAbi.events.Transfer.decode(log);
         await processValueChange({
-          assetAddress: LP_TOKEN_CONTRACT_ADDRESS,
+          assetAddress: env.contractAddress,
           from,
           to,
           amount: value,
@@ -383,32 +250,6 @@ processor.run(db, async (ctx) => {
 
     // for each block...
     // Case 2: Interpolate balances based on block range and flush balances after the time period is exhausted
-    if (!poolConfig) {
-      ctx.log.warn(`Cannot interpolate balances: poolConfig is undefined`);
-      continue;
-    }
-
-    if (!poolState) {
-      ctx.log.warn(`Cannot interpolate balances: poolState is undefined`);
-      continue;
-    }
-
-    // Check if required relationships are loaded
-    if (!poolConfig.token0 || !poolConfig.token1 || !poolConfig.lpToken) {
-      ctx.log.warn(`Cannot interpolate balances: poolConfig relationships not fully loaded: ${JSON.stringify(poolConfig)}`);
-
-      // Try to reload the poolConfig with relationships
-      poolConfig = await ctx.store.findOne(PoolConfig, {
-        where: { id: LP_TOKEN_CONTRACT_ADDRESS },
-        relations: { token0: true, token1: true, lpToken: true }
-      });
-
-      if (!poolConfig || !poolConfig.token0 || !poolConfig.token1 || !poolConfig.lpToken) {
-        ctx.log.error(`Failed to reload poolConfig with relationships for interpolation`);
-        continue;
-      }
-    }
-
     const currentTs = block.header.timestamp;
     const currentBlockHeight = block.header.height;
     // set the last interpolated timestamp to the current timestamp if it's not set
@@ -424,7 +265,7 @@ processor.run(db, async (ctx) => {
         if (data.balance > 0 && oldStart < nextBoundaryTs) {
           balanceHistoryWindows.push({
             userAddress,
-            assetAddress: LP_TOKEN_CONTRACT_ADDRESS,
+            assetAddress: env.contractAddress,
             balance: data.balance,
             usdValue: await computeLpTokenPrice(poolConfig, poolState, currentBlockHeight),
             ts_start: oldStart,
@@ -443,7 +284,7 @@ processor.run(db, async (ctx) => {
 
     // // warn: this should be removed before creating the production build
     // // this is temporary to flush the data to a file for debugging
-    // if (block.header.height === Number(process.env.TO_BLOCK!)) {
+    // if (block.header.height === Number(env.toBlock)) {
     //   const redacted = convertBigIntToString(balanceHistoryWindows);
     //   const withReadableTS = redacted.map((e: any) => ({ ...e, ts_start: new Date(e.ts_start).toISOString(), ts_end: new Date(e.ts_end).toISOString() }));
     //   fs.writeFileSync('flushed-auditai-data.json', JSON.stringify(withReadableTS, null, 2));
@@ -460,7 +301,7 @@ processor.run(db, async (ctx) => {
         startTs: e.ts_start,
         endTs: e.ts_end,
         windowDurationMs: WINDOW_DURATION_MS,
-        windowId
+        windowId,
       };
 
       // Add block numbers for transfer triggers
@@ -469,7 +310,8 @@ processor.run(db, async (ctx) => {
           ...baseTimeWindow,
           trigger,
           startBlocknumber: BigInt(e.block_start || 0),
-          endBlocknumber: BigInt(e.block_end || 0)
+          endBlocknumber: BigInt(e.block_end || 0),
+          txHash: e.txHash || ''
         }
         : {
           startTs: e.ts_start,
@@ -487,7 +329,7 @@ processor.run(db, async (ctx) => {
         value: Number(e.usdValue),
         timeWindow,
         protocolMetadata: {
-          poolAddress: LP_TOKEN_CONTRACT_ADDRESS,
+          poolAddress: env.contractAddress,
           lpTokenAmount: e.balance,
         },
       }

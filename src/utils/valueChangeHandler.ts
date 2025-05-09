@@ -49,7 +49,8 @@ export function processValueChange({
                 ts_end: blockTimestamp,
                 block_start: prev.updated_at_block_height,
                 block_end: blockHeight,
-                trigger: 'transfer'
+                trigger: 'transfer',
+                ...(txHash ? { txHash } : {})
             })
         }
         // apply the change

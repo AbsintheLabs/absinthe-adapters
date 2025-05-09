@@ -1,11 +1,20 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { RateLimiterMemory, RateLimiterRes } from 'rate-limiter-flexible';
 import dotenv from 'dotenv';
+import fs from 'fs';
+import path from 'path';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const LOG_FILE_PATH = process.env.LOG_FILE_PATH || path.join(__dirname, '../logs/requests.log');
+
+// Ensure log directory exists
+const logDir = path.dirname(LOG_FILE_PATH);
+if (!fs.existsSync(logDir)) {
+    fs.mkdirSync(logDir, { recursive: true });
+}
 
 // Define types for API keys configuration
 interface ApiKeyConfig {
@@ -109,6 +118,17 @@ app.post('/api/log', apiKeyMiddleware, (req: Request, res: Response) => {
     // Convert any BigInt values before logging
     const processedBody = handleBigIntSerialization(req.body);
     console.log('Request body:', processedBody);
+
+    // Append to log file
+    const timestamp = new Date().toISOString();
+    const logEntry = `${timestamp} - ${JSON.stringify(processedBody)}\n`;
+
+    fs.appendFile(LOG_FILE_PATH, logEntry, (err) => {
+        if (err) {
+            console.error('Error writing to log file:', err);
+        }
+    });
+
     res.status(200).json({ success: true, message: 'Request logged successfully' });
 });
 

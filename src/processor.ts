@@ -8,7 +8,7 @@ import {
     Log as _Log,
     Transaction as _Transaction,
 } from '@subsquid/evm-processor'
-import * as velodromeAbi from './abi/velodrome'
+import * as univ2Abi from './abi/univ2'
 
 const contractAddress = process.env.CONTRACT_ADDRESS!.toLowerCase()
 
@@ -22,7 +22,7 @@ export const processor = new EvmBatchProcessor()
     .setFinalityConfirmation(75)
     .addLog({
         address: [contractAddress],
-        topic0: [velodromeAbi.events.Transfer.topic, velodromeAbi.events.Sync.topic],
+        topic0: [univ2Abi.events.Transfer.topic, univ2Abi.events.Sync.topic],
     })
     .setFields({
         log: {
