@@ -29,7 +29,9 @@ const hourlyPriceCache = new Map<string, number>();
 export async function getHourlyPrice(
     coingeckoId: string,
     timestampMs: number,
+    isMocked: boolean = false
 ): Promise<number> {
+    if (isMocked) return 0;
     if (!coingeckoId) throw new Error('coingeckoId required');
     const hourBucket =
         new Date(timestampMs).setMinutes(0, 0, 0);           // round to top-of-hour

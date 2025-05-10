@@ -1,5 +1,7 @@
 import Bottleneck from 'bottleneck';
 import { TimeWeightedBalance } from '../interfaces';
+import { fetchWithRetry } from '../utils/fetchWithRetry';
+
 // Helper function to convert BigInt values to strings for JSON serialization
 export const convertBigIntToString = (obj: any): any => {
     if (obj === null || obj === undefined) {
@@ -68,65 +70,23 @@ export class AbsintheApiClient {
             throw new Error('No data provided');
         }
 
-        console.log(`Preparing to send data to ${endpoint}...`);
-
         // Convert any BigInt values to strings
         const serializedData = convertBigIntToString(data);
 
-        let success = false;
-        let retryCount = 0;
-        let backoffMs = this.initialBackoffMs;
-        let response: Response | null = null;
+        // Create a function for the API call that will be retried
+        const apiCall = () => this.limiter.schedule(() =>
+            fetch(`${this.baseUrl}/${endpoint.replace(/^\//, '')}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': this.apiKey,
+                },
+                body: JSON.stringify(serializedData),
+            })
+        );
 
-        while (!success && retryCount < this.maxRetries) {
-            try {
-                response = await this.limiter.schedule(() =>
-                    fetch(`${this.baseUrl}/${endpoint.replace(/^\//, '')}`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'x-api-key': this.apiKey,
-                        },
-                        body: JSON.stringify(serializedData),
-                    })
-                );
-
-                if (response.ok) {
-                    console.log(`Successfully sent data to ${endpoint}`);
-                    success = true;
-                } else {
-                    retryCount++;
-                    console.log(`API returned error status ${response.status}. Retry ${retryCount}/${this.maxRetries}`);
-
-                    if (retryCount >= this.maxRetries) {
-                        console.error(`Failed to send data to API after ${this.maxRetries} retries`);
-                        return response;
-                    }
-
-                    // Wait before next retry with exponential backoff
-                    const waitTime = backoffMs * (1 + Math.random() * 0.2); // Add some jitter
-                    console.log(`Waiting ${Math.round(waitTime)}ms before retry ${retryCount + 1}...`);
-                    await new Promise(resolve => setTimeout(resolve, waitTime));
-                    backoffMs *= 2; // Double the backoff time for next retry
-                }
-            } catch (error) {
-                retryCount++;
-                console.error("Error sending data to API:", error);
-
-                if (retryCount >= this.maxRetries) {
-                    console.error(`Failed to send data to API after ${this.maxRetries} retries`);
-                    throw error;
-                }
-
-                // Wait before next retry with exponential backoff
-                const waitTime = backoffMs * (1 + Math.random() * 0.2); // Add some jitter
-                console.log(`Waiting ${Math.round(waitTime)}ms before retry ${retryCount + 1}...`);
-                await new Promise(resolve => setTimeout(resolve, waitTime));
-                backoffMs *= 2; // Double the backoff time for next retry
-            }
-        }
-
-        return response!;
+        // Use the fetchWithRetry utility
+        return fetchWithRetry(apiCall, this.maxRetries, this.initialBackoffMs);
     }
 
     /**
@@ -139,12 +99,34 @@ export class AbsintheApiClient {
             return;
         }
 
-        console.log(`Sending ${balances.length} balance records to API...`);
+        const BATCH_SIZE = 100;
 
-        const response = await this.sendData('api/log', { balances });
+        // Split into batches of 100 if needed
+        if (balances.length <= BATCH_SIZE) {
+            // Send in a single batch
+            console.log(`Sending ${balances.length} balance records to API...`);
+            const response = await this.sendData('api/log', { balances });
 
-        if (!response.ok) {
-            throw new Error(`Failed to send balances: ${response.status} ${response.statusText}`);
+            if (!response.ok) {
+                throw new Error(`Failed to send balances: ${response.status} ${response.statusText}`);
+            }
+        } else {
+            // Split into multiple batches
+            const batchCount = Math.ceil(balances.length / BATCH_SIZE);
+            console.log(`Splitting ${balances.length} balance records into ${batchCount} batches...`);
+
+            for (let i = 0; i < balances.length; i += BATCH_SIZE) {
+                const batch = balances.slice(i, i + BATCH_SIZE);
+                console.log(`Sending batch ${Math.floor(i / BATCH_SIZE) + 1}/${batchCount} with ${batch.length} balance records...`);
+
+                const response = await this.sendData('api/log', { balances: batch });
+
+                if (!response.ok) {
+                    throw new Error(`Failed to send balances batch ${Math.floor(i / BATCH_SIZE) + 1}/${batchCount}: ${response.status} ${response.statusText}`);
+                }
+            }
+
+            console.log(`Successfully sent all ${batchCount} batches of balance records.`);
         }
     }
 }
