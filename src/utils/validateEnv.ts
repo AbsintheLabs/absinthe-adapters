@@ -12,6 +12,7 @@ export interface ValidatedEnv {
     toBlock?: number;
     token0CoingeckoId: string;
     token1CoingeckoId: string;
+    preferredTokenCoingeckoId?: string;
     absintheApiUrl: string;
     absintheApiKey: string;
     coingeckoApiKey: string;
@@ -32,6 +33,7 @@ export function validateEnv(): ValidatedEnv {
         TO_BLOCK: z.string().transform(val => parseInt(val, 10)).refine(val => !isNaN(val), 'TO_BLOCK must be a valid number').optional(),
         TOKEN0_COINGECKO_ID: z.string().min(1, 'TOKEN0_COINGECKO_ID is required'),
         TOKEN1_COINGECKO_ID: z.string().min(1, 'TOKEN1_COINGECKO_ID is required'),
+        PREFERRED_TOKEN_COINGECKO_ID: z.string().optional().default('token0').refine(val => val === 'token0' || val === 'token1', 'PREFERRED_TOKEN_COINGECKO_ID must be either "token0" or "token1"'),
         ABSINTHE_API_URL: z.string().url('ABSINTHE_API_URL must be a valid URL'),
         ABSINTHE_API_KEY: z.string().min(1, 'ABSINTHE_API_KEY is required'),
         COINGECKO_API_KEY: z.string().min(1, 'COINGECKO_API_KEY is required'),
@@ -64,6 +66,7 @@ export function validateEnv(): ValidatedEnv {
             toBlock: result.data.TO_BLOCK,
             token0CoingeckoId: result.data.TOKEN0_COINGECKO_ID,
             token1CoingeckoId: result.data.TOKEN1_COINGECKO_ID,
+            preferredTokenCoingeckoId: result.data.PREFERRED_TOKEN_COINGECKO_ID,
             absintheApiUrl: result.data.ABSINTHE_API_URL,
             absintheApiKey: result.data.ABSINTHE_API_KEY,
             coingeckoApiKey: result.data.COINGECKO_API_KEY,

@@ -22,12 +22,17 @@ export const processor = new EvmBatchProcessor()
     .setFinalityConfirmation(75)
     .addLog({
         address: [contractAddress],
-        topic0: [univ2Abi.events.Transfer.topic, univ2Abi.events.Sync.topic],
+        topic0: [univ2Abi.events.Transfer.topic, univ2Abi.events.Sync.topic, univ2Abi.events.Swap.topic],
     })
     .setFields({
         log: {
             transactionHash: true,
         },
+        transaction: {
+            to: true,
+            from: true,
+
+        }
     })
 
 export type Fields = EvmBatchProcessorFields<typeof processor>

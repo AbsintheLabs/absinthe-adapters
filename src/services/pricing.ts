@@ -44,6 +44,21 @@ export async function getHourlyPrice(
     return price;
 }
 
+export async function computePricedSwapVolume(
+    tokenAmount: bigint,
+    coingeckoId: string,
+    decimals: number,
+    atMs: number,
+    isMocked: boolean = false
+): Promise<number> {
+    if (isMocked) return 0;
+    const price = await getHourlyPrice(coingeckoId, atMs);
+    return new Big(tokenAmount.toString())
+        .div(new Big(10).pow(decimals))
+        .mul(price)
+        .toNumber();
+}
+
 export async function computeLpTokenPrice(
     poolCfg: PoolConfig,
     poolState: PoolState,

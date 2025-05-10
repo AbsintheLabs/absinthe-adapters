@@ -4,13 +4,13 @@ import { AbsintheApiClient } from './services/apiClient';
 import { processor, ProcessorContext } from './processor';
 import * as univ2Abi from './abi/univ2';
 import { processValueChange } from './utils/valueChangeHandler';
-import { TimeWeightedBalance, UniswapV2TWBMetadata, TimeWindow } from './interfaces';
+import { TimeWeightedBalance, UniswapV2TWBMetadata, TimeWindow, Transaction, UniswapV2SwapMetadata } from './interfaces';
 import Big from 'big.js';
 import { PoolConfig, PoolState, ActiveBalances } from './model';
 import { validateEnv } from './utils/validateEnv';
 import { DataHandlerContext, BlockData } from '@subsquid/evm-processor';
 import { loadPoolConfigFromDb, updatePoolStateFromOnChain, initPoolConfigIfNeeded, initPoolStateIfNeeded, loadPoolStateFromDb } from './utils/pool';
-import { getHourlyPrice } from './services/pricing';
+import { computePricedSwapVolume, getHourlyPrice } from './services/pricing';
 // Validate environment variables at the start
 const env = validateEnv();
 
@@ -160,12 +160,43 @@ processor.run(new TypeormDatabase({ supportHotBlocks: false }), async (ctx) => {
   let poolState = await loadPoolStateFromDb(ctx, env.contractAddress) || new PoolState({});
   let activeBalancesMap = await loadActiveBalancesFromDb(ctx, env.contractAddress) || new Map<string, ActiveBalance>();
 
+  let transactions: Transaction<UniswapV2SwapMetadata>[] = [];
+  // user, usdValue, token0Amount, token1Amount, timestamp, blockHeight, txHash
+
   // [MAIN] batch loop
   // We'll make db and network operations at the end of the batch saving massively on IO
   for (let block of ctx.blocks) {
     poolConfig = await initPoolConfigIfNeeded(ctx, block, env.contractAddress, poolConfig);
     poolState = await initPoolStateIfNeeded(ctx, block, env.contractAddress, poolState, poolConfig);
     for (let log of block.logs) {
+      // Swaps (volume)
+      if (log.address === env.contractAddress && log.topics[0] === univ2Abi.events.Swap.topic) {
+        const { amount0In, amount0Out, amount1In, amount1Out } = univ2Abi.events.Swap.decode(log);
+        const token0Amount = amount0In + amount0Out;
+        const token1Amount = amount1In + amount1Out;
+        const pricedSwapVolume = env.preferredTokenCoingeckoId === 'token0' ?
+          await computePricedSwapVolume(token0Amount, poolConfig.token0.coingeckoId!, poolConfig.token0.decimals, block.header.timestamp)
+          : await computePricedSwapVolume(token1Amount, poolConfig.token1.coingeckoId!, poolConfig.token1.decimals, block.header.timestamp);
+        const userAddress = log.transaction?.from.toLowerCase();
+        // todo: get this sorted properly
+        // transactions.push({
+        //   user: userAddress!,
+        //   value: pricedSwapVolume,
+        //   token0Amount,
+        //   token1Amount,
+        //   timestamp: block.header.timestamp,
+        //   blockHeight: block.header.height,
+        //   txHash: log.transactionHash,
+        //   source: {
+        //     sourceId: `${env.contractAddress}-${block.header.height}`,
+        //     chainId: 1,
+        //     protocolName: 'uniswapv2',
+        //     poolAddress: env.contractAddress,
+        //     adapterVersion: '1.0.0',
+        //   }
+        // })
+      }
+
       // If we see a sync event, we need to update the pool state later since reserves and/or total supply have changed
       if (log.address === env.contractAddress && log.topics[0] === univ2Abi.events.Sync.topic) {
         poolState.isDirty = true;
