@@ -1,6 +1,6 @@
 // imports
 import { Store, TypeormDatabase } from '@subsquid/typeorm-store'
-import { ApiClient } from './services/apiClient';
+import { AbsintheApiClient } from './services/apiClient';
 import { processor, ProcessorContext } from './processor';
 import * as univ2Abi from './abi/univ2';
 import { processValueChange } from './utils/valueChangeHandler';
@@ -15,7 +15,7 @@ import { loadPoolConfigFromDb, updatePoolStateFromOnChain, initPoolConfigIfNeede
 const env = validateEnv();
 
 // Create API client for sending data
-const apiClient = new ApiClient({
+const apiClient = new AbsintheApiClient({
   baseUrl: env.absintheApiUrl,
   apiKey: env.absintheApiKey
 });
@@ -221,8 +221,8 @@ processor.run(new TypeormDatabase({ supportHotBlocks: false }), async (ctx) => {
     poolConfig = await initPoolConfigIfNeeded(ctx, block, env.contractAddress, poolConfig);
     poolState = await initPoolStateIfNeeded(ctx, block, env.contractAddress, poolState, poolConfig);
     for (let log of block.logs) {
+      // If we see a sync event, we need to update the pool state later since reserves and/or total supply have changed
       if (log.address === env.contractAddress && log.topics[0] === univ2Abi.events.Sync.topic) {
-        // poolState = await updatePoolStateFromOnChain(ctx, block, env.contractAddress, poolConfig);
         poolState.isDirty = true;
       }
 

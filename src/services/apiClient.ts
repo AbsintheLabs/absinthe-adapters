@@ -25,7 +25,7 @@ export const convertBigIntToString = (obj: any): any => {
     return obj;
 };
 
-export class ApiClient {
+export class AbsintheApiClient {
     private baseUrl: string;
     private apiKey: string;
     private limiter: Bottleneck;
