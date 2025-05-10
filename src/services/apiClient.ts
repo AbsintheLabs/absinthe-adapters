@@ -94,14 +94,11 @@ export class AbsintheApiClient {
      * @param balances Array of balance records
      */
     async sendBalances(balances: TimeWeightedBalance[]): Promise<void> {
-        if (balances.length === 0) {
-            // console.log("No balances to send");
-            return;
-        }
+        if (balances.length === 0) return;
 
         const BATCH_SIZE = 100;
 
-        // Split into batches of 100 if needed
+        // Split into batches
         if (balances.length <= BATCH_SIZE) {
             // Send in a single batch
             console.log(`Sending ${balances.length} balance records to API...`);
