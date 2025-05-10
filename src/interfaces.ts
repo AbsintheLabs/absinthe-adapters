@@ -88,15 +88,20 @@ export interface Provenance {
 // should filter out metadata object that is larger than a certain size
 
 // a timeweightedbalance just needs a: value to operate on
-export interface TimeWeightedBalance<M = unknown> {
+
+// 1) who 2) for how long 3) how much
+export interface TimeWeightedBalance<M = unknown, N = unknown> {
     version: 1;
     dataType: 'time_weighted_balance';
     user: string;
     chain: Chain;
     value: number;
+    // amount: number; // todo: rename this to amount instead of value
+    // amountType: N;
     timeWindow: TimeWindow;
     protocolMetadata?: M;
     source?: DataSource;  // Reference to the data source that provided this balance. Do this later...
+    // api key and timestamp and hash(api_key, timestsamp, required_values)
 }
 
 // in a swap, we also care only about the value

@@ -135,7 +135,7 @@ export class ApiClient {
      */
     async sendBalances(balances: TimeWeightedBalance[]): Promise<void> {
         if (balances.length === 0) {
-            console.log("No balances to send");
+            // console.log("No balances to send");
             return;
         }
 

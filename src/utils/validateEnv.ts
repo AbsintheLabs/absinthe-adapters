@@ -15,6 +15,7 @@ export interface ValidatedEnv {
     absintheApiUrl: string;
     absintheApiKey: string;
     coingeckoApiKey: string;
+    balanceFlushIntervalHours: number;
 }
 
 export function validateEnv(): ValidatedEnv {
@@ -25,7 +26,7 @@ export function validateEnv(): ValidatedEnv {
         GQL_PORT: z.string().transform(val => parseInt(val, 10)).refine(val => !isNaN(val), 'GQL_PORT must be a valid number'),
         GATEWAY_URL: z.string().url('GATEWAY_URL must be a valid URL'),
         CHAIN_ID: z.string().transform(val => parseInt(val, 10)).refine(val => !isNaN(val), 'CHAIN_ID must be a valid number'),
-        RPC_URL: z.string().url('RPC_URL must be a valid URL'),
+        RPC_URL: z.string().url('RPC_URL must be a valid URL').refine(val => val.startsWith('https://'), 'RPC_URL must be https:// not wss://'),
         CONTRACT_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'CONTRACT_ADDRESS must be a valid Ethereum address'),
         FROM_BLOCK: z.string().transform(val => parseInt(val, 10)).refine(val => !isNaN(val), 'FROM_BLOCK must be a valid number'),
         TO_BLOCK: z.string().transform(val => parseInt(val, 10)).refine(val => !isNaN(val), 'TO_BLOCK must be a valid number').optional(),
@@ -34,6 +35,7 @@ export function validateEnv(): ValidatedEnv {
         ABSINTHE_API_URL: z.string().url('ABSINTHE_API_URL must be a valid URL'),
         ABSINTHE_API_KEY: z.string().min(1, 'ABSINTHE_API_KEY is required'),
         COINGECKO_API_KEY: z.string().min(1, 'COINGECKO_API_KEY is required'),
+        BALANCE_FLUSH_INTERVAL_HOURS: z.string().transform(val => parseInt(val, 10)).refine(val => !isNaN(val), 'BALANCE_FLUSH_INTERVAL_HOURS must be a valid number'),
     });
 
     try {
@@ -65,6 +67,7 @@ export function validateEnv(): ValidatedEnv {
             absintheApiUrl: result.data.ABSINTHE_API_URL,
             absintheApiKey: result.data.ABSINTHE_API_KEY,
             coingeckoApiKey: result.data.COINGECKO_API_KEY,
+            balanceFlushIntervalHours: result.data.BALANCE_FLUSH_INTERVAL_HOURS,
         };
     } catch (error) {
         if (error instanceof Error) {

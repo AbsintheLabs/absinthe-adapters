@@ -1,18 +1,15 @@
 // imports
-import fs from 'fs'; // todo; remove for production version
-import { TypeormDatabase } from '@subsquid/typeorm-store'
-import { ApiClient, convertBigIntToString } from './services/apiClient';
+import { Store, TypeormDatabase } from '@subsquid/typeorm-store'
+import { ApiClient } from './services/apiClient';
 import { processor } from './processor';
 import * as univ2Abi from './abi/univ2';
-import * as erc20Abi from './abi/usdc';
 import { processValueChange } from './utils/valueChangeHandler';
-import { createDataSource } from './utils/sourceId';
 import { TimeWeightedBalance, UniswapV2TWBMetadata, TimeWindow } from './interfaces';
-import { exit } from 'process';
 import Big from 'big.js';
-import { Token, PoolConfig, PoolState, ActiveBalances } from './model';
+import { PoolConfig, PoolState, ActiveBalances } from './model';
 import { validateEnv } from './utils/validateEnv';
-import { updatePoolState, getPoolInfo } from './utils/pool';
+import { DataHandlerContext } from '@subsquid/evm-processor';
+import { loadPoolConfigFromDb, updatePoolStateFromOnChain, initPoolConfigIfNeeded, initPoolStateIfNeeded, loadPoolStateFromDb } from './utils/pool';
 
 // Validate environment variables at the start
 const env = validateEnv();
@@ -23,12 +20,8 @@ const apiClient = new ApiClient({
   apiKey: env.absintheApiKey
 });
 
-// Set supportHotBlocks to false to only send finalized blocks
-const db = new TypeormDatabase({ supportHotBlocks: false })
-
 let lastInterpolatedTs: number | null = null;
-// todo; turn this into a class so you can choose the duration from: 1 hour, 12 hours, 1 day
-const WINDOW_DURATION_MS = 3600 * 1000 * 12; // 1 day
+const WINDOW_DURATION_MS = 3600 * 1000 * env.balanceFlushIntervalHours;
 
 // todo: these should be pulled from the db state on each batch run
 export type ActiveBalance = {
@@ -49,7 +42,7 @@ export type HistoryWindow = {
   trigger: 'transfer' | 'exhausted',
   txHash?: string
 }
-const activeBalancesMap = new Map<string, ActiveBalance>();
+// let activeBalancesMap = new Map<string, ActiveBalance>();
 const balanceHistoryWindows: HistoryWindow[] = [];
 // NOTE: we should use the TimeWeightedBalance interface instead. but for now, we can skip while we do pricing...
 // const balanceHistoryWindows: TimeWeightedBalance[] = [];
@@ -197,41 +190,36 @@ function jsonToMap(json: Record<string, any>): Map<string, ActiveBalance> {
 // -------------------------------------------------------------------
 // processor.run() executes data processing with a handler called on each data batch.
 // Data is available via ctx.blocks; handler can also use external data sources.
-processor.run(db, async (ctx) => {
-  // Load active balances state from database
-  const ACTIVE_BALANCES_ID = 'active-balances';
-  let activeBalancesEntity = await ctx.store.get(ActiveBalances, ACTIVE_BALANCES_ID);
 
-  // Initialize activeBalancesMap from stored state if it exists
-  if (activeBalancesEntity) {
-    const storedMap = jsonToMap(activeBalancesEntity.activeBalancesMap);
-    // Clear the in-memory map and populate it with stored values
-    activeBalancesMap.clear();
-    for (const [key, value] of storedMap.entries()) {
-      activeBalancesMap.set(key, value);
-    }
+async function loadActiveBalancesFromDb(ctx: DataHandlerContext<Store>, contractAddress: string): Promise<Map<string, ActiveBalance>> {
+  const activeBalancesMap = new Map<string, ActiveBalance>();
+  const activeBalancesEntity = await ctx.store.findOne(ActiveBalances, {
+    where: { id: `${contractAddress}-active-balances` },
+  });
+  return activeBalancesEntity ? jsonToMap(activeBalancesEntity.activeBalancesMap) : new Map<string, ActiveBalance>();
+}
 
-    // Also restore lastInterpolatedTs if it exists in metadata
-    if (activeBalancesEntity.activeBalancesMap.__metadata?.lastInterpolatedTs) {
-      lastInterpolatedTs = activeBalancesEntity.activeBalancesMap.__metadata.lastInterpolatedTs;
-    }
-  }
+// incorrect timing of flushes (store gets put onto a queue. if we need it immediately, we should keep state in memory)
+// new algo: 
+// 1. per run, get the poolState and poolConfig from the db
+// 2. if we need to update either, then do it in the memory (keep memory state of this)
+// 3. at the end of the batch, upsert the new poolState and poolConfig into the db
+processor.run(new TypeormDatabase({ supportHotBlocks: false }), async (ctx) => {
+  // [INIT] batch state
+  // load poolState and poolConfig from db
+  let poolConfig = await loadPoolConfigFromDb(ctx, env.contractAddress) || new PoolConfig({});
+  let poolState = await loadPoolStateFromDb(ctx, env.contractAddress) || new PoolState({});
+  let activeBalancesMap = await loadActiveBalancesFromDb(ctx, env.contractAddress) || new Map<string, ActiveBalance>();
 
+  // [MAIN] batch loop
   // We'll make db and network operations at the end of the batch saving massively on IO
   for (let block of ctx.blocks) {
-    // console.log("Blocknumber: ", block.header.height)
-    // get pool info for each block
-    let { poolState, poolConfig } = await getPoolInfo(ctx, block, env.contractAddress);
-    // console.log("Pool state: ", poolState)
-    // console.log("Pool config: ", poolConfig)
+    poolConfig = await initPoolConfigIfNeeded(ctx, block, env.contractAddress, poolConfig);
+    poolState = await initPoolStateIfNeeded(ctx, block, env.contractAddress, poolState, poolConfig);
     for (let log of block.logs) {
-      console.log("Log: ", log.transactionHash)
-      // Sync Event
       if (log.address === env.contractAddress && log.topics[0] === univ2Abi.events.Sync.topic) {
-        console.log("Sync event: ", log.transactionHash)
-        poolState = await updatePoolState(ctx, block, env.contractAddress);
+        poolState = await updatePoolStateFromOnChain(ctx, block, env.contractAddress, poolConfig);
       }
-      return;
 
       // warn: transfers: assume that we will always index from the beginning of all events so we need pool state + pool config
       // warn: swaps: we can index from anywhere so we only need the pool config (can handle that separately in the swap topic handler)
@@ -288,14 +276,7 @@ processor.run(db, async (ctx) => {
       lastInterpolatedTs = nextBoundaryTs;
     }
 
-    // // warn: this should be removed before creating the production build
-    // // this is temporary to flush the data to a file for debugging
-    // if (block.header.height === Number(env.toBlock)) {
-    //   const redacted = convertBigIntToString(balanceHistoryWindows);
-    //   const withReadableTS = redacted.map((e: any) => ({ ...e, ts_start: new Date(e.ts_start).toISOString(), ts_end: new Date(e.ts_end).toISOString() }));
-    //   fs.writeFileSync('flushed-auditai-data.json', JSON.stringify(withReadableTS, null, 2));
-    // }
-
+    // Absinthe API
     // Write balance records to Balances table after each periodic flush
     // Prepare the data to fit the TimeWeightedBalance interface
     const balances: TimeWeightedBalance<UniswapV2TWBMetadata>[] = balanceHistoryWindows.map((e) => {
@@ -341,24 +322,19 @@ processor.run(db, async (ctx) => {
       }
     });
     await apiClient.sendBalances(balances);
+    // clear the balance history windows after sending
+    balanceHistoryWindows.length = 0;
   }
 
+  // [FINAL] save batch state
   // Save active balances to database
-  const mapToSave = mapToJson(activeBalancesMap);
-  // Store metadata like lastInterpolatedTs
-  mapToSave.__metadata = {
-    lastInterpolatedTs: lastInterpolatedTs,
-    lastUpdated: new Date().toISOString()
-  };
-
-  if (!activeBalancesEntity) {
-    activeBalancesEntity = new ActiveBalances({
-      id: ACTIVE_BALANCES_ID,
-      activeBalancesMap: mapToSave
-    });
-  } else {
-    activeBalancesEntity.activeBalancesMap = mapToSave;
-  }
-
-  await ctx.store.upsert(activeBalancesEntity);
+  await ctx.store.upsert(poolConfig.token0);
+  await ctx.store.upsert(poolConfig.token1);
+  await ctx.store.upsert(poolConfig.lpToken);
+  await ctx.store.upsert(poolConfig);
+  await ctx.store.upsert(poolState);
+  await ctx.store.upsert(new ActiveBalances({
+    id: `${env.contractAddress}-active-balances`,
+    activeBalancesMap: mapToJson(activeBalancesMap)
+  }));
 })
