@@ -1,14 +1,14 @@
 // imports
 import { Store, TypeormDatabase } from '@subsquid/typeorm-store'
 import { ApiClient } from './services/apiClient';
-import { processor } from './processor';
+import { processor, ProcessorContext } from './processor';
 import * as univ2Abi from './abi/univ2';
 import { processValueChange } from './utils/valueChangeHandler';
 import { TimeWeightedBalance, UniswapV2TWBMetadata, TimeWindow } from './interfaces';
 import Big from 'big.js';
 import { PoolConfig, PoolState, ActiveBalances } from './model';
 import { validateEnv } from './utils/validateEnv';
-import { DataHandlerContext } from '@subsquid/evm-processor';
+import { DataHandlerContext, BlockData } from '@subsquid/evm-processor';
 import { loadPoolConfigFromDb, updatePoolStateFromOnChain, initPoolConfigIfNeeded, initPoolStateIfNeeded, loadPoolStateFromDb } from './utils/pool';
 
 // Validate environment variables at the start
@@ -103,7 +103,7 @@ async function getHourlyPrice(coingeckoId: string, timestampMs: number): Promise
   return price
 }
 
-async function computeLpTokenPrice(poolConfig: PoolConfig, poolState: PoolState, timestampMs?: number): Promise<number> {
+async function computeLpTokenPrice(ctx: ProcessorContext<Store>, block: BlockData, poolConfig: PoolConfig, poolState: PoolState, timestampMs?: number): Promise<number> {
   if (!poolConfig) {
     throw new Error('No poolConfig provided to computeLpTokenPrice');
   }
@@ -128,6 +128,10 @@ async function computeLpTokenPrice(poolConfig: PoolConfig, poolState: PoolState,
     console.log(`poolConfig: ${JSON.stringify(poolConfig)}`);
     console.log(`poolState: ${JSON.stringify(poolState)}`);
     throw new Error('No coingecko id found for token0 or token1');
+  }
+
+  if (poolState.isDirty) {
+    poolState = await updatePoolStateFromOnChain(ctx, block, env.contractAddress, poolConfig);
   }
 
   const token0Price = await getHourlyPrice(poolConfig.token0.coingeckoId, timestampMs ?? Number(poolState.lastTsMs));
@@ -196,7 +200,7 @@ async function loadActiveBalancesFromDb(ctx: DataHandlerContext<Store>, contract
   const activeBalancesEntity = await ctx.store.findOne(ActiveBalances, {
     where: { id: `${contractAddress}-active-balances` },
   });
-  return activeBalancesEntity ? jsonToMap(activeBalancesEntity.activeBalancesMap) : new Map<string, ActiveBalance>();
+  return activeBalancesEntity ? jsonToMap(activeBalancesEntity.activeBalancesMap as Record<string, ActiveBalance>) : new Map<string, ActiveBalance>();
 }
 
 // incorrect timing of flushes (store gets put onto a queue. if we need it immediately, we should keep state in memory)
@@ -218,7 +222,8 @@ processor.run(new TypeormDatabase({ supportHotBlocks: false }), async (ctx) => {
     poolState = await initPoolStateIfNeeded(ctx, block, env.contractAddress, poolState, poolConfig);
     for (let log of block.logs) {
       if (log.address === env.contractAddress && log.topics[0] === univ2Abi.events.Sync.topic) {
-        poolState = await updatePoolStateFromOnChain(ctx, block, env.contractAddress, poolConfig);
+        // poolState = await updatePoolStateFromOnChain(ctx, block, env.contractAddress, poolConfig);
+        poolState.isDirty = true;
       }
 
       // warn: transfers: assume that we will always index from the beginning of all events so we need pool state + pool config
@@ -232,7 +237,7 @@ processor.run(new TypeormDatabase({ supportHotBlocks: false }), async (ctx) => {
           from,
           to,
           amount: value,
-          usdValue: await computeLpTokenPrice(poolConfig, poolState, block.header.timestamp),
+          usdValue: await computeLpTokenPrice(ctx, block, poolConfig, poolState, block.header.timestamp),
           blockTimestamp: block.header.timestamp,
           blockHeight: block.header.height,
           txHash: log.transactionHash, // currently not used for anything
@@ -261,7 +266,7 @@ processor.run(new TypeormDatabase({ supportHotBlocks: false }), async (ctx) => {
             userAddress,
             assetAddress: env.contractAddress,
             balance: data.balance,
-            usdValue: await computeLpTokenPrice(poolConfig, poolState, currentBlockHeight),
+            usdValue: await computeLpTokenPrice(ctx, block, poolConfig, poolState, currentBlockHeight),
             ts_start: oldStart,
             ts_end: nextBoundaryTs,
             trigger: 'exhausted'
@@ -309,10 +314,10 @@ processor.run(new TypeormDatabase({ supportHotBlocks: false }), async (ctx) => {
         };
 
       return {
-        version: 1,
-        dataType: 'time_weighted_balance',
+        version: 1 as const,
+        dataType: 'time_weighted_balance' as const,
         user: e.userAddress,
-        chain: { networkId: 1, name: 'mainnet', chainType: 'evm' },
+        chain: { networkId: 1, name: 'mainnet', chainType: 'evm' as const },
         value: Number(e.usdValue),
         timeWindow,
         protocolMetadata: {
@@ -320,7 +325,7 @@ processor.run(new TypeormDatabase({ supportHotBlocks: false }), async (ctx) => {
           lpTokenAmount: e.balance,
         },
       }
-    });
+    }).filter((e) => e.timeWindow.startTs !== e.timeWindow.endTs);
     await apiClient.sendBalances(balances);
     // clear the balance history windows after sending
     balanceHistoryWindows.length = 0;

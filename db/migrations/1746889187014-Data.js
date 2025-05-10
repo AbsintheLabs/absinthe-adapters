@@ -1,5 +1,5 @@
-module.exports = class Data1746737134845 {
-    name = 'Data1746737134845'
+module.exports = class Data1746889187014 {
+    name = 'Data1746889187014'
 
     async up(db) {
         await db.query(`CREATE TABLE "usdc_transfer" ("id" character varying NOT NULL, "block" integer NOT NULL, "from" text NOT NULL, "to" text NOT NULL, "value" numeric NOT NULL, "txn_hash" text NOT NULL, CONSTRAINT "PK_b0b9b4bd33005512b0ec225672e" PRIMARY KEY ("id"))`)
@@ -12,11 +12,8 @@ module.exports = class Data1746737134845 {
         await db.query(`CREATE INDEX "IDX_166e44755f7ce13517522d61f6" ON "pool_config" ("token0_id") `)
         await db.query(`CREATE INDEX "IDX_f6d805a451f97d89e4d8c5de32" ON "pool_config" ("token1_id") `)
         await db.query(`CREATE INDEX "IDX_59dfa786d57faacfad31e3dd41" ON "pool_config" ("lp_token_id") `)
-        await db.query(`CREATE TABLE "pool_state" ("id" character varying NOT NULL, "reserve0" numeric NOT NULL, "reserve1" numeric NOT NULL, "total_supply" numeric NOT NULL, "last_block" integer NOT NULL, "last_ts_ms" numeric NOT NULL, "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL, "pool_id" character varying, CONSTRAINT "PK_ee1996f0e117f7cfdfb3e42ffab" PRIMARY KEY ("id"))`)
+        await db.query(`CREATE TABLE "pool_state" ("id" character varying NOT NULL, "reserve0" numeric NOT NULL, "reserve1" numeric NOT NULL, "total_supply" numeric NOT NULL, "last_block" integer NOT NULL, "last_ts_ms" numeric NOT NULL, "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL, "is_dirty" boolean NOT NULL, "pool_id" character varying, CONSTRAINT "PK_ee1996f0e117f7cfdfb3e42ffab" PRIMARY KEY ("id"))`)
         await db.query(`CREATE INDEX "IDX_dce90a2f3a7694e9f1d4b80f19" ON "pool_state" ("pool_id") `)
-        await db.query(`CREATE TABLE "active_balance" ("id" character varying NOT NULL, "user_address" text NOT NULL, "asset_address" text NOT NULL, "balance" numeric NOT NULL, "updated_at_block_ts" numeric NOT NULL, "updated_at_block_height" integer NOT NULL, CONSTRAINT "PK_79634c0a2516dddc7357390e533" PRIMARY KEY ("id"))`)
-        await db.query(`CREATE INDEX "IDX_0e5cd2061249bc19282ead30d0" ON "active_balance" ("user_address") `)
-        await db.query(`CREATE INDEX "IDX_e780c641ae9d6d91a6fea9000a" ON "active_balance" ("asset_address") `)
         await db.query(`CREATE TABLE "active_balances" ("id" character varying NOT NULL, "active_balances_map" jsonb NOT NULL, CONSTRAINT "PK_74928f950c9f521a27a8e273458" PRIMARY KEY ("id"))`)
         await db.query(`ALTER TABLE "pool_config" ADD CONSTRAINT "FK_166e44755f7ce13517522d61f65" FOREIGN KEY ("token0_id") REFERENCES "token"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`)
         await db.query(`ALTER TABLE "pool_config" ADD CONSTRAINT "FK_f6d805a451f97d89e4d8c5de324" FOREIGN KEY ("token1_id") REFERENCES "token"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`)
@@ -37,9 +34,6 @@ module.exports = class Data1746737134845 {
         await db.query(`DROP INDEX "public"."IDX_59dfa786d57faacfad31e3dd41"`)
         await db.query(`DROP TABLE "pool_state"`)
         await db.query(`DROP INDEX "public"."IDX_dce90a2f3a7694e9f1d4b80f19"`)
-        await db.query(`DROP TABLE "active_balance"`)
-        await db.query(`DROP INDEX "public"."IDX_0e5cd2061249bc19282ead30d0"`)
-        await db.query(`DROP INDEX "public"."IDX_e780c641ae9d6d91a6fea9000a"`)
         await db.query(`DROP TABLE "active_balances"`)
         await db.query(`ALTER TABLE "pool_config" DROP CONSTRAINT "FK_166e44755f7ce13517522d61f65"`)
         await db.query(`ALTER TABLE "pool_config" DROP CONSTRAINT "FK_f6d805a451f97d89e4d8c5de324"`)

@@ -64,7 +64,7 @@ interface TransferTimeWindow extends BaseTimeWindow {
     trigger: 'transfer';
     startBlocknumber: bigint;
     endBlocknumber: bigint;
-    txHash: string;
+    txHash: string; // todo: make it clear that it's the end boundary tx hash?
 }
 
 interface ExhaustedTimeWindow extends BaseTimeWindow {

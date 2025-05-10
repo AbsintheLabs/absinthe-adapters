@@ -1,4 +1,4 @@
-import { Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, JSONColumn as JSONColumn_ } from "@subsquid/typeorm-store"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, JSONColumn as JSONColumn_} from "@subsquid/typeorm-store"
 
 @Entity_()
 export class ActiveBalances {
@@ -9,6 +9,6 @@ export class ActiveBalances {
     @PrimaryColumn_()
     id!: string
 
-    @JSONColumn_({ nullable: false })
-    activeBalancesMap!: Record<string, any>
-} 
+    @JSONColumn_({nullable: false})
+    activeBalancesMap!: unknown
+}

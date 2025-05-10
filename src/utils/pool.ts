@@ -8,7 +8,7 @@ import * as univ2Abi from '../abi/univ2';
 import * as erc20Abi from '../abi/erc20';
 
 export async function updatePoolStateFromOnChain(ctx: DataHandlerContext<Store>, block: BlockData, contractAddress: string, poolConfig: PoolConfig): Promise<PoolState> {
-    if (!poolConfig.id && !poolConfig.lpToken && !poolConfig.token0 && !poolConfig.token1) throw new Error("Pool config not found");
+    if (!poolConfig.id || !poolConfig.lpToken || !poolConfig.token0 || !poolConfig.token1) throw new Error("Pool config not found");
 
     console.log("Updating pool state from on chain");
     const contract = new univ2Abi.Contract(ctx, block.header, contractAddress);

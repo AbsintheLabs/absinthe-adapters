@@ -79,6 +79,12 @@ npx squid-typeorm-codegen
 npx squid-typeorm-migration generate
 ```
 
+### Note
+Before running `npx squid-typeorm-migration generate` make sure your database is running and is clear
+```bash
+sqd down; sqd up;
+```
+
 ### Installation
 ```bash
 pnpm install

@@ -1,4 +1,4 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, ManyToOne as ManyToOne_, Index as Index_, BigIntColumn as BigIntColumn_, IntColumn as IntColumn_, DateTimeColumn as DateTimeColumn_} from "@subsquid/typeorm-store"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, ManyToOne as ManyToOne_, Index as Index_, BigIntColumn as BigIntColumn_, IntColumn as IntColumn_, DateTimeColumn as DateTimeColumn_, BooleanColumn as BooleanColumn_} from "@subsquid/typeorm-store"
 import {PoolConfig} from "./poolConfig.model"
 
 @Entity_()
@@ -31,4 +31,7 @@ export class PoolState {
 
     @DateTimeColumn_({nullable: false})
     updatedAt!: Date
+
+    @BooleanColumn_({nullable: false})
+    isDirty!: boolean
 }
