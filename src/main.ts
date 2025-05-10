@@ -10,7 +10,7 @@ import { PoolConfig, PoolState, ActiveBalances } from './model';
 import { validateEnv } from './utils/validateEnv';
 import { DataHandlerContext, BlockData } from '@subsquid/evm-processor';
 import { loadPoolConfigFromDb, updatePoolStateFromOnChain, initPoolConfigIfNeeded, initPoolStateIfNeeded, loadPoolStateFromDb } from './utils/pool';
-
+import { getHourlyPrice } from './services/pricing';
 // Validate environment variables at the start
 const env = validateEnv();
 
@@ -47,61 +47,6 @@ const balanceHistoryWindows: HistoryWindow[] = [];
 // NOTE: we should use the TimeWeightedBalance interface instead. but for now, we can skip while we do pricing...
 // const balanceHistoryWindows: TimeWeightedBalance[] = [];
 
-// >>>>>>>>>>>>>>>>> PRICING STUFF <<<<<<<<<<<<<<<<<<<
-// price state
-const hourlyPriceCache = new Map<string, number>();
-// price getter functions
-async function getPriceFromCoingecko(coingeckoId: string, timestampMs: number): Promise<number> {
-  // short circuit for now to not pay $ while debugging
-  return 0;
-  if (!env.coingeckoApiKey) {
-    throw new Error('COINGECKO_API_KEY is not set');
-  }
-  const options = {
-    method: 'GET',
-    headers: { accept: 'application/json', 'x-cg-pro-api-key': env.coingeckoApiKey }
-  };
-  const date = new Date(timestampMs);
-  const formattedDate = `${date.getDate().toString().padStart(2, '0')}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getFullYear()}`;
-  const priceUrl = `https://pro-api.coingecko.com/api/v3/coins/${coingeckoId}/history?date=${formattedDate}&localization=false`;
-  const priceResp = await (await fetch(priceUrl, options)).json();
-  if (priceResp?.status?.error_code) {
-    throw new Error(`Error fetching price for ${coingeckoId} on ${formattedDate}: ${priceResp.status.error_message}`);
-  }
-  try {
-    const price = priceResp.market_data.current_price.usd;
-    return price;
-  } catch (error) {
-    console.error(`Error fetching price for ${coingeckoId} on ${formattedDate}: ${error}`);
-    return 0;
-  }
-}
-
-async function getHourlyPrice(coingeckoId: string, timestampMs: number): Promise<number> {
-  if (!coingeckoId) {
-    throw new Error(`Cannot get price: coingeckoId is ${coingeckoId}`);
-  }
-
-  if (!timestampMs) {
-    throw new Error(`Cannot get price: timestampMs is ${timestampMs}`);
-  }
-
-  // round timestamp down to the start of its hour
-  const date = new Date(timestampMs)
-  date.setMinutes(0, 0, 0)
-  const hourBucket = date.getTime() // ms since epoch at top of hour
-
-  const cacheKey = `${coingeckoId}-${hourBucket}` // todo: this could just be the hour, without the id
-  const cached = hourlyPriceCache.get(cacheKey)
-  if (cached !== undefined) {
-    return cached
-  }
-
-  // not in cache → fetch and store
-  const price = await getPriceFromCoingecko(coingeckoId, timestampMs)
-  hourlyPriceCache.set(cacheKey, price)
-  return price
-}
 
 async function computeLpTokenPrice(ctx: ProcessorContext<Store>, block: BlockData, poolConfig: PoolConfig, poolState: PoolState, timestampMs?: number): Promise<number> {
   if (!poolConfig) {
