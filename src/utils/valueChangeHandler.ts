@@ -1,4 +1,4 @@
-import { ActiveBalance, HistoryWindow } from "../main";
+import { ActiveBalance, SimpleHistoryWindow } from "../interfaces";
 
 interface ValueChangeArgs {
     assetAddress: string      // token / contract address or identifier
@@ -9,9 +9,8 @@ interface ValueChangeArgs {
     blockTimestamp: number       // for windowing
     txHash?: string
     blockHeight: number
-    // activeBalances: Map<string, Map<string, ActiveBalance>>
     activeBalances: Map<string, ActiveBalance>
-    historyWindows: HistoryWindow[]
+    // historyWindows: SimpleHistoryWindow[]
 }
 
 // todo: add txhash to storage somewhere here
@@ -25,15 +24,9 @@ export function processValueChange({
     txHash,
     blockHeight,
     activeBalances,
-    historyWindows,
-}: ValueChangeArgs) {
-    // ensure we have a per-asset map
-    // let userMap = activeBalances.get(assetAddress)
-    // if (!userMap) {
-    //     userMap = new Map<string, ActiveBalance>()
-    //     activeBalances.set(assetAddress, userMap)
-    // }
-
+    // historyWindows,
+}: ValueChangeArgs): SimpleHistoryWindow[] {
+    const historyWindows: SimpleHistoryWindow[] = []
     // helper to snapshot & update one side (either “from” or “to”)
     function snapshotAndUpdate(user: string, delta: bigint) {
         // const prev = userMap!.get(user) ?? { balance: 0n, updated_at_block_ts: blockTimestamp, updated_at_block_height: blockHeight }
@@ -70,4 +63,5 @@ export function processValueChange({
     if (to) {
         snapshotAndUpdate(to, amount)
     }
+    return historyWindows;
 }

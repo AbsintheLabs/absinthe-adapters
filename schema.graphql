@@ -31,6 +31,7 @@ type PoolState @entity {
   lastTsMs: BigInt!
   updatedAt: DateTime!
   isDirty: Boolean!
+  lastInterpolatedTs: Int 
 }
 
 type ActiveBalances @entity {

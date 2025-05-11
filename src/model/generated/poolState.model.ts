@@ -1,5 +1,5 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, ManyToOne as ManyToOne_, Index as Index_, BigIntColumn as BigIntColumn_, IntColumn as IntColumn_, DateTimeColumn as DateTimeColumn_, BooleanColumn as BooleanColumn_} from "@subsquid/typeorm-store"
-import {PoolConfig} from "./poolConfig.model"
+import { Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, ManyToOne as ManyToOne_, Index as Index_, BigIntColumn as BigIntColumn_, IntColumn as IntColumn_, DateTimeColumn as DateTimeColumn_, BooleanColumn as BooleanColumn_ } from "@subsquid/typeorm-store"
+import { PoolConfig } from "./poolConfig.model"
 
 @Entity_()
 export class PoolState {
@@ -11,27 +11,30 @@ export class PoolState {
     id!: string
 
     @Index_()
-    @ManyToOne_(() => PoolConfig, {nullable: true})
+    @ManyToOne_(() => PoolConfig, { nullable: true })
     pool!: PoolConfig
 
-    @BigIntColumn_({nullable: false})
+    @BigIntColumn_({ nullable: false })
     reserve0!: bigint
 
-    @BigIntColumn_({nullable: false})
+    @BigIntColumn_({ nullable: false })
     reserve1!: bigint
 
-    @BigIntColumn_({nullable: false})
+    @BigIntColumn_({ nullable: false })
     totalSupply!: bigint
 
-    @IntColumn_({nullable: false})
+    @IntColumn_({ nullable: false })
     lastBlock!: number
 
-    @BigIntColumn_({nullable: false})
+    @BigIntColumn_({ nullable: false })
     lastTsMs!: bigint
 
-    @DateTimeColumn_({nullable: false})
+    @DateTimeColumn_({ nullable: false })
     updatedAt!: Date
 
-    @BooleanColumn_({nullable: false})
+    @BooleanColumn_({ nullable: false })
     isDirty!: boolean
+
+    @IntColumn_({ nullable: true })
+    lastInterpolatedTs!: number | undefined | null
 }

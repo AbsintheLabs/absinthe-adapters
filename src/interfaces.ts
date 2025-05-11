@@ -80,6 +80,35 @@ export interface Provenance {
     sourceCodeHash?: string;      // optional docker / nix hash
 }
 
+export type ActiveBalance = {
+    balance: bigint,
+    updated_at_block_ts: number,
+    updated_at_block_height: number
+}
+
+export type SimpleHistoryWindow = {
+    userAddress: string,
+    assetAddress: string,
+    balance: bigint,
+    usdValue: number,
+    ts_start: number,
+    ts_end: number,
+    block_start?: number,
+    block_end?: number,
+    trigger: 'transfer' | 'exhausted',
+    txHash?: string
+}
+
+export type SimpleTransaction = {
+    userAddress: string,
+    assetAddress: string,
+    usdValue: number,
+    timestampMs: number,
+    blockNumber: bigint,
+    txHash: string,
+    logIndex: number,
+}
+
 // TODO: we need a pool address or token address or something to identify the topic partition
 // amount + type of asset + declaration of currency (mark that it's usd)
 // 1 eth or 1000 usdc

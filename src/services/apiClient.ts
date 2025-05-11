@@ -1,5 +1,5 @@
 import Bottleneck from 'bottleneck';
-import { TimeWeightedBalance } from '../interfaces';
+import { TimeWeightedBalance, Transaction } from '../interfaces';
 import { fetchWithRetry } from '../utils/fetchWithRetry';
 
 // Helper function to convert BigInt values to strings for JSON serialization
@@ -91,29 +91,29 @@ export class AbsintheApiClient {
 
     /**
      * Specialized method for sending balance data
-     * @param balances Array of balance records
+     * @param data Array of balance records
      */
-    async sendBalances(balances: TimeWeightedBalance[]): Promise<void> {
-        if (balances.length === 0) return;
+    async send(data: TimeWeightedBalance[] | Transaction[]): Promise<void> {
+        if (data.length === 0) return;
 
         const BATCH_SIZE = 100;
 
         // Split into batches
-        if (balances.length <= BATCH_SIZE) {
+        if (data.length <= BATCH_SIZE) {
             // Send in a single batch
-            console.log(`Sending ${balances.length} balance records to API...`);
-            const response = await this.sendData('api/log', { balances });
+            console.log(`Sending ${data.length} balance records to API...`);
+            const response = await this.sendData('api/log', { balances: data });
 
             if (!response.ok) {
                 throw new Error(`Failed to send balances: ${response.status} ${response.statusText}`);
             }
         } else {
             // Split into multiple batches
-            const batchCount = Math.ceil(balances.length / BATCH_SIZE);
-            console.log(`Splitting ${balances.length} balance records into ${batchCount} batches...`);
+            const batchCount = Math.ceil(data.length / BATCH_SIZE);
+            console.log(`Splitting ${data.length} balance records into ${batchCount} batches...`);
 
-            for (let i = 0; i < balances.length; i += BATCH_SIZE) {
-                const batch = balances.slice(i, i + BATCH_SIZE);
+            for (let i = 0; i < data.length; i += BATCH_SIZE) {
+                const batch = data.slice(i, i + BATCH_SIZE);
                 console.log(`Sending batch ${Math.floor(i / BATCH_SIZE) + 1}/${batchCount} with ${batch.length} balance records...`);
 
                 const response = await this.sendData('api/log', { balances: batch });
