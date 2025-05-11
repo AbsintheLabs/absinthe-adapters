@@ -3,6 +3,9 @@ import Big from 'big.js';
 import { PoolConfig, PoolState } from '../model';
 import { validateEnv } from '../utils/validateEnv'; // your existing validateEnv logic
 import { fetchWithRetry } from '../utils/fetchWithRetry';
+import { DataHandlerContext, BlockData } from '@subsquid/evm-processor';
+import { Store } from '@subsquid/typeorm-store';
+import { updatePoolStateFromOnChain } from '../utils/pool';
 
 const env = validateEnv();
 
@@ -60,29 +63,65 @@ export async function computePricedSwapVolume(
 }
 
 export async function computeLpTokenPrice(
-    poolCfg: PoolConfig,
+    ctx: DataHandlerContext<Store>,
+    block: BlockData,
+    poolConfig: PoolConfig,
     poolState: PoolState,
-    atMs: number,
+    timestampMs?: number
 ): Promise<number> {
-    if (!poolCfg.token0?.coingeckoId || !poolCfg.token1?.coingeckoId) {
-        throw new Error('missing coingecko id on tokens');
+    if (!poolConfig) {
+        throw new Error('No poolConfig provided to computeLpTokenPrice');
     }
 
-    const [p0, p1] = await Promise.all([
-        getHourlyPrice(poolCfg.token0.coingeckoId, atMs),
-        getHourlyPrice(poolCfg.token1.coingeckoId, atMs)
+    if (!poolState) {
+        throw new Error('No poolState provided to computeLpTokenPrice');
+    }
+
+    if (!poolConfig.token0) {
+        throw new Error(`poolConfig.token0 is missing in poolConfig ${poolConfig.id}`);
+    }
+
+    if (!poolConfig.token1) {
+        throw new Error(`poolConfig.token1 is missing in poolConfig ${poolConfig.id}`);
+    }
+
+    if (!poolConfig.lpToken) {
+        throw new Error(`poolConfig.lpToken is missing in poolConfig ${poolConfig.id}`);
+    }
+
+    if (!poolConfig.token0.coingeckoId || !poolConfig.token1.coingeckoId) {
+        console.log(`poolConfig: ${JSON.stringify(poolConfig)}`);
+        console.log(`poolState: ${JSON.stringify(poolState)}`);
+        throw new Error('No coingecko id found for token0 or token1');
+    }
+
+    if (poolState.isDirty) {
+        poolState = await updatePoolStateFromOnChain(ctx, block, env.contractAddress, poolConfig);
+    }
+
+    const timestamp = timestampMs ?? Number(poolState.lastTsMs);
+    const [token0Price, token1Price] = await Promise.all([
+        getHourlyPrice(poolConfig.token0.coingeckoId, timestamp),
+        getHourlyPrice(poolConfig.token1.coingeckoId, timestamp)
     ]);
 
-    const v0 = new Big(poolState.reserve0.toString())
-        .div(new Big(10).pow(poolCfg.token0.decimals))
-        .mul(p0);
-    const v1 = new Big(poolState.reserve1.toString())
-        .div(new Big(10).pow(poolCfg.token1.decimals))
-        .mul(p1);
+    const token0Value = new Big(poolState.reserve0.toString())
+        .div(new Big(10).pow(poolConfig.token0.decimals))
+        .mul(token0Price);
 
-    const total = v0.add(v1);
-    return total
+    // Calculate token1 value in USD
+    const token1Value = new Big(poolState.reserve1.toString())
+        .div(new Big(10).pow(poolConfig.token1.decimals))
+        .mul(token1Price);
+
+    // Total value in the pool
+    const totalPoolValue = token0Value.add(token1Value);
+
+    // Calculate price per LP token
+    const price = totalPoolValue
         .div(new Big(poolState.totalSupply.toString())
-            .div(new Big(10).pow(poolCfg.lpToken.decimals)))
+            .div(new Big(10).pow(poolConfig.lpToken.decimals)))
         .toNumber();
+
+    return price;
 }

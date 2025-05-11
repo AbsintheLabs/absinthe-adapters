@@ -10,7 +10,7 @@ import { PoolConfig, PoolState, ActiveBalances } from './model';
 import { validateEnv } from './utils/validateEnv';
 import { DataHandlerContext, BlockData } from '@subsquid/evm-processor';
 import { loadPoolConfigFromDb, updatePoolStateFromOnChain, initPoolConfigIfNeeded, initPoolStateIfNeeded, loadPoolStateFromDb } from './utils/pool';
-import { computePricedSwapVolume, getHourlyPrice } from './services/pricing';
+import { computePricedSwapVolume, getHourlyPrice, computeLpTokenPrice } from './services/pricing';
 // Validate environment variables at the start
 const env = validateEnv();
 
@@ -46,62 +46,6 @@ export type HistoryWindow = {
 const balanceHistoryWindows: HistoryWindow[] = [];
 // NOTE: we should use the TimeWeightedBalance interface instead. but for now, we can skip while we do pricing...
 // const balanceHistoryWindows: TimeWeightedBalance[] = [];
-
-
-async function computeLpTokenPrice(ctx: ProcessorContext<Store>, block: BlockData, poolConfig: PoolConfig, poolState: PoolState, timestampMs?: number): Promise<number> {
-  if (!poolConfig) {
-    throw new Error('No poolConfig provided to computeLpTokenPrice');
-  }
-
-  if (!poolState) {
-    throw new Error('No poolState provided to computeLpTokenPrice');
-  }
-
-  if (!poolConfig.token0) {
-    throw new Error(`poolConfig.token0 is missing in poolConfig ${poolConfig.id}`);
-  }
-
-  if (!poolConfig.token1) {
-    throw new Error(`poolConfig.token1 is missing in poolConfig ${poolConfig.id}`);
-  }
-
-  if (!poolConfig.lpToken) {
-    throw new Error(`poolConfig.lpToken is missing in poolConfig ${poolConfig.id}`);
-  }
-
-  if (!poolConfig.token0.coingeckoId || !poolConfig.token1.coingeckoId) {
-    console.log(`poolConfig: ${JSON.stringify(poolConfig)}`);
-    console.log(`poolState: ${JSON.stringify(poolState)}`);
-    throw new Error('No coingecko id found for token0 or token1');
-  }
-
-  if (poolState.isDirty) {
-    poolState = await updatePoolStateFromOnChain(ctx, block, env.contractAddress, poolConfig);
-  }
-
-  const token0Price = await getHourlyPrice(poolConfig.token0.coingeckoId, timestampMs ?? Number(poolState.lastTsMs));
-  const token1Price = await getHourlyPrice(poolConfig.token1.coingeckoId, timestampMs ?? Number(poolState.lastTsMs));
-
-  const token0Value = new Big(poolState.reserve0.toString())
-    .div(new Big(10).pow(poolConfig.token0.decimals))
-    .mul(token0Price);
-
-  // Calculate token1 value in USD
-  const token1Value = new Big(poolState.reserve1.toString())
-    .div(new Big(10).pow(poolConfig.token1.decimals))
-    .mul(token1Price);
-
-  // Total value in the pool
-  const totalPoolValue = token0Value.add(token1Value);
-
-  // Calculate price per LP token
-  const price = totalPoolValue
-    .div(new Big(poolState.totalSupply.toString())
-      .div(new Big(10).pow(poolConfig.lpToken.decimals)))
-    .toNumber();
-
-  return price;
-}
 
 // Helper functions to convert between Map and JSON for storage
 function mapToJson(map: Map<string, ActiveBalance>): Record<string, any> {
