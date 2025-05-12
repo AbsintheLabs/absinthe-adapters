@@ -6,8 +6,8 @@ import * as univ2Abi from './abi/univ2';
 import { processValueChange } from './utils/valueChangeHandler';
 import {
   ActiveBalance,
-  SimpleHistoryWindow,
-  SimpleTransaction
+  SimpleTimeWeightedBalance,
+  SimpleTransaction,
 } from './interfaces';
 import { PoolConfig, PoolState, ActiveBalances } from './model';
 import { validateEnv } from './utils/validateEnv';
@@ -55,7 +55,6 @@ function jsonToMap(json: Record<string, any>): Map<string, ActiveBalance> {
 
 const WINDOW_DURATION_MS = 3600 * 1000 * env.balanceFlushIntervalHours;
 
-
 // todo: move this into a separate function for readability sake
 async function loadActiveBalancesFromDb(ctx: DataHandlerContext<Store>, contractAddress: string): Promise<Map<string, ActiveBalance>> {
   const activeBalancesEntity = await ctx.store.findOne(ActiveBalances, {
@@ -75,7 +74,7 @@ processor.run(new TypeormDatabase({ supportHotBlocks: false }), async (ctx) => {
   let poolConfig = await loadPoolConfigFromDb(ctx, env.contractAddress) || new PoolConfig({});
   let poolState = await loadPoolStateFromDb(ctx, env.contractAddress) || new PoolState({});
   let activeBalancesMap = await loadActiveBalancesFromDb(ctx, env.contractAddress) || new Map<string, ActiveBalance>();
-  const simpleBalanceHistoryWindows: SimpleHistoryWindow[] = [];
+  const simpleBalanceHistoryWindows: SimpleTimeWeightedBalance[] = [];
   const simpleTransactions: SimpleTransaction[] = [];
 
   // [MAIN] batch loop
@@ -95,14 +94,16 @@ processor.run(new TypeormDatabase({ supportHotBlocks: false }), async (ctx) => {
           : await computePricedSwapVolume(token1Amount, poolConfig.token1.coingeckoId!, poolConfig.token1.decimals, block.header.timestamp);
         const userAddress = log.transaction?.from.toLowerCase();
         simpleTransactions.push({
-          userAddress: userAddress!,
-          assetAddress: env.contractAddress,
-          usdValue: pricedSwapVolume,
+          user: userAddress!,
+          value: pricedSwapVolume,
           timestampMs: block.header.timestamp,
           blockNumber: BigInt(block.header.height),
           txHash: log.transactionHash,
           logIndex: log.logIndex,
-          // todo: add metadata here too
+          protocolMetadata: {
+            token0Amount,
+            token1Amount
+          }
         })
       }
 
@@ -111,6 +112,7 @@ processor.run(new TypeormDatabase({ supportHotBlocks: false }), async (ctx) => {
         poolState.isDirty = true;
       }
 
+      // todo: add this assumption to the readme
       // warn: transfers: assume that we will always index from the beginning of all events so we need pool state + pool config
       // warn: swaps: we can index from anywhere so we only need the pool config (can handle that separately in the swap topic handler)
       // Transfer Event
@@ -127,6 +129,7 @@ processor.run(new TypeormDatabase({ supportHotBlocks: false }), async (ctx) => {
           blockHeight: block.header.height,
           txHash: log.transactionHash, // currently not used for anything
           activeBalances: activeBalancesMap,
+          windowDurationMs: WINDOW_DURATION_MS
         })
         simpleBalanceHistoryWindows.push(...newHistoryWindows);
       }
@@ -136,26 +139,42 @@ processor.run(new TypeormDatabase({ supportHotBlocks: false }), async (ctx) => {
     // Case 2: Interpolate balances based on block range and flush balances after the time period is exhausted
     const currentTs = block.header.timestamp;
     const currentBlockHeight = block.header.height;
+    const lastInterpolatedTs = Number(poolState.lastInterpolatedTs);
     // set the last interpolated timestamp to the current timestamp if it's not set
-    if (!poolState.lastInterpolatedTs) poolState.lastInterpolatedTs = currentTs;
-    while (poolState.lastInterpolatedTs + WINDOW_DURATION_MS < currentTs) {
+    if (!lastInterpolatedTs) poolState.lastInterpolatedTs = BigInt(currentTs);
+    while (lastInterpolatedTs + WINDOW_DURATION_MS < currentTs) {
       // Calculate how many complete windows have passed since epoch
-      const windowsSinceEpoch = Math.floor(poolState.lastInterpolatedTs / WINDOW_DURATION_MS);
+      const windowsSinceEpoch = Math.floor(lastInterpolatedTs / WINDOW_DURATION_MS);
       // Calculate the next window boundary by multiplying by window duration
       const nextBoundaryTs: number = (windowsSinceEpoch + 1) * WINDOW_DURATION_MS;
       // ... do periodic flush for each asset in the map ...
       for (let [userAddress, data] of activeBalancesMap.entries()) {
         const oldStart = data.updated_at_block_ts;
         if (data.balance > 0 && oldStart < nextBoundaryTs) {
+          // simpleBalanceHistoryWindows.push({
+          //   userAddress,
+          //   assetAddress: env.contractAddress,
+          //   balance: data.balance,
+          //   usdValue: await computeLpTokenPrice(ctx, block, poolConfig, poolState, currentBlockHeight),
+          //   ts_start: oldStart,
+          //   ts_end: nextBoundaryTs,
+          //   trigger: 'exhausted'
+          // });
           simpleBalanceHistoryWindows.push({
-            userAddress,
-            assetAddress: env.contractAddress,
-            balance: data.balance,
-            usdValue: await computeLpTokenPrice(ctx, block, poolConfig, poolState, currentBlockHeight),
-            ts_start: oldStart,
-            ts_end: nextBoundaryTs,
-            trigger: 'exhausted'
-          });
+            user: userAddress,
+            // BUG!!!!!: make this compute the actual value of the position,not just the price of the LP token
+            value: await computeLpTokenPrice(ctx, block, poolConfig, poolState, currentBlockHeight),
+            timeWindow: {
+              trigger: 'exhausted' as const,
+              startTs: oldStart,
+              endTs: nextBoundaryTs,
+              windowDurationMs: WINDOW_DURATION_MS,
+              windowId: windowsSinceEpoch // todo: ensure that this is correct
+            },
+            protocolMetadata: {
+              lpTokenAmount: data.balance
+            }
+          })
           activeBalancesMap.set(userAddress, {
             balance: data.balance,
             updated_at_block_ts: nextBoundaryTs,
@@ -163,16 +182,16 @@ processor.run(new TypeormDatabase({ supportHotBlocks: false }), async (ctx) => {
           });
         }
       }
-      poolState.lastInterpolatedTs = nextBoundaryTs;
+      poolState.lastInterpolatedTs = BigInt(nextBoundaryTs);
     }
   }
 
   // Absinthe API
-  const balances = toTimeWeightedBalance(simpleBalanceHistoryWindows, WINDOW_DURATION_MS, env.contractAddress)
+  const balances = toTimeWeightedBalance(simpleBalanceHistoryWindows, env, poolConfig)
     .filter((e) => e.timeWindow.startTs !== e.timeWindow.endTs);
-  // const transactions = toTransaction(simpleTransactions);
+  const transactions = toTransaction(simpleTransactions, env, poolConfig);
   await apiClient.send(balances);
-  // await apiClient.send(transactions);
+  await apiClient.send(transactions);
 
   // [FINAL] save batch state
   // Save active balances to database

@@ -21,7 +21,10 @@ export async function fetchHistoricalUsd(id: string, tsMs: number): Promise<numb
     }));
     const j = await res.json();
     if (!j.market_data?.current_price?.usd) {
-        throw new Error(`No market data found for ${id} on ${date}`);
+        // warn: this is not a fatal error, but it should be investigated since position value will be inaccurate
+        // throw new Error(`No market data found for ${id} on ${date}`);
+        console.error(`No market data found for ${id} on ${date}`);
+        return 0;
     }
     return j.market_data.current_price.usd;
 }

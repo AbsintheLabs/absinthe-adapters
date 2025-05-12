@@ -86,28 +86,28 @@ export type ActiveBalance = {
     updated_at_block_height: number
 }
 
-export type SimpleHistoryWindow = {
-    userAddress: string,
-    assetAddress: string,
-    balance: bigint,
-    usdValue: number,
-    ts_start: number,
-    ts_end: number,
-    block_start?: number,
-    block_end?: number,
-    trigger: 'transfer' | 'exhausted',
-    txHash?: string
-}
+// export type SimpleHistoryWindow = {
+//     userAddress: string,
+//     assetAddress: string,
+//     balance: bigint,
+//     usdValue: number,
+//     ts_start: number,
+//     ts_end: number,
+//     block_start?: number,
+//     block_end?: number,
+//     trigger: 'transfer' | 'exhausted',
+//     txHash?: string
+// }
 
-export type SimpleTransaction = {
-    userAddress: string,
-    assetAddress: string,
-    usdValue: number,
-    timestampMs: number,
-    blockNumber: bigint,
-    txHash: string,
-    logIndex: number,
-}
+// export type SimpleTransaction = {
+//     userAddress: string,
+//     assetAddress: string,
+//     usdValue: number,
+//     timestampMs: number,
+//     blockNumber: bigint,
+//     txHash: string,
+//     logIndex: number,
+// }
 
 // TODO: we need a pool address or token address or something to identify the topic partition
 // amount + type of asset + declaration of currency (mark that it's usd)
@@ -144,9 +144,12 @@ export interface Transaction<M = unknown> {
     blockNumber: bigint;
     txHash: string;
     logIndex: number; // should we have an index to identify if there were multiple in a transaction
-    source: DataSource;  // Reference to the data source that provided this transaction
+    source?: DataSource;  // Reference to the data source that provided this transaction
     protocolMetadata?: M;
 }
+
+export type SimpleTimeWeightedBalance = Pick<TimeWeightedBalance<Partial<UniswapV2TWBMetadata>>, 'user' | 'value' | 'timeWindow' | 'protocolMetadata'>;
+export type SimpleTransaction = Pick<Transaction<Partial<UniswapV2SwapMetadata>>, 'user' | 'value' | 'timestampMs' | 'blockNumber' | 'txHash' | 'logIndex' | 'protocolMetadata'>;
 
 // Uniswap Protocol Metadata
 export interface UniswapV2TWBMetadata {

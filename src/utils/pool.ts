@@ -18,6 +18,7 @@ export async function updatePoolStateFromOnChain(ctx: DataHandlerContext<Store>,
     const r0 = reserve._reserve0;
     const r1 = reserve._reserve1;
 
+    // BUG: we need to pass through the lastInterpolatedTs (perhaps it makes sense to keep this as a separate entity rather than the state since it gets modified not via on-chain state but the processor state?)
     const newPoolState = new PoolState({
         id: `${contractAddress}-state`,
         pool: poolConfig,
@@ -26,6 +27,7 @@ export async function updatePoolStateFromOnChain(ctx: DataHandlerContext<Store>,
         totalSupply,
         lastBlock: block.header.height,
         lastTsMs: BigInt(block.header.timestamp),
+        isDirty: false,
         updatedAt: new Date(),
     });
 
