@@ -39,9 +39,9 @@ export async function getHourlyPrice(
 ): Promise<number> {
     if (isMocked) return 0;
     if (!coingeckoId) throw new Error('coingeckoId required');
-    const hourBucket =
-        new Date(timestampMs).setMinutes(0, 0, 0);           // round to top-of-hour
-    const k = `${coingeckoId}-${hourBucket}`;
+    const dayBucket =
+        new Date(timestampMs).setHours(0, 0, 0, 0);           // round to top-of-day
+    const k = `${coingeckoId}-${dayBucket}`;
 
     if (hourlyPriceCache.has(k)) return hourlyPriceCache.get(k)!;
 

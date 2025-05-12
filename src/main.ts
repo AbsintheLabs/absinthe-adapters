@@ -9,10 +9,10 @@ import {
   SimpleTimeWeightedBalance,
   SimpleTransaction,
 } from './interfaces';
-import { PoolConfig, PoolState, ActiveBalances } from './model';
+import { PoolConfig, PoolState, ActiveBalances, PoolProcessState } from './model';
 import { validateEnv } from './utils/validateEnv';
 import { DataHandlerContext } from '@subsquid/evm-processor';
-import { loadPoolConfigFromDb, initPoolConfigIfNeeded, loadPoolStateFromDb, initPoolStateIfNeeded } from './utils/pool';
+import { loadPoolConfigFromDb, initPoolConfigIfNeeded, loadPoolStateFromDb, initPoolStateIfNeeded, loadPoolProcessStateFromDb, initPoolProcessStateIfNeeded } from './utils/pool';
 import { computePricedSwapVolume, computeLpTokenPrice } from './services/pricing';
 import { toTimeWeightedBalance, toTransaction } from './utils/interfaceFormatter';
 
@@ -73,6 +73,7 @@ processor.run(new TypeormDatabase({ supportHotBlocks: false }), async (ctx) => {
   // load poolState and poolConfig from db
   let poolConfig = await loadPoolConfigFromDb(ctx, env.contractAddress) || new PoolConfig({});
   let poolState = await loadPoolStateFromDb(ctx, env.contractAddress) || new PoolState({});
+  let poolProcessState = await loadPoolProcessStateFromDb(ctx, env.contractAddress) || undefined;
   let activeBalancesMap = await loadActiveBalancesFromDb(ctx, env.contractAddress) || new Map<string, ActiveBalance>();
   const simpleBalanceHistoryWindows: SimpleTimeWeightedBalance[] = [];
   const simpleTransactions: SimpleTransaction[] = [];
@@ -82,6 +83,7 @@ processor.run(new TypeormDatabase({ supportHotBlocks: false }), async (ctx) => {
   for (let block of ctx.blocks) {
     poolConfig = await initPoolConfigIfNeeded(ctx, block, env.contractAddress, poolConfig);
     poolState = await initPoolStateIfNeeded(ctx, block, env.contractAddress, poolState, poolConfig);
+    poolProcessState = await initPoolProcessStateIfNeeded(ctx, block, env.contractAddress, poolConfig, poolProcessState);
     for (let log of block.logs) {
       // Swaps (volume)
       if (log.address === env.contractAddress && log.topics[0] === univ2Abi.events.Swap.topic) {
@@ -139,27 +141,17 @@ processor.run(new TypeormDatabase({ supportHotBlocks: false }), async (ctx) => {
     // Case 2: Interpolate balances based on block range and flush balances after the time period is exhausted
     const currentTs = block.header.timestamp;
     const currentBlockHeight = block.header.height;
-    const lastInterpolatedTs = Number(poolState.lastInterpolatedTs);
     // set the last interpolated timestamp to the current timestamp if it's not set
-    if (!lastInterpolatedTs) poolState.lastInterpolatedTs = BigInt(currentTs);
-    while (lastInterpolatedTs + WINDOW_DURATION_MS < currentTs) {
+    if (!poolProcessState?.lastInterpolatedTs) poolProcessState.lastInterpolatedTs = BigInt(currentTs);
+    while (Number(poolProcessState.lastInterpolatedTs) + WINDOW_DURATION_MS < currentTs) {
       // Calculate how many complete windows have passed since epoch
-      const windowsSinceEpoch = Math.floor(lastInterpolatedTs / WINDOW_DURATION_MS);
+      const windowsSinceEpoch = Math.floor(Number(poolProcessState.lastInterpolatedTs) / WINDOW_DURATION_MS);
       // Calculate the next window boundary by multiplying by window duration
       const nextBoundaryTs: number = (windowsSinceEpoch + 1) * WINDOW_DURATION_MS;
       // ... do periodic flush for each asset in the map ...
       for (let [userAddress, data] of activeBalancesMap.entries()) {
         const oldStart = data.updated_at_block_ts;
         if (data.balance > 0 && oldStart < nextBoundaryTs) {
-          // simpleBalanceHistoryWindows.push({
-          //   userAddress,
-          //   assetAddress: env.contractAddress,
-          //   balance: data.balance,
-          //   usdValue: await computeLpTokenPrice(ctx, block, poolConfig, poolState, currentBlockHeight),
-          //   ts_start: oldStart,
-          //   ts_end: nextBoundaryTs,
-          //   trigger: 'exhausted'
-          // });
           simpleBalanceHistoryWindows.push({
             user: userAddress,
             // BUG!!!!!: make this compute the actual value of the position,not just the price of the LP token
@@ -182,7 +174,7 @@ processor.run(new TypeormDatabase({ supportHotBlocks: false }), async (ctx) => {
           });
         }
       }
-      poolState.lastInterpolatedTs = BigInt(nextBoundaryTs);
+      poolProcessState.lastInterpolatedTs = BigInt(nextBoundaryTs);
     }
   }
 
@@ -200,6 +192,7 @@ processor.run(new TypeormDatabase({ supportHotBlocks: false }), async (ctx) => {
   await ctx.store.upsert(poolConfig.lpToken);
   await ctx.store.upsert(poolConfig);
   await ctx.store.upsert(poolState);
+  await ctx.store.upsert(poolProcessState!); //warn; why is it throwing errors?
   await ctx.store.upsert(new ActiveBalances({
     id: `${env.contractAddress}-active-balances`,
     activeBalancesMap: mapToJson(activeBalancesMap)

@@ -34,7 +34,4 @@ export class PoolState {
 
     @BooleanColumn_({nullable: false})
     isDirty!: boolean
-
-    @BigIntColumn_({nullable: true})
-    lastInterpolatedTs!: bigint | undefined | null
 }

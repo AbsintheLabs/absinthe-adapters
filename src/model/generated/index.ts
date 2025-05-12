@@ -1,5 +1,5 @@
-export * from "./usdcTransfer.model"
 export * from "./token.model"
 export * from "./poolConfig.model"
 export * from "./poolState.model"
 export * from "./activeBalances.model"
+export * from "./poolProcessState.model"

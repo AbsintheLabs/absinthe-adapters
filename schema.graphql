@@ -1,12 +1,3 @@
-type UsdcTransfer @entity {
-  id: ID!
-  block: Int!
-  from: String! @index
-  to: String! @index
-  value: BigInt!
-  txnHash: String! @index
-}
-
 type Token @entity {
   id: ID!
   address: String! @index
@@ -31,10 +22,15 @@ type PoolState @entity {
   lastTsMs: BigInt!
   updatedAt: DateTime!
   isDirty: Boolean!
-  lastInterpolatedTs: BigInt
 }
 
 type ActiveBalances @entity {
   id: ID!
   activeBalancesMap: JSON!
+}
+
+type PoolProcessState @entity {
+  id: ID!
+  pool: PoolConfig! @index
+  lastInterpolatedTs: BigInt
 }

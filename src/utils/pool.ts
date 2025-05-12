@@ -1,6 +1,6 @@
 // sqd
 import { Store } from '@subsquid/typeorm-store';
-import { PoolConfig, PoolState, Token } from '../model';
+import { PoolConfig, PoolState, Token, PoolProcessState } from '../model';
 import { BlockData, DataHandlerContext } from '@subsquid/evm-processor';
 
 // abis
@@ -95,4 +95,24 @@ export async function loadPoolConfigFromDb(ctx: DataHandlerContext<Store>, contr
         relations: { token0: true, token1: true, lpToken: true }
     });
     return poolConfig || undefined;
+}
+
+export async function loadPoolProcessStateFromDb(ctx: DataHandlerContext<Store>, contractAddress: string): Promise<PoolProcessState | void> {
+    const poolProcessState = await ctx.store.findOne(PoolProcessState, {
+        where: { id: `${contractAddress}-process-state` },
+        relations: { pool: true }
+    });
+    return poolProcessState || undefined;
+}
+
+export async function initPoolProcessStateIfNeeded(ctx: DataHandlerContext<Store>, block: BlockData, contractAddress: string, poolConfig: PoolConfig, poolProcessState: PoolProcessState | undefined): Promise<PoolProcessState> {
+    // If already defined, do nothing
+    if (poolProcessState?.id) return poolProcessState;
+
+    // If not found, create a new pool process state
+    return new PoolProcessState({
+        id: `${contractAddress}-process-state`,
+        pool: poolConfig,
+        lastInterpolatedTs: undefined
+    });
 }
