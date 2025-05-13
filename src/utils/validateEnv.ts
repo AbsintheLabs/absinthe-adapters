@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { CHAINS } from '../assets/chains';
+import { CHAINS } from '../../packages/common/src/utils/chains';
 
 export interface ValidatedEnv {
     dbName: string;

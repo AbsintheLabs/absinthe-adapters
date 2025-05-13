@@ -2,8 +2,8 @@ import { TypeormDatabase } from "@subsquid/typeorm-store";
 import { processor } from "./processor";
 
 // todo; move these into a shared location so it can be accessible by other projects
-// import { AbsintheApiClient } from "../../../src/services/apiClient";
 // import { validateEnv } from "../../../src/utils/validateEnv";
+import { AbsintheApiClient } from "@absinthe/common/src/services/apiClient";
 import { CHAINS } from "@absinthe/common/src/utils/chains";
 
 // Validate environment variables at the start
