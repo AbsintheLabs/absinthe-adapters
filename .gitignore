@@ -1,4 +1,4 @@
-/node_modules
+**/node_modules
 /lib
 /builds
 
@@ -12,5 +12,7 @@
 balances.json
 .DS_Store
 chains.txt
-*.json
+/examples
 *.csv
+**/lib
+*.tsbuildinfo

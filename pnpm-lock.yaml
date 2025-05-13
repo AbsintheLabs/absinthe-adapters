@@ -73,6 +73,14 @@ importers:
         specifier: ~5.5.2
         version: 5.5.4
 
+  packages/common: {}
+
+  projects/compoundv2:
+    dependencies:
+      '@absinthe/common':
+        specifier: workspace:*
+        version: link:../../packages/common
+
 packages:
 
   '@apollo/protobufjs@1.2.6':

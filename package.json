@@ -1,6 +1,12 @@
 {
-  "name": "squid-evm-template",
+  "name": "absinthe-adapters",
+  "description": "Monorepo for Absinthe protocol adapters",
   "private": true,
+  "version": "0.0.1",
+  "workspaces": [
+    "projects/*",
+    "packages/*"
+  ],
   "scripts": {
     "build": "rm -rf lib && tsc"
   },
