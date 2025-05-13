@@ -47,7 +47,7 @@ export function processValueChange({
                 // trigger: 'transfer',
                 // ...(txHash ? { txHash } : {})
                 user,
-                value: usdValue,
+                amount: usdValue,
                 timeWindow: {
                     trigger: 'transfer' as const,
                     startTs: prev.updated_at_block_ts,

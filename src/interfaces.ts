@@ -124,22 +124,22 @@ export interface TimeWeightedBalance<M = unknown, N = unknown> {
     dataType: 'time_weighted_balance';
     user: string;
     chain: Chain;
-    value: number;
-    // amount: number; // todo: rename this to amount instead of value
-    // amountType: N;
+    amount: number;
+    amountType: N;
     timeWindow: TimeWindow;
     protocolMetadata?: M;
     source?: DataSource;  // Reference to the data source that provided this balance. Do this later...
-    // api key and timestamp and hash(api_key, timestsamp, required_values)
+    // api key and timestamp and hash(api_key, timestsamp, required_values). its like _dbt_surrogate_key
 }
 
 // in a swap, we also care only about the value
-export interface Transaction<M = unknown> {
+export interface Transaction<M = unknown, N = unknown> {
     version: 1;
     dataType: 'transaction';
     user: string;
     chain: Chain;
-    value: number;
+    amount: number;
+    amountType: N;
     timestampMs: number; // unix timestamp
     blockNumber: bigint;
     txHash: string;
@@ -148,8 +148,15 @@ export interface Transaction<M = unknown> {
     protocolMetadata?: M;
 }
 
-export type SimpleTimeWeightedBalance = Pick<TimeWeightedBalance<Partial<UniswapV2TWBMetadata>>, 'user' | 'value' | 'timeWindow' | 'protocolMetadata'>;
-export type SimpleTransaction = Pick<Transaction<Partial<UniswapV2SwapMetadata>>, 'user' | 'value' | 'timestampMs' | 'blockNumber' | 'txHash' | 'logIndex' | 'protocolMetadata'>;
+// Usd Amount Metadata
+export type UsdAmountType = {
+    amountType: 'usd';
+    priceFeed: 'coingecko' | 'codex';
+}
+
+export type SimpleTimeWeightedBalance = Pick<TimeWeightedBalance<Partial<UniswapV2TWBMetadata>, UsdAmountType>, 'user' | 'amount' | 'timeWindow' | 'protocolMetadata'>;
+export type SimpleTransaction = Pick<Transaction<Partial<UniswapV2SwapMetadata>, UsdAmountType>, 'user' | 'amount' | 'timestampMs' | 'blockNumber' | 'txHash' | 'logIndex' | 'protocolMetadata'>;
+
 
 // Uniswap Protocol Metadata
 export interface UniswapV2TWBMetadata {

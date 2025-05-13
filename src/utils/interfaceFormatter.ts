@@ -11,9 +11,12 @@ export function toTimeWeightedBalance(
             version: 1 as const,
             dataType: 'time_weighted_balance' as const,
             user: e.user,
-            // todo: pass this in rather than hardcoding
-            chain: { networkId: env.chainId, name: 'ethereum' as const, chainType: 'evm' as const },
-            value: e.value,
+            chain: { networkId: env.chainId, name: env.chainShortName, chainType: 'evm' as const },
+            amount: e.amount,
+            amountType: {
+                amountType: 'usd',
+                priceFeed: 'coingecko'
+            },
             timeWindow: e.timeWindow,
             protocolMetadata: {
                 poolAddress: poolConfig.lpToken.address,
@@ -29,13 +32,16 @@ export function toTransaction(simpleTransactions: SimpleTransaction[], env: Vali
             version: 1 as const,
             dataType: 'transaction' as const,
             user: e.user,
-            value: e.value,
+            amount: e.amount,
+            amountType: {
+                amountType: 'usd',
+                priceFeed: 'coingecko'
+            },
             timestampMs: e.timestampMs,
             blockNumber: e.blockNumber,
             txHash: e.txHash,
             logIndex: e.logIndex,
-            // todo: pass this in rather than hardcoding
-            chain: { networkId: env.chainId, name: 'ethereum' as const, chainType: 'evm' as const },
+            chain: { networkId: env.chainId, name: env.chainShortName, chainType: 'evm' as const },
             protocolMetadata: {
                 token0Amount: e.protocolMetadata!.token0Amount!,
                 token1Amount: e.protocolMetadata!.token1Amount!,

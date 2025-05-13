@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { CHAINS } from '../assets/chains';
 
 export interface ValidatedEnv {
     dbName: string;
@@ -6,6 +7,8 @@ export interface ValidatedEnv {
     gqlPort: number;
     gatewayUrl: string;
     chainId: number;
+    chainName: string;
+    chainShortName: string;
     rpcUrl: string;
     contractAddress: string;
     fromBlock: number;
@@ -53,13 +56,22 @@ export function validateEnv(): ValidatedEnv {
             throw new Error(`Environment validation failed:\n${errorMessages}`);
         }
 
-        // Return validated environment variables with proper types
-        return {
+        // Chain Validation
+        const chainId = result.data.CHAIN_ID;
+        const chain = CHAINS.find(c => c.chainId === chainId);
+        if (!chain) {
+            throw new Error(`${chainId} is not a supported chainId.`);
+        }
+
+        // Create validated environment object
+        const validatedEnv: ValidatedEnv = {
             dbName: result.data.DB_NAME,
             dbPort: result.data.DB_PORT,
             gqlPort: result.data.GQL_PORT,
             gatewayUrl: result.data.GATEWAY_URL,
-            chainId: result.data.CHAIN_ID,
+            chainId: chainId,
+            chainName: chain.name,
+            chainShortName: chain.shortName,
             rpcUrl: result.data.RPC_URL,
             contractAddress: result.data.CONTRACT_ADDRESS,
             fromBlock: result.data.FROM_BLOCK,
@@ -72,6 +84,8 @@ export function validateEnv(): ValidatedEnv {
             coingeckoApiKey: result.data.COINGECKO_API_KEY,
             balanceFlushIntervalHours: result.data.BALANCE_FLUSH_INTERVAL_HOURS,
         };
+
+        return validatedEnv;
     } catch (error) {
         if (error instanceof Error) {
             throw error;

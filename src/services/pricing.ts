@@ -65,6 +65,13 @@ export async function computePricedSwapVolume(
         .toNumber();
 }
 
+export function pricePosition(price: number, amount: bigint, decimals: number): number {
+    return new Big(amount.toString())
+        .div(new Big(10).pow(decimals))
+        .mul(price)
+        .toNumber();
+}
+
 export async function computeLpTokenPrice(
     ctx: DataHandlerContext<Store>,
     block: BlockData,

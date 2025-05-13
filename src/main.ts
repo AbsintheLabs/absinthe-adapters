@@ -13,7 +13,7 @@ import { PoolConfig, PoolState, ActiveBalances, PoolProcessState } from './model
 import { validateEnv } from './utils/validateEnv';
 import { DataHandlerContext } from '@subsquid/evm-processor';
 import { loadPoolConfigFromDb, initPoolConfigIfNeeded, loadPoolStateFromDb, initPoolStateIfNeeded, loadPoolProcessStateFromDb, initPoolProcessStateIfNeeded } from './utils/pool';
-import { computePricedSwapVolume, computeLpTokenPrice } from './services/pricing';
+import { computePricedSwapVolume, computeLpTokenPrice, pricePosition } from './services/pricing';
 import { toTimeWeightedBalance, toTransaction } from './utils/interfaceFormatter';
 
 // Validate environment variables at the start
@@ -22,7 +22,8 @@ const env = validateEnv();
 // Create Absinthe API client for sending data
 const apiClient = new AbsintheApiClient({
   baseUrl: env.absintheApiUrl,
-  apiKey: env.absintheApiKey
+  apiKey: env.absintheApiKey,
+  minTime: 0 // warn: remove this, it's temporary for testing
 });
 
 // Helper functions to convert between Map and JSON for storage
@@ -68,7 +69,8 @@ async function loadActiveBalancesFromDb(ctx: DataHandlerContext<Store>, contract
 // -------------------------------------------------------------------
 // processor.run() executes data processing with a handler called on each data batch.
 // Data is available via ctx.blocks; handler can also use external data sources.
-processor.run(new TypeormDatabase({ supportHotBlocks: false }), async (ctx) => {
+const stateSchema = `${env.contractAddress.slice(0, 6)}-${env.chainId}`;
+processor.run(new TypeormDatabase({ supportHotBlocks: false, stateSchema: `${env.contractAddress.slice(0, 6)}-${env.chainId}` }), async (ctx) => {
   // [INIT] start of batch state
   // load poolState and poolConfig from db
   let poolConfig = await loadPoolConfigFromDb(ctx, env.contractAddress) || new PoolConfig({});
@@ -97,7 +99,7 @@ processor.run(new TypeormDatabase({ supportHotBlocks: false }), async (ctx) => {
         const userAddress = log.transaction?.from.toLowerCase();
         simpleTransactions.push({
           user: userAddress!,
-          value: pricedSwapVolume,
+          amount: pricedSwapVolume,
           timestampMs: block.header.timestamp,
           blockNumber: BigInt(block.header.height),
           txHash: log.transactionHash,
@@ -126,7 +128,7 @@ processor.run(new TypeormDatabase({ supportHotBlocks: false }), async (ctx) => {
           from,
           to,
           amount: value,
-          usdValue: await computeLpTokenPrice(ctx, block, poolConfig, poolState, block.header.timestamp),
+          usdValue: pricePosition(await computeLpTokenPrice(ctx, block, poolConfig, poolState, block.header.timestamp), value, poolConfig.lpToken.decimals),
           blockTimestamp: block.header.timestamp,
           blockHeight: block.header.height,
           txHash: log.transactionHash, // currently not used for anything
@@ -154,8 +156,7 @@ processor.run(new TypeormDatabase({ supportHotBlocks: false }), async (ctx) => {
         if (data.balance > 0 && oldStart < nextBoundaryTs) {
           simpleBalanceHistoryWindows.push({
             user: userAddress,
-            // BUG!!!!!: make this compute the actual value of the position,not just the price of the LP token
-            value: await computeLpTokenPrice(ctx, block, poolConfig, poolState, currentBlockHeight),
+            amount: pricePosition(await computeLpTokenPrice(ctx, block, poolConfig, poolState, currentBlockHeight), data.balance, poolConfig.lpToken.decimals),
             timeWindow: {
               trigger: 'exhausted' as const,
               startTs: oldStart,
@@ -192,7 +193,7 @@ processor.run(new TypeormDatabase({ supportHotBlocks: false }), async (ctx) => {
   await ctx.store.upsert(poolConfig.lpToken);
   await ctx.store.upsert(poolConfig);
   await ctx.store.upsert(poolState);
-  await ctx.store.upsert(poolProcessState!); //warn; why is it throwing errors?
+  await ctx.store.upsert(poolProcessState!); //warn; why is it throwing errors? where could it have been undefined?
   await ctx.store.upsert(new ActiveBalances({
     id: `${env.contractAddress}-active-balances`,
     activeBalancesMap: mapToJson(activeBalancesMap)

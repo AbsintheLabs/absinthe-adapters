@@ -44,7 +44,7 @@ app.use(express.json({
 // API keys (in a real app, store these securely)
 const validApiKeys: ApiKeys = {
     'api_key_1': { points: 10, duration: 1 }, // 10 requests per second
-    'api_key_2': { points: 10, duration: 1 } // 10 requests per second
+    'api_key_2': { points: 10, duration: 10000000000000 } // 10 requests per second
 };
 
 // Create rate limiters for each API key
@@ -79,7 +79,6 @@ const apiKeyMiddleware = async (req: Request, res: Response, next: NextFunction)
             // If get fails, ignore and continue
         }
 
-        console.log('Remaining points:', remainingPoints !== null ? remainingPoints : 'unknown');
         next();
     } catch (error) {
         const rateLimiterRes = error as RateLimiterRes;
