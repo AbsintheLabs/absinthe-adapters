@@ -1,10 +1,8 @@
 import { TypeormDatabase } from "@subsquid/typeorm-store";
 import { processor } from "./processor";
 
-// todo; move these into a shared location so it can be accessible by other projects
-// import { validateEnv } from "../../../src/utils/validateEnv";
+import { validateEnv } from "@absinthe/common/src/utils/validateEnv";
 import { AbsintheApiClient } from "@absinthe/common/src/services/apiClient";
-import { CHAINS } from "@absinthe/common/src/utils/chains";
 
 // Validate environment variables at the start
 const env = validateEnv();
@@ -17,11 +15,13 @@ const apiClient = new AbsintheApiClient({
 
 processor.run(new TypeormDatabase({ supportHotBlocks: false }), async (ctx) => {
     // [INIT] batch state
-
+    console.log("We are here!");
+    process.exit(0);
 
     // [LOOP] process each block
     for (let block of ctx.blocks) {
         for (let log of block.logs) {
+
         }
     }
 

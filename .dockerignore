@@ -6,3 +6,8 @@ npm-debug.log
 
 # OS Files
 .DS_Store
+
+.git
+.gitignore
+*.md
+/dist

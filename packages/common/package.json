@@ -6,5 +6,11 @@
     "types": "dist/index.d.ts",
     "scripts": {
         "build": "tsc -p ."
+    },
+    "dependencies": {
+        "@subsquid/evm-abi": "^0.3.0",
+        "@subsquid/evm-codec": "^0.3.0",
+        "bottleneck": "^2.19.5",
+        "zod": "^3.24.3"
     }
 }

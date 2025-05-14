@@ -15,4 +15,5 @@ chains.txt
 /examples
 *.csv
 **/lib
+**/dist
 *.tsbuildinfo

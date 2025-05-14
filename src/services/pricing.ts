@@ -2,7 +2,7 @@
 import Big from 'big.js';
 import { PoolConfig, PoolState } from '../model';
 import { validateEnv } from '../utils/validateEnv'; // your existing validateEnv logic
-import { fetchWithRetry } from '../utils/fetchWithRetry';
+import { fetchWithRetry } from '../../packages/common/src/utils/fetchWithRetry';
 import { DataHandlerContext, BlockData } from '@subsquid/evm-processor';
 import { Store } from '@subsquid/typeorm-store';
 import { updatePoolStateFromOnChain } from '../utils/pool';

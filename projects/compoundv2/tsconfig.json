@@ -1,17 +1,6 @@
 {
-    "compilerOptions": {
-        "composite": true,
-        "module": "CommonJS",
-        "target": "ES2020",
-        "declaration": true,
+    "extends": "../../tsconfig.base.json",
+    "buildOptions": {
         "outDir": "dist"
-    },
-    "references": [
-        {
-            "path": "../../packages/common"
-        }
-    ],
-    "include": [
-        "src"
-    ]
+    }
 }
