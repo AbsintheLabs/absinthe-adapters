@@ -1,6 +1,18 @@
 {
     "extends": "../../tsconfig.base.json",
-    "buildOptions": {
-        "outDir": "dist"
-    }
+    "compilerOptions": {
+        "outDir": "lib",
+        "rootDir": "src"
+    },
+    "include": [
+        "src/**/*"
+    ],
+    "exclude": [
+        "node_modules"
+    ],
+    "references": [
+        {
+            "path": "../../packages/common"
+        }
+    ]
 }

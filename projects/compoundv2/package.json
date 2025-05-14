@@ -1,6 +1,6 @@
 {
     "name": "@absinthe/compoundv2",
-    "version": "0.0.1",
+    "version": "0.0.0",
     "private": true,
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
@@ -8,6 +8,7 @@
         "@absinthe/common": "workspace:*"
     },
     "scripts": {
-        "build": "tsc -p ."
+        "build": "tsc -p .",
+        "build:standalone": "tsc -p tsconfig.standalone.json"
     }
 }

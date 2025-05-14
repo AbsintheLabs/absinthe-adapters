@@ -10,18 +10,7 @@
     "emitDecoratorMetadata": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
+    "composite": true,
     "incremental": true
-  },
-  "exclude": [
-    "node_modules",
-    "dist"
-  ],
-  "references": [
-    {
-      "path": "./packages/common"
-    },
-    {
-      "path": "./projects/compoundv2"
-    }
-  ]
+  }
 }
