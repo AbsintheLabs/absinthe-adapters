@@ -15,13 +15,11 @@ const apiClient = new AbsintheApiClient({
 const db = new TypeormDatabase({ supportHotBlocks: false });
 processor.run(db, async (ctx) => {
     // [INIT] batch state
-    console.log("we are here!");
-    process.exit(0);
 
     // [LOOP] process each block
     for (let block of ctx.blocks) {
         for (let log of block.logs) {
-
+            console.log(log);
         }
     }
 

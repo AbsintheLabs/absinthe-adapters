@@ -46,7 +46,7 @@
     "migration:generate": {
       "description": "Generate a DB migration matching the TypeORM entities",
       "deps": [
-        "build",
+        "tsc -p .",
         "migration:clean"
       ],
       "cmd": [

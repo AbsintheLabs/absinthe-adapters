@@ -4,11 +4,11 @@
     "private": true,
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
-    "dependencies": {
-        "@absinthe/common": "workspace:*"
-    },
     "scripts": {
         "build": "tsc -p .",
-        "build:standalone": "tsc -p tsconfig.standalone.json"
+        "start": "node --env-file=.env lib/main.js"
+    },
+    "dependencies": {
+        "@absinthe/common": "workspace:*"
     }
 }
