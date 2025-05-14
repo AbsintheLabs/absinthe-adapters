@@ -3,7 +3,8 @@ import { CHAINS } from './chains';
 
 export interface ValidatedEnv {
     dbName: string;
-    dbPort: number;
+    dbPort?: number;
+    dbUrl?: string;
     gqlPort: number;
     gatewayUrl: string;
     chainId: number;
@@ -26,7 +27,8 @@ export function validateEnv(): ValidatedEnv {
     // Create schema for environment variables
     const envSchema = z.object({
         DB_NAME: z.string().min(1, 'DB_NAME is required'),
-        DB_PORT: z.string().transform(val => parseInt(val, 10)).refine(val => !isNaN(val), 'DB_PORT must be a valid number'),
+        DB_PORT: z.string().transform(val => parseInt(val, 10)).refine(val => !isNaN(val), 'DB_PORT must be a valid number').optional(),
+        DB_URL: z.string().regex(/^postgres:\/\/.+/, 'DB_URL must be a valid postgres URL').optional(),
         GQL_PORT: z.string().transform(val => parseInt(val, 10)).refine(val => !isNaN(val), 'GQL_PORT must be a valid number'),
         GATEWAY_URL: z.string().url('GATEWAY_URL must be a valid URL'),
         CHAIN_ID: z.string().transform(val => parseInt(val, 10)).refine(val => !isNaN(val), 'CHAIN_ID must be a valid number'),
@@ -41,7 +43,13 @@ export function validateEnv(): ValidatedEnv {
         ABSINTHE_API_KEY: z.string().min(1, 'ABSINTHE_API_KEY is required'),
         COINGECKO_API_KEY: z.string().min(1, 'COINGECKO_API_KEY is required'),
         BALANCE_FLUSH_INTERVAL_HOURS: z.string().transform(val => parseInt(val, 10)).refine(val => !isNaN(val), 'BALANCE_FLUSH_INTERVAL_HOURS must be a valid number'),
-    });
+    }).refine(
+        data => data.DB_PORT !== undefined || data.DB_URL !== undefined,
+        {
+            message: "Either DB_PORT or DB_URL must be provided",
+            path: ["DB_PORT", "DB_URL"],
+        }
+    );
 
     try {
         // Validate environment variables
@@ -67,6 +75,7 @@ export function validateEnv(): ValidatedEnv {
         const validatedEnv: ValidatedEnv = {
             dbName: result.data.DB_NAME,
             dbPort: result.data.DB_PORT,
+            dbUrl: result.data.DB_URL,
             gqlPort: result.data.GQL_PORT,
             gatewayUrl: result.data.GATEWAY_URL,
             chainId: chainId,
