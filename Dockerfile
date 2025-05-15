@@ -15,11 +15,9 @@ RUN pnpm deploy --filter=@absinthe/uniswapv2 --prod /prod/uniswapv2
 FROM base AS uniswapv2
 COPY --from=build /prod/uniswapv2 /prod/uniswapv2
 WORKDIR /prod/uniswapv2
-EXPOSE 8000
 CMD ["node", "lib/main.js"]
 
 # FROM base AS app2
 # COPY --from=build /prod/app2 /prod/app2
 # WORKDIR /prod/app2
-# EXPOSE 8001
 # CMD ["node", "lib/main.js"]
