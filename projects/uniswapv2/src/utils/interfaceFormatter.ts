@@ -49,15 +49,15 @@ export function toTransaction(simpleTransactions: SimpleTransaction[], env: Vali
                 token0: {
                     decimals: poolConfig.token0.decimals,
                     tokenAddress: poolConfig.token0.address,
-                    tokenName: env.token0CoingeckoId, // bug: this is currently not correct
-                    tokenSymbol: env.token0CoingeckoId, // bug: this is currently not correct
+                    tokenName: env.pools[0].token0.coingeckoId, // bug: this is currently not correct
+                    tokenSymbol: env.pools[0].token0.coingeckoId, // bug: this is currently not correct
                     tokenType: 'erc20' as const
                 },
                 token1: {
                     decimals: poolConfig.token1.decimals,
                     tokenAddress: poolConfig.token1.address,
-                    tokenSymbol: env.token1CoingeckoId, // bug: this is currently not correct
-                    tokenName: env.token1CoingeckoId, // bug: this is currently not correct
+                    tokenSymbol: env.pools[0].token1.coingeckoId, // bug: this is currently not correct
+                    tokenName: env.pools[0].token1.coingeckoId, // bug: this is currently not correct
                     tokenType: 'erc20' as const
                 },
                 poolAddress: poolConfig.lpToken.address,

@@ -18,3 +18,4 @@ chains.txt
 **/dist
 *.tsbuildinfo
 testdeploy/
+**/abs_config.json

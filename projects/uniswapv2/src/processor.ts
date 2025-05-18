@@ -9,19 +9,20 @@ import {
     Transaction as _Transaction,
 } from '@subsquid/evm-processor'
 import * as univ2Abi from './abi/univ2'
+import { validateEnv } from '@absinthe/common';
 
-const contractAddress = process.env.CONTRACT_ADDRESS!.toLowerCase()
+const env = validateEnv();
 
 export const processor = new EvmBatchProcessor()
     .setGateway(process.env.GATEWAY_URL!)
     .setRpcEndpoint(process.env.RPC_URL!)
     .setBlockRange({
-        from: Number(process.env.FROM_BLOCK!),
+        from: Number(env.pools[0].fromBlock),
         ...(process.env.TO_BLOCK ? { to: Number(process.env.TO_BLOCK) } : {})
     })
     .setFinalityConfirmation(75)
     .addLog({
-        address: [contractAddress],
+        address: [env.pools[0].contractAddress],
         topic0: [univ2Abi.events.Transfer.topic, univ2Abi.events.Sync.topic, univ2Abi.events.Swap.topic],
     })
     .setFields({

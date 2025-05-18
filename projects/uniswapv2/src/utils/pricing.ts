@@ -100,13 +100,11 @@ export async function computeLpTokenPrice(
     }
 
     if (!poolConfig.token0.coingeckoId || !poolConfig.token1.coingeckoId) {
-        console.log(`poolConfig: ${JSON.stringify(poolConfig)}`);
-        console.log(`poolState: ${JSON.stringify(poolState)}`);
         throw new Error('No coingecko id found for token0 or token1');
     }
 
     if (poolState.isDirty) {
-        poolState = await updatePoolStateFromOnChain(ctx, block, env.contractAddress, poolConfig);
+        poolState = await updatePoolStateFromOnChain(ctx, block, env.pools[0].contractAddress, poolConfig);
     }
 
     const timestamp = timestampMs ?? Number(poolState.lastTsMs);

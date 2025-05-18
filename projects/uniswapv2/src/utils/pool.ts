@@ -6,6 +6,7 @@ import { BlockData, DataHandlerContext } from '@subsquid/evm-processor';
 // abis
 import * as univ2Abi from '../abi/univ2';
 import * as erc20Abi from '../abi/univ2LP';
+import { Pool } from '@absinthe/common';
 
 // exported functions
 export async function updatePoolStateFromOnChain(ctx: DataHandlerContext<Store>, block: BlockData, contractAddress: string, poolConfig: PoolConfig): Promise<PoolState> {
@@ -42,7 +43,7 @@ export async function initPoolStateIfNeeded(ctx: DataHandlerContext<Store>, bloc
     return await updatePoolStateFromOnChain(ctx, block, contractAddress, poolConfig);
 }
 
-export async function initPoolConfigIfNeeded(ctx: DataHandlerContext<Store>, block: BlockData, contractAddress: string, poolConfig: PoolConfig): Promise<PoolConfig> {
+export async function initPoolConfigIfNeeded(ctx: DataHandlerContext<Store>, block: BlockData, contractAddress: string, poolConfig: PoolConfig, pool: Pool): Promise<PoolConfig> {
     // if already defined, do nothing
     if (poolConfig.id && poolConfig.lpToken && poolConfig.token0 && poolConfig.token1) return poolConfig;
 
@@ -62,8 +63,8 @@ export async function initPoolConfigIfNeeded(ctx: DataHandlerContext<Store>, blo
     const token1Decimals = await token1Contract.decimals();
 
     // coingecko ids
-    const token1CoingeckoId = process.env.TOKEN1_COINGECKO_ID!;
-    const token0CoingeckoId = process.env.TOKEN0_COINGECKO_ID!;
+    const token1CoingeckoId = pool.token1.coingeckoId;
+    const token0CoingeckoId = pool.token0.coingeckoId;
 
     // create tokens
     const lpToken = new Token({ id: `${contractAddress}-lp`, address: contractAddress, decimals: lpDecimals, coingeckoId: process.env.LP_TOKEN_COINGECKO_ID! });

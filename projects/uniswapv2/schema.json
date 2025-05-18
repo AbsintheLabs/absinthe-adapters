@@ -1,0 +1,103 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "required": [
+        "chainId",
+        "gatewayUrl",
+        "toBlock",
+        "balanceFlushIntervalHours",
+        "pools"
+    ],
+    "properties": {
+        "$schema": {
+            "type": "string"
+        },
+        "chainId": {
+            "type": "integer",
+            "description": "The blockchain chain ID"
+        },
+        "gatewayUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "Gateway URL for the blockchain network"
+        },
+        "toBlock": {
+            "type": "integer",
+            "description": "Block number to index up to"
+        },
+        "balanceFlushIntervalHours": {
+            "type": "number",
+            "description": "Interval in hours to flush balance data"
+        },
+        "pools": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": [
+                    "contractAddress",
+                    "fromBlock",
+                    "pricingStrategy",
+                    "token0",
+                    "token1",
+                    "preferredTokenCoingeckoId"
+                ],
+                "properties": {
+                    "contractAddress": {
+                        "type": "string",
+                        "pattern": "^0x[a-fA-F0-9]{40}$",
+                        "description": "Ethereum contract address"
+                    },
+                    "fromBlock": {
+                        "type": "integer",
+                        "description": "Starting block number for indexing"
+                    },
+                    "pricingStrategy": {
+                        "type": "string",
+                        "enum": [
+                            "coingecko"
+                        ],
+                        "description": "Strategy used for token pricing"
+                    },
+                    "token0": {
+                        "type": "object",
+                        "required": [
+                            "coingeckoId",
+                            "decimals"
+                        ],
+                        "properties": {
+                            "coingeckoId": {
+                                "type": "string",
+                                "description": "Coingecko ID for token0"
+                            },
+                            "decimals": {
+                                "type": "integer",
+                                "description": "Decimal places for token0"
+                            }
+                        }
+                    },
+                    "token1": {
+                        "type": "object",
+                        "required": [
+                            "coingeckoId",
+                            "decimals"
+                        ],
+                        "properties": {
+                            "coingeckoId": {
+                                "type": "string",
+                                "description": "Coingecko ID for token1"
+                            },
+                            "decimals": {
+                                "type": "integer",
+                                "description": "Decimal places for token1"
+                            }
+                        }
+                    },
+                    "preferredTokenCoingeckoId": {
+                        "type": "string",
+                        "description": "The preferred token ID for pricing, e.g. 'token0' or 'token1'"
+                    }
+                }
+            }
+        }
+    }
+}
