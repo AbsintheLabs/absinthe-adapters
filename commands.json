@@ -22,8 +22,8 @@
     "up": {
       "description": "Start a PG database",
       "cmd": [
-        "docker",
-        "compose",
+        "sudo",
+        "docker-compose",
         "up",
         "-d"
       ]
@@ -31,8 +31,8 @@
     "down": {
       "description": "Drop a PG database",
       "cmd": [
-        "docker",
-        "compose",
+        "sudo",
+        "docker-compose",
         "down"
       ]
     },

@@ -10,11 +10,13 @@ import {
 } from '@absinthe/common';
 import { PoolConfig, PoolState, ActiveBalances, PoolProcessState } from './model';
 import { DataHandlerContext } from '@subsquid/evm-processor';
-import { loadPoolConfigFromDb, initPoolConfigIfNeeded, loadPoolStateFromDb, initPoolStateIfNeeded, loadPoolProcessStateFromDb, initPoolProcessStateIfNeeded } from './utils/pool';
+import { loadPoolConfigFromDb, initPoolConfigIfNeeded, loadPoolStateFromDb, initPoolStateIfNeeded, loadPoolProcessStateFromDb, initPoolProcessStateIfNeeded, loadActiveBalancesFromDb } from './utils/pool';
 import { computePricedSwapVolume, computeLpTokenPrice, pricePosition } from './utils/pricing';
 import { toTimeWeightedBalance, toTransaction } from './utils/interfaceFormatter';
 import { processValueChange } from './utils/valueChangeHandler';
 import { createHash } from 'crypto';
+import { mapToJson } from './utils/helper';
+import { UniswapV2Config } from '@absinthe/common/src/types/protocols';
 
 // Validate environment variables at the start
 const env = validateEnv();
@@ -26,50 +28,18 @@ const apiClient = new AbsintheApiClient({
   minTime: 0 // warn: remove this, it's temporary for testing
 });
 
-// Helper functions to convert between Map and JSON for storage
-function mapToJson(map: Map<string, ActiveBalance>): Record<string, any> {
-  const result: Record<string, any> = {};
-  for (const [key, value] of map.entries()) {
-    result[key] = {
-      balance: value.balance.toString(),
-      updated_at_block_ts: value.updated_at_block_ts,
-      updated_at_block_height: value.updated_at_block_height
-    };
-  }
-  return result;
-}
-
-function jsonToMap(json: Record<string, any>): Map<string, ActiveBalance> {
-  const result = new Map<string, ActiveBalance>();
-  if (!json) return result;
-
-  for (const [key, value] of Object.entries(json)) {
-    if (key === '__metadata') continue;
-    result.set(key, {
-      balance: BigInt(value.balance),
-      updated_at_block_ts: value.updated_at_block_ts,
-      updated_at_block_height: value.updated_at_block_height
-    });
-  }
-  return result;
-}
-
 const WINDOW_DURATION_MS = env.balanceFlushIntervalHours * 60 * 60 * 1000;
-
-// todo: move this into a separate function for readability sake
-async function loadActiveBalancesFromDb(ctx: DataHandlerContext<Store>, contractAddress: string): Promise<Map<string, ActiveBalance>> {
-  const activeBalancesEntity = await ctx.store.findOne(ActiveBalances, {
-    where: { id: `${contractAddress}-active-balances` },
-  });
-  return activeBalancesEntity ? jsonToMap(activeBalancesEntity.activeBalancesMap as Record<string, ActiveBalance>) : new Map<string, ActiveBalance>();
-}
 
 // -------------------------------------------------------------------
 // --------------------------PROCESSOR.RUN()--------------------------
 // -------------------------------------------------------------------
 // processor.run() executes data processing with a handler called on each data batch.
 // Data is available via ctx.blocks; handler can also use external data sources.
-const uniquePoolCombinationName = env.protocols.reduce((acc, protocol) => acc + protocol.contractAddress, '').concat(env.chainId.toString());
+const uniquePoolCombinationName = (env.protocols as UniswapV2Config[])
+  .filter(protocol => protocol.type === "uniswap-v2")
+  .reduce((acc, protocol) => acc + protocol.contractAddress, '')
+  .concat(env.chainId.toString());
+
 const schemaName = 'univ2-' + createHash('md5').update(uniquePoolCombinationName).digest('hex').slice(0, 8);
 processor.run(new TypeormDatabase({ supportHotBlocks: false, stateSchema: schemaName }), async (ctx) => {
   // [INIT] start of batch state
@@ -84,7 +54,7 @@ processor.run(new TypeormDatabase({ supportHotBlocks: false, stateSchema: schema
   const simpleBalanceHistoryWindows = new Map<string, SimpleTimeWeightedBalance[]>();
   const simpleTransactions = new Map<string, SimpleTransaction[]>();
 
-  for (const protocol of env.protocols) {
+  for (const protocol of env.protocols as UniswapV2Config[]) {
     const ca = protocol.contractAddress;
     poolConfigs.set(ca, await loadPoolConfigFromDb(ctx, ca) || new PoolConfig({}));
     poolStates.set(ca, await loadPoolStateFromDb(ctx, ca) || new PoolState({}));
@@ -98,8 +68,8 @@ processor.run(new TypeormDatabase({ supportHotBlocks: false, stateSchema: schema
   // [MAIN] batch loop
   // We'll make db and network operations at the end of the batch saving massively on IO
   for (let block of ctx.blocks) {
-    for (const pool of env.pools) {
-      const contractAddress = pool.contractAddress;
+    for (const protocol of env.protocols as UniswapV2Config[]) {
+      const contractAddress = protocol.contractAddress;
 
       // Use let so we can reassign after each init call
       let poolCfg = poolConfigs.get(contractAddress)!;
@@ -108,7 +78,7 @@ processor.run(new TypeormDatabase({ supportHotBlocks: false, stateSchema: schema
       let activeBalancesMap = activeBalancesMaps.get(contractAddress)!;
 
       // 1. Init/override config, then store back into map
-      poolCfg = await initPoolConfigIfNeeded(ctx, block, contractAddress, poolCfg, pool);
+      poolCfg = await initPoolConfigIfNeeded(ctx, block, contractAddress, poolCfg, protocol as UniswapV2Config);
       poolConfigs.set(contractAddress, poolCfg);
 
       // 2. Init state with updated config
@@ -127,9 +97,9 @@ processor.run(new TypeormDatabase({ supportHotBlocks: false, stateSchema: schema
           const { amount0In, amount0Out, amount1In, amount1Out } = univ2Abi.events.Swap.decode(log);
           const token0Amount = amount0In + amount0Out;
           const token1Amount = amount1In + amount1Out;
-          const pricedSwapVolume = env.pools[0].preferredTokenCoingeckoId === 'token0' ?
-            await computePricedSwapVolume(token0Amount, poolCfg.token0.coingeckoId!, poolCfg.token0.decimals, block.header.timestamp)
-            : await computePricedSwapVolume(token1Amount, poolCfg.token1.coingeckoId!, poolCfg.token1.decimals, block.header.timestamp);
+          const pricedSwapVolume = protocol.preferredTokenCoingeckoId === 'token0' ?
+            await computePricedSwapVolume(token0Amount, poolCfg.token0.coingeckoId as string, poolCfg.token0.decimals, block.header.timestamp)
+            : await computePricedSwapVolume(token1Amount, poolCfg.token1.coingeckoId as string, poolCfg.token1.decimals, block.header.timestamp);
           const userAddress = log.transaction?.from.toLowerCase();
           simpleTransactions.get(contractAddress)!.push({
             user: userAddress!,
@@ -158,7 +128,7 @@ processor.run(new TypeormDatabase({ supportHotBlocks: false, stateSchema: schema
           // Case 1: Emit events on transfer
           const { from, to, value } = univ2Abi.events.Transfer.decode(log);
           const newHistoryWindows = await processValueChange({
-            assetAddress: env.pools[0].contractAddress,
+            assetAddress: protocol.contractAddress,
             from,
             to,
             amount: value,
@@ -214,13 +184,13 @@ processor.run(new TypeormDatabase({ supportHotBlocks: false, stateSchema: schema
     }
   }
 
-  for (const pool of env.pools) {
-    const sbhw = simpleBalanceHistoryWindows.get(pool.contractAddress)!;
-    const st = simpleTransactions.get(pool.contractAddress)!;
-    const poolCfg = poolConfigs.get(pool.contractAddress)!;
-    const poolState = poolStates.get(pool.contractAddress)!;
-    const poolProcessState = poolProcessStates.get(pool.contractAddress)!;
-    const abm = activeBalancesMaps.get(pool.contractAddress)!;
+  for (const protocol of env.protocols as UniswapV2Config[]) {
+    const sbhw = simpleBalanceHistoryWindows.get(protocol.contractAddress)!;
+    const st = simpleTransactions.get(protocol.contractAddress)!;
+    const poolCfg = poolConfigs.get(protocol.contractAddress)!;
+    const poolState = poolStates.get(protocol.contractAddress)!;
+    const poolProcessState = poolProcessStates.get(protocol.contractAddress)!;
+    const abm = activeBalancesMaps.get(protocol.contractAddress)!;
     // Absinthe API
     const balances = toTimeWeightedBalance(sbhw, env, poolCfg)
       .filter((e) => e.timeWindow.startTs !== e.timeWindow.endTs);
@@ -237,7 +207,7 @@ processor.run(new TypeormDatabase({ supportHotBlocks: false, stateSchema: schema
     await ctx.store.upsert(poolState);
     await ctx.store.upsert(poolProcessState!); //warn; why is it throwing errors? where could it have been undefined?
     await ctx.store.upsert(new ActiveBalances({
-      id: `${env.pools[0].contractAddress}-active-balances`,
+      id: `${env.protocols[0].contractAddress}-active-balances`,
       activeBalancesMap: mapToJson(abm)
     }));
   }

@@ -19,6 +19,7 @@ export function validateEnv(): ValidatedEnv {
             ABSINTHE_API_URL: z.string().url('ABSINTHE_API_URL must be a valid URL'),
             ABSINTHE_API_KEY: z.string().min(1, 'ABSINTHE_API_KEY is required'),
             COINGECKO_API_KEY: z.string().min(1, 'COINGECKO_API_KEY is required'),
+            LOG_FILE_PATH: z.string().min(1, "LOG_FILE_PATH is required"),
         }).refine(
             data => data.DB_PORT !== undefined || data.DB_URL !== undefined,
             {
@@ -77,6 +78,7 @@ export function validateEnv(): ValidatedEnv {
             absintheApiUrl: envResult.data.ABSINTHE_API_URL,
             absintheApiKey: envResult.data.ABSINTHE_API_KEY,
             coingeckoApiKey: envResult.data.COINGECKO_API_KEY,
+            logFilePath: envResult.data.LOG_FILE_PATH,
         };
 
         return validatedEnv;

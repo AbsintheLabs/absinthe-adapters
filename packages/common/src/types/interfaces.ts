@@ -1,7 +1,18 @@
 import { ProtocolConfig } from "./protocols";
 
 type ChainType = 'evm'; // support for other chains will be added in the future
-type Currency = 'usd';
+
+
+export enum Currency {
+    USD = 'usd',
+    ETH = 'eth',
+    BTC = 'btc',
+    USDC = 'usdc',
+    USDT = 'usdt',
+    DAI = 'dai',
+    WETH = 'weth',
+    WBTC = 'wbtc',
+}
 
 // NOTE: for the time being until we figure out a better more static version for chain information
 interface Chain {
@@ -190,4 +201,5 @@ export interface ValidatedEnv {
     absintheApiUrl: string;
     absintheApiKey: string;
     coingeckoApiKey: string;
+    logFilePath: string;
 }

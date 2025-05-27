@@ -10,4 +10,4 @@ export { CHAINS } from './utils/chains';
 export { AbsintheApiClient } from './services/apiClient';
 
 // Logging
-export { LogLevel, Logger, createLogger } from './utils/logger';
+export { LogLevel, Logger, createLogger, logger } from './utils/logger';

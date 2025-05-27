@@ -1,11 +1,11 @@
-// src/pricing/pricing.ts
 import Big from 'big.js';
 import { PoolConfig, PoolState } from '../model';
-import { validateEnv } from '@absinthe/common'; // your existing validateEnv logic
+import { validateEnv } from '@absinthe/common';
 import { fetchWithRetry } from '@absinthe/common';
 import { DataHandlerContext, BlockData } from '@subsquid/evm-processor';
 import { Store } from '@subsquid/typeorm-store';
 import { updatePoolStateFromOnChain } from './pool';
+import { Currency } from '@absinthe/common';
 
 const env = validateEnv();
 
@@ -20,13 +20,13 @@ export async function fetchHistoricalUsd(id: string, tsMs: number): Promise<numb
         headers: { accept: 'application/json', 'x-cg-pro-api-key': env.coingeckoApiKey }
     }));
     const j = await res.json();
-    if (!j.market_data?.current_price?.usd) {
+    if (!j.market_data?.current_price?.[Currency.USD]) {
         // warn: this is not a fatal error, but it should be investigated since position value will be inaccurate
         // throw new Error(`No market data found for ${id} on ${date}`);
         console.error(`No market data found for ${id} on ${date}`);
         return 0;
     }
-    return j.market_data.current_price.usd;
+    return j.market_data.current_price[Currency.USD];
 }
 
 /** in-memory, process-wide price cache (key = "<id>-<hourBucket>") */
@@ -104,7 +104,7 @@ export async function computeLpTokenPrice(
     }
 
     if (poolState.isDirty) {
-        poolState = await updatePoolStateFromOnChain(ctx, block, env.pools[0].contractAddress, poolConfig);
+        poolState = await updatePoolStateFromOnChain(ctx, block, poolConfig.lpToken.address, poolConfig);
     }
 
     const timestamp = timestampMs ?? Number(poolState.lastTsMs);

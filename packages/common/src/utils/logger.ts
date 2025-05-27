@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-
+import { validateEnv } from './validateEnv';
 export enum LogLevel {
     DEBUG = 0,
     INFO = 1,
@@ -83,13 +83,15 @@ export class Logger {
     }
 }
 
+const env = validateEnv();
+
 // Default logger instance
 export const logger = new Logger(
     undefined, 
-    process.env.LOG_FILE_PATH
+    env.logFilePath
 );
 
 // Create logger with context
 export const createLogger = (context: string) => {
-    return new Logger(context, process.env.LOG_FILE_PATH);
+    return new Logger(context, env.logFilePath);
 };

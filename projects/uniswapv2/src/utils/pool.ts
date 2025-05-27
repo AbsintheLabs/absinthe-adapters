@@ -1,18 +1,19 @@
 // sqd
 import { Store } from '@subsquid/typeorm-store';
-import { PoolConfig, PoolState, Token, PoolProcessState } from '../model';
+import { PoolConfig, PoolState, Token, PoolProcessState, ActiveBalances } from '../model';
 import { BlockData, DataHandlerContext } from '@subsquid/evm-processor';
-
+import { ActiveBalance, logger } from '@absinthe/common';
 // abis
 import * as univ2Abi from '../abi/univ2';
 import * as erc20Abi from '../abi/univ2LP';
-import { Pool } from '@absinthe/common';
+import { jsonToMap } from './helper';
+import { UniswapV2Config } from '@absinthe/common/src/types/protocols';
 
 // exported functions
 export async function updatePoolStateFromOnChain(ctx: DataHandlerContext<Store>, block: BlockData, contractAddress: string, poolConfig: PoolConfig): Promise<PoolState> {
     if (!poolConfig.id || !poolConfig.lpToken || !poolConfig.token0 || !poolConfig.token1) throw new Error("Pool config not found");
 
-    console.log("Updating pool state from on chain");
+    logger.info("Updating pool state from on chain");
     const contract = new univ2Abi.Contract(ctx, block.header, contractAddress);
     const reserve = await contract.getReserves();
     const totalSupply = await contract.totalSupply();
@@ -28,6 +29,7 @@ export async function updatePoolStateFromOnChain(ctx: DataHandlerContext<Store>,
         totalSupply,
         lastBlock: block.header.height,
         lastTsMs: BigInt(block.header.timestamp),
+        // lastInterpolatedTs: undefined,
         isDirty: false,
         updatedAt: new Date(),
     });
@@ -43,7 +45,7 @@ export async function initPoolStateIfNeeded(ctx: DataHandlerContext<Store>, bloc
     return await updatePoolStateFromOnChain(ctx, block, contractAddress, poolConfig);
 }
 
-export async function initPoolConfigIfNeeded(ctx: DataHandlerContext<Store>, block: BlockData, contractAddress: string, poolConfig: PoolConfig, pool: Pool): Promise<PoolConfig> {
+export async function initPoolConfigIfNeeded(ctx: DataHandlerContext<Store>, block: BlockData, contractAddress: string, poolConfig: PoolConfig, protocol: UniswapV2Config): Promise<PoolConfig> {
     // if already defined, do nothing
     if (poolConfig.id && poolConfig.lpToken && poolConfig.token0 && poolConfig.token1) return poolConfig;
 
@@ -62,14 +64,10 @@ export async function initPoolConfigIfNeeded(ctx: DataHandlerContext<Store>, blo
     const token1Contract = new erc20Abi.Contract(ctx, block.header, token1Address);
     const token1Decimals = await token1Contract.decimals();
 
-    // coingecko ids
-    const token1CoingeckoId = pool.token1.coingeckoId;
-    const token0CoingeckoId = pool.token0.coingeckoId;
-
     // create tokens
-    const lpToken = new Token({ id: `${contractAddress}-lp`, address: contractAddress, decimals: lpDecimals, coingeckoId: process.env.LP_TOKEN_COINGECKO_ID! });
-    const token0 = new Token({ id: token0Address, address: token0Address, decimals: token0Decimals, coingeckoId: token0CoingeckoId });
-    const token1 = new Token({ id: token1Address, address: token1Address, decimals: token1Decimals, coingeckoId: token1CoingeckoId });
+    const lpToken = new Token({ id: `${contractAddress}-lp`, address: contractAddress, decimals: lpDecimals, coingeckoId: null });
+    const token0 = new Token({ id: `${token0Address}-token0`, address: token0Address, decimals: token0Decimals, coingeckoId: protocol.token0.coingeckoId });
+    const token1 = new Token({ id: `${token1Address}-token1`, address: token1Address, decimals: token1Decimals, coingeckoId: protocol.token1.coingeckoId });
 
     // insert pool config into db
     const newPoolConfig = new PoolConfig({
@@ -82,6 +80,8 @@ export async function initPoolConfigIfNeeded(ctx: DataHandlerContext<Store>, blo
     return newPoolConfig;
 }
 
+
+// Initial data loading functions from db
 export async function loadPoolStateFromDb(ctx: DataHandlerContext<Store>, contractAddress: string): Promise<PoolState | void> {
     const poolState = await ctx.store.findOne(PoolState, {
         where: { id: `${contractAddress}-state` },
@@ -104,6 +104,14 @@ export async function loadPoolProcessStateFromDb(ctx: DataHandlerContext<Store>,
         relations: { pool: true }
     });
     return poolProcessState || undefined;
+}
+
+export async function loadActiveBalancesFromDb(ctx: DataHandlerContext<Store>, contractAddress: string): Promise<Map<string, ActiveBalance> | undefined> {
+    const activeBalancesEntity = await ctx.store.findOne(ActiveBalances, {
+        where: { id: `${contractAddress}-active-balances` },
+    });
+    console.log(activeBalancesEntity)
+    return activeBalancesEntity ? jsonToMap(activeBalancesEntity.activeBalancesMap as Record<string, ActiveBalance>) : undefined;
 }
 
 export async function initPoolProcessStateIfNeeded(ctx: DataHandlerContext<Store>, block: BlockData, contractAddress: string, poolConfig: PoolConfig, poolProcessState: PoolProcessState | undefined): Promise<PoolProcessState> {

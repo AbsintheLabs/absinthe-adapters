@@ -20,6 +20,7 @@ type PoolState @entity {
   totalSupply: BigInt!
   lastBlock: Int!
   lastTsMs: BigInt!
+  # lastInterpolatedTs: BigInt
   updatedAt: DateTime!
   isDirty: Boolean!
 }

@@ -1,6 +1,7 @@
 import Bottleneck from 'bottleneck';
 import { TimeWeightedBalance, Transaction } from '../types/interfaces';
 import { fetchWithRetry } from '../utils/helper/fetchWithRetry';
+import { logger } from '../utils/logger';
 
 // Helper function to convert BigInt values to strings for JSON serialization
 export const convertBigIntToString = (obj: any): any => {
@@ -101,7 +102,7 @@ export class AbsintheApiClient {
         // Split into batches
         if (data.length <= BATCH_SIZE) {
             // Send in a single batch
-            console.log(`Sending ${data.length} balance records to API...`);
+            logger.info(`Sending ${data.length} balance records to API...`);
             const response = await this.sendData('api/log', { balances: data });
 
             if (!response.ok) {
@@ -110,11 +111,11 @@ export class AbsintheApiClient {
         } else {
             // Split into multiple batches
             const batchCount = Math.ceil(data.length / BATCH_SIZE);
-            console.log(`Splitting ${data.length} balance records into ${batchCount} batches...`);
+            logger.info(`Splitting ${data.length} balance records into ${batchCount} batches...`);
 
             for (let i = 0; i < data.length; i += BATCH_SIZE) {
                 const batch = data.slice(i, i + BATCH_SIZE);
-                console.log(`Sending batch ${Math.floor(i / BATCH_SIZE) + 1}/${batchCount} with ${batch.length} balance records...`);
+                logger.info(`Sending batch ${Math.floor(i / BATCH_SIZE) + 1}/${batchCount} with ${batch.length} balance records...`);
 
                 const response = await this.sendData('api/log', { balances: batch });
 
@@ -123,7 +124,7 @@ export class AbsintheApiClient {
                 }
             }
 
-            console.log(`Successfully sent all ${batchCount} batches of balance records.`);
+            logger.info(`Successfully sent all ${batchCount} batches of balance records.`);
         }
     }
 }

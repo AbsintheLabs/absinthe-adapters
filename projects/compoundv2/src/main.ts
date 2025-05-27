@@ -2,7 +2,7 @@ import { TypeormDatabase } from "@subsquid/typeorm-store";
 import { processor } from "./processor";
 
 import { validateEnv, AbsintheApiClient } from "@absinthe/common";
-
+import { logger } from "@absinthe/common";
 // Validate environment variables at the start
 const env = validateEnv();
 // Create Absinthe API client for sending data
@@ -19,7 +19,7 @@ processor.run(db, async (ctx) => {
     // [LOOP] process each block
     for (let block of ctx.blocks) {
         for (let log of block.logs) {
-            console.log(log);
+            logger.info(log.toString());
         }
     }
 
