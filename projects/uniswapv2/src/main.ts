@@ -41,7 +41,7 @@ const uniquePoolCombinationName = (env.protocols as UniswapV2Config[])
   .concat(env.chainId.toString());
 
 const schemaName = 'univ2-' + createHash('md5').update(uniquePoolCombinationName).digest('hex').slice(0, 8);
-processor.run(new TypeormDatabase({ supportHotBlocks: false, stateSchema: schemaName }), async (ctx) => {
+processor.run(new TypeormDatabase({ supportHotBlocks: false, stateSchema: schemaName}), async (ctx) => {
   // [INIT] start of batch state
   // load poolState and poolConfig from db
 
@@ -65,11 +65,13 @@ processor.run(new TypeormDatabase({ supportHotBlocks: false, stateSchema: schema
     simpleTransactions.set(ca, []);
   }
 
+
   // [MAIN] batch loop
   // We'll make db and network operations at the end of the batch saving massively on IO
   for (let block of ctx.blocks) {
     for (const protocol of env.protocols as UniswapV2Config[]) {
       const contractAddress = protocol.contractAddress;
+
 
       // Use let so we can reassign after each init call
       let poolCfg = poolConfigs.get(contractAddress)!;

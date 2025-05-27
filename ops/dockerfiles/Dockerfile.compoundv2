@@ -42,10 +42,10 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/packages/common/node_modules ./packages/common/node_modules
 
 # Copy built artifacts
-COPY --from=build /app/packages/common/dist ./packages/common/dist
+COPY --from=build /app/packages/common/lib ./packages/common/lib
 COPY --from=build /app/packages/common/package.json ./packages/common/
-COPY --from=build /app/projects/compoundv2/dist ./projects/compoundv2/dist
+COPY --from=build /app/projects/compoundv2/lib ./projects/compoundv2/lib
 COPY --from=build /app/projects/compoundv2/package.json ./projects/compoundv2/
 
 WORKDIR /app/projects/compoundv2
-CMD ["node", "--env-file=.env", "dist/main.js"]
+CMD ["node", "--env-file=../../.env", "lib/main.js"] 

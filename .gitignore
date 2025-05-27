@@ -19,3 +19,7 @@ chains.txt
 *.tsbuildinfo
 testdeploy/
 **/abs_config.json
+
+**/src/abi/generated/
+**/lib
+**/dist

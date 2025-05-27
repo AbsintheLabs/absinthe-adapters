@@ -2,10 +2,10 @@
     "name": "@absinthe/common",
     "version": "0.0.0",
     "private": true,
-    "main": "dist/index.js",
-    "types": "dist/index.d.ts",
+    "main": "lib/index.js",
+    "types": "lib/index.d.ts",
     "files": [
-        "dist"
+        "lib"
     ],
     "scripts": {
         "build": "tsc -p ."

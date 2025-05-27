@@ -14,7 +14,6 @@ import { validateEnv } from '@absinthe/common';
 const env = validateEnv();
 const contractAddresses = env.protocols.filter(protocol => protocol.type === 'uniswap-v2').map(protocol => protocol.contractAddress);
 const earliestFromBlock = Math.min(...env.protocols.filter(protocol => protocol.type === 'uniswap-v2').map(protocol => protocol.fromBlock));
-
 export const processor = new EvmBatchProcessor()
     .setGateway(env.gatewayUrl)
     .setRpcEndpoint(env.rpcUrl)

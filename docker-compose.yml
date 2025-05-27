@@ -12,18 +12,46 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
-      - backend
+      - app-network
 
-  redis:
-    image: redis:latest
-    container_name: redis
-    ports:
-      - "6379:6379"
+  # redis:
+  #   image: redis:latest
+  #   container_name: redis
+  #   ports:
+  #     - "6379:6379"
+  #   networks:
+  #     - app-network
+
+  # compoundv2:
+  #   build:
+  #     context: .
+  #     dockerfile: ops/dockerfiles/Dockerfile.compoundv2
+  #   container_name: compoundv2-service
+  #   networks:
+  #     - app-network
+  #   environment:
+  #     - NODE_ENV=production
+  #     - ABSINTHE_API_URL=http://abs-app:3000
+  #   depends_on:
+  #     - abs-app
+  #     - postgres
+  #   volumes:
+  #     - ./.env:/app/.env
+
+  uniswapv2:
+    build:
+      context: .
+      dockerfile: ops/dockerfiles/Dockerfile.uniswapv2
+    container_name: uniswapv2-service
     networks:
-      - backend
+      - app-network
+    depends_on:
+      - postgres
+    volumes:
+      - ./.env:/app/.env
 
 networks:
-  backend:
+  app-network:
     driver: bridge
 
 volumes:

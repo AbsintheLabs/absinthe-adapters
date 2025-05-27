@@ -5,7 +5,7 @@ import { BlockData, DataHandlerContext } from '@subsquid/evm-processor';
 import { ActiveBalance, logger } from '@absinthe/common';
 // abis
 import * as univ2Abi from '../abi/univ2';
-import * as erc20Abi from '../abi/univ2LP';
+import * as univ2LpAbi from '../abi/univ2LP';
 import { jsonToMap } from './helper';
 import { UniswapV2Config } from '@absinthe/common/src/types/protocols';
 
@@ -56,12 +56,13 @@ export async function initPoolConfigIfNeeded(ctx: DataHandlerContext<Store>, blo
     const token0Address = await contract.token0();
     const token1Address = await contract.token1();
 
+
     // token0 contract
-    const token0Contract = new erc20Abi.Contract(ctx, block.header, token0Address);
+    const token0Contract = new univ2LpAbi.Contract(ctx, block.header, token0Address);
     const token0Decimals = await token0Contract.decimals();
 
     // token1 contract
-    const token1Contract = new erc20Abi.Contract(ctx, block.header, token1Address);
+    const token1Contract = new univ2LpAbi.Contract(ctx, block.header, token1Address);
     const token1Decimals = await token1Contract.decimals();
 
     // create tokens
@@ -110,7 +111,6 @@ export async function loadActiveBalancesFromDb(ctx: DataHandlerContext<Store>, c
     const activeBalancesEntity = await ctx.store.findOne(ActiveBalances, {
         where: { id: `${contractAddress}-active-balances` },
     });
-    console.log(activeBalancesEntity)
     return activeBalancesEntity ? jsonToMap(activeBalancesEntity.activeBalancesMap as Record<string, ActiveBalance>) : undefined;
 }
 

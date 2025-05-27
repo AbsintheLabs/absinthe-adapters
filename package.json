@@ -10,7 +10,7 @@
   "scripts": {
     "build": "pnpm -r build",
     "clean:node": "pnpm -r exec -- rm -rf node_modules; rm -rf node_modules",
-    "clean": "find . -type d -name lib -exec rm -rf {} +; find . -type d -name dist -exec rm -rf {} +"
+    "clean": "find . -type d -name lib -exec rm -rf {} +"
   },
   "dependencies": {
     "@subsquid/evm-abi": "^0.3.0",

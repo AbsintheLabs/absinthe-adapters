@@ -2,9 +2,9 @@
     "name": "rate-limited-api",
     "version": "1.0.0",
     "description": "Express API with rate limiting by API key",
-    "main": "dist/index.js",
+    "main": "lib/index.js",
     "scripts": {
-        "start": "node dist/index.js",
+        "start": "node lib/index.js",
         "dev": "nodemon src/index.ts",
         "build": "tsc",
         "postinstall": "npm run build"
