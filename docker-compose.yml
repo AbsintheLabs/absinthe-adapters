@@ -1,12 +1,31 @@
-version: "3"
+version: '3.8'
 
 services:
-  db:
+  postgres:
     image: postgres:17
+    container_name: postgres
     environment:
-      POSTGRES_DB: squid
       POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: squid
     ports:
-      - "${DB_PORT}:5432"
-      # command: ["postgres", "-c", "log_statement=all"]
-    shm_size: 1gb
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - backend
+
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - backend
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local

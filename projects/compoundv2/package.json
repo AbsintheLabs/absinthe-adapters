@@ -6,7 +6,8 @@
     "types": "dist/index.d.ts",
     "scripts": {
         "build": "tsc -p .",
-        "start": "node --env-file=.env lib/main.js"
+        "start": "node --env-file=../../.env dist/main.js",
+        "dev": "pnpm --filter @absinthe/common build && pnpm build && node --env-file=../../.env dist/main.js"
     },
     "dependencies": {
         "@absinthe/common": "workspace:*"

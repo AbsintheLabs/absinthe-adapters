@@ -1,0 +1,51 @@
+FROM node:20-slim AS base
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
+
+# Copy workspace files needed for dependency resolution
+FROM base AS deps
+WORKDIR /app
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY tsconfig.base.json ./
+COPY packages/common/package.json ./packages/common/
+COPY packages/common/tsconfig.json ./packages/common/
+COPY projects/compoundv2/package.json ./projects/compoundv2/
+COPY projects/compoundv2/tsconfig.json ./projects/compoundv2/
+
+# Install all dependencies (including workspace deps)
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
+
+# Build stage - build common package and current project
+FROM base AS build
+WORKDIR /app
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY tsconfig.base.json ./
+COPY packages/ ./packages/
+COPY projects/compoundv2/ ./projects/compoundv2/
+
+# Copy node_modules from deps stage
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/packages/common/node_modules ./packages/common/node_modules
+COPY --from=deps /app/projects/compoundv2/node_modules ./projects/compoundv2/node_modules
+
+# Build the common package first, then compoundv2
+RUN pnpm --filter @absinthe/common build
+RUN pnpm --filter @absinthe/compoundv2 build
+
+# Production stage
+FROM base AS production
+WORKDIR /app
+
+# Copy only production dependencies
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/packages/common/node_modules ./packages/common/node_modules
+
+# Copy built artifacts
+COPY --from=build /app/packages/common/dist ./packages/common/dist
+COPY --from=build /app/packages/common/package.json ./packages/common/
+COPY --from=build /app/projects/compoundv2/dist ./projects/compoundv2/dist
+COPY --from=build /app/projects/compoundv2/package.json ./projects/compoundv2/
+
+WORKDIR /app/projects/compoundv2
+CMD ["node", "--env-file=.env", "dist/main.js"]

@@ -12,17 +12,19 @@ import * as univ2Abi from './abi/univ2'
 import { validateEnv } from '@absinthe/common';
 
 const env = validateEnv();
+const contractAddresses = env.protocols.filter(protocol => protocol.type === 'uniswap-v2').map(protocol => protocol.contractAddress);
+const earliestFromBlock = Math.min(...env.protocols.filter(protocol => protocol.type === 'uniswap-v2').map(protocol => protocol.fromBlock));
 
 export const processor = new EvmBatchProcessor()
-    .setGateway(process.env.GATEWAY_URL!)
-    .setRpcEndpoint(process.env.RPC_URL!)
+    .setGateway(env.gatewayUrl)
+    .setRpcEndpoint(env.rpcUrl)
     .setBlockRange({
-        from: Number(env.pools[0].fromBlock),
-        ...(process.env.TO_BLOCK ? { to: Number(process.env.TO_BLOCK) } : {})
+        from: earliestFromBlock,
+        ...(env.toBlock ? { to: Number(env.toBlock) } : {})
     })
     .setFinalityConfirmation(75)
     .addLog({
-        address: [env.pools[0].contractAddress],
+        address: contractAddresses,
         topic0: [univ2Abi.events.Transfer.topic, univ2Abi.events.Sync.topic, univ2Abi.events.Swap.topic],
     })
     .setFields({

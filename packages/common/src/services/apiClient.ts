@@ -1,6 +1,6 @@
 import Bottleneck from 'bottleneck';
-import { TimeWeightedBalance, Transaction } from '../interfaces';
-import { fetchWithRetry } from '../utils/fetchWithRetry';
+import { TimeWeightedBalance, Transaction } from '../types/interfaces';
+import { fetchWithRetry } from '../utils/helper/fetchWithRetry';
 
 // Helper function to convert BigInt values to strings for JSON serialization
 export const convertBigIntToString = (obj: any): any => {

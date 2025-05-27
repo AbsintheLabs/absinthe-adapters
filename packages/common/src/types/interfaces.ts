@@ -1,3 +1,5 @@
+import { ProtocolConfig } from "./protocols";
+
 type ChainType = 'evm'; // support for other chains will be added in the future
 type Currency = 'usd';
 
@@ -170,4 +172,22 @@ export interface UniswapV2SwapMetadata {
     token1: Erc20Token;
     token0Amount: bigint;
     token1Amount: bigint;
+}
+
+export interface ValidatedEnv {
+    dbName: string;
+    dbPort?: number;
+    dbUrl?: string;
+    gqlPort: number;
+    gatewayUrl: string;
+    chainId: number;
+    chainName: string;
+    chainShortName: string;
+    rpcUrl: string;
+    toBlock?: number;
+    balanceFlushIntervalHours: number;
+    protocols: ProtocolConfig[]; 
+    absintheApiUrl: string;
+    absintheApiKey: string;
+    coingeckoApiKey: string;
 }

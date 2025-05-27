@@ -54,7 +54,7 @@ function jsonToMap(json: Record<string, any>): Map<string, ActiveBalance> {
   return result;
 }
 
-const WINDOW_DURATION_MS = 3600 * 1000 * env.balanceFlushIntervalHours;
+const WINDOW_DURATION_MS = env.balanceFlushIntervalHours * 60 * 60 * 1000;
 
 // todo: move this into a separate function for readability sake
 async function loadActiveBalancesFromDb(ctx: DataHandlerContext<Store>, contractAddress: string): Promise<Map<string, ActiveBalance>> {
@@ -69,7 +69,7 @@ async function loadActiveBalancesFromDb(ctx: DataHandlerContext<Store>, contract
 // -------------------------------------------------------------------
 // processor.run() executes data processing with a handler called on each data batch.
 // Data is available via ctx.blocks; handler can also use external data sources.
-const uniquePoolCombinationName = env.pools.reduce((acc, pool) => acc + pool.contractAddress, '').concat(env.chainId.toString());
+const uniquePoolCombinationName = env.protocols.reduce((acc, protocol) => acc + protocol.contractAddress, '').concat(env.chainId.toString());
 const schemaName = 'univ2-' + createHash('md5').update(uniquePoolCombinationName).digest('hex').slice(0, 8);
 processor.run(new TypeormDatabase({ supportHotBlocks: false, stateSchema: schemaName }), async (ctx) => {
   // [INIT] start of batch state
@@ -84,8 +84,8 @@ processor.run(new TypeormDatabase({ supportHotBlocks: false, stateSchema: schema
   const simpleBalanceHistoryWindows = new Map<string, SimpleTimeWeightedBalance[]>();
   const simpleTransactions = new Map<string, SimpleTransaction[]>();
 
-  for (const pool of env.pools) {
-    const ca = pool.contractAddress;
+  for (const protocol of env.protocols) {
+    const ca = protocol.contractAddress;
     poolConfigs.set(ca, await loadPoolConfigFromDb(ctx, ca) || new PoolConfig({}));
     poolStates.set(ca, await loadPoolStateFromDb(ctx, ca) || new PoolState({}));
     poolProcessStates.set(ca, await loadPoolProcessStateFromDb(ctx, ca) || new PoolProcessState({}));
