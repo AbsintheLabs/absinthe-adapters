@@ -5,17 +5,20 @@ RUN apk add --no-cache caddy
 
 WORKDIR /app
 
-# Copy package files first for better caching
 COPY abs-app/package*.json ./
+COPY abs-app/tsconfig.json ./
 
-# Install dependencies
+# Copy source files BEFORE running npm install
+COPY abs-app/src ./src
+
+# Now install dependencies (this will trigger the build)
 RUN npm install
 
-# Copy source files
-COPY abs-app/ .
+# Copy any remaining files if needed
+COPY abs-app/ ./
 
-# Build TypeScript
-RUN npm run build
+# Build TypeScript - fix the build command
+RUN npm run build || (echo "Build failed, checking tsconfig..." && ls -la && cat tsconfig.json && exit 1)
 
 # Create log directory for Caddy
 RUN mkdir -p /var/log/caddy

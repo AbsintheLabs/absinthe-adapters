@@ -65,55 +65,63 @@ jobs:
         fi
         echo "name=$image_name" >> $GITHUB_OUTPUT
 
-    - name: Build and push Docker image
-      uses: docker/build-push-action@v5
+    - name: Build and push UniswapV2 image
+      uses: docker/build-push-action@v2
       with:
         context: .
-        file: ops/dockerfiles/${{ matrix.dockerfile }}
+        file: ops/dockerfiles/Dockerfile.uniswapv2
         push: true
-        tags: ghcr.io/absinthelabs/absinthe-uniswapv2:${{ steps.image-name.outputs.name }}
+        tags: ghcr.io/absinthelabs/absinthe-uniswapv2:latest
 
-    # - name: Notify Slack on Success
-    #   if: success()
-    #   uses: slackapi/slack-github-action@v1.27.0
-    #   with:
-    #     payload: |
-    #       {
-    #         "text": "✅ Build succeeded for ${{ github.repository }}",
-    #         "blocks": [
-    #           {
-    #             "type": "section",
-    #             "text": {
-    #               "type": "mrkdwn",
-    #               "text": "✅ Build *succeeded* for ${{ github.repository }}\n*Branch:* ${{ github.ref_name }}"
-    #             }
-    #           }
-    #         ]
-    #       }
-    #   env:
-    #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-    #     SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+    - name: Build and push abs-app image
+      uses: docker/build-push-action@v2
+      with:
+        context: .
+        file: ops/dockerfiles/Dockerfile.abs-app
+        push: true
+        tags: ghcr.io/absinthelabs/abs-app:latest
 
-    # - name: Notify Slack on Failure
-    #   if: failure()
-    #   uses: slackapi/slack-github-action@v1.27.0
-    #   with:
-    #     payload: |
-    #       {
-    #         "text": "❌ Build failed for ${{ github.repository }}",
-    #         "blocks": [
-    #           {
-    #             "type": "section",
-    #             "text": {
-    #               "type": "mrkdwn",
-    #               "text": "❌ Build *failed* for ${{ github.repository }}\n*Branch:* ${{ github.ref_name }}\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View build details>"
-    #             }
-    #           }
-    #         ]
-    #       }
-    #   env:
-    #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-    #     SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+    - name: Notify Slack on Success
+      if: success()
+      uses: slackapi/slack-github-action@v1.27.0
+      with:
+        payload: |
+          {
+            "text": "✅ Build succeeded for ${{ github.repository }}",
+            "blocks": [
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "✅ Build *succeeded* for ${{ github.repository }}\n*Branch:* ${{ github.ref_name }}"
+                }
+              }
+            ]
+          }
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+
+    - name: Notify Slack on Failure
+      if: failure()
+      uses: slackapi/slack-github-action@v1.27.0
+      with:
+        payload: |
+          {
+            "text": "❌ Build failed for ${{ github.repository }}",
+            "blocks": [
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "❌ Build *failed* for ${{ github.repository }}\n*Branch:* ${{ github.ref_name }}\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View build details>"
+                }
+              }
+            ]
+          }
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
 
 
     
