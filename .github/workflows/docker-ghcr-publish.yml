@@ -5,40 +5,12 @@ on:
     branches: [kushagra/improvements]
 
 jobs:
-  prepare:
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.dockerfiles.outputs.matrix }}
-      has-dockerfiles: ${{ steps.dockerfiles.outputs.has-dockerfiles }}
-    steps:
-    - name: Checkout source code
-      uses: actions/checkout@v4
-    
-    - name: Get Dockerfile list
-      id: dockerfiles
-      run: |
-        dockerfiles=$(find ops/dockerfiles -name "Dockerfile*" -type f | sed 's|ops/dockerfiles/||' | jq -R -s -c 'split("\n")[:-1]')
-        echo "matrix=$dockerfiles" >> $GITHUB_OUTPUT
-        
-        # Check if we have any dockerfiles
-        if [ "$(echo "$dockerfiles" | jq 'length')" -gt 0 ]; then
-          echo "has-dockerfiles=true" >> $GITHUB_OUTPUT
-        else
-          echo "has-dockerfiles=false" >> $GITHUB_OUTPUT
-        fi
-
   build-and-push:
-    needs: prepare
     runs-on: ubuntu-latest
-    if: ${{ needs.prepare.outputs.has-dockerfiles == 'true' }}
 
     permissions:
       contents: read
       packages: write
-
-    strategy:
-      matrix:
-        dockerfile: ${{ fromJson(needs.prepare.outputs.matrix) }}
 
     steps:
     - name: Checkout source code
@@ -54,32 +26,37 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GH_TOKEN }}
 
-    - name: Extract image name
-      id: image-name
+    - name: Build and push all Docker images
       run: |
-        dockerfile_path="${{ matrix.dockerfile }}"
-        if [[ "$dockerfile_path" == "Dockerfile" ]]; then
-          image_name="main"
-        else
-          image_name=$(echo "$dockerfile_path" | sed 's/Dockerfile[.-]*//' | tr '[:upper:]' '[:lower:]')
+        # Find all Dockerfiles
+        dockerfiles=$(find ops/dockerfiles -name "Dockerfile*" -type f)
+        
+        if [ -z "$dockerfiles" ]; then
+          echo "No Dockerfiles found in ops/dockerfiles"
+          exit 0
         fi
-        echo "name=$image_name" >> $GITHUB_OUTPUT
-
-    - name: Build and push UniswapV2 image
-      uses: docker/build-push-action@v2
-      with:
-        context: .
-        file: ops/dockerfiles/Dockerfile.uniswapv2
-        push: true
-        tags: ghcr.io/absinthelabs/absinthe-uniswapv2:latest
-
-    - name: Build and push abs-app image
-      uses: docker/build-push-action@v2
-      with:
-        context: .
-        file: ops/dockerfiles/Dockerfile.abs-app
-        push: true
-        tags: ghcr.io/absinthelabs/abs-app:latest
+        
+        # Build and push each image sequentially
+        for dockerfile_path in $dockerfiles; do
+          dockerfile=$(basename "$dockerfile_path")
+          echo "Building $dockerfile..."
+          
+          # Extract image name
+          if [[ "$dockerfile" == "Dockerfile" ]]; then
+            image_name="main"
+          else
+            image_name=$(echo "$dockerfile" | sed 's/Dockerfile[.-]*//' | tr '[:upper:]' '[:lower:]')
+          fi
+          
+          # Build and push
+          docker buildx build \
+            --context . \
+            --file "$dockerfile_path" \
+            --push \
+            --tag "ghcr.io/absinthelabs/absinthe-${image_name}:${image_name}"
+          
+          echo "✅ Successfully built and pushed $image_name"
+        done
 
     - name: Notify Slack on Success
       if: success()
