@@ -197,7 +197,7 @@ export interface ValidatedEnv {
     rpcUrl: string;
     toBlock?: number;
     balanceFlushIntervalHours: number;
-    protocols: ProtocolConfig[]; 
+    protocols: ProtocolConfig[];
     absintheApiUrl: string;
     absintheApiKey: string;
     coingeckoApiKey: string;
