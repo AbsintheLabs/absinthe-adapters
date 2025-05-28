@@ -17,7 +17,7 @@ jobs:
     - name: Get Dockerfile list
       id: dockerfiles
       run: |
-        dockerfiles=$(find ops/dockerFile -name "Dockerfile*" -type f | sed 's|ops/dockerFile/||' | jq -R -s -c 'split("\n")[:-1]')
+        dockerfiles=$(find ops/dockerfiles -name "Dockerfile*" -type f | sed 's|ops/dockerfiles/||' | jq -R -s -c 'split("\n")[:-1]')
         echo "matrix=$dockerfiles" >> $GITHUB_OUTPUT
         
         # Check if we have any dockerfiles
