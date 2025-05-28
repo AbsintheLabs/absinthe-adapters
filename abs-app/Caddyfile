@@ -9,22 +9,17 @@
 }
 
 # Redirect HTTP to HTTPS
-{$API_DOMAIN}:80 {
+adapters.absinthe.networks:80 {
     redir https://{host}{uri} permanent
 }
 
 # HTTPS server
-{$API_DOMAIN}:443 {
+adapters.absinthe.networks:443 {
     # Handle API requests
     handle_path /api/* {
         reverse_proxy localhost:3000 {
-            # Preserve the original host header
             header_up Host {http.request.host}
-            
-            # Preserve the original API key header
             header_up X-Api-Key {http.request.header.x-api-key}
-            
-            # Timeouts
             timeout 30s
         }
     }
@@ -41,7 +36,7 @@
 
     # Enable compression
     encode gzip
-    
+
     # Log requests
     log {
         output file /var/log/caddy/access.log

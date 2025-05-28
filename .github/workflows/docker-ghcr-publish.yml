@@ -9,6 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.dockerfiles.outputs.matrix }}
+      has-dockerfiles: ${{ steps.dockerfiles.outputs.has-dockerfiles }}
     steps:
     - name: Checkout source code
       uses: actions/checkout@v4
@@ -18,11 +19,18 @@ jobs:
       run: |
         dockerfiles=$(find ops/dockerFile -name "Dockerfile*" -type f | sed 's|ops/dockerFile/||' | jq -R -s -c 'split("\n")[:-1]')
         echo "matrix=$dockerfiles" >> $GITHUB_OUTPUT
+        
+        # Check if we have any dockerfiles
+        if [ "$(echo "$dockerfiles" | jq 'length')" -gt 0 ]; then
+          echo "has-dockerfiles=true" >> $GITHUB_OUTPUT
+        else
+          echo "has-dockerfiles=false" >> $GITHUB_OUTPUT
+        fi
 
   build-and-push:
     needs: prepare
     runs-on: ubuntu-latest
-    if: ${{ fromJson(needs.prepare.outputs.matrix)[0] != '' }}
+    if: ${{ needs.prepare.outputs.has-dockerfiles == 'true' }}
 
     permissions:
       contents: read
@@ -64,3 +72,48 @@ jobs:
         file: ops/dockerFile/${{ matrix.dockerfile }}
         push: true
         tags: ghcr.io/absinthelabs/absinthe-uniswapv2:${{ steps.image-name.outputs.name }}
+
+    - name: Notify Slack on Success
+      if: success()
+      uses: slackapi/slack-github-action@v1.27.0
+      with:
+        payload: |
+          {
+            "text": "✅ Build succeeded for ${{ github.repository }}",
+            "blocks": [
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "✅ Build *succeeded* for ${{ github.repository }}\n*Branch:* ${{ github.ref_name }}"
+                }
+              }
+            ]
+          }
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+
+    - name: Notify Slack on Failure
+      if: failure()
+      uses: slackapi/slack-github-action@v1.27.0
+      with:
+        payload: |
+          {
+            "text": "❌ Build failed for ${{ github.repository }}",
+            "blocks": [
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "❌ Build *failed* for ${{ github.repository }}\n*Branch:* ${{ github.ref_name }}\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View build details>"
+                }
+              }
+            ]
+          }
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+
+
+    
