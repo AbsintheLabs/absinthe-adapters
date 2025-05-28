@@ -50,10 +50,10 @@ jobs:
           
           # Build and push
           docker buildx build \
-            --context . \
             --file "$dockerfile_path" \
             --push \
-            --tag "ghcr.io/absinthelabs/absinthe-${image_name}:${image_name}"
+            --tag "ghcr.io/absinthelabs/absinthe-${image_name}:${image_name}" \
+            .
           
           echo "✅ Successfully built and pushed $image_name"
         done
