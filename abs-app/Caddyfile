@@ -4,12 +4,12 @@
 }
 
 # Redirect HTTP to HTTPS
-adapters.absinthe.networks:80 {
+adapters.absinthe.network:80 {
     redir https://{host}{uri} permanent
 }
 
 # HTTPS server
-adapters.absinthe.networks:443 {
+adapters.absinthe.network:443 {
     # Handle API requests
     handle_path /api/* {
         # Set request body size limit for this path
