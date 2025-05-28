@@ -6,6 +6,8 @@ import { configSchema } from '../types/schema';
 import { findConfigFile } from './helper/findConfigFile';
 
 const FILE_NAME = 'abs_config.json';
+const EXAMPLE_FILE_NAME = 'abs_config.example.json';
+
 
 export function validateEnv(): ValidatedEnv {
     try {
@@ -40,7 +42,18 @@ export function validateEnv(): ValidatedEnv {
         }
 
         // Find and load the config file
-        const configFilePath = findConfigFile(FILE_NAME);
+        let configFilePath: string;
+        try {
+            configFilePath = findConfigFile(FILE_NAME);
+        } catch (error) {
+            // If abs_config.json is not found, try abs_config.example.json
+            try {
+                configFilePath = findConfigFile(EXAMPLE_FILE_NAME);
+            } catch (exampleError) {
+                throw new Error(`Neither ${FILE_NAME} nor ${EXAMPLE_FILE_NAME} could be found`);
+            }
+        }
+        
         const configData = JSON.parse(fs.readFileSync(configFilePath, 'utf8'));
 
         // Validate the config file

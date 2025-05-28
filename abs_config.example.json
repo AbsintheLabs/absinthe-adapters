@@ -1,0 +1,27 @@
+{
+    "chainId": 1,
+    "gatewayUrl": "https://v2.archive.subsquid.io/network/ethereum-mainnet",
+    "balanceFlushIntervalHours": 24,
+    "toBlock": 12981079,
+    "protocols": [
+        {
+            "type": "uniswap-v2",
+            "name": "USDC/WETH Pool",
+            "contractAddress": "0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc",
+            "fromBlock": 10008355, 
+            "pricingStrategy": "coingecko",
+            "token0": {
+                "coingeckoId": "usd-coin",
+                "decimals": 6
+            },
+            "token1": {
+                "coingeckoId": "weth",
+                "decimals": 18
+            },
+            "preferredTokenCoingeckoId": "token0"
+        }
+    ]
+}
+
+
+

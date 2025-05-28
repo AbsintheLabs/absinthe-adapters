@@ -24,6 +24,9 @@ COPY tsconfig.base.json ./
 COPY packages/ ./packages/
 COPY projects/uniswapv2/ ./projects/uniswapv2/
 
+# Copy config files
+COPY abs_config.example.json ./
+
 # Copy node_modules from deps stage
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/packages/common/node_modules ./packages/common/node_modules
@@ -58,10 +61,15 @@ COPY --from=build /app/packages/common/package.json ./packages/common/
 COPY --from=build /app/projects/uniswapv2/lib ./projects/uniswapv2/lib
 COPY --from=build /app/projects/uniswapv2/package.json ./projects/uniswapv2/
 
+# Copy config files
+COPY --from=build /app/abs_config.example.json ./
+
 # Copy source files needed for migrations
 COPY --from=build /app/projects/uniswapv2/src ./projects/uniswapv2/src
 COPY --from=build /app/projects/uniswapv2/schema.graphql ./projects/uniswapv2/
 COPY --from=build /app/projects/uniswapv2/tsconfig.json ./projects/uniswapv2/
 
 WORKDIR /app/projects/uniswapv2
-CMD ["sh", "-c", "pnpm migration:generate && pnpm migration:apply && node --env-file=../../.env lib/main.js"] 
+
+# Use the original squid commands instead of node -e
+CMD ["sh", "-c", "(pnpm migration:generate || echo 'No migration changes found') && pnpm migration:apply && node lib/main.js"]
