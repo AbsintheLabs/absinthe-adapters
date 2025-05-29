@@ -3,6 +3,7 @@
 /lib
 /*Versions.json
 npm-debug.log
+.env.example
 
 # OS Files
 .DS_Store
@@ -10,4 +11,52 @@ npm-debug.log
 .git
 .gitignore
 *.md
-/dist
+
+# Logs
+logs/
+*.log
+
+# Node.js dependencies - comprehensive coverage
+node_modules/
+*/node_modules/
+**/node_modules/
+packages/*/node_modules/
+projects/*/node_modules/
+
+# Build outputs and generated files
+lib/
+*/lib/
+**/lib/
+packages/*/lib/
+projects/*/lib/
+
+# Generated TypeScript files from ABIs
+**/src/abi/generated/
+*/src/abi/generated/
+packages/common/src/abi/generated/
+projects/uniswapv2/src/abi/generated/
+projects/compoundv2/src/abi/generated/
+
+# Generated TypeScript models
+**/src/model/generated/
+*/src/model/generated/
+projects/uniswapv2/src/model/generated/
+projects/compoundv2/src/model/generated/
+
+# Other generated files
+**/generated/
+*/generated/
+generated/
+**/client/
+*/client/
+client/
+
+# TypeScript build info
+*.tsbuildinfo
+**/lib/tsconfig.tsbuildinfo
+
+# Additional build artifacts
+dist/
+*/dist/
+**/dist/
+builds/

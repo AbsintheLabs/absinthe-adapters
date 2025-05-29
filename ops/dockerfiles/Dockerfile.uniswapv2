@@ -24,8 +24,9 @@ COPY tsconfig.base.json ./
 COPY packages/ ./packages/
 COPY projects/uniswapv2/ ./projects/uniswapv2/
 
-# Copy config files
-COPY abs_config.example.json ./
+# Copy config files - prefer abs_config.json, fallback to abs_config.example.json
+COPY abs_config.jso[n] abs_config.example.json ./
+RUN if [ ! -f abs_config.json ]; then cp abs_config.example.json abs_config.json; fi
 
 # Copy node_modules from deps stage
 COPY --from=deps /app/node_modules ./node_modules
@@ -61,8 +62,8 @@ COPY --from=build /app/packages/common/package.json ./packages/common/
 COPY --from=build /app/projects/uniswapv2/lib ./projects/uniswapv2/lib
 COPY --from=build /app/projects/uniswapv2/package.json ./projects/uniswapv2/
 
-# Copy config files
-COPY --from=build /app/abs_config.example.json ./
+# Copy config files - use the processed config from build stage
+COPY --from=build /app/abs_config.json ./
 
 # Copy source files needed for migrations
 COPY --from=build /app/projects/uniswapv2/src ./projects/uniswapv2/src

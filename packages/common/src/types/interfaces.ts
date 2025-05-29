@@ -1,8 +1,5 @@
 import { ProtocolConfig } from "./protocols";
 
-type ChainType = 'evm'; // support for other chains will be added in the future
-
-
 export enum Currency {
     USD = 'usd',
     ETH = 'eth',
@@ -14,11 +11,50 @@ export enum Currency {
     WBTC = 'wbtc',
 }
 
+export enum ChainId {
+    MAINNET = 1,
+    POLYGON = 137,
+    ARBITRUM = 42161,
+    BASE = 8453,
+    OPTIMISM = 10,
+}
+
+export enum ChainName {
+    MAINNET = 'mainnet',
+    POLYGON = 'polygon',
+    ARBITRUM = 'arbitrum',
+    BASE = 'base',
+    OPTIMISM = 'optimism',
+}
+
+export enum PriceFeed {
+    COINGECKO = 'coingecko',
+    CODEX = 'codex',
+}
+
+export enum Dex {
+    UNISWAP_V2 = 'uniswap-v2',  
+    UNISWAP_V3 = 'uniswap-v3',
+    CURVE = 'curve',
+    BALANCER = 'balancer',
+    PANCAKESWAP = 'pancakeswap',
+    JUPITER = 'jupiter',
+    JUPITER_TESTNET = 'jupiter-testnet',
+    SUSHISWAP = 'sushiswap',
+    TRISWAP = 'triswap',
+    QUICKSWAP = 'quickswap',
+    PANGOLIN = 'pangolin',
+}
+
+export enum ChainType {
+    EVM = 'evm',
+}
+
 // NOTE: for the time being until we figure out a better more static version for chain information
 interface Chain {
     networkId: number;
     name: string;
-    chainType: ChainType;
+    chainType: ChainType.EVM;
 }
 
 interface Price {
@@ -189,7 +225,6 @@ export interface ValidatedEnv {
     dbName: string;
     dbPort?: number;
     dbUrl?: string;
-    gqlPort: number;
     gatewayUrl: string;
     chainId: number;
     chainName: string;

@@ -1,9 +1,9 @@
 // imports
 import { Store, TypeormDatabase } from '@subsquid/typeorm-store'
-import { AbsintheApiClient, validateEnv } from '@absinthe/common';
+import { AbsintheApiClient, validateEnv, Dex } from '@absinthe/common';
 import { processor } from './processor';
 import * as univ2Abi from './abi/univ2';
-import {
+import {  
   ActiveBalance,
   SimpleTimeWeightedBalance,
   SimpleTransaction,
@@ -36,7 +36,7 @@ const WINDOW_DURATION_MS = env.balanceFlushIntervalHours * 60 * 60 * 1000;
 // processor.run() executes data processing with a handler called on each data batch.
 // Data is available via ctx.blocks; handler can also use external data sources.
 const uniquePoolCombinationName = (env.protocols as UniswapV2Config[])
-  .filter(protocol => protocol.type === "uniswap-v2")
+  .filter(protocol => protocol.type === Dex.UNISWAP_V2)
   .reduce((acc, protocol) => acc + protocol.contractAddress, '')
   .concat(env.chainId.toString());
 

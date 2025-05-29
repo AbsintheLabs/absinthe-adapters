@@ -23,3 +23,6 @@ testdeploy/
 **/src/abi/generated/
 **/lib
 **/dist
+
+absinthe.log
+logs/
