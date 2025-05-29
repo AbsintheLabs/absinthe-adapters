@@ -2,7 +2,7 @@
     "chainId": 1,
     "gatewayUrl": "https://v2.archive.subsquid.io/network/ethereum-mainnet",
     "balanceFlushIntervalHours": 24,
-    "toBlock": 14981079,
+    "toBlock": 15981079,
     "protocols": [
         {
             "type": "uniswap-v2",

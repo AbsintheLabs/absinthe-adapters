@@ -20,9 +20,8 @@ chains.txt
 testdeploy/
 **/abs_config.json
 
-**/src/abi/generated/
-**/lib
-**/dist
+**/src/model/generated
+**/src/abi/
 
 absinthe.log
 logs/
