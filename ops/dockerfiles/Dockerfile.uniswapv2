@@ -72,5 +72,5 @@ COPY --from=build /app/projects/uniswapv2/tsconfig.json ./projects/uniswapv2/
 
 WORKDIR /app/projects/uniswapv2
 
-# Use the original squid commands instead of node -e
-CMD ["sh", "-c", "(pnpm migration:generate || echo 'No migration changes found') && pnpm migration:apply && node lib/main.js"]
+# Use exec form and proper exit handling
+CMD ["sh", "-c", "set -e; (pnpm migration:generate || echo 'No migration changes found'); pnpm migration:apply; exec node lib/main.js"]

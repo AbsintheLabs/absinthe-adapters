@@ -44,7 +44,7 @@ The indexer requires the following environment variables:
 RPC_URL=<blockchain_rpc_endpoint>
 
 # API credentials
-ABSINTHE_API_URL=https://adapter.absinthe.network
+ABSINTHE_API_URL=https://adapters.absinthe.network
 ABSINTHE_API_KEY=<absinthe_api_key>
 COINGECKO_API_KEY=<coingecko_api_key>
 
@@ -111,7 +111,7 @@ RPC_URL=https://base-mainnet.g.alchemy.com/v2/YOUR-API-KEY
 
 **Default URL**:
 ```
-ABSINTHE_API_URL=https://adapter.absinthe.network
+ABSINTHE_API_URL=https://adapters.absinthe.network
 ```
 
 ---
@@ -206,7 +206,7 @@ cp .env.example .env
 
 Edit the `.env` file with your specific values. See the [Environment Configuration](#environment-configuration) section above for detailed instructions on obtaining each required variable.
 
-### Step 2: Protocol Configuration Setup
+### Step 2: Protocol Configuration Setup 
 
 The indexer uses a JSON configuration file to define which protocols and pools to track.
 

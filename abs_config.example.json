@@ -1,27 +1,24 @@
 {
     "chainId": 1,
     "gatewayUrl": "https://v2.archive.subsquid.io/network/ethereum-mainnet",
-    "balanceFlushIntervalHours": 24,
-    "toBlock": 15981079,
+    "toBlock": 17070370,
+    "balanceFlushIntervalHours": 6,
     "protocols": [
         {
             "type": "uniswap-v2",
-            "name": "USDC/WETH Pool",
-            "contractAddress": "0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc",
-            "fromBlock": 10008355, 
+            "name": "PEPE/WETH Pool",
+            "contractAddress": "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f",
+            "fromBlock": 17046833,
             "pricingStrategy": "coingecko",
             "token0": {
-                "coingeckoId": "usd-coin",
-                "decimals": 6
+                "coingeckoId": "pepe",
+                "decimals": 18
             },
             "token1": {
                 "coingeckoId": "weth",
                 "decimals": 18
             },
-            "preferredTokenCoingeckoId": "token0"
+            "preferredTokenCoingeckoId": "token1"
         }
     ]
 }
-
-
-

@@ -1,9 +1,8 @@
-// imports
 import { Store, TypeormDatabase } from '@subsquid/typeorm-store'
 import { AbsintheApiClient, validateEnv, Dex } from '@absinthe/common';
 import { processor } from './processor';
 import * as univ2Abi from './abi/univ2';
-import {  
+import {
   ActiveBalance,
   SimpleTimeWeightedBalance,
   SimpleTransaction,
@@ -41,7 +40,7 @@ const uniquePoolCombinationName = (env.protocols as UniswapV2Config[])
   .concat(env.chainId.toString());
 
 const schemaName = 'univ2-' + createHash('md5').update(uniquePoolCombinationName).digest('hex').slice(0, 8);
-processor.run(new TypeormDatabase({ supportHotBlocks: false, stateSchema: schemaName}), async (ctx) => {
+processor.run(new TypeormDatabase({ supportHotBlocks: false, stateSchema: schemaName }), async (ctx) => {
   // [INIT] start of batch state
   // load poolState and poolConfig from db
 
@@ -102,7 +101,7 @@ processor.run(new TypeormDatabase({ supportHotBlocks: false, stateSchema: schema
           const pricedSwapVolume = protocol.preferredTokenCoingeckoId === 'token0' ?
             await computePricedSwapVolume(token0Amount, poolCfg.token0.coingeckoId as string, poolCfg.token0.decimals, block.header.timestamp)
             : await computePricedSwapVolume(token1Amount, poolCfg.token1.coingeckoId as string, poolCfg.token1.decimals, block.header.timestamp);
-          const userAddress = log.transaction?.from.toLowerCase();
+          const userAddress = log.topics[1].replace('000000000000000000000000', '0x');
           simpleTransactions.get(contractAddress)!.push({
             user: userAddress!,
             amount: pricedSwapVolume,
@@ -197,6 +196,7 @@ processor.run(new TypeormDatabase({ supportHotBlocks: false, stateSchema: schema
     const balances = toTimeWeightedBalance(sbhw, env, poolCfg)
       .filter((e) => e.timeWindow.startTs !== e.timeWindow.endTs);
     const transactions = toTransaction(st, env, poolCfg);
+    console.log(transactions, "transactions", balances, "balances")
     await apiClient.send(balances);
     await apiClient.send(transactions);
 
@@ -209,7 +209,7 @@ processor.run(new TypeormDatabase({ supportHotBlocks: false, stateSchema: schema
     await ctx.store.upsert(poolState);
     await ctx.store.upsert(poolProcessState!); //warn; why is it throwing errors? where could it have been undefined?
     await ctx.store.upsert(new ActiveBalances({
-      id: `${env.protocols[0].contractAddress}-active-balances`,
+      id: `${protocol.contractAddress}-active-balances`,
       activeBalancesMap: mapToJson(abm)
     }));
   }
