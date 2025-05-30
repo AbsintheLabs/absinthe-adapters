@@ -1,13 +1,12 @@
 import { z } from 'zod';
 import { CHAINS } from './chains';
 import fs from 'fs';
-import { ValidatedEnv } from '../types/interfaces';
+import { ValidatedEnv } from '../types/interfaces/interfaces';
 import { configSchema } from '../types/schema';
 import { findConfigFile } from './helper/findConfigFile';
-
-const FILE_NAME = 'abs_config.json';
-const EXAMPLE_FILE_NAME = 'abs_config.example.json';
-
+import { EXAMPLE_FILE_NAME } from './consts';
+import { FILE_NAME } from './consts';
+import { ProtocolConfig } from '../types/interfaces/protocols';
 
 export function validateEnv(): ValidatedEnv {
     try {
@@ -20,7 +19,6 @@ export function validateEnv(): ValidatedEnv {
             ABSINTHE_API_URL: z.string().url('ABSINTHE_API_URL must be a valid URL'),
             ABSINTHE_API_KEY: z.string().min(1, 'ABSINTHE_API_KEY is required'),
             COINGECKO_API_KEY: z.string().min(1, 'COINGECKO_API_KEY is required'),
-            LOG_FILE_PATH: z.string().min(1, "LOG_FILE_PATH is required"),
         }).refine(
             data => data.DB_PORT !== undefined || data.DB_URL !== undefined,
             {
@@ -85,11 +83,10 @@ export function validateEnv(): ValidatedEnv {
             rpcUrl: envResult.data.RPC_URL,
             toBlock: configResult.data.toBlock,
             balanceFlushIntervalHours: configResult.data.balanceFlushIntervalHours,
-            protocols: configResult.data.protocols,
+            protocols: configResult.data.protocols as ProtocolConfig[],
             absintheApiUrl: envResult.data.ABSINTHE_API_URL,
             absintheApiKey: envResult.data.ABSINTHE_API_KEY,
             coingeckoApiKey: envResult.data.COINGECKO_API_KEY,
-            logFilePath: envResult.data.LOG_FILE_PATH,
         };
 
         return validatedEnv;

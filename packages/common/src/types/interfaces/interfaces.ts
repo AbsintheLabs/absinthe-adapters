@@ -1,54 +1,5 @@
 import { ProtocolConfig } from "./protocols";
-
-export enum Currency {
-    USD = 'usd',
-    ETH = 'eth',
-    BTC = 'btc',
-    USDC = 'usdc',
-    USDT = 'usdt',
-    DAI = 'dai',
-    WETH = 'weth',
-    WBTC = 'wbtc',
-}
-
-export enum ChainId {
-    MAINNET = 1,
-    POLYGON = 137,
-    ARBITRUM = 42161,
-    BASE = 8453,
-    OPTIMISM = 10,
-}
-
-export enum ChainName {
-    MAINNET = 'mainnet',
-    POLYGON = 'polygon',
-    ARBITRUM = 'arbitrum',
-    BASE = 'base',
-    OPTIMISM = 'optimism',
-}
-
-export enum PriceFeed {
-    COINGECKO = 'coingecko',
-    CODEX = 'codex',
-}
-
-export enum Dex {
-    UNISWAP_V2 = 'uniswap-v2',  
-    UNISWAP_V3 = 'uniswap-v3',
-    CURVE = 'curve',
-    BALANCER = 'balancer',
-    PANCAKESWAP = 'pancakeswap',
-    JUPITER = 'jupiter',
-    JUPITER_TESTNET = 'jupiter-testnet',
-    SUSHISWAP = 'sushiswap',
-    TRISWAP = 'triswap',
-    QUICKSWAP = 'quickswap',
-    PANGOLIN = 'pangolin',
-}
-
-export enum ChainType {
-    EVM = 'evm',
-}
+import { ChainType, Currency, EventType, PriceFeed } from "../enums";
 
 // NOTE: for the time being until we figure out a better more static version for chain information
 interface Chain {
@@ -76,7 +27,7 @@ interface Erc20Token {
  - Describes a unique data source (a protocol pool on a chain), 
    including adapter versioning and optional runtime metadata.
 */
-export interface DataSource<M = unknown> {
+interface DataSource<M = unknown> {
     /**
      - Deterministic key for deduplication.
      - e.g. SHA-256(networkId:protocolName:poolAddress:adapterVersion)
@@ -110,7 +61,7 @@ interface BaseTimeWindow {
 }
 
 interface TransferTimeWindow extends BaseTimeWindow {
-    trigger: 'transfer';
+    trigger: EventType.TRANSFER;
     startBlocknumber: bigint;
     endBlocknumber: bigint;
     txHash: string; // todo: make it clear that it's the end boundary tx hash?
@@ -120,16 +71,16 @@ interface ExhaustedTimeWindow extends BaseTimeWindow {
     trigger: 'exhausted';
 }
 
-export type TimeWindow = TransferTimeWindow | ExhaustedTimeWindow;
+type TimeWindow = TransferTimeWindow | ExhaustedTimeWindow;
 
-export interface Provenance {
+interface Provenance {
     runnerId: string;             // e.g. machine fingerprint
     adapterVersion: string;       // git SHA or semver
     indexedAt: number;            // unix epoch
     sourceCodeHash?: string;      // optional docker / nix hash
 }
 
-export type ActiveBalance = {
+type ActiveBalance = {
     balance: bigint,
     updated_at_block_ts: number,
     updated_at_block_height: number
@@ -168,7 +119,7 @@ export type ActiveBalance = {
 // a timeweightedbalance just needs a: value to operate on
 
 // 1) who 2) for how long 3) how much
-export interface TimeWeightedBalance<M = unknown, N = unknown> {
+interface TimeWeightedBalance<M = unknown, N = unknown> {
     version: 1;
     dataType: 'time_weighted_balance';
     user: string;
@@ -182,7 +133,7 @@ export interface TimeWeightedBalance<M = unknown, N = unknown> {
 }
 
 // in a swap, we also care only about the value
-export interface Transaction<M = unknown, N = unknown> {
+interface Transaction<M = unknown, N = unknown> {
     version: 1;
     dataType: 'transaction';
     user: string;
@@ -198,22 +149,34 @@ export interface Transaction<M = unknown, N = unknown> {
 }
 
 // Usd Amount Metadata
-export type UsdAmountType = {
-    amountType: 'usd';
-    priceFeed: 'coingecko' | 'codex';
+type UsdAmountType = {
+    amountType: Currency.USD;
+    priceFeed: PriceFeed;
 }
 
-export type SimpleTimeWeightedBalance = Pick<TimeWeightedBalance<Partial<UniswapV2TWBMetadata>, UsdAmountType>, 'user' | 'amount' | 'timeWindow' | 'protocolMetadata'>;
-export type SimpleTransaction = Pick<Transaction<Partial<UniswapV2SwapMetadata>, UsdAmountType>, 'user' | 'amount' | 'timestampMs' | 'blockNumber' | 'txHash' | 'logIndex' | 'protocolMetadata'>;
+type SimpleTimeWeightedBalance = Pick<TimeWeightedBalance<Partial<UniswapV2TWBMetadata>, UsdAmountType>, 'user' | 'amount' | 'timeWindow' | 'protocolMetadata'>;
+type SimpleTransaction = Pick<Transaction<Partial<UniswapV2SwapMetadata>, UsdAmountType>, 'user' | 'amount' | 'timestampMs' | 'blockNumber' | 'txHash' | 'logIndex' | 'protocolMetadata'>;
 
+interface ValueChangeArgs {
+    assetAddress: string      
+    from: string             
+    to: string               
+    amount: bigint            
+    usdValue: number          
+    blockTimestamp: number      
+    txHash: string
+    blockHeight: number
+    windowDurationMs: number
+    activeBalances: Map<string, ActiveBalance>
+}
 
 // Uniswap Protocol Metadata
-export interface UniswapV2TWBMetadata {
+interface UniswapV2TWBMetadata {
     poolAddress: string;
     lpTokenAmount: bigint;
 }
 
-export interface UniswapV2SwapMetadata {
+interface UniswapV2SwapMetadata {
     poolAddress: string;
     token0: Erc20Token;
     token1: Erc20Token;
@@ -221,7 +184,7 @@ export interface UniswapV2SwapMetadata {
     token1Amount: bigint;
 }
 
-export interface ValidatedEnv {
+interface ValidatedEnv {
     dbName: string;
     dbPort?: number;
     dbUrl?: string;
@@ -236,5 +199,21 @@ export interface ValidatedEnv {
     absintheApiUrl: string;
     absintheApiKey: string;
     coingeckoApiKey: string;
-    logFilePath: string;
+}
+
+export {
+    Chain,
+    Price,
+    Erc20Token,
+    DataSource,
+    TimeWeightedBalance,
+    Transaction,
+    UsdAmountType,
+    SimpleTimeWeightedBalance,
+    SimpleTransaction,
+    ValidatedEnv,
+    ActiveBalance,
+    UniswapV2TWBMetadata,
+    UniswapV2SwapMetadata,
+    ValueChangeArgs
 }

@@ -1,4 +1,4 @@
-import { ChainId, ChainType, Currency, PriceFeed, SimpleTimeWeightedBalance, SimpleTransaction, TimeWeightedBalance, TimeWindow, Transaction, UniswapV2SwapMetadata, UniswapV2TWBMetadata } from "@absinthe/common";
+import { ChainId, ChainType, Currency, PriceFeed, SimpleTimeWeightedBalance, SimpleTransaction, TimeWeightedBalance, Transaction, UniswapV2SwapMetadata, UniswapV2TWBMetadata } from "@absinthe/common";
 import { PoolConfig } from "../model";
 import { ValidatedEnv } from "@absinthe/common";
 

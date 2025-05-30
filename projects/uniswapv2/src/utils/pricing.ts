@@ -1,7 +1,6 @@
 import Big from 'big.js';
 import { PoolConfig, PoolState } from '../model';
 import { validateEnv } from '@absinthe/common';
-import { fetchWithRetry } from '@absinthe/common';
 import { DataHandlerContext, BlockData } from '@subsquid/evm-processor';
 import { Store } from '@subsquid/typeorm-store';
 import { updatePoolStateFromOnChain } from './pool';
@@ -9,6 +8,7 @@ import { Currency } from '@absinthe/common';
 
 const env = validateEnv();
 
+// TODO: move this to a class Function
 export async function fetchHistoricalUsd(id: string, tsMs: number): Promise<number> {
     // round to day, call Coingecko once per day → cheaper
     const d = new Date(tsMs);
@@ -20,7 +20,6 @@ export async function fetchHistoricalUsd(id: string, tsMs: number): Promise<numb
         headers: { accept: 'application/json', 'x-cg-pro-api-key': env.coingeckoApiKey }
     });
     const j = await res.json();
-    console.log(j, "j", url)
     if (!j.market_data?.current_price?.[Currency.USD]) {
         // warn: this is not a fatal error, but it should be investigated since position value will be inaccurate
         // throw new Error(`No market data found for ${id} on ${date}`);
@@ -60,12 +59,10 @@ export async function computePricedSwapVolume(
 ): Promise<number> {
     if (isMocked) return 0;
     const price = await getHourlyPrice(coingeckoId, atMs);
-    return new Big(tokenAmount.toString())
-        .div(new Big(10).pow(decimals))
-        .mul(price)
-        .toNumber();
+    return pricePosition(price, tokenAmount, decimals);
 }
 
+// Value of a token in USD
 export function pricePosition(price: number, amount: bigint, decimals: number): number {
     return new Big(amount.toString())
         .div(new Big(10).pow(decimals))
@@ -73,6 +70,7 @@ export function pricePosition(price: number, amount: bigint, decimals: number): 
         .toNumber();
 }
 
+// Value of 1 LP token in USD
 export async function computeLpTokenPrice(
     ctx: DataHandlerContext<Store>,
     block: BlockData,
@@ -120,23 +118,15 @@ export async function computeLpTokenPrice(
         getHourlyPrice(poolConfig.token1.coingeckoId, timestamp)
     ]);
 
-    // If either token price is 0, we can't calculate a meaningful LP token price
     if (token0Price === 0 || token1Price === 0) {
         console.warn(`One or both token prices are 0 for pool ${poolConfig.id}, returning price 0`);
         return 0;
     }
 
-    const token0Value = new Big(poolState.reserve0.toString())
-        .div(new Big(10).pow(poolConfig.token0.decimals))
-        .mul(token0Price);
+    const token0Value = pricePosition(token0Price, poolState.reserve0, poolConfig.token0.decimals);
+    const token1Value = pricePosition(token1Price, poolState.reserve1, poolConfig.token1.decimals);
 
-    // Calculate token1 value in USD
-    const token1Value = new Big(poolState.reserve1.toString())
-        .div(new Big(10).pow(poolConfig.token1.decimals))
-        .mul(token1Price);
-
-    // Total value in the pool
-    const totalPoolValue = token0Value.add(token1Value);
+    const totalPoolValue = token0Value + token1Value;
 
     // Calculate price per LP token
     const totalSupplyBig = new Big(poolState.totalSupply.toString())
@@ -148,7 +138,7 @@ export async function computeLpTokenPrice(
         return 0;
     }
 
-    const price = totalPoolValue.div(totalSupplyBig).toNumber();
+    const price = (new Big(totalPoolValue)).div(totalSupplyBig).toNumber();
 
     return price;
 }
