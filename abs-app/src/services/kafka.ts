@@ -1,5 +1,6 @@
 import { Kafka, Producer } from 'kafkajs';
 import { handleBigIntSerialization } from '../utils/bigint';
+import { config } from '../config';
 
 /**
  * Kafka service for handling message production
@@ -10,13 +11,13 @@ export class KafkaService {
     private isConnected: boolean = false;
 
     constructor() {
-        if (!process.env.KAFKA_CLIENT_ID || !process.env.KAFKA_BROKERS) {
-            throw new Error('KAFKA_CLIENT_ID and KAFKA_BROKERS must be set in your .env');
+        if (!config.kafka.brokers) {
+            throw new Error('KAFKA_BROKERS must be set in your .env');
         }
 
         this.kafka = new Kafka({
-            clientId: process.env.KAFKA_CLIENT_ID!,
-            brokers: process.env.KAFKA_BROKERS!.split(','),
+            clientId: config.kafka.clientId,
+            brokers: config.kafka.brokers.split(','),
             // Optional: Add retry and timeout configurations
             retry: {
                 initialRetryTime: 100,
@@ -25,10 +26,8 @@ export class KafkaService {
         });
 
         this.producer = this.kafka.producer({
-            // Optional: Configure producer settings
-            maxInFlightRequests: 1,
-            idempotent: true,
-            transactionTimeout: 30000
+            maxInFlightRequests: 5,    // Default - allows pipelining for better throughput
+            idempotent: true,          // Prevents duplicates with minimal perf impact
         });
     }
 

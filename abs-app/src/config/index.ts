@@ -8,7 +8,7 @@ export const config = {
     port: process.env.PORT || 3000,
     logFilePath: process.env.LOG_FILE_PATH || path.join(__dirname, '../../logs/requests.log'),
     kafka: {
-        topic: process.env.KAFKA_TOPIC || 'api-logs',
+        topic: process.env.KAFKA_TOPIC || 'andrew-mbp-test-topic',
         clientId: process.env.KAFKA_CLIENT_ID || 'rate-limited-api',
         brokers: process.env.KAFKA_BROKERS || 'localhost:9092'
     }
