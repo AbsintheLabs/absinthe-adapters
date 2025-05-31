@@ -8,12 +8,6 @@ import { config } from '../config';
  */
 export const logRequestHandler = async (req: Request, res: Response): Promise<void> => {
     try {
-        // Log to console
-        logToConsole('Request body', req.body);
-
-        // Log to file
-        logToFile(req.body);
-
         // Send to Kafka topic
         await kafkaService.sendMessage(
             config.kafka.topic,

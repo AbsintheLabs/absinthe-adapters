@@ -10,10 +10,8 @@ import { logRequestHandler, healthCheckHandler } from './routes/api';
 export const createApp = (): express.Application => {
     const app = express();
 
-    // Ensure log directory exists
-    ensureLogDirectory();
-
     // Middleware for parsing JSON with BigInt support
+    // todo: remove the reviver since we will have all string typing (without bigint support later)
     app.use(express.json({
         reviver: bigIntReviver
     }));

@@ -1,4 +1,4 @@
-import { Kafka, Producer } from 'kafkajs';
+import { Kafka, Producer, CompressionTypes } from 'kafkajs';
 import { handleBigIntSerialization } from '../utils/bigint';
 import { config } from '../config';
 
@@ -62,10 +62,12 @@ export class KafkaService {
             await this.connect();
 
             // Process data to handle BigInt serialization
+            // warn: we probably don't need this since we assume we won't have bigints later (all will be strings)
             const processedData = handleBigIntSerialization(data);
 
             // Create message
             const message = {
+                // todo: later figure out if we need a separate key (for partitioning) and how this would work.
                 key: key || null,
                 value: JSON.stringify({
                     timestamp: new Date().toISOString(),
@@ -77,7 +79,8 @@ export class KafkaService {
             // Send message
             await this.producer.send({
                 topic,
-                messages: [message]
+                messages: [message],
+                compression: CompressionTypes.ZSTD,
             });
 
             console.log(`Message sent to topic '${topic}':`, processedData);
@@ -87,6 +90,7 @@ export class KafkaService {
         }
     }
 
+    // fixme: I don't like that we have separate implementations for single and multiple messages.
     /**
      * Send multiple messages to a Kafka topic
      */
