@@ -1,0 +1,11 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://adapters.absinthe.network/schemas/timeWeightedBalance.schema.json",
+    "title": "Time Weighted Balance",
+    "description": "Metric reflecting both event value and duration. Calculated as value * duration to provide an exposure measure on the holding period.",
+    "properties": {
+        "version": {
+            "type": "string"
+        }
+    }
+}
