@@ -62,12 +62,14 @@ describe('ValidationService', () => {
             };
             delete invalidTransaction.eventId;
 
-            console.log('🔍 Testing missing eventId - Input:', JSON.stringify(invalidTransaction, null, 2));
             const result = validationService.validateRequest(invalidTransaction);
-            console.log('🔍 Missing eventId result:', JSON.stringify(result, null, 2));
 
             expect(result.isValid).toBe(false);
-            expect(result.errors).toContain(expect.stringContaining('eventId'));
+            expect(result.errors).toEqual(
+                expect.arrayContaining([
+                    expect.stringMatching("eventId")
+                ])
+            );
         });
 
         test('should reject transaction with invalid userId format', () => {
@@ -81,7 +83,11 @@ describe('ValidationService', () => {
             console.log('🔍 Invalid userId result:', JSON.stringify(result, null, 2));
 
             expect(result.isValid).toBe(false);
-            expect(result.errors).toContain(expect.stringContaining('userId'));
+            expect(result.errors).toEqual(
+                expect.arrayContaining([
+                    expect.stringMatching("userId")
+                ])
+            );
         });
 
         test('should reject transaction with invalid txHash format', () => {
@@ -95,7 +101,11 @@ describe('ValidationService', () => {
             console.log('🔍 Invalid txHash result:', JSON.stringify(result, null, 2));
 
             expect(result.isValid).toBe(false);
-            expect(result.errors).toContain(expect.stringContaining('txHash'));
+            expect(result.errors).toEqual(
+                expect.arrayContaining([
+                    expect.stringMatching("txHash")
+                ])
+            );
         });
 
         test('should reject transaction with negative values', () => {
@@ -163,9 +173,21 @@ describe('ValidationService', () => {
 
             const result = validationService.validateRequest(invalidTWB);
             expect(result.isValid).toBe(false);
-            expect(result.errors).toContain(expect.stringContaining('startBlockNumber'));
-            expect(result.errors).toContain(expect.stringContaining('endBlockNumber'));
-            expect(result.errors).toContain(expect.stringContaining('txHash'));
+            expect(result.errors).toEqual(
+                expect.arrayContaining([
+                    expect.stringMatching("startBlockNumber")
+                ])
+            );
+            expect(result.errors).toEqual(
+                expect.arrayContaining([
+                    expect.stringMatching("endBlockNumber")
+                ])
+            );
+            expect(result.errors).toEqual(
+                expect.arrayContaining([
+                    expect.stringMatching("txHash")
+                ])
+            );
         });
 
         test('should reject timeWeightedBalance with invalid timeWindowTrigger', () => {
@@ -176,7 +198,11 @@ describe('ValidationService', () => {
 
             const result = validationService.validateRequest(invalidTWB);
             expect(result.isValid).toBe(false);
-            expect(result.errors).toContain(expect.stringContaining('timeWindowTrigger'));
+            expect(result.errors).toEqual(
+                expect.arrayContaining([
+                    expect.stringMatching("timeWindowTrigger")
+                ])
+            );
         });
 
         test('should reject timeWeightedBalance with negative balance values', () => {
@@ -224,7 +250,11 @@ describe('ValidationService', () => {
                 eventType: "unsupported_type"
             });
             expect(result.isValid).toBe(false);
-            expect(result.errors).toContain(expect.stringContaining('Unsupported eventType'));
+            expect(result.errors).toEqual(
+                expect.arrayContaining([
+                    expect.stringMatching("Unsupported eventType")
+                ])
+            );
         });
 
         test('should return supported event types', () => {
