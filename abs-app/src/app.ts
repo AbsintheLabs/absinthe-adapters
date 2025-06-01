@@ -2,7 +2,7 @@ import express from 'express';
 import { bigIntReviver } from './utils/bigint';
 import { ensureLogDirectory } from './utils/logger';
 import { apiKeyMiddleware } from './middleware/apiKey';
-import { logRequestHandler, healthCheckHandler } from './routes/api';
+import { logRequestHandler, healthCheckHandler, validateRequestHandler } from './routes/api';
 
 /**
  * Create and configure Express application
@@ -18,6 +18,7 @@ export const createApp = (): express.Application => {
 
     // Routes
     app.post('/api/log', apiKeyMiddleware, logRequestHandler);
+    app.post('/api/validate', validateRequestHandler); // No API key required for validation
     app.get('/health', healthCheckHandler);
 
     return app;

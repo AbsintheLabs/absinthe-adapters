@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { logToFile, logToConsole } from '../utils/logger';
 import { kafkaService } from '../services/kafka';
+import { validationService } from '../services/validation';
 import { config } from '../config';
 
 /**
@@ -8,6 +9,20 @@ import { config } from '../config';
  */
 export const logRequestHandler = async (req: Request, res: Response): Promise<void> => {
     try {
+        // Validate the request body against the schema
+        const validationResult = validationService.validateRequest(req.body);
+
+        if (!validationResult.isValid) {
+            res.status(400).json({
+                success: false,
+                message: 'Request validation failed',
+                errors: validationResult.errors
+            });
+            return;
+        }
+
+        console.log(`✅ Valid ${validationResult.eventType} event received`);
+
         // Send to Kafka topic
         await kafkaService.sendMessage(
             config.kafka.topic,
@@ -17,16 +32,16 @@ export const logRequestHandler = async (req: Request, res: Response): Promise<vo
 
         res.status(200).json({
             success: true,
-            message: 'Request logged and sent to Kafka successfully'
+            message: `${validationResult.eventType} event logged and sent to Kafka successfully`,
+            eventType: validationResult.eventType
         });
     } catch (error) {
         console.error('Error processing request:', error);
 
-        // Still respond with success for logging, but indicate Kafka issue
-        res.status(200).json({
-            success: true,
-            message: 'Request logged successfully',
-            warning: 'Failed to send to Kafka'
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error while processing request',
+            error: error instanceof Error ? error.message : 'Unknown error'
         });
     }
 };
@@ -36,4 +51,36 @@ export const logRequestHandler = async (req: Request, res: Response): Promise<vo
  */
 export const healthCheckHandler = (req: Request, res: Response): void => {
     res.status(200).json({ status: 'UP' });
+};
+
+/**
+ * POST /api/validate - Validates request body without processing
+ */
+export const validateRequestHandler = (req: Request, res: Response): void => {
+    try {
+        const validationResult = validationService.validateRequest(req.body);
+
+        if (!validationResult.isValid) {
+            res.status(400).json({
+                success: false,
+                message: 'Validation failed',
+                errors: validationResult.errors,
+                supportedEventTypes: validationService.getSupportedEventTypes()
+            });
+            return;
+        }
+
+        res.status(200).json({
+            success: true,
+            message: `✅ Valid ${validationResult.eventType} event`,
+            eventType: validationResult.eventType
+        });
+    } catch (error) {
+        console.error('Error during validation:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error during validation',
+            error: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
 }; 
