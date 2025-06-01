@@ -3,77 +3,83 @@
     "$id": "https://adapters.absinthe.network/schemas/transaction.schema.json",
     "title": "Transaction",
     "description": "Metric representing the instantaneous impact of a discrete, atomic event (ie. swap, trade, transfer) within a protocol. Captures the momentary change in state at the time of execution, independent of its duration or persistence.",
-    "additionalProperties": false,
     "type": "object",
     "allOf": [
         {
             "$ref": "./base.schema.json"
-        }
-    ],
-    "properties": {
-        "eventType": {
-            "type": "string",
-            "enum": [
-                "transaction"
-            ]
         },
-        "token": {
+        {
             "type": "object",
             "additionalProperties": false,
             "properties": {
-                "address": {
-                    "$ref": "base.schema.json#/definitions/evmAddress"
-                },
-                "symbol": {
+                "version": true,
+                "eventId": true,
+                "userId": true,
+                "chainArch": true,
+                "networkId": true,
+                "chainShortName": true,
+                "runner": true,
+                "protocolMetadata": true,
+                "valueUsd": true,
+                "priced": true,
+                "eventType": {
                     "type": "string",
-                    "minLength": 2
+                    "enum": [
+                        "transaction"
+                    ]
                 },
-                "decimals": {
+                "token": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "address": {
+                            "$ref": "base.schema.json#/definitions/evmAddress"
+                        },
+                        "symbol": {
+                            "type": "string",
+                            "minLength": 2
+                        },
+                        "decimals": {
+                            "type": "integer",
+                            "minimum": 0
+                        }
+                    }
+                },
+                "rawAmount": {
+                    "type": "string",
+                    "$comment": "String representation of uint256 token amount (exceeds JavaScript's safe integer range)",
+                    "pattern": "^[0-9]+$"
+                },
+                "displayAmount": {
+                    "type": "number",
+                    "minimum": 0
+                },
+                "unixTimestampMs": {
                     "type": "integer",
                     "minimum": 0
+                },
+                "txHash": {
+                    "$ref": "base.schema.json#/definitions/hex32"
+                },
+                "logIndex": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "blockNumber": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "blockHash": {
+                    "$ref": "base.schema.json#/definitions/hex32"
                 }
-            }
-        },
-        "rawAmount": {
-            "type": "string",
-            "$comment": "String representation of uint256 token amount (exceeds JavaScript's safe integer range)",
-            "pattern": "^[0-9]+$"
-        },
-        "displayAmount": {
-            "type": "number",
-            "minimum": 0
-        },
-        "unixTimestampMs": {
-            "type": "integer",
-            "minimum": 0
-        },
-        "txHash": {
-            "$ref": "base.schema.json#/definitions/hex32"
-        },
-        "logIndex": {
-            "type": "integer",
-            "minimum": 0
-        },
-        "blockNumber": {
-            "type": "integer",
-            "minimum": 0
-        },
-        "blockHash": {
-            "$ref": "base.schema.json#/definitions/hex32"
+            },
+            "required": [
+                "eventType",
+                "txHash",
+                "logIndex",
+                "blockNumber",
+                "blockHash"
+            ]
         }
-    },
-    "required": [
-        "version",
-        "eventType",
-        "eventId",
-        "userId",
-        "networkId",
-        "chainShortName",
-        "chainArch",
-        "txHash",
-        "logIndex",
-        "blockNumber",
-        "blockHash",
-        "runner"
     ]
 }
