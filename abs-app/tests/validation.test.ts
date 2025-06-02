@@ -130,7 +130,6 @@ describe('ValidationService', () => {
                 runnerId: "container_123"
             },
             valueUsd: 100.50,
-            unixTimestampMs: 1703095200000,
             balanceBefore: 500.0,
             balanceAfter: 600.0,
             timeWindowTrigger: "exhausted" as const,
