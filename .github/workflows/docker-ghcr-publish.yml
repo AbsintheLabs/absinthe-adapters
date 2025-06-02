@@ -20,15 +20,17 @@ jobs:
 
     - name: Install dependencies
       run: |
-        if [ -f "package.json" ]; then
+        if [ -f "package-lock.json" ]; then
           npm ci
+        elif [ -f "pnpm-lock.yaml" ]; then
+          pnpm ci
         else
-          echo "No package.json found, skipping npm install"
+          echo "No package-lock.json or pnpm-lock.yaml found, skipping npm install"
         fi
 
     - name: Run tests
       run: |
-        if [ -f "package.json" ]; then
+        if [ -f "package-lock.json" ]; then
           # Check if test script exists in package.json
           if npm run | grep -q "test"; then
             echo "Running npm test..."
@@ -42,7 +44,7 @@ jobs:
 
   build-and-push:
     runs-on: ubuntu-latest
-    needs: test  # Wait for tests to complete
+    needs: test
 
     permissions:
       contents: read
@@ -52,7 +54,7 @@ jobs:
     - name: Checkout source code
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0  # Fetch full history to compare changes
+        fetch-depth: 0
 
     - name: Get changed files
       id: changed-files
@@ -71,23 +73,35 @@ jobs:
         changed_files="${{ steps.changed-files.outputs.changed_files }}"
         images_to_build=""
         
+        # Check if abs-app files changed
+        if echo "$changed_files" | grep -q -E "(^|\s)abs-app/"; then
+          images_to_build="$images_to_build abs-app"
+        fi
+        
         # Check if uniswapv2 files changed
-        if echo "$changed_files" | grep -q "uniswapv2/"; then
+        if echo "$changed_files" | grep -q -E "(^|\s)projects/uniswapv2/"; then
           images_to_build="$images_to_build uniswapv2"
         fi
         
-        # Check for other specific folders/files and map to their Dockerfiles
-        # Add more conditions here based on your project structure
-        # Example:
-        # if echo "$changed_files" | grep -q "api/"; then
-        #   images_to_build="$images_to_build api"
-        # fi
-        
-        # If ops/dockerfiles changed, build all images
-        if echo "$changed_files" | grep -q "ops/dockerfiles/"; then
-          echo "Dockerfile changes detected, building all images"
-          images_to_build="all"
+        # Check if compoundv2 files changed
+        if echo "$changed_files" | grep -q -E "(^|\s)projects/compoundv2/"; then
+          images_to_build="$images_to_build compoundv2"
         fi
+        
+        # Check if common package changed (affects all projects)
+        if echo "$changed_files" | grep -q -E "(^|\s)packages/common/"; then
+          echo "Common package changed, building all images"
+          images_to_build="abs-app uniswapv2 compoundv2"
+        fi
+        
+        # If root package.json or workspace files changed, build all
+        if echo "$changed_files" | grep -q -E "(^|\s)(package\.json|pnpm-workspace\.yaml|\.dockerignore)"; then
+          echo "Root configuration changed, building all images"
+          images_to_build="abs-app uniswapv2 compoundv2"
+        fi
+        
+        # Remove duplicates and trim whitespace
+        images_to_build=$(echo "$images_to_build" | tr ' ' '\n' | sort -u | tr '\n' ' ' | sed 's/[[:space:]]*$//')
         
         echo "Images to build: $images_to_build"
         echo "images_to_build=$images_to_build" >> $GITHUB_OUTPUT
@@ -102,66 +116,83 @@ jobs:
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
-        password: ${{ secrets.GH_TOKEN }}
+        password: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Build and push Docker images
       if: steps.determine-builds.outputs.images_to_build != ''
       run: |
         images_to_build="${{ steps.determine-builds.outputs.images_to_build }}"
         
-        if [ "$images_to_build" = "all" ]; then
-          # Build all images if Dockerfiles changed
-          dockerfiles=$(find ops/dockerfiles -name "Dockerfile*" -type f)
-        else
-          # Build only specific images
-          dockerfiles=""
-          for image in $images_to_build; do
-            if [ "$image" = "uniswapv2" ]; then
-              # Map uniswapv2 to its specific Dockerfile
-              dockerfile_path="ops/dockerfiles/Dockerfile.uniswapv2"
-            else
-              # For other images, construct the Dockerfile path
-              dockerfile_path="ops/dockerfiles/Dockerfile.$image"
-            fi
-            
-            if [ -f "$dockerfile_path" ]; then
-              dockerfiles="$dockerfiles $dockerfile_path"
-            else
-              echo "Warning: Dockerfile not found at $dockerfile_path"
-            fi
-          done
-        fi
-        
-        if [ -z "$dockerfiles" ]; then
-          echo "No Dockerfiles to build"
+        if [ -z "$images_to_build" ]; then
+          echo "No images to build"
           exit 0
         fi
         
-        # Build and push each image
-        for dockerfile_path in $dockerfiles; do
-          dockerfile=$(basename "$dockerfile_path")
-          echo "Building $dockerfile..."
+        # Build each image
+        for image in $images_to_build; do
+          echo "Building $image..."
           
-          # Extract image name
-          if [[ "$dockerfile" == "Dockerfile" ]]; then
-            image_name="main"
-          else
-            image_name=$(echo "$dockerfile" | sed 's/Dockerfile[.-]*//' | tr '[:upper:]' '[:lower:]')
+          # Map image name to Dockerfile path
+          case "$image" in
+            "abs-app")
+              dockerfile_path="ops/dockerfiles/Dockerfile.abs-app"
+              ;;
+            "uniswapv2")
+              dockerfile_path="ops/dockerfiles/Dockerfile.uniswapv2"
+              ;;
+            *)
+              echo "Unknown image: $image"
+              continue
+              ;;
+          esac
+          
+          if [ ! -f "$dockerfile_path" ]; then
+            echo "Warning: Dockerfile not found at $dockerfile_path"
+            continue
           fi
           
-          # Build and push
+          # Generate image tags
+          image_tag="ghcr.io/${{ github.repository_owner }}/absinthe-${image}:latest"
+          commit_tag="ghcr.io/${{ github.repository_owner }}/absinthe-${image}:${GITHUB_SHA::8}"
+          
+          # Build and push with multiple tags
           docker buildx build \
             --file "$dockerfile_path" \
             --push \
-            --tag "ghcr.io/absinthelabs/absinthe-${image_name}:${image_name}" \
+            --tag "$image_tag" \
+            --tag "$commit_tag" \
+            --platform linux/amd64,linux/arm64 \
             .
           
-          echo "✅ Successfully built and pushed $image_name"
+          echo "✅ Successfully built and pushed $image"
+          echo "   - $image_tag"
+          echo "   - $commit_tag"
         done
+
+    - name: Update deployment files
+      if: steps.determine-builds.outputs.images_to_build != ''
+      run: |
+        images_to_build="${{ steps.determine-builds.outputs.images_to_build }}"
+        
+        # Update docker-compose.yml if needed
+        if echo "$images_to_build" | grep -q "abs-app"; then
+          echo "Updating abs-app image reference in deployment files..."
+          # Update podman-compose.yml
+          if [ -f "abs-app/podman-compose.yml" ]; then
+            sed -i "s|ghcr.io/.*/absinthe-abs-app:.*|ghcr.io/${{ github.repository_owner }}/absinthe-abs-app:${GITHUB_SHA::8}|g" abs-app/podman-compose.yml
+          fi
+        fi
 
     - name: No changes detected
       if: steps.determine-builds.outputs.images_to_build == ''
       run: echo "No relevant changes detected, skipping Docker builds"
+
+    - name: Summary
+      if: always()
+      run: |
+        echo "## Build Summary" >> $GITHUB_STEP_SUMMARY
+        echo "**Changed files:** ${{ steps.changed-files.outputs.changed_files }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Images built:** ${{ steps.determine-builds.outputs.images_to_build }}" >> $GITHUB_STEP_SUMMARY
 
 
     
