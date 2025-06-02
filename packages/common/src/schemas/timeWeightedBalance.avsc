@@ -1,0 +1,77 @@
+{
+    "type": "record",
+    "namespace": "network.absinthe.adapters",
+    "name": "TimeWeightedBalanceEvent",
+    "doc": "Exposure metric (value × duration) for a wallet over a holding window.",
+    "fields": [
+        {
+            "name": "base",
+            "type": "network.absinthe.adapters.Base"
+        },
+        {
+            "name": "eventType",
+            "type": {
+                "type": "enum",
+                "name": "TWBEventType",
+                "symbols": [
+                    "timeWeightedBalance"
+                ]
+            }
+        },
+        {
+            "name": "balanceBefore",
+            "type": "double"
+        },
+        {
+            "name": "balanceAfter",
+            "type": "double"
+        },
+        {
+            "name": "timeWindowTrigger",
+            "type": {
+                "type": "enum",
+                "name": "TimeWindowTrigger",
+                "symbols": [
+                    "transfer",
+                    "exhausted"
+                ]
+            }
+        },
+        {
+            "name": "startUnixTimestampMs",
+            "type": "long"
+        },
+        {
+            "name": "endUnixTimestampMs",
+            "type": "long"
+        },
+        {
+            "name": "windowDurationMs",
+            "type": "long"
+        },
+        {
+            "name": "startBlockNumber",
+            "type": [
+                "null",
+                "double"
+            ],
+            "default": null
+        },
+        {
+            "name": "endBlockNumber",
+            "type": [
+                "null",
+                "double"
+            ],
+            "default": null
+        },
+        {
+            "name": "txHash",
+            "type": [
+                "null",
+                "string"
+            ],
+            "default": null
+        }
+    ]
+}

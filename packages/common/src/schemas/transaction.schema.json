@@ -4,24 +4,14 @@
     "title": "Transaction",
     "description": "Metric representing the instantaneous impact of a discrete, atomic event (ie. swap, trade, transfer) within a protocol. Captures the momentary change in state at the time of execution, independent of its duration or persistence.",
     "type": "object",
+    "unevaluatedProperties": false,
     "allOf": [
         {
             "$ref": "./base.schema.json"
         },
         {
             "type": "object",
-            "additionalProperties": false,
             "properties": {
-                "version": true,
-                "eventId": true,
-                "userId": true,
-                "chainArch": true,
-                "networkId": true,
-                "chainShortName": true,
-                "runner": true,
-                "protocolMetadata": true,
-                "valueUsd": true,
-                "priced": true,
                 "eventType": {
                     "type": "string",
                     "enum": [
@@ -30,10 +20,9 @@
                 },
                 "token": {
                     "type": "object",
-                    "additionalProperties": false,
                     "properties": {
                         "address": {
-                            "$ref": "base.schema.json#/definitions/evmAddress"
+                            "$ref": "./base.schema.json#/definitions/evmAddress"
                         },
                         "symbol": {
                             "type": "string",
@@ -59,7 +48,7 @@
                     "minimum": 0
                 },
                 "txHash": {
-                    "$ref": "base.schema.json#/definitions/hex32"
+                    "$ref": "./base.schema.json#/definitions/hex32"
                 },
                 "logIndex": {
                     "type": "integer",
@@ -70,7 +59,7 @@
                     "minimum": 0
                 },
                 "blockHash": {
-                    "$ref": "base.schema.json#/definitions/hex32"
+                    "$ref": "./base.schema.json#/definitions/hex32"
                 }
             },
             "required": [

@@ -10,18 +10,7 @@
         },
         {
             "type": "object",
-            "additionalProperties": false,
             "properties": {
-                "version": true,
-                "eventId": true,
-                "userId": true,
-                "chainArch": true,
-                "networkId": true,
-                "chainShortName": true,
-                "runner": true,
-                "protocolMetadata": true,
-                "valueUsd": true,
-                "priced": true,
                 "eventType": {
                     "type": "string",
                     "enum": [
@@ -64,18 +53,11 @@
                     "minimum": 0
                 },
                 "txHash": {
-                    "$ref": "base.schema.json#/definitions/hex32"
+                    "$ref": "./base.schema.json#/definitions/hex32"
                 }
             },
             "required": [
-                "version",
                 "eventType",
-                "eventId",
-                "userId",
-                "chainArch",
-                "networkId",
-                "chainShortName",
-                "runner",
                 "balanceBefore",
                 "balanceAfter",
                 "timeWindowTrigger",

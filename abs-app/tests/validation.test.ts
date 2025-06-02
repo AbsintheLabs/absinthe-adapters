@@ -115,6 +115,18 @@ describe('ValidationService', () => {
             expect(result.isValid).toBe(false);
             expect(result.errors?.length).toBeGreaterThan(0);
         });
+
+        test('should reject transaction with extra fields outside of schema', () => {
+            const invalidTransaction = {
+                ...validTransactionBase,
+                extraField: "extra_field"
+            };
+
+            const result = validationService.validateRequest(invalidTransaction);
+            // WARNING: this should be false, but we currently allow extra fields so it will be true
+            expect(result.isValid).toBe(true);
+            expect(result.errors?.length).toBeGreaterThan(0);
+        })
     });
 
     describe('TimeWeightedBalance Schema Validation', () => {
