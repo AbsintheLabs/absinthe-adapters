@@ -1,37 +1,21 @@
 FROM node:18-alpine
 
-# Install Caddy
-RUN apk add --no-cache caddy
-
 WORKDIR /app
 
+# Copy package files
 COPY abs-app/package*.json ./
 COPY abs-app/tsconfig.json ./
-
-# Copy source files BEFORE running npm install
 COPY abs-app/src ./src
 
-# Now install dependencies (this will trigger the build)
+# Install dependencies
 RUN npm install
 
-# Copy any remaining files if needed
+# Copy rest of the files
 COPY abs-app/ ./
 
-# Build TypeScript - fix the build command
-RUN npm run build || (echo "Build failed, checking tsconfig..." && ls -la && cat tsconfig.json && exit 1)
+# Build app
+RUN npm run build || (echo "Build failed" && exit 1)
 
-# Create log directory for Caddy
-RUN mkdir -p /var/log/caddy
+EXPOSE 3000
 
-# Expose ports (3000 for Node.js, 80/443 for Caddy)
-EXPOSE 3000 80 443
-
-# Create startup script that runs both Caddy and Node.js
-RUN echo '#!/bin/sh' > /start.sh && \
-    echo 'echo "Starting Caddy..."' >> /start.sh && \
-    echo 'caddy start --config /app/Caddyfile --adapter caddyfile &' >> /start.sh && \
-    echo 'echo "Starting Node.js app..."' >> /start.sh && \
-    echo 'npm start' >> /start.sh && \
-    chmod +x /start.sh
-
-CMD ["/start.sh"] 
+CMD ["npm", "start"]

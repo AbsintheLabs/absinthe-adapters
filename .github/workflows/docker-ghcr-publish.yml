@@ -16,30 +16,36 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '18'
-        cache: 'npm'
+
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v2
+      with:
+        version: 8
+
+    - name: Get pnpm store directory
+      shell: bash
+      run: |
+        echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+    - name: Setup pnpm cache
+      uses: actions/cache@v3
+      with:
+        path: ${{ env.STORE_PATH }}
+        key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-store-
 
     - name: Install dependencies
-      run: |
-        if [ -f "package-lock.json" ]; then
-          npm ci
-        elif [ -f "pnpm-lock.yaml" ]; then
-          pnpm ci
-        else
-          echo "No package-lock.json or pnpm-lock.yaml found, skipping npm install"
-        fi
+      run: pnpm install --frozen-lockfile
 
     - name: Run tests
       run: |
-        if [ -f "package-lock.json" ]; then
-          # Check if test script exists in package.json
-          if npm run | grep -q "test"; then
-            echo "Running npm test..."
-            npm test
-          else
-            echo "No test script found in package.json, skipping tests"
-          fi
+        # Check if any package has a test script
+        if pnpm -r exec -- npm run | grep -q "test"; then
+          echo "Running tests..."
+          pnpm -r test
         else
-          echo "No package.json found, skipping tests"
+          echo "No test scripts found in any package, skipping tests"
         fi
 
   build-and-push:
@@ -82,22 +88,17 @@ jobs:
         if echo "$changed_files" | grep -q -E "(^|\s)projects/uniswapv2/"; then
           images_to_build="$images_to_build uniswapv2"
         fi
-        
-        # Check if compoundv2 files changed
-        if echo "$changed_files" | grep -q -E "(^|\s)projects/compoundv2/"; then
-          images_to_build="$images_to_build compoundv2"
-        fi
-        
+               
         # Check if common package changed (affects all projects)
         if echo "$changed_files" | grep -q -E "(^|\s)packages/common/"; then
           echo "Common package changed, building all images"
-          images_to_build="abs-app uniswapv2 compoundv2"
+          images_to_build="abs-app uniswapv2"
         fi
         
         # If root package.json or workspace files changed, build all
-        if echo "$changed_files" | grep -q -E "(^|\s)(package\.json|pnpm-workspace\.yaml|\.dockerignore)"; then
+        if echo "$changed_files" | grep -q -E "(^|\s)(package\.json|pnpm-workspace\.yaml|pnpm-lock\.yaml|\.dockerignore)"; then
           echo "Root configuration changed, building all images"
-          images_to_build="abs-app uniswapv2 compoundv2"
+          images_to_build="abs-app uniswapv2"
         fi
         
         # Remove duplicates and trim whitespace
