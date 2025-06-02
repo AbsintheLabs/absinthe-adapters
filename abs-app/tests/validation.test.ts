@@ -78,9 +78,7 @@ describe('ValidationService', () => {
                 userId: "invalid_address"
             };
 
-            console.log('🔍 Testing invalid userId - Input:', JSON.stringify(invalidTransaction, null, 2));
             const result = validationService.validateRequest(invalidTransaction);
-            console.log('🔍 Invalid userId result:', JSON.stringify(result, null, 2));
 
             expect(result.isValid).toBe(false);
             expect(result.errors).toEqual(
@@ -96,9 +94,7 @@ describe('ValidationService', () => {
                 txHash: "0x123" // Too short
             };
 
-            console.log('🔍 Testing invalid txHash - Input:', JSON.stringify(invalidTransaction, null, 2));
             const result = validationService.validateRequest(invalidTransaction);
-            console.log('🔍 Invalid txHash result:', JSON.stringify(result, null, 2));
 
             expect(result.isValid).toBe(false);
             expect(result.errors).toEqual(
