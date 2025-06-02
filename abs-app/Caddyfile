@@ -10,8 +10,7 @@ adapters.absinthe.network:80 {
 
 # HTTPS server
 adapters.absinthe.network:443 {
-    # Handle API requests
-    handle_path /api/* {
+    handle /api/* {
         # Set request body size limit for this path
         request_body {
             max_size 200KB

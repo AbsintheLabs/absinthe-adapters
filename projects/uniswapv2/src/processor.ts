@@ -9,11 +9,11 @@ import {
     Transaction as _Transaction,
 } from '@subsquid/evm-processor'
 import * as univ2Abi from './abi/univ2'
-import { validateEnv } from '@absinthe/common';
+import { Dex, validateEnv } from '@absinthe/common';
 
 const env = validateEnv();
-const contractAddresses = env.protocols.filter(protocol => protocol.type === 'uniswap-v2').map(protocol => protocol.contractAddress);
-const earliestFromBlock = Math.min(...env.protocols.filter(protocol => protocol.type === 'uniswap-v2').map(protocol => protocol.fromBlock));
+const contractAddresses = env.protocols.filter(protocol => protocol.type === Dex.UNISWAP_V2).map(protocol => protocol.contractAddress);
+const earliestFromBlock = Math.min(...env.protocols.filter(protocol => protocol.type === Dex.UNISWAP_V2).map(protocol => protocol.fromBlock));
 export const processor = new EvmBatchProcessor()
     .setGateway(env.gatewayUrl)
     .setRpcEndpoint(env.rpcUrl)

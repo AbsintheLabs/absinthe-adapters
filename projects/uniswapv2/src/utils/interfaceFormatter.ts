@@ -1,4 +1,4 @@
-import { SimpleTimeWeightedBalance, SimpleTransaction, TimeWeightedBalance, TimeWindow, Transaction, UniswapV2SwapMetadata, UniswapV2TWBMetadata } from "@absinthe/common";
+import { ChainId, ChainType, Currency, PriceFeed, SimpleTimeWeightedBalance, SimpleTransaction, TimeWeightedBalance, Transaction, UniswapV2SwapMetadata, UniswapV2TWBMetadata } from "@absinthe/common";
 import { PoolConfig } from "../model";
 import { ValidatedEnv } from "@absinthe/common";
 
@@ -9,14 +9,14 @@ export function toTimeWeightedBalance(
 ): TimeWeightedBalance<UniswapV2TWBMetadata>[] {
     return simpleTimeWeightedBalances.map((e) => {
         return {
-            version: 1 as const,
+            version: ChainId.MAINNET as const,
             dataType: 'time_weighted_balance' as const,
             user: e.user,
-            chain: { networkId: env.chainId, name: env.chainShortName, chainType: 'evm' as const },
+            chain: { networkId: env.chainId, name: env.chainShortName, chainType: ChainType.EVM as const },
             amount: e.amount,
             amountType: {
-                amountType: 'usd',
-                priceFeed: 'coingecko'
+                amountType: Currency.USD,
+                priceFeed: PriceFeed.COINGECKO
             },
             timeWindow: e.timeWindow,
             protocolMetadata: {
@@ -30,19 +30,19 @@ export function toTimeWeightedBalance(
 export function toTransaction(simpleTransactions: SimpleTransaction[], env: ValidatedEnv, poolConfig: PoolConfig): Transaction<UniswapV2SwapMetadata>[] {
     return simpleTransactions.map((e) => {
         return {
-            version: 1 as const,
+            version: ChainId.MAINNET as const,
             dataType: 'transaction' as const,
             user: e.user,
             amount: e.amount,
             amountType: {
-                amountType: 'usd',
-                priceFeed: 'coingecko'
+                amountType: Currency.USD,
+                priceFeed: PriceFeed.COINGECKO
             },
             timestampMs: e.timestampMs,
             blockNumber: e.blockNumber,
             txHash: e.txHash,
             logIndex: e.logIndex,
-            chain: { networkId: env.chainId, name: env.chainShortName, chainType: 'evm' as const },
+            chain: { networkId: env.chainId, name: env.chainShortName, chainType: ChainType.EVM as const },
             protocolMetadata: {
                 token0Amount: e.protocolMetadata!.token0Amount!,
                 token1Amount: e.protocolMetadata!.token1Amount!,

@@ -1,20 +1,6 @@
-import { ActiveBalance, SimpleTimeWeightedBalance } from "@absinthe/common";
+import { EventType, SimpleTimeWeightedBalance, ZERO_ADDRESS } from "@absinthe/common";
+import { ValueChangeArgs } from "@absinthe/common";
 
-interface ValueChangeArgs {
-    assetAddress: string      // token / contract address or identifier
-    from?: string             // user sending tokens (omit or undefined for “mint”)
-    to?: string               // user receiving tokens (omit or undefined for “burn”)
-    amount: bigint            // positive amount moved
-    usdValue: number          // value of the amount in USD
-    blockTimestamp: number       // for windowing
-    txHash: string
-    blockHeight: number
-    windowDurationMs: number
-    activeBalances: Map<string, ActiveBalance>
-    // historyWindows: SimpleHistoryWindow[]
-}
-
-// todo: add txhash to storage somewhere here
 export function processValueChange({
     assetAddress,
     from,
@@ -26,56 +12,53 @@ export function processValueChange({
     blockHeight,
     windowDurationMs,
     activeBalances,
-    // historyWindows,
 }: ValueChangeArgs): SimpleTimeWeightedBalance[] {
     const historyWindows: SimpleTimeWeightedBalance[] = []
-    // helper to snapshot & update one side (either “from” or “to”)
-    function snapshotAndUpdate(user: string, delta: bigint) {
-        // const prev = userMap!.get(user) ?? { balance: 0n, updated_at_block_ts: blockTimestamp, updated_at_block_height: blockHeight }
-        const prev = activeBalances.get(user) ?? { balance: 0n, updated_at_block_ts: blockTimestamp, updated_at_block_height: blockHeight }
+    function snapshotAndUpdate(userAddress: string, updatedAmount: bigint) {
+        const prev = activeBalances.get(userAddress) ?? { 
+            balance: 0n, 
+            updated_at_block_ts: blockTimestamp, 
+            updated_at_block_height: blockHeight 
+        }
+      
         // record the holding window up to now
+        //todo: de-duplicate (think again about this)
         if (prev.balance > 0n) {
+            const windowId = Math.floor(prev.updated_at_block_ts / windowDurationMs)
+
             historyWindows.push({
-                // userAddress: user,
-                // assetAddress,
-                // balance: prev.balance,
-                // usdValue,
-                // ts_start: prev.updated_at_block_ts,
-                // ts_end: blockTimestamp,
-                // block_start: prev.updated_at_block_height,
-                // block_end: blockHeight,
-                // trigger: 'transfer',
-                // ...(txHash ? { txHash } : {})
-                user,
+                user: userAddress,
                 amount: usdValue,
                 timeWindow: {
-                    trigger: 'transfer' as const,
+                    trigger: EventType.TRANSFER,
                     startTs: prev.updated_at_block_ts,
                     endTs: blockTimestamp,
                     startBlocknumber: BigInt(prev.updated_at_block_height),
                     endBlocknumber: BigInt(blockHeight),
                     txHash: txHash,
                     windowDurationMs: windowDurationMs,
-                    windowId: Math.floor(prev.updated_at_block_ts / windowDurationMs) // todo: ensure that this is correct
+                    windowId: windowId
                 },
                 protocolMetadata: {
+                    poolAddress: assetAddress,
                     lpTokenAmount: prev.balance
                 }
             })
         }
-        activeBalances.set(user, {
-            balance: prev.balance + delta,
+        
+        activeBalances.set(userAddress, {
+            balance: prev.balance + updatedAmount,
             updated_at_block_ts: blockTimestamp,
             updated_at_block_height: blockHeight,
         })
     }
 
-    // if tokens left a user, subtract
-    if (from) {
+    // if tokens left a user, subtract, but ignore zero address
+    if (from && from !== ZERO_ADDRESS) {
         snapshotAndUpdate(from, -amount)
     }
-    // if tokens reached a user, add
-    if (to) {
+    // if tokens reached a user, add, but ignore zero address
+    if (to && to !== ZERO_ADDRESS) { //todo: check in later
         snapshotAndUpdate(to, amount)
     }
     return historyWindows;

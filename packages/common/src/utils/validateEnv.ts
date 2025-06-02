@@ -1,13 +1,12 @@
 import { z } from 'zod';
 import { CHAINS } from './chains';
 import fs from 'fs';
-import { ValidatedEnv } from '../types/interfaces';
+import { ValidatedEnv } from '../types/interfaces/interfaces';
 import { configSchema } from '../types/schema';
 import { findConfigFile } from './helper/findConfigFile';
-
-const FILE_NAME = 'abs_config.json';
-const EXAMPLE_FILE_NAME = 'abs_config.example.json';
-
+import { EXAMPLE_FILE_NAME } from './consts';
+import { FILE_NAME } from './consts';
+import { ProtocolConfig } from '../types/interfaces/protocols';
 
 export function validateEnv(): ValidatedEnv {
     try {
@@ -16,12 +15,10 @@ export function validateEnv(): ValidatedEnv {
             DB_NAME: z.string().min(1, 'DB_NAME is required'),
             DB_PORT: z.string().transform(val => parseInt(val, 10)).refine(val => !isNaN(val), 'DB_PORT must be a valid number').optional(),
             DB_URL: z.string().regex(/^postgresql?:\/\/.+/, 'DB_URL must be a valid postgres URL').optional(),
-            GQL_PORT: z.string().transform(val => parseInt(val, 10)).refine(val => !isNaN(val), 'GQL_PORT must be a valid number').default('3000'),
             RPC_URL: z.string().url('RPC_URL must be a valid URL').refine(val => val.startsWith('https://'), 'RPC_URL must be https:// not wss://'),
             ABSINTHE_API_URL: z.string().url('ABSINTHE_API_URL must be a valid URL'),
             ABSINTHE_API_KEY: z.string().min(1, 'ABSINTHE_API_KEY is required'),
             COINGECKO_API_KEY: z.string().min(1, 'COINGECKO_API_KEY is required'),
-            LOG_FILE_PATH: z.string().min(1, "LOG_FILE_PATH is required"),
         }).refine(
             data => data.DB_PORT !== undefined || data.DB_URL !== undefined,
             {
@@ -79,7 +76,6 @@ export function validateEnv(): ValidatedEnv {
             dbName: envResult.data.DB_NAME,
             dbPort: envResult.data.DB_PORT,
             dbUrl: envResult.data.DB_URL,
-            gqlPort: envResult.data.GQL_PORT,
             gatewayUrl: configResult.data.gatewayUrl,
             chainId: chainId,
             chainName: chain.name,
@@ -87,11 +83,10 @@ export function validateEnv(): ValidatedEnv {
             rpcUrl: envResult.data.RPC_URL,
             toBlock: configResult.data.toBlock,
             balanceFlushIntervalHours: configResult.data.balanceFlushIntervalHours,
-            protocols: configResult.data.protocols,
+            protocols: configResult.data.protocols as ProtocolConfig[],
             absintheApiUrl: envResult.data.ABSINTHE_API_URL,
             absintheApiKey: envResult.data.ABSINTHE_API_KEY,
             coingeckoApiKey: envResult.data.COINGECKO_API_KEY,
-            logFilePath: envResult.data.LOG_FILE_PATH,
         };
 
         return validatedEnv;

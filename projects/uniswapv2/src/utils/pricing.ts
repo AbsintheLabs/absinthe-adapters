@@ -1,7 +1,6 @@
 import Big from 'big.js';
 import { PoolConfig, PoolState } from '../model';
 import { validateEnv } from '@absinthe/common';
-import { fetchWithRetry } from '@absinthe/common';
 import { DataHandlerContext, BlockData } from '@subsquid/evm-processor';
 import { Store } from '@subsquid/typeorm-store';
 import { updatePoolStateFromOnChain } from './pool';
@@ -9,6 +8,7 @@ import { Currency } from '@absinthe/common';
 
 const env = validateEnv();
 
+// TODO: move this to a class Function
 export async function fetchHistoricalUsd(id: string, tsMs: number): Promise<number> {
     // round to day, call Coingecko once per day → cheaper
     const d = new Date(tsMs);
@@ -16,9 +16,9 @@ export async function fetchHistoricalUsd(id: string, tsMs: number): Promise<numb
         .toString().padStart(2, '0')}-${d.getFullYear()}`;
 
     const url = `https://pro-api.coingecko.com/api/v3/coins/${id}/history?date=${date}&localization=false`;
-    const res = await fetchWithRetry(() => fetch(url, {
+    const res = await fetch(url, {
         headers: { accept: 'application/json', 'x-cg-pro-api-key': env.coingeckoApiKey }
-    }));
+    });
     const j = await res.json();
     if (!j.market_data?.current_price?.[Currency.USD]) {
         // warn: this is not a fatal error, but it should be investigated since position value will be inaccurate
@@ -59,12 +59,10 @@ export async function computePricedSwapVolume(
 ): Promise<number> {
     if (isMocked) return 0;
     const price = await getHourlyPrice(coingeckoId, atMs);
-    return new Big(tokenAmount.toString())
-        .div(new Big(10).pow(decimals))
-        .mul(price)
-        .toNumber();
+    return pricePosition(price, tokenAmount, decimals);
 }
 
+// Value of a token in USD
 export function pricePosition(price: number, amount: bigint, decimals: number): number {
     return new Big(amount.toString())
         .div(new Big(10).pow(decimals))
@@ -72,6 +70,7 @@ export function pricePosition(price: number, amount: bigint, decimals: number): 
         .toNumber();
 }
 
+// Value of 1 LP token in USD
 export async function computeLpTokenPrice(
     ctx: DataHandlerContext<Store>,
     block: BlockData,
@@ -107,29 +106,39 @@ export async function computeLpTokenPrice(
         poolState = await updatePoolStateFromOnChain(ctx, block, poolConfig.lpToken.address, poolConfig);
     }
 
+    // Check for zero total supply to avoid division by zero
+    if (poolState.totalSupply === 0n) {
+        console.warn(`Pool ${poolConfig.id} has zero total supply, returning price 0`);
+        return 0;
+    }
+
     const timestamp = timestampMs ?? Number(poolState.lastTsMs);
     const [token0Price, token1Price] = await Promise.all([
         getHourlyPrice(poolConfig.token0.coingeckoId, timestamp),
         getHourlyPrice(poolConfig.token1.coingeckoId, timestamp)
     ]);
 
-    const token0Value = new Big(poolState.reserve0.toString())
-        .div(new Big(10).pow(poolConfig.token0.decimals))
-        .mul(token0Price);
+    if (token0Price === 0 || token1Price === 0) {
+        console.warn(`One or both token prices are 0 for pool ${poolConfig.id}, returning price 0`);
+        return 0;
+    }
 
-    // Calculate token1 value in USD
-    const token1Value = new Big(poolState.reserve1.toString())
-        .div(new Big(10).pow(poolConfig.token1.decimals))
-        .mul(token1Price);
+    const token0Value = pricePosition(token0Price, poolState.reserve0, poolConfig.token0.decimals);
+    const token1Value = pricePosition(token1Price, poolState.reserve1, poolConfig.token1.decimals);
 
-    // Total value in the pool
-    const totalPoolValue = token0Value.add(token1Value);
+    const totalPoolValue = token0Value + token1Value;
 
     // Calculate price per LP token
-    const price = totalPoolValue
-        .div(new Big(poolState.totalSupply.toString())
-            .div(new Big(10).pow(poolConfig.lpToken.decimals)))
-        .toNumber();
+    const totalSupplyBig = new Big(poolState.totalSupply.toString())
+        .div(new Big(10).pow(poolConfig.lpToken.decimals));
+
+    // Additional safety check for zero total supply after conversion
+    if (totalSupplyBig.eq(0)) {
+        console.warn(`Pool ${poolConfig.id} has zero total supply after decimal conversion, returning price 0`);
+        return 0;
+    }
+
+    const price = (new Big(totalPoolValue)).div(totalSupplyBig).toNumber();
 
     return price;
 }

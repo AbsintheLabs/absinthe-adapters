@@ -2,25 +2,24 @@
 import { Store } from '@subsquid/typeorm-store';
 import { PoolConfig, PoolState, Token, PoolProcessState, ActiveBalances } from '../model';
 import { BlockData, DataHandlerContext } from '@subsquid/evm-processor';
-import { ActiveBalance, logger } from '@absinthe/common';
+import { ActiveBalance } from '@absinthe/common';
+
 // abis
 import * as univ2Abi from '../abi/univ2';
 import * as univ2LpAbi from '../abi/univ2LP';
 import { jsonToMap } from './helper';
-import { UniswapV2Config } from '@absinthe/common/src/types/protocols';
+import { UniswapV2Config } from '@absinthe/common';
 
 // exported functions
 export async function updatePoolStateFromOnChain(ctx: DataHandlerContext<Store>, block: BlockData, contractAddress: string, poolConfig: PoolConfig): Promise<PoolState> {
     if (!poolConfig.id || !poolConfig.lpToken || !poolConfig.token0 || !poolConfig.token1) throw new Error("Pool config not found");
 
-    logger.info("Updating pool state from on chain");
     const contract = new univ2Abi.Contract(ctx, block.header, contractAddress);
     const reserve = await contract.getReserves();
     const totalSupply = await contract.totalSupply();
     const r0 = reserve._reserve0;
     const r1 = reserve._reserve1;
 
-    // BUG: we need to pass through the lastInterpolatedTs (perhaps it makes sense to keep this as a separate entity rather than the state since it gets modified not via on-chain state but the processor state?)
     const newPoolState = new PoolState({
         id: `${contractAddress}-state`,
         pool: poolConfig,
@@ -29,7 +28,6 @@ export async function updatePoolStateFromOnChain(ctx: DataHandlerContext<Store>,
         totalSupply,
         lastBlock: block.header.height,
         lastTsMs: BigInt(block.header.timestamp),
-        // lastInterpolatedTs: undefined,
         isDirty: false,
         updatedAt: new Date(),
     });
@@ -72,7 +70,7 @@ export async function initPoolConfigIfNeeded(ctx: DataHandlerContext<Store>, blo
 
     // insert pool config into db
     const newPoolConfig = new PoolConfig({
-        // todo: figure out what the id is and if we really need it here
+        // todo: figure out what the id is and if we really need it here (discuss) - its only for the db
         id: `${contractAddress}-config`,
         lpToken,
         token0,
