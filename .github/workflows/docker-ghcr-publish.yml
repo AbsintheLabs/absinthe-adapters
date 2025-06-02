@@ -5,8 +5,44 @@ on:
     branches: [kushagra/improvements]
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout source code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: |
+        if [ -f "package.json" ]; then
+          npm ci
+        else
+          echo "No package.json found, skipping npm install"
+        fi
+
+    - name: Run tests
+      run: |
+        if [ -f "package.json" ]; then
+          # Check if test script exists in package.json
+          if npm run | grep -q "test"; then
+            echo "Running npm test..."
+            npm test
+          else
+            echo "No test script found in package.json, skipping tests"
+          fi
+        else
+          echo "No package.json found, skipping tests"
+        fi
+
   build-and-push:
     runs-on: ubuntu-latest
+    needs: test  # Wait for tests to complete
 
     permissions:
       contents: read
@@ -15,28 +51,93 @@ jobs:
     steps:
     - name: Checkout source code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch full history to compare changes
+
+    - name: Get changed files
+      id: changed-files
+      run: |
+        # Get changed files in the last commit
+        changed_files=$(git diff --name-only HEAD~1 HEAD)
+        echo "Changed files:"
+        echo "$changed_files"
+        echo "changed_files<<EOF" >> $GITHUB_OUTPUT
+        echo "$changed_files" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Determine which Docker images to build
+      id: determine-builds
+      run: |
+        changed_files="${{ steps.changed-files.outputs.changed_files }}"
+        images_to_build=""
+        
+        # Check if uniswapv2 files changed
+        if echo "$changed_files" | grep -q "uniswapv2/"; then
+          images_to_build="$images_to_build uniswapv2"
+        fi
+        
+        # Check for other specific folders/files and map to their Dockerfiles
+        # Add more conditions here based on your project structure
+        # Example:
+        # if echo "$changed_files" | grep -q "api/"; then
+        #   images_to_build="$images_to_build api"
+        # fi
+        
+        # If ops/dockerfiles changed, build all images
+        if echo "$changed_files" | grep -q "ops/dockerfiles/"; then
+          echo "Dockerfile changes detected, building all images"
+          images_to_build="all"
+        fi
+        
+        echo "Images to build: $images_to_build"
+        echo "images_to_build=$images_to_build" >> $GITHUB_OUTPUT
 
     - name: Set up Docker Buildx
+      if: steps.determine-builds.outputs.images_to_build != ''
       uses: docker/setup-buildx-action@v3
 
     - name: Login to GHCR
+      if: steps.determine-builds.outputs.images_to_build != ''
       uses: docker/login-action@v3
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
         password: ${{ secrets.GH_TOKEN }}
 
-    - name: Build and push all Docker images
+    - name: Build and push Docker images
+      if: steps.determine-builds.outputs.images_to_build != ''
       run: |
-        # Find all Dockerfiles
-        dockerfiles=$(find ops/dockerfiles -name "Dockerfile*" -type f)
+        images_to_build="${{ steps.determine-builds.outputs.images_to_build }}"
+        
+        if [ "$images_to_build" = "all" ]; then
+          # Build all images if Dockerfiles changed
+          dockerfiles=$(find ops/dockerfiles -name "Dockerfile*" -type f)
+        else
+          # Build only specific images
+          dockerfiles=""
+          for image in $images_to_build; do
+            if [ "$image" = "uniswapv2" ]; then
+              # Map uniswapv2 to its specific Dockerfile
+              dockerfile_path="ops/dockerfiles/Dockerfile.uniswapv2"
+            else
+              # For other images, construct the Dockerfile path
+              dockerfile_path="ops/dockerfiles/Dockerfile.$image"
+            fi
+            
+            if [ -f "$dockerfile_path" ]; then
+              dockerfiles="$dockerfiles $dockerfile_path"
+            else
+              echo "Warning: Dockerfile not found at $dockerfile_path"
+            fi
+          done
+        fi
         
         if [ -z "$dockerfiles" ]; then
-          echo "No Dockerfiles found in ops/dockerfiles"
+          echo "No Dockerfiles to build"
           exit 0
         fi
         
-        # Build and push each image sequentially
+        # Build and push each image
         for dockerfile_path in $dockerfiles; do
           dockerfile=$(basename "$dockerfile_path")
           echo "Building $dockerfile..."
@@ -58,47 +159,9 @@ jobs:
           echo "✅ Successfully built and pushed $image_name"
         done
 
-    - name: Notify Slack on Success
-      if: success()
-      uses: slackapi/slack-github-action@v1.27.0
-      with:
-        payload: |
-          {
-            "text": "✅ Build succeeded for ${{ github.repository }}",
-            "blocks": [
-              {
-                "type": "section",
-                "text": {
-                  "type": "mrkdwn",
-                  "text": "✅ Build *succeeded* for ${{ github.repository }}\n*Branch:* ${{ github.ref_name }}"
-                }
-              }
-            ]
-          }
-      env:
-        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
-
-    - name: Notify Slack on Failure
-      if: failure()
-      uses: slackapi/slack-github-action@v1.27.0
-      with:
-        payload: |
-          {
-            "text": "❌ Build failed for ${{ github.repository }}",
-            "blocks": [
-              {
-                "type": "section",
-                "text": {
-                  "type": "mrkdwn",
-                  "text": "❌ Build *failed* for ${{ github.repository }}\n*Branch:* ${{ github.ref_name }}\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View build details>"
-                }
-              }
-            ]
-          }
-      env:
-        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+    - name: No changes detected
+      if: steps.determine-builds.outputs.images_to_build == ''
+      run: echo "No relevant changes detected, skipping Docker builds"
 
 
     
