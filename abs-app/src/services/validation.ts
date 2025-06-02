@@ -1,9 +1,8 @@
 import Ajv, { ValidateFunction } from 'ajv';
 
-// Import schemas as JSON
-const baseSchema = require('../../../packages/common/src/schemas/base.schema.json');
-const transactionSchema = require('../../../packages/common/src/schemas/transaction.schema.json');
-const timeWeightedBalanceSchema = require('../../../packages/common/src/schemas/timeWeightedBalance.schema.json');
+import baseSchema from '../schemas/base.schema.json';
+import transactionSchema from '../schemas/transaction.schema.json';
+import timeWeightedBalanceSchema from '../schemas/timeWeightedBalance.schema.json';
 
 export interface ValidationResult {
     isValid: boolean;
