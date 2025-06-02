@@ -1,8 +1,6 @@
 import { EventType, SimpleTimeWeightedBalance, ZERO_ADDRESS } from "@absinthe/common";
 import { ValueChangeArgs } from "@absinthe/common";
 
-// todo: add txhash to storage somewhere here
-//(resolved as we would send this to kafka) @andrew
 export function processValueChange({
     assetAddress,
     from,
@@ -24,11 +22,9 @@ export function processValueChange({
         }
       
         // record the holding window up to now
+        //todo: de-duplicate (think again about this)
         if (prev.balance > 0n) {
             const windowId = Math.floor(prev.updated_at_block_ts / windowDurationMs)
-            const currentWindowId = Math.floor(blockTimestamp / windowDurationMs)
-            //todo: discuss with andrew
-            const windowDuration = blockTimestamp - prev.updated_at_block_ts
 
             historyWindows.push({
                 user: userAddress,
@@ -40,7 +36,7 @@ export function processValueChange({
                     startBlocknumber: BigInt(prev.updated_at_block_height),
                     endBlocknumber: BigInt(blockHeight),
                     txHash: txHash,
-                    windowDurationMs: windowDurationMs, // todo: discuss with andrew
+                    windowDurationMs: windowDurationMs,
                     windowId: windowId
                 },
                 protocolMetadata: {
@@ -62,7 +58,7 @@ export function processValueChange({
         snapshotAndUpdate(from, -amount)
     }
     // if tokens reached a user, add, but ignore zero address
-    if (to && to !== ZERO_ADDRESS) {
+    if (to && to !== ZERO_ADDRESS) { //todo: check in later
         snapshotAndUpdate(to, amount)
     }
     return historyWindows;
