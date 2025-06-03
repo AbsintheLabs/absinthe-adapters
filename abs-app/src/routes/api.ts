@@ -23,9 +23,11 @@ export const logRequestHandler = async (req: Request, res: Response): Promise<vo
 
         console.log(`✅ Valid ${validationResult.eventType} event received`);
 
+        const topic = validationResult.eventType === 'transaction' ? config.kafka.transactionsTopic : config.kafka.twbTopic;
+
         // Send to Kafka topic
         await kafkaService.sendMessage(
-            config.kafka.topic,
+            topic,
             req.body,
             req.headers['x-api-key'] as string // Use API key as message key for partitioning
         );
