@@ -3,7 +3,7 @@ name: Deploy to EC2
 on:
   push:
     branches:
-      - main
+      - kushagra/improvements
 
 jobs:
   deploy:
@@ -17,4 +17,4 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            bash /home/admin/deploy-absinthe.sh
+            bash /home/admin/ops/absinthe-api/deploy-absinthe.sh
