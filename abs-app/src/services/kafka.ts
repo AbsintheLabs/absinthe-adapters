@@ -80,7 +80,7 @@ export class KafkaService {
             await this.producer.send({
                 topic,
                 messages: [message],
-                compression: CompressionTypes.ZSTD,
+                compression: CompressionTypes.None,
             });
 
             console.log(`Message sent to topic '${topic}':`, processedData);
