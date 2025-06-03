@@ -13,9 +13,14 @@ services:
       - 3000:3000
     depends_on:
       - caddy
+    env_file:
+      - .env
     volumes:
       - ./abs-app:/app
     command: npm start
 
 volumes:
   caddy_data:
+
+
+  

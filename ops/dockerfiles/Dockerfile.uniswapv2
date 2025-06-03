@@ -14,7 +14,7 @@ COPY projects/uniswapv2/package.json ./projects/uniswapv2/
 COPY projects/uniswapv2/tsconfig.json ./projects/uniswapv2/
 
 # Install all dependencies (including workspace deps)
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --no-frozen-lockfile
 
 # Build stage - build common package and current project
 FROM base AS build
