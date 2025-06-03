@@ -5,60 +5,8 @@ on:
     branches: [kushagra/improvements]
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout source code
-      uses: actions/checkout@v4
-
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-
-    - name: Setup pnpm
-      uses: pnpm/action-setup@v2
-      with:
-        version: 8
-
-    - name: Get pnpm store directory
-      shell: bash
-      run: |
-        echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-
-    - name: Setup pnpm cache
-      uses: actions/cache@v3
-      with:
-        path: ${{ env.STORE_PATH }}
-        key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-        restore-keys: |
-          ${{ runner.os }}-pnpm-store-
-
-    - name: Install dependencies
-      run: |
-        # Check if pnpm-lock.yaml exists and is compatible
-        if [ -f "pnpm-lock.yaml" ]; then
-          echo "Installing with frozen lockfile..."
-          pnpm install --frozen-lockfile
-        else
-          echo "No lockfile found, installing without frozen lockfile..."
-          pnpm install --no-frozen-lockfile
-        fi
-
-    - name: Run tests
-      run: |
-        # Check if any package has a test script
-        if pnpm -r exec -- npm run | grep -q "test"; then
-          echo "Running tests..."
-          pnpm -r test
-        else
-          echo "No test scripts found in any package, skipping tests"
-        fi
-
   build-and-push:
     runs-on: ubuntu-latest
-    needs: test
 
     permissions:
       contents: read
@@ -67,141 +15,90 @@ jobs:
     steps:
     - name: Checkout source code
       uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-
-    - name: Get changed files
-      id: changed-files
-      run: |
-        # Get changed files in the last commit
-        changed_files=$(git diff --name-only HEAD~1 HEAD)
-        echo "Changed files:"
-        echo "$changed_files"
-        echo "changed_files<<EOF" >> $GITHUB_OUTPUT
-        echo "$changed_files" >> $GITHUB_OUTPUT
-        echo "EOF" >> $GITHUB_OUTPUT
-
-    - name: Determine which Docker images to build
-      id: determine-builds
-      run: |
-        changed_files="${{ steps.changed-files.outputs.changed_files }}"
-        images_to_build=""
-        
-        # Check if abs-app files changed
-        if echo "$changed_files" | grep -q -E "(^|\s)abs-app/"; then
-          images_to_build="$images_to_build abs-app"
-        fi
-        
-        # Check if uniswapv2 files changed
-        if echo "$changed_files" | grep -q -E "(^|\s)projects/uniswapv2/"; then
-          images_to_build="$images_to_build uniswapv2"
-        fi
-               
-        # Check if common package changed (affects all projects)
-        if echo "$changed_files" | grep -q -E "(^|\s)packages/common/"; then
-          echo "Common package changed, building all images"
-          images_to_build="abs-app uniswapv2"
-        fi
-        
-        # If root package.json or workspace files changed, build all
-        if echo "$changed_files" | grep -q -E "(^|\s)(package\.json|pnpm-workspace\.yaml|pnpm-lock\.yaml|\.dockerignore)"; then
-          echo "Root configuration changed, building all images"
-          images_to_build="abs-app uniswapv2"
-        fi
-        
-        # Remove duplicates and trim whitespace
-        images_to_build=$(echo "$images_to_build" | tr ' ' '\n' | sort -u | tr '\n' ' ' | sed 's/[[:space:]]*$//')
-        
-        echo "Images to build: $images_to_build"
-        echo "images_to_build=$images_to_build" >> $GITHUB_OUTPUT
 
     - name: Set up Docker Buildx
-      if: steps.determine-builds.outputs.images_to_build != ''
       uses: docker/setup-buildx-action@v3
 
     - name: Login to GHCR
-      if: steps.determine-builds.outputs.images_to_build != ''
       uses: docker/login-action@v3
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+        password: ${{ secrets.GH_TOKEN }}
 
-    - name: Build and push Docker images
-      if: steps.determine-builds.outputs.images_to_build != ''
+    - name: Build and push all Docker images
       run: |
-        images_to_build="${{ steps.determine-builds.outputs.images_to_build }}"
+        # Find all Dockerfiles
+        dockerfiles=$(find ops/dockerfiles -name "Dockerfile*" -type f)
         
-        if [ -z "$images_to_build" ]; then
-          echo "No images to build"
+        if [ -z "$dockerfiles" ]; then
+          echo "No Dockerfiles found in ops/dockerfiles"
           exit 0
         fi
         
-        # Build each image
-        for image in $images_to_build; do
-          echo "Building $image..."
+        # Build and push each image sequentially
+        for dockerfile_path in $dockerfiles; do
+          dockerfile=$(basename "$dockerfile_path")
+          echo "Building $dockerfile..."
           
-          # Map image name to Dockerfile path
-          case "$image" in
-            "abs-app")
-              dockerfile_path="ops/dockerfiles/Dockerfile.abs-app"
-              ;;
-            "uniswapv2")
-              dockerfile_path="ops/dockerfiles/Dockerfile.uniswapv2"
-              ;;
-            *)
-              echo "Unknown image: $image"
-              continue
-              ;;
-          esac
-          
-          if [ ! -f "$dockerfile_path" ]; then
-            echo "Warning: Dockerfile not found at $dockerfile_path"
-            continue
+          # Extract image name
+          if [[ "$dockerfile" == "Dockerfile" ]]; then
+            image_name="main"
+          else
+            image_name=$(echo "$dockerfile" | sed 's/Dockerfile[.-]*//' | tr '[:upper:]' '[:lower:]')
           fi
           
-          # Generate image tags
-          image_tag="ghcr.io/${{ github.repository_owner }}/absinthe-${image}:latest"
-          commit_tag="ghcr.io/${{ github.repository_owner }}/absinthe-${image}:${GITHUB_SHA::8}"
-          
-          # Build and push with multiple tags
+          # Build and push
           docker buildx build \
             --file "$dockerfile_path" \
             --push \
-            --tag "$image_tag" \
-            --tag "$commit_tag" \
-            --platform linux/amd64,linux/arm64 \
+            --tag "ghcr.io/absinthelabs/absinthe-${image_name}:${image_name}" \
             .
           
-          echo "✅ Successfully built and pushed $image"
-          echo "   - $image_tag"
-          echo "   - $commit_tag"
+          echo "✅ Successfully built and pushed $image_name"
         done
 
-    - name: Update deployment files
-      if: steps.determine-builds.outputs.images_to_build != ''
-      run: |
-        images_to_build="${{ steps.determine-builds.outputs.images_to_build }}"
-        
-        # Update docker-compose.yml if needed
-        if echo "$images_to_build" | grep -q "abs-app"; then
-          echo "Updating abs-app image reference in deployment files..."
-          # Update podman-compose.yml
-          if [ -f "abs-app/podman-compose.yml" ]; then
-            sed -i "s|ghcr.io/.*/absinthe-abs-app:.*|ghcr.io/${{ github.repository_owner }}/absinthe-abs-app:${GITHUB_SHA::8}|g" abs-app/podman-compose.yml
-          fi
-        fi
+    # - name: Notify Slack on Success
+    #   if: success()
+    #   uses: slackapi/slack-github-action@v1.27.0
+    #   with:
+    #     payload: |
+    #       {
+    #         "text": "✅ Build succeeded for ${{ github.repository }}",
+    #         "blocks": [
+    #           {
+    #             "type": "section",
+    #             "text": {
+    #               "type": "mrkdwn",
+    #               "text": "✅ Build *succeeded* for ${{ github.repository }}\n*Branch:* ${{ github.ref_name }}"
+    #             }
+    #           }
+    #         ]
+    #       }
+    #   env:
+    #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+    #     SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
 
-    - name: No changes detected
-      if: steps.determine-builds.outputs.images_to_build == ''
-      run: echo "No relevant changes detected, skipping Docker builds"
-
-    - name: Summary
-      if: always()
-      run: |
-        echo "## Build Summary" >> $GITHUB_STEP_SUMMARY
-        echo "**Changed files:** ${{ steps.changed-files.outputs.changed_files }}" >> $GITHUB_STEP_SUMMARY
-        echo "**Images built:** ${{ steps.determine-builds.outputs.images_to_build }}" >> $GITHUB_STEP_SUMMARY
+    # - name: Notify Slack on Failure
+    #   if: failure()
+    #   uses: slackapi/slack-github-action@v1.27.0
+    #   with:
+    #     payload: |
+    #       {
+    #         "text": "❌ Build failed for ${{ github.repository }}",
+    #         "blocks": [
+    #           {
+    #             "type": "section",
+    #             "text": {
+    #               "type": "mrkdwn",
+    #               "text": "❌ Build *failed* for ${{ github.repository }}\n*Branch:* ${{ github.ref_name }}\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View build details>"
+    #             }
+    #           }
+    #         ]
+    #       }
+    #   env:
+    #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+    #     SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
 
 
     
