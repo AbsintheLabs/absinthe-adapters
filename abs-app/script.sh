@@ -2,7 +2,7 @@
 set -e
 
 echo "[ABS] 🔁 Redeploying abs-app..."
-
+ENV_PATH="/home/admin/ops/absinthe-api/.env" 
 # Stop and remove existing container if it exists
 if podman ps -a --format '{{.Names}}' | grep -q '^abs-app$'; then
   echo "[ABS] 🧹 Removing existing abs-app container..."
@@ -18,7 +18,7 @@ echo "[ABS] 🚀 Starting new abs-app container..."
 podman run -d \
   --name abs-app \
   --network absinthe-net \
-  --env-file .env \
+  --env-file $ENV_PATH \
   -p 3000:3000 \
   ghcr.io/absinthelabs/absinthe-abs-app:abs-app
 
