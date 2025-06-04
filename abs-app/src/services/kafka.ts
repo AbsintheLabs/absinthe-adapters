@@ -2,6 +2,8 @@ import { Kafka, Producer, CompressionTypes } from 'kafkajs';
 import { readFileSync } from 'fs';
 import { SchemaRegistry, SchemaType } from '@kafkajs/confluent-schema-registry';
 import { config } from '../config';
+import snappy from 'kafkajs-snappy';
+import { CompressionCodecs } from 'kafkajs';
 
 /**
  * Kafka service for handling message production with Schema Registry
@@ -17,6 +19,7 @@ export class KafkaService {
         if (!config.kafka.brokers) {
             throw new Error('KAFKA_BROKERS must be set in your .env');
         }
+        CompressionCodecs[CompressionTypes.Snappy] = snappy;
 
         this.kafka = new Kafka({
             clientId: config.kafka.clientId,
