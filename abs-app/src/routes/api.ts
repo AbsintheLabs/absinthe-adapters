@@ -30,14 +30,9 @@ export const logRequestHandler = async (req: Request, res: Response): Promise<vo
 
         // Single batch send to Kafka - super efficient!
         if (events.length === 1) {
-            // await kafkaService.sendMessage(topic, events[0], apiKey);
+            await kafkaService.sendMessage(topic, events[0], apiKey);
         } else {
-            const messages = events.map(event => ({
-                data: event,
-                key: apiKey
-            }));
-            console.log("messages", messages);
-            // await kafkaService.sendMessages(topic, messages);
+            await kafkaService.sendMessages(topic, events, apiKey);
         }
 
         console.log(`Sent ${events.length} ${eventType} events to ${topic}`);

@@ -86,13 +86,13 @@ export class KafkaService {
     // fixme: I don't like that we have separate implementations for single and multiple messages.--
     /**
      * Send multiple messages to a Kafka topic
-     */
-    public async sendMessages(topic: string, messages: Array<{ data: any; key?: string }>): Promise<void> {
+     *///todo: add type safety
+    public async sendMessages(topic: string, data: any, key: string): Promise<void> {
         try {
             await this.connect();
 
-            const kafkaMessages = messages.map(({ data, key }) => ({
-                key: key || null,
+            const kafkaMessages = data.map((event: any) => ({
+                key: key,
                 value: JSON.stringify({
                     timestamp: new Date().toISOString(),
                     data: data
@@ -104,7 +104,7 @@ export class KafkaService {
                 messages: kafkaMessages
             });
 
-            console.log(`${messages.length} messages sent to topic '${topic}'`);
+            console.log(`${data.length} messages sent to topic '${topic}'`);
         } catch (error) {
             console.error('Error sending messages to Kafka:', error);
             throw error;
