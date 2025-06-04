@@ -1,89 +1,109 @@
 import { ProtocolConfig } from "./protocols";
-import { ChainType, Currency, EventType, PriceFeed } from "../enums";
+import { ChainId, ChainName, ChainShortName, ChainType, Currency, EventType, MessageType, PriceFeed } from "../enums";
+import { Token } from "./tokens";
 
-// NOTE: for the time being until we figure out a better more static version for chain information
 interface Chain {
-    networkId: number;
-    name: string;
-    chainType: ChainType.EVM;
+    chainArch: ChainType;
+    networkId: ChainId;
+    chainShortName: ChainShortName;
+    chainName: ChainName;
 }
 
-interface Price {
+// interface Price {
+//     currency: Currency;
+//     value: number;
+//     unixTimestampMs: number;
+//     source: PriceFeed;
+// }
+
+// interface Erc20Token {
+//     tokenType: 'erc20';
+//     tokenAddress: string;
+//     tokenName: string;
+//     tokenSymbol: string;
+//     decimals: number;
+//     price?: Price;
+// }
+
+export interface BaseEventFields {
+    version: string; //default "1.0"
+    eventId: string; // todo: from andrew
+    userId: string; // userAddress // todo: change to userAddress
+    chain: Chain;
+    runner: Runner;
+    protocolMetadata: ProtocolMetadataItem[]; // protocol specific metadata
     currency: Currency;
-    tokenPrice: number;
-    updatedAtMs: number;
+  }
+
+interface ProtocolMetadataItem {
+    key: string;
+    value: string;
+    type: string;
 }
 
-interface Erc20Token {
-    tokenType: 'erc20';
-    tokenAddress: string;
-    tokenName: string;
-    tokenSymbol: string;
-    decimals: number;
-    price?: Price;
+interface Runner {
+    runnerId: string;
 }
 
-/**
- - Describes a unique data source (a protocol pool on a chain), 
-   including adapter versioning and optional runtime metadata.
-*/
-interface DataSource<M = unknown> {
-    /**
-     - Deterministic key for deduplication.
-     - e.g. SHA-256(networkId:protocolName:poolAddress:adapterVersion)
-    */
-    sourceId: string
-
-    /** The EVM network ID (e.g. 1 for mainnet, 137 for Polygon) */
-    chainId: number
-
-    /** Protocol identifier (e.g. 'uniswapv2', 'velodrome') (lowercased) */
-    protocolName: string
-
-    /** Contract address of the pool or token (lower-cased hex) */
-    poolAddress: string
-
-    /** Adapter version string (semver or git SHA) */
-    adapterVersion: string
-
-    /** Optional ID for the specific runner instance (for provenance/troubleshooting) */
-    runnerId?: string
-
-    /** Any additional per-source metadata (client info, tags, etc) */
-    metadata?: M
+interface TokenAmount {
+    token: Token;
+    amount: string;      // Total amount involved - amount0 + amount1
+    amountIn: string;    // Amount going into the pool
+    amountOut: string;   // Amount coming out of the pool
 }
-
-interface BaseTimeWindow {
-    startTs: number; // unix timestamp
-    endTs: number; // unix timestamp
+  
+interface TransactionEvent {
+    base: BaseEventFields;
+    eventType: MessageType;
+    tokenAmount: TokenAmount[];
+    rawAmount: string;
+    displayAmount: number; 
+    unixTimestampMs: number;
+    txHash: string;
+    logIndex: number;
+    blockNumber: number;
+    blockHash: string;
+  }
+  
+  interface TimeWeightedBalanceEvent extends BaseEventFields {
+    eventType: MessageType.TIME_WEIGHTED_BALANCE;
+    balanceBefore: number;
+    balanceAfter: number;
+    timeWindowTrigger: number;
+    startUnixTimestampMs: number;
+    endUnixTimestampMs: number;
     windowDurationMs: number;
-    windowId: number; // floor(startTs / window_duration)
-}
+    startBlockNumber?: number | null;
+    endBlockNumber?: number | null;
+    txHash?: string | null;
+  }
+  
+//   type AdapterEvent = TransactionEvent | TimeWeightedBalanceEvent;
 
-interface TransferTimeWindow extends BaseTimeWindow {
-    trigger: EventType.TRANSFER;
-    startBlocknumber: bigint;
-    endBlocknumber: bigint;
-    txHash: string; // todo: make it clear that it's the end boundary tx hash?
-}
+// interface BaseTimeWindow {
+//     startTs: number; // unix timestamp
+//     endTs: number; // unix timestamp
+//     windowDurationMs: number;
+//     windowId: number; // floor(startTs / window_duration)
+// }
 
-interface ExhaustedTimeWindow extends BaseTimeWindow {
-    trigger: 'exhausted';
-}
+// interface TransferTimeWindow extends BaseTimeWindow {
+//     trigger: EventType.TRANSFER;
+//     startBlocknumber: bigint;
+//     endBlocknumber: bigint;
+//     txHash: string; // todo: make it clear that it's the end boundary tx hash?
+// }
 
-type TimeWindow = TransferTimeWindow | ExhaustedTimeWindow;
+// interface ExhaustedTimeWindow extends BaseTimeWindow {
+//     trigger: 'exhausted';
+// }
 
-interface Provenance {
-    runnerId: string;             // e.g. machine fingerprint
-    adapterVersion: string;       // git SHA or semver
-    indexedAt: number;            // unix epoch
-    sourceCodeHash?: string;      // optional docker / nix hash
-}
+// type TimeWindow = TransferTimeWindow | ExhaustedTimeWindow;
 
 type ActiveBalance = {
     balance: bigint,
-    updated_at_block_ts: number,
-    updated_at_block_height: number
+    updatedBlockTs: number,
+    updatedBlockHeight: number
 }
 
 // export type SimpleHistoryWindow = {
@@ -119,56 +139,30 @@ type ActiveBalance = {
 // a timeweightedbalance just needs a: value to operate on
 
 // 1) who 2) for how long 3) how much
-interface TimeWeightedBalance<M = unknown, N = unknown> {
-    version: 1;
-    dataType: 'time_weighted_balance';
-    user: string;
-    chain: Chain;
-    amount: number;
-    amountType: N;
-    timeWindow: TimeWindow;
-    protocolMetadata?: M;
-    source?: DataSource;  // Reference to the data source that provided this balance. Do this later...
-    // api key and timestamp and hash(api_key, timestsamp, required_values). its like _dbt_surrogate_key
-}
+// interface TimeWeightedBalance<M = unknown, N = unknown> {
+//     version: 1;
+//     dataType: 'time_weighted_balance';
+//     user: string;
+//     chain: Chain;
+//     amount: number;
+//     amountType: N;
+//     timeWindow: TimeWindow;
+//     protocolMetadata?: M;
+//     // api key and timestamp and hash(api_key, timestsamp, required_values). its like _dbt_surrogate_key
+// }
 
-// in a swap, we also care only about the value
-interface Transaction<M = unknown, N = unknown> {
-    version: 1;
-    dataType: 'transaction';
-    user: string;
-    chain: Chain;
-    amount: number;
-    amountType: N;
-    timestampMs: number; // unix timestamp
-    blockNumber: bigint;
-    txHash: string;
-    logIndex: number; // should we have an index to identify if there were multiple in a transaction
-    source?: DataSource;  // Reference to the data source that provided this transaction
-    protocolMetadata?: M;
-}
-
-// Usd Amount Metadata
-type UsdAmountType = {
-    amountType: Currency.USD;
-    priceFeed: PriceFeed;
-}
-
-type SimpleTimeWeightedBalance = Pick<TimeWeightedBalance<Partial<UniswapV2TWBMetadata>, UsdAmountType>, 'user' | 'amount' | 'timeWindow' | 'protocolMetadata'>;
-type SimpleTransaction = Pick<Transaction<Partial<UniswapV2SwapMetadata>, UsdAmountType>, 'user' | 'amount' | 'timestampMs' | 'blockNumber' | 'txHash' | 'logIndex' | 'protocolMetadata'>;
-
-interface ValueChangeArgs {
-    assetAddress: string      
-    from: string             
-    to: string               
-    amount: bigint            
-    usdValue: number          
-    blockTimestamp: number      
-    txHash: string
-    blockHeight: number
-    windowDurationMs: number
-    activeBalances: Map<string, ActiveBalance>
-}
+// interface ValueChangeArgs {
+//     assetAddress: string      
+//     from: string             
+//     to: string               
+//     amount: bigint            
+//     usdValue: number          
+//     blockTimestamp: number      
+//     txHash: string
+//     blockHeight: number
+//     windowDurationMs: number
+//     activeBalances: Map<string, ActiveBalance>
+// }
 
 // Uniswap Protocol Metadata
 interface UniswapV2TWBMetadata {
@@ -178,8 +172,8 @@ interface UniswapV2TWBMetadata {
 
 interface UniswapV2SwapMetadata {
     poolAddress: string;
-    token0: Erc20Token;
-    token1: Erc20Token;
+    token0: Token;
+    token1: Token;
     token0Amount: bigint;
     token1Amount: bigint;
 }
@@ -202,18 +196,13 @@ interface ValidatedEnv {
 }
 
 export {
-    Chain,
-    Price,
-    Erc20Token,
-    DataSource,
-    TimeWeightedBalance,
-    Transaction,
-    UsdAmountType,
-    SimpleTimeWeightedBalance,
-    SimpleTransaction,
+    Chain,   
     ValidatedEnv,
-    ActiveBalance,
     UniswapV2TWBMetadata,
     UniswapV2SwapMetadata,
-    ValueChangeArgs
+    TokenAmount,
+    TransactionEvent,
+    ActiveBalance,
+    TimeWeightedBalanceEvent
+
 }

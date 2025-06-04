@@ -1,4 +1,4 @@
-const BATCH_SIZE = 100;
+const BATCH_SIZE = 50;
 const HOURS_TO_MS = 60 * 60 * 1000;
 const MINUTES_TO_MS = 60 * 1000;
 const SECONDS_TO_MS = 1000;

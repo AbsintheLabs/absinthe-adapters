@@ -5,8 +5,8 @@ function mapToJson(map: Map<string, ActiveBalance>): Record<string, any> {
     for (const [key, value] of map.entries()) {
       result[key] = {
         balance: value.balance.toString(),
-        updated_at_block_ts: value.updated_at_block_ts,
-        updated_at_block_height: value.updated_at_block_height
+        updatedBlockTs: value.updatedBlockTs,
+        updatedBlockHeight: value.updatedBlockHeight
       };
     }
     return result;
@@ -20,8 +20,8 @@ function mapToJson(map: Map<string, ActiveBalance>): Record<string, any> {
       if (key === '__metadata') continue;
       result.set(key, {
         balance: BigInt(value.balance),
-        updated_at_block_ts: value.updated_at_block_ts,
-        updated_at_block_height: value.updated_at_block_height
+        updatedBlockTs: value.updatedBlockTs,
+        updatedBlockHeight: value.updatedBlockHeight
       });
     }
     return result;

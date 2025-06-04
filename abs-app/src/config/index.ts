@@ -7,8 +7,8 @@ export const config = {
     port: process.env.PORT,
     logFilePath: process.env.LOG_FILE_PATH,
     kafka: {
-        transactionsTopic: process.env.KAFKA_TRANSACTIONS_TOPIC,
-        twbTopic: process.env.KAFKA_TWB_TOPIC,
+        transactionsTopic: process.env.KAFKA_TRANSACTIONS_TOPIC as string,
+        twbTopic: process.env.KAFKA_TWB_TOPIC as string,
         clientId: process.env.KAFKA_CLIENT_ID,
         brokers: process.env.KAFKA_BROKERS
     }

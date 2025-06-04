@@ -19,22 +19,6 @@
                 "decimals": 18
             },
             "preferredTokenCoingeckoId": "token1"
-        },
-        {
-            "type": "uniswap-v2",
-            "name": "USDC/WETH Pool",
-            "contractAddress": "0xb4e16d0168e52d35cacd2c6185b44281ec28c9dc",
-            "fromBlock": 10008355,
-            "pricingStrategy": "coingecko",
-            "token0": {
-                "coingeckoId": "usdc",
-                "decimals": 6
-            },
-            "token1": {
-                "coingeckoId": "weth",
-                "decimals": 18
-            },
-            "preferredTokenCoingeckoId": "token0"
         }
     ]
 }

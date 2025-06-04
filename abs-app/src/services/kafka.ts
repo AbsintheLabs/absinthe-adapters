@@ -1,5 +1,4 @@
 import { Kafka, Producer, CompressionTypes } from 'kafkajs';
-import { handleBigIntSerialization } from '../utils/bigint';
 import { config } from '../config';
 
 /**
@@ -61,16 +60,12 @@ export class KafkaService {
             // Ensure producer is connected
             await this.connect();
 
-            // Process data to handle BigInt serialization
-            // warn: we probably don't need this since we assume we won't have bigints later (all will be strings)
-            const processedData = handleBigIntSerialization(data);
-
             // Create message
             const message = {
                 key: key,
                 value: JSON.stringify({
                     timestamp: new Date().toISOString(),
-                    data: processedData
+                    data: data
                 }),
             };
 
@@ -81,7 +76,7 @@ export class KafkaService {
                 compression: CompressionTypes.Snappy,
             });
 
-            console.log(`Message sent to topic '${topic}':`, processedData);
+            console.log(`Message sent to topic '${topic}':`, data);
         } catch (error) {
             console.error('Error sending message to Kafka:', error);
             throw error;
@@ -100,9 +95,8 @@ export class KafkaService {
                 key: key || null,
                 value: JSON.stringify({
                     timestamp: new Date().toISOString(),
-                    data: handleBigIntSerialization(data)
+                    data: data
                 }),
-                timestamp: Date.now().toString()
             }));
 
             await this.producer.send({

@@ -14,7 +14,7 @@
             "type": "string"
         },
         {
-            "name": "userId",
+            "name": "userId", //todo: change to userAddress
             "type": "string",
             "doc": "EVM address that triggered the event"
         },
@@ -91,37 +91,12 @@
             "default": []
         },
         {
-            "name": "valueUsd",
-            "type": "double"
-        },
-        {
-            "name": "priced",
+            "name": "currency",
             "type": {
-                "type": "record",
-                "name": "Price",
-                "fields": [
-                    {
-                        "name": "value",
-                        "type": "double"
-                    },
-                    {
-                        "name": "currency",
-                        "type": {
-                            "type": "enum",
-                            "name": "CurrencyEnum",
-                            "symbols": [
-                                "USD"
-                            ]
-                        }
-                    },
-                    {
-                        "name": "source",
-                        "type": "string"
-                    },
-                    {
-                        "name": "unixTimestampMs",
-                        "type": "long"
-                    }
+                "type": "enum",
+                "name": "CurrencyEnum",
+                "symbols": [
+                    "USD"
                 ]
             }
         }

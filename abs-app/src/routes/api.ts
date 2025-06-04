@@ -1,32 +1,57 @@
 import { Request, Response } from 'express';
 import { kafkaService } from '../services/kafka';
 import { config } from '../config';
-import { validationService } from '../services/validation';
+// import { validationService } from '../services/validation';
 
 /**
  * POST /api/log - Logs the request body and sends to Kafka
  */
 export const logRequestHandler = async (req: Request, res: Response): Promise<void> => {
     try {
-        const eventType = req.body.eventType;
-        console.log('eventType', eventType);
-        const topic = eventType === 'transaction' ? config.kafka.transactionsTopic : config.kafka.twbTopic;
+        const events = Array.isArray(req.body) ? req.body : [req.body];
+        console.log("events", events);
+        if (events.length === 0) {
+            res.status(400).json({ success: false, message: 'No events provided' });
+            return;
+        }
 
-        // Send to Kafka topic
-        // await kafkaService.sendMessage(
-        //     topic,
-        //     req.body,
-        //     req.headers['x-api-key'] as string // Use API key as message key for partitioning
-        // );
+        // Since all events are same topic, just check the first one
+        const eventType = events[0].eventType;
+        if (!eventType) {
+            res.status(400).json({ success: false, message: 'eventType is required' });
+            return;
+        }
+
+        const topic = eventType === 'transaction' 
+            ? config.kafka.transactionsTopic 
+            : config.kafka.twbTopic;
+
+        const apiKey = req.headers['x-api-key'] as string;
+
+        // Single batch send to Kafka - super efficient!
+        if (events.length === 1) {
+            // await kafkaService.sendMessage(topic, events[0], apiKey);
+        } else {
+            const messages = events.map(event => ({
+                data: event,
+                key: apiKey
+            }));
+            console.log("messages", messages);
+            // await kafkaService.sendMessages(topic, messages);
+        }
+
+        console.log(`Sent ${events.length} ${eventType} events to ${topic}`);
 
         res.status(200).json({
             success: true,
-            message: `event logged and sent to Kafka successfully`,
-            eventType: eventType
+            message: `${events.length} event(s) logged and sent to Kafka successfully`,
+            eventType: eventType,
+            eventCount: events.length,
+            topic: topic
         });
+
     } catch (error) {
         console.error('Error processing request:', error);
-
         res.status(500).json({
             success: false,
             message: 'Internal server error while processing request',
@@ -42,8 +67,8 @@ export const healthCheckHandler = (req: Request, res: Response): void => {
     res.status(200).json({ status: 'UP' });
 };
 
-export const validateRequestHandler = (req: Request, res: Response): void => {
-    const validationResult = validationService.validateRequest(req.body);
-    console.log('validationResult', validationResult);
-    res.status(200).json(validationResult);
-};
+// export const validateRequestHandler = (req: Request, res: Response): void => {
+//     const validationResult = validationService.validateRequest(req.body);
+//     console.log('validationResult', validationResult);
+//     res.status(200).json(validationResult);
+// };

@@ -19,29 +19,32 @@
             }
         },
         {
-            "name": "token",
-            "type": [
-                "null",
-                {
+            "name": "tokens",
+            "type": {
+                "type": "array",
+                "items": {
                     "type": "record",
-                    "name": "Token",
+                    "name": "TokenAmount",
                     "fields": [
                         {
-                            "name": "address",
-                            "type": "string"
+                            "name": "token",
+                            "type": {
+                                "type": "record",
+                                "name": "Token",
+                                "fields": [
+                                    {"name": "address", "type": "string"},
+                                    {"name": "symbol", "type": "string"},
+                                    {"name": "decimals", "type": "int"}
+                                ]
+                            }
                         },
-                        {
-                            "name": "symbol",
-                            "type": "string"
-                        },
-                        {
-                            "name": "decimals",
-                            "type": "int"
-                        }
+                        {"name": "amount", "type": "string"},
+                        {"name": "amountIn", "type": "string"},
+                        {"name": "amountOut", "type": "string"}
                     ]
                 }
-            ],
-            "default": null
+            },
+            "default": []
         },
         {
             "name": "rawAmount",

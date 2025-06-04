@@ -25,6 +25,14 @@ enum ChainName {
     OPTIMISM = 'optimism',
 }
 
+enum ChainShortName {
+    MAINNET = 'eth',
+    POLYGON = 'polygon',
+    ARBITRUM = 'arbitrum',
+    BASE = 'base',
+    OPTIMISM = 'optimism',
+}
+
 enum PriceFeed {
     COINGECKO = 'coingecko',
     CODEX = 'codex',
@@ -67,4 +75,9 @@ enum EventType {
     BURN = "burn",
 }
 
-export { Currency, ChainId, ChainName, PriceFeed, Dex, ChainType, TokenPreference, ProtocolVersion, EventType };
+enum MessageType {
+    TRANSACTION = 'transaction',
+    TIME_WEIGHTED_BALANCE = 'timeWeightedBalance'
+}
+
+export { Currency, ChainId, ChainName, ChainShortName, PriceFeed, Dex, ChainType, TokenPreference, ProtocolVersion, EventType, MessageType };

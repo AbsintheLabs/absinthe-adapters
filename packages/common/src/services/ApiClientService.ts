@@ -1,9 +1,11 @@
 import Bottleneck from 'bottleneck';
-import { TimeWeightedBalance, Transaction } from '../types/interfaces/interfaces';
+// import { TimeWeightedBalance, Transaction } from '../types/interfaces/interfaces';
 import { fetchWithRetry } from '../utils/helper/fetchWithRetry';
 import { logger } from '../utils/logger';
 import { convertBigIntToString } from '../utils/helper/bigIntToString';
 import { BATCH_SIZE } from '../utils/consts';
+import { TimeWeightedBalanceEvent } from '../types/interfaces/interfaces';
+import { TransactionEvent } from '../types/interfaces/interfaces';
 
 interface ApiClientConfig {
     baseUrl: string;
@@ -39,18 +41,18 @@ export class AbsintheApiClient {
         });
     }
 
-    private async sendSingleBatch(data: TimeWeightedBalance[] | Transaction[]): Promise<void> {
+    private async sendSingleBatch(data: TimeWeightedBalanceEvent[] | TransactionEvent[]): Promise<void> {
         logger.info(`Sending ${data.length} records to API...`);
-        const response = await this.sendData('api/log', { balances: data });
+        const response = await this.sendData('api/log', data);
 
         if (!response.ok) {
             throw new Error(`Failed to send data: ${response.status} ${response.statusText}`);
         }
     }
 
-    private async sendMultipleBatches(data: TimeWeightedBalance[] | Transaction[]): Promise<void> {
+    private async sendMultipleBatches(data: TimeWeightedBalanceEvent[] | TransactionEvent[]): Promise<void> {
         const batchCount = Math.ceil(data.length / BATCH_SIZE);
-        logger.info(`Splitting ${data.length} ${data[0].dataType} records into ${batchCount} batches...`);
+        // logger.info(`Splitting ${data.length} ${data[0].dataType} records into ${batchCount} batches...`);
 
         for (let i = 0; i < data.length; i += BATCH_SIZE) {
             const batch = data.slice(i, i + BATCH_SIZE);
@@ -58,7 +60,7 @@ export class AbsintheApiClient {
             
             logger.info(`Sending batch ${batchNumber}/${batchCount} with ${batch.length} records...`);
 
-            const response = await this.sendData('api/log', { balances: batch });
+            const response = await this.sendData('api/log', batch);
 
             if (!response.ok) {
                 throw new Error(`Failed to send batch ${batchNumber}/${batchCount}: ${response.status} ${response.statusText}`);
@@ -78,9 +80,9 @@ export class AbsintheApiClient {
         if (!data) {
             throw new Error('No data provided');
         }
+        console.log("Sending data to API", JSON.stringify(data));
 
-        // Convert any BigInt values to strings
-        const serializedData = convertBigIntToString(data);
+
         const normalizedEndpoint = endpoint.replace(/^\//, '');
 
         // Create a function for the API call that will be retried
@@ -91,7 +93,7 @@ export class AbsintheApiClient {
                     'Content-Type': 'application/json',
                     'x-api-key': this.apiKey,
                 },
-                body: JSON.stringify(serializedData),
+                body: JSON.stringify(data),
             })
         );
 
@@ -103,7 +105,7 @@ export class AbsintheApiClient {
      * Specialized method for sending balance data
      * @param data Array of balance records
      */
-    async send(data: TimeWeightedBalance[] | Transaction[]): Promise<void> {
+    async send(data: TimeWeightedBalanceEvent[] | TransactionEvent[]): Promise<void> {
         if (data.length === 0) return;
 
         if (data.length <= BATCH_SIZE) {
