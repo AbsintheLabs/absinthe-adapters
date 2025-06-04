@@ -13,13 +13,6 @@ RUN npm install
 # Copy rest of the files
 COPY abs-app/ ./
 
-# Add to your Dockerfile
-RUN apt-get update && apt-get install -y \
-    libsnappy-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# Then install snappy npm package
-RUN npm install snappy
 # Build app
 RUN npm run build || (echo "Build failed" && exit 1)
 
