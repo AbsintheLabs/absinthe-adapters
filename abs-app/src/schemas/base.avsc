@@ -18,24 +18,36 @@
             "type": "string",
             "doc": "EVM address that triggered the event"
         },
+        
         {
-            "name": "chainArch",
+            "name": "chain",
             "type": {
-                "type": "enum",
-                "name": "ChainArchEnum",
-                "symbols": [
-                    "evm"
-                ]
+              "type": "record",
+              "name": "Chain",
+              "fields": [
+                {
+                  "name": "chainArch",
+                  "type": {
+                    "type": "enum",
+                    "name": "ChainArchEnum",
+                    "symbols": ["evm"]
+                  }
+                },
+                {
+                  "name": "networkId",
+                  "type": "int"
+                },
+                {
+                  "name": "chainShortName",
+                  "type": "string"
+                },
+                {
+                  "name": "chainName",
+                  "type": "string"
+                }
+              ]
             }
-        },
-        {
-            "name": "networkId",
-            "type": "int"
-        },
-        {
-            "name": "chainShortName",
-            "type": "string"
-        },
+          },
         {
             "name": "runner",
             "type": {
