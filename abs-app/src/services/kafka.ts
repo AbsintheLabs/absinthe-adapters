@@ -68,6 +68,8 @@ export class KafkaService {
             // Register Base schema first and get actual version
             await this.ensureSchema('base-value', './src/schemas/base.avsc');
             const baseVersion = await this.getRegisteredVersion('base-value');
+
+            console.log("baseVersion", baseVersion);
             
             // Register dependent schemas with correct base version
             await this.ensureSchemaWithReference('transaction-value', './src/schemas/transaction.avsc', [
@@ -148,7 +150,7 @@ export class KafkaService {
     public async sendMessage(topic: string, data: any, key: string): Promise<void> {
         try {
             await this.connect();
-
+            console.log("data", data);
             // Get schema ID based on event type
             const schemaId = await this.registry.getLatestSchemaId(data[0]);
             
