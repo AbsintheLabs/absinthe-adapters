@@ -74,22 +74,38 @@ export class KafkaService {
      */
     public async initializeSchemas(): Promise<void> {
         try {
-            // Register Base schema first
+            // Register Base schema first and get actual version
             await this.ensureSchema('base-value', './src/schemas/base.avsc');
+            const baseVersion = await this.getRegisteredVersion('base-value');
             
-            // Register schemas with explicit references
+            // Register dependent schemas with correct base version
             await this.ensureSchemaWithReference('transaction-value', './src/schemas/transaction.avsc', [
-                { name: 'network.absinthe.adapters.Base', subject: 'base-value', version: 1 }
+                { name: 'network.absinthe.adapters.Base', subject: 'base-value', version: baseVersion }
             ]);
             
             await this.ensureSchemaWithReference('timeWeightedBalance-value', './src/schemas/timeWeightedBalance.avsc', [
-                { name: 'network.absinthe.adapters.Base', subject: 'base-value', version: 1 }
+                { name: 'network.absinthe.adapters.Base', subject: 'base-value', version: baseVersion }
             ]);
             
             console.log('All schemas initialized successfully');
         } catch (error) {
             console.error('Error initializing schemas:', error);
             throw error;
+        }
+    }
+
+    /**
+     * Get the registered version by making direct API call
+     */
+    private async getRegisteredVersion(subject: string): Promise<number> {
+        try {
+            // Make direct HTTP call to Schema Registry API
+            const response = await fetch(`${config.kafka.schemaRegistryUrl}/subjects/${subject}/versions/latest`);
+            const data = await response.json();
+            return data.version;
+        } catch (error) {
+            console.warn(`Could not get version for ${subject}, defaulting to 1`);
+            return 1;
         }
     }
 
