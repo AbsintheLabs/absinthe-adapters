@@ -95,9 +95,10 @@ export class KafkaService {
                 key: key,
                 value: JSON.stringify({
                     timestamp: new Date().toISOString(),
-                    data: data
+                    data: event
                 }),
             }));
+            console.log("kafkaMessages", kafkaMessages);
 
             await this.producer.send({
                 topic,

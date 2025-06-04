@@ -1,8 +1,6 @@
 import Bottleneck from 'bottleneck';
-// import { TimeWeightedBalance, Transaction } from '../types/interfaces/interfaces';
 import { fetchWithRetry } from '../utils/helper/fetchWithRetry';
 import { logger } from '../utils/logger';
-import { convertBigIntToString } from '../utils/helper/bigIntToString';
 import { BATCH_SIZE } from '../utils/consts';
 import { TimeWeightedBalanceEvent } from '../types/interfaces/interfaces';
 import { TransactionEvent } from '../types/interfaces/interfaces';

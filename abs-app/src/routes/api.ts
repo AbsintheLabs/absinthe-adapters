@@ -9,7 +9,6 @@ import { config } from '../config';
 export const logRequestHandler = async (req: Request, res: Response): Promise<void> => {
     try {
         const events = Array.isArray(req.body) ? req.body : [req.body];
-        console.log("events", events);
         if (events.length === 0) {
             res.status(400).json({ success: false, message: 'No events provided' });
             return;
