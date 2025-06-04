@@ -15,6 +15,7 @@
         "test:validation": "npx ts-node src/test-runner.ts"
     },
     "dependencies": {
+        "@kafkajs/confluent-schema-registry": "^3.9.0",
         "ajv": "^8.17.1",
         "avsc": "^5.7.7",
         "dotenv": "^16.3.1",

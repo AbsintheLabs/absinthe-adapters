@@ -1,13 +1,17 @@
 import { Kafka, Producer, CompressionTypes } from 'kafkajs';
+import { readFileSync } from 'fs';
+import { SchemaRegistry, SchemaType } from '@kafkajs/confluent-schema-registry';
 import { config } from '../config';
 
 /**
- * Kafka service for handling message production
+ * Kafka service for handling message production with Schema Registry
  */
 export class KafkaService {
     private kafka: Kafka;
     private producer: Producer;
+    private registry: SchemaRegistry;
     private isConnected: boolean = false;
+    private schemaIds: Map<string, number> = new Map();
 
     constructor() {
         if (!config.kafka.brokers) {
@@ -28,6 +32,52 @@ export class KafkaService {
             maxInFlightRequests: 5,    // Default - allows pipelining for better throughput
             idempotent: true,          // Prevents duplicates with minimal perf impact
         });
+
+        // Initialize Schema Registry
+        this.registry = new SchemaRegistry({ 
+            host: config.kafka.schemaRegistryUrl 
+        });
+    }
+
+    /**
+     * Ensure schema is registered and return schema ID
+     */
+    public async ensureSchema(subject: string, avscPath: string): Promise<number> {
+        // Check if we already have the schema ID cached
+        if (this.schemaIds.has(subject)) {
+            return this.schemaIds.get(subject)!;
+        }
+
+        const schemaString = readFileSync(avscPath, 'utf8');
+
+        try {
+            const id = await this.registry.getLatestSchemaId(subject);
+            console.log(`Schema already registered with ID ${id} for subject ${subject}`);
+            this.schemaIds.set(subject, id);
+            return id;
+        } catch (e) {
+            const { id } = await this.registry.register({ 
+                type: SchemaType.AVRO, 
+                schema: schemaString 
+            }, { subject });
+            console.log(`Registered new schema with ID ${id} for subject ${subject}`);
+            this.schemaIds.set(subject, id);
+            return id;
+        }
+    }
+
+    /**
+     * Initialize schemas for all subjects
+     */
+    public async initializeSchemas(): Promise<void> {
+        try {
+            await this.ensureSchema('transaction-value', './src/schemas/transaction.avsc');
+            await this.ensureSchema('timeWeightedBalance-value', './src/schemas/timeWeightedBalance.avsc');
+            console.log('All schemas initialized successfully');
+        } catch (error) {
+            console.error('Error initializing schemas:', error);
+            throw error;
+        }
     }
 
     /**
@@ -36,8 +86,9 @@ export class KafkaService {
     public async connect(): Promise<void> {
         if (!this.isConnected) {
             await this.producer.connect();
+            await this.initializeSchemas(); // Initialize schemas on connect
             this.isConnected = true;
-            console.log('Kafka producer connected');
+            console.log('Kafka producer connected and schemas initialized');
         }
     }
 
@@ -98,8 +149,6 @@ export class KafkaService {
                     data: event
                 }),
             }));
-            console.log("kafkaMessages", kafkaMessages);
-
             await this.producer.send({
                 topic,
                 messages: kafkaMessages
