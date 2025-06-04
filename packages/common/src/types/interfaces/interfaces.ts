@@ -45,7 +45,7 @@ interface Runner {
     runnerId: string;
 }
 
-interface TokenAmount {
+interface TokenDetails {
     token: Token;
     amount: string;      // Total amount involved - amount0 + amount1
     amountIn: string;    // Amount going into the pool
@@ -55,7 +55,7 @@ interface TokenAmount {
 interface TransactionEvent {
     base: BaseEventFields;
     eventType: MessageType;
-    tokenAmount: TokenAmount[];
+    tokens: TokenDetails[];
     rawAmount: string;
     displayAmount: number; 
     unixTimestampMs: number;
@@ -200,7 +200,7 @@ export {
     ValidatedEnv,
     UniswapV2TWBMetadata,
     UniswapV2SwapMetadata,
-    TokenAmount,
+    TokenDetails,
     TransactionEvent,
     ActiveBalance,
     TimeWeightedBalanceEvent

@@ -197,7 +197,7 @@ export class UniswapV2Processor  {
         const transactionSchema = {
           base: baseSchema,
           eventType: MessageType.TRANSACTION,
-          tokenAmount: [
+          tokens: [
             {
               token: {
                 coingeckoId: protocolState.config.token0.coingeckoId || "", //todo: required
