@@ -43,8 +43,8 @@ export class KafkaService {
      * Ensure schema is registered and return schema ID
      */
     public async ensureSchema(subject: string, avscPath: string): Promise<number> {
-        // Check if we already have the schema ID cached
         if (this.schemaIds.has(subject)) {
+            //todo: add refresh
             return this.schemaIds.get(subject)!;
         }
 
@@ -71,12 +71,48 @@ export class KafkaService {
      */
     public async initializeSchemas(): Promise<void> {
         try {
-            await this.ensureSchema('transaction-value', './src/schemas/transaction.avsc');
-            await this.ensureSchema('timeWeightedBalance-value', './src/schemas/timeWeightedBalance.avsc');
+            // Register Base schema first
+            await this.ensureSchema('base-value', './src/schemas/base.avsc');
+            
+            // Register schemas with explicit references
+            await this.ensureSchemaWithReference('transaction-value', './src/schemas/transaction.avsc', [
+                { name: 'network.absinthe.adapters.Base', subject: 'base-value', version: 1 }
+            ]);
+            
+            await this.ensureSchemaWithReference('timeWeightedBalance-value', './src/schemas/timeWeightedBalance.avsc', [
+                { name: 'network.absinthe.adapters.Base', subject: 'base-value', version: 1 }
+            ]);
+            
             console.log('All schemas initialized successfully');
         } catch (error) {
             console.error('Error initializing schemas:', error);
             throw error;
+        }
+    }
+
+    /**
+     * Register schema with references
+     */
+    private async ensureSchemaWithReference(subject: string, avscPath: string, references: any[]): Promise<number> {
+        if (this.schemaIds.has(subject)) {
+            return this.schemaIds.get(subject)!;
+        }
+
+        const schemaString = readFileSync(avscPath, 'utf8');
+
+        try {
+            const id = await this.registry.getLatestSchemaId(subject);
+            this.schemaIds.set(subject, id);
+            return id;
+        } catch (e) {
+            const { id } = await this.registry.register({ 
+                type: SchemaType.AVRO, 
+                schema: schemaString,
+                references: references
+            }, { subject });
+            console.log(`Registered schema with references, ID ${id} for subject ${subject}`);
+            this.schemaIds.set(subject, id);
+            return id;
         }
     }
 
