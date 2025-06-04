@@ -14,7 +14,7 @@
             "type": "string"
         },
         {
-            "name": "userId", //todo: change to userAddress
+            "name": "userId",
             "type": "string",
             "doc": "EVM address that triggered the event"
         },
