@@ -155,10 +155,7 @@ export class KafkaService {
             const schemaId = await this.getSchemaIdForData(data);
             
             // Encode message using Avro schema
-            const encodedValue = await this.registry.encode(schemaId, {
-                timestamp: new Date().toISOString(),
-                data: data
-            });
+            const encodedValue = await this.registry.encode(schemaId, data);
 
             const message = {
                 key: key,
@@ -191,10 +188,7 @@ export class KafkaService {
             const kafkaMessages = await Promise.all(
                 data.map(async (event: any) => ({
                     key: key,
-                    value: await this.registry.encode(schemaId, {
-                        timestamp: new Date().toISOString(),
-                        data: event
-                    }),
+                    value: await this.registry.encode(schemaId, event),
                 }))
             );
 
