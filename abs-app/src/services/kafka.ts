@@ -13,7 +13,6 @@ export class KafkaService {
     private producer: Producer;
     private registry: SchemaRegistry;
     private isConnected: boolean = false;
-    private schemaIds: Map<string, number> = new Map();
 
     constructor() {
         if (!config.kafka.brokers) {
@@ -46,26 +45,18 @@ export class KafkaService {
      * Ensure schema is registered and return schema ID
      */
     public async ensureSchema(subject: string, avscPath: string): Promise<number> {
-        if (this.schemaIds.has(subject)) {
-            //todo: add refresh
-            return this.schemaIds.get(subject)!;
-        }
-
         const schemaString = readFileSync(avscPath, 'utf8');
 
         try {
-            const id = await this.registry.getLatestSchemaId(subject);
-            console.log(`Schema already registered with ID ${id} for subject ${subject}`);
-            this.schemaIds.set(subject, id);
-            return id;
-        } catch (e) {
             const { id } = await this.registry.register({ 
                 type: SchemaType.AVRO, 
                 schema: schemaString 
             }, { subject });
             console.log(`Registered new schema with ID ${id} for subject ${subject}`);
-            this.schemaIds.set(subject, id);
             return id;
+        } catch (e) {
+            console.error('Error registering schema:', e);
+            throw e;
         }
     }
 
@@ -99,7 +90,6 @@ export class KafkaService {
      */
     private async getRegisteredVersion(subject: string): Promise<number> {
         try {
-            // Make direct HTTP call to Schema Registry API
             const response = await fetch(`${config.kafka.schemaRegistryUrl}/subjects/${subject}/versions/latest`);
             const data = await response.json();
             return data.version;
@@ -113,25 +103,19 @@ export class KafkaService {
      * Register schema with references
      */
     private async ensureSchemaWithReference(subject: string, avscPath: string, references: any[]): Promise<number> {
-        if (this.schemaIds.has(subject)) {
-            return this.schemaIds.get(subject)!;
-        }
-
         const schemaString = readFileSync(avscPath, 'utf8');
 
         try {
-            const id = await this.registry.getLatestSchemaId(subject);
-            this.schemaIds.set(subject, id);
-            return id;
-        } catch (e) {
             const { id } = await this.registry.register({ 
                 type: SchemaType.AVRO, 
                 schema: schemaString,
                 references: references
             }, { subject });
             console.log(`Registered schema with references, ID ${id} for subject ${subject}`);
-            this.schemaIds.set(subject, id);
             return id;
+        } catch (e) {
+            console.error('Error registering schema with references:', e);
+            throw e;
         }
     }
 
@@ -166,7 +150,7 @@ export class KafkaService {
             await this.connect();
 
             // Get schema ID based on event type
-            const schemaId = this.getSchemaIdForData(data);
+            const schemaId = await this.registry.getLatestSchemaId(data[0]);
             
             // Encode message using Avro schema
             const encodedValue = await this.registry.encode(schemaId, {
@@ -200,7 +184,7 @@ export class KafkaService {
         try {
             await this.connect();
 
-            const schemaId = this.getSchemaIdForData(data[0]); // Assume all same type
+            const schemaId = await this.registry.getLatestSchemaId(data[0]); // Assume all same type
             
             const kafkaMessages = await Promise.all(
                 data.map(async (event: any) => ({
@@ -229,18 +213,7 @@ export class KafkaService {
      * Get schema ID based on data type
      */
     //todo: add type safety
-    //todo: is it alright ?
-    private getSchemaIdForData(data: any): number {
-        const eventType = data.eventType;
-        
-        if (eventType === 'transaction') {
-            return this.schemaIds.get('transaction-value')!;
-        } else if (eventType === 'timeWeightedBalance') {
-            return this.schemaIds.get('timeWeightedBalance-value')!;
-        }
-        
-        throw new Error(`Unknown event type: ${eventType}`);
-    }
+    
 }
 
 // Export singleton instance
