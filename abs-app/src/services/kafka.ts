@@ -152,7 +152,7 @@ export class KafkaService {
             await this.connect();
             console.log("data", data);
             // Get schema ID based on event type
-            const schemaId = await this.registry.getLatestSchemaId(data[0]);
+            const schemaId = await this.getSchemaIdForData(data);
             
             // Encode message using Avro schema
             const encodedValue = await this.registry.encode(schemaId, {
@@ -186,7 +186,7 @@ export class KafkaService {
         try {
             await this.connect();
 
-            const schemaId = await this.registry.getLatestSchemaId(data[0]); // Assume all same type
+            const schemaId = await this.getSchemaIdForData(data[0]); // Assume all same type
             
             const kafkaMessages = await Promise.all(
                 data.map(async (event: any) => ({
@@ -215,6 +215,17 @@ export class KafkaService {
      * Get schema ID based on data type
      */
     //todo: add type safety
+    private async getSchemaIdForData(data: any): Promise<number> {
+        const eventType = data.eventType;
+        
+        if (eventType === 'transaction') {
+            return this.registry.getLatestSchemaId('transaction-value');
+        } else if (eventType === 'timeWeightedBalance') {
+            return this.registry.getLatestSchemaId('timeWeightedBalance-value');
+        }
+        
+        throw new Error(`Unknown event type: ${eventType}`);
+    }
     
 }
 
