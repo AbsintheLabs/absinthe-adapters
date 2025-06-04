@@ -143,30 +143,33 @@ export class KafkaService {
     }
 
     /**
-     * Send a message to a Kafka topic
+     * Send a message to a Kafka topic with Avro encoding
      */
     public async sendMessage(topic: string, data: any, key: string): Promise<void> {
         try {
-            // Ensure producer is connected
             await this.connect();
 
-            // Create message
+            // Get schema ID based on event type
+            const schemaId = this.getSchemaIdForData(data);
+            
+            // Encode message using Avro schema
+            const encodedValue = await this.registry.encode(schemaId, {
+                timestamp: new Date().toISOString(),
+                data: data
+            });
+
             const message = {
                 key: key,
-                value: JSON.stringify({
-                    timestamp: new Date().toISOString(),
-                    data: data
-                }),
+                value: encodedValue, // Now using Avro encoded value
             };
 
-            // Send message
             await this.producer.send({
                 topic,
                 messages: [message],
                 compression: CompressionTypes.Snappy,
             });
 
-            console.log(`Message sent to topic '${topic}':`, data);
+            console.log(`Avro-encoded message sent to topic '${topic}'`);
         } catch (error) {
             console.error('Error sending message to Kafka:', error);
             throw error;
@@ -181,23 +184,46 @@ export class KafkaService {
         try {
             await this.connect();
 
-            const kafkaMessages = data.map((event: any) => ({
-                key: key,
-                value: JSON.stringify({
-                    timestamp: new Date().toISOString(),
-                    data: event
-                }),
-            }));
+            const schemaId = this.getSchemaIdForData(data[0]); // Assume all same type
+            
+            const kafkaMessages = await Promise.all(
+                data.map(async (event: any) => ({
+                    key: key,
+                    value: await this.registry.encode(schemaId, {
+                        timestamp: new Date().toISOString(),
+                        data: event
+                    }),
+                }))
+            );
+
             await this.producer.send({
                 topic,
-                messages: kafkaMessages
+                messages: kafkaMessages,
+                compression: CompressionTypes.Snappy
             });
 
-            console.log(`${data.length} messages sent to topic '${topic}'`);
+            console.log(`${data.length} Avro-encoded messages sent to topic '${topic}'`);
         } catch (error) {
             console.error('Error sending messages to Kafka:', error);
             throw error;
         }
+    }
+
+    /**
+     * Get schema ID based on data type
+     */
+    //todo: add type safety
+    //todo: is it alright ?
+    private getSchemaIdForData(data: any): number {
+        const eventType = data.eventType;
+        
+        if (eventType === 'transaction') {
+            return this.schemaIds.get('transaction-value')!;
+        } else if (eventType === 'timeWeightedBalance') {
+            return this.schemaIds.get('timeWeightedBalance-value')!;
+        }
+        
+        throw new Error(`Unknown event type: ${eventType}`);
     }
 }
 

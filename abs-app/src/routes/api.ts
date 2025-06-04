@@ -41,7 +41,6 @@ export const logRequestHandler = async (req: Request, res: Response): Promise<vo
             message: `${events.length} event(s) logged and sent to Kafka successfully`,
             eventType: eventType,
             eventCount: events.length,
-            topic: topic
         });
 
     } catch (error) {
