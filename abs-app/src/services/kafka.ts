@@ -32,7 +32,7 @@ export class KafkaService {
             maxInFlightRequests: 5,    // Default - allows pipelining for better throughput
             idempotent: true,          // Prevents duplicates with minimal perf impact
         });
-
+        console.log("config.kafka.schemaRegistryUrl", config.kafka.schemaRegistryUrl);
         // Initialize Schema Registry
         this.registry = new SchemaRegistry({ 
             host: config.kafka.schemaRegistryUrl 
