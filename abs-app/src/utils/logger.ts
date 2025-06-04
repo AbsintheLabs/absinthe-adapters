@@ -7,7 +7,7 @@ import { handleBigIntSerialization } from './bigint';
  * Ensures the log directory exists
  */
 export const ensureLogDirectory = (): void => {
-    const logDir = path.dirname(config.logFilePath);
+    const logDir = path.dirname(config.logFilePath || 'mock-log-file.log');
     if (!fs.existsSync(logDir)) {
         fs.mkdirSync(logDir, { recursive: true });
     }
@@ -21,7 +21,7 @@ export const logToFile = (data: any): void => {
     const timestamp = new Date().toISOString();
     const logEntry = `${timestamp} - ${JSON.stringify(processedData)}\n`;
 
-    fs.appendFile(config.logFilePath, logEntry, (err) => {
+    fs.appendFile(config.logFilePath || 'mock-log-file.log', logEntry, (err) => {
         if (err) {
             console.error('Error writing to log file:', err);
         }

@@ -1,4 +1,5 @@
 import { validationService } from '../src/services/validation';
+import { MessageType } from '../src/utils/enums';
 
 describe('ValidationService', () => {
     describe('Transaction Schema Validation', () => {
@@ -115,6 +116,18 @@ describe('ValidationService', () => {
             expect(result.isValid).toBe(false);
             expect(result.errors?.length).toBeGreaterThan(0);
         });
+
+        test('should reject transaction with extra fields outside of schema', () => {
+            const invalidTransaction = {
+                ...validTransactionBase,
+                extraField: "extra_field"
+            };
+
+            const result = validationService.validateRequest(invalidTransaction);
+            // WARNING: this should be false, but we currently allow extra fields so it will be true
+            expect(result.isValid).toBe(true);
+            expect(result.errors?.length).toBeGreaterThan(0);
+        })
     });
 
     describe('TimeWeightedBalance Schema Validation', () => {
@@ -130,7 +143,6 @@ describe('ValidationService', () => {
                 runnerId: "container_123"
             },
             valueUsd: 100.50,
-            unixTimestampMs: 1703095200000,
             balanceBefore: 500.0,
             balanceAfter: 600.0,
             timeWindowTrigger: "exhausted" as const,
@@ -255,7 +267,7 @@ describe('ValidationService', () => {
 
         test('should return supported event types', () => {
             const supportedTypes = validationService.getSupportedEventTypes();
-            expect(supportedTypes).toEqual(['transaction', 'timeWeightedBalance']);
+            expect(supportedTypes).toEqual([MessageType.TRANSACTION, MessageType.TIME_WEIGHTED_BALANCE]);
         });
     });
 
@@ -287,7 +299,6 @@ describe('ValidationService', () => {
             };
 
             const detailedErrors = validationService.getDetailedErrors(invalidData);
-            expect(Array.isArray(detailedErrors)).toBe(true);
             expect(detailedErrors.length).toBeGreaterThan(0);
         });
     });

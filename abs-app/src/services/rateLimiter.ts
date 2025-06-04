@@ -28,6 +28,7 @@ export class RateLimiterService {
      * Check if API key is valid
      */
     public isValidApiKey(apiKey: string): boolean {
+        // todo: add proper auth service
         return apiKey in validApiKeys;
     }
 

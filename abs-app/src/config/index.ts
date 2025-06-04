@@ -1,20 +1,20 @@
 import dotenv from 'dotenv';
-import path from 'path';
 import { ApiKeys } from '../types';
 
 dotenv.config();
 
 export const config = {
-    port: process.env.PORT || 3000,
-    logFilePath: process.env.LOG_FILE_PATH || path.join(__dirname, '../../logs/requests.log'),
+    port: process.env.PORT,
+    logFilePath: process.env.LOG_FILE_PATH,
     kafka: {
-        transactionsTopic: process.env.KAFKA_TRANSACTIONS_TOPIC || 'andrew-mbp-test-topic',
-        twbTopic: process.env.KAFKA_TWB_TOPIC || 'andrew-mbp-test-topic',
-        clientId: process.env.KAFKA_CLIENT_ID || 'rate-limited-api',
-        brokers: process.env.KAFKA_BROKERS || 'localhost:9092'
+        transactionsTopic: process.env.KAFKA_TRANSACTIONS_TOPIC,
+        twbTopic: process.env.KAFKA_TWB_TOPIC,
+        clientId: process.env.KAFKA_CLIENT_ID,
+        brokers: process.env.KAFKA_BROKERS
     }
 };
 
+//todo: add proper auth service
 // API keys configuration (in a real app, store these securely)
 export const validApiKeys: ApiKeys = {
     'api_key_1': { points: 10, duration: 1 }, // 10 requests per second

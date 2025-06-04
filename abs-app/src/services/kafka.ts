@@ -56,7 +56,7 @@ export class KafkaService {
     /**
      * Send a message to a Kafka topic
      */
-    public async sendMessage(topic: string, data: any, key?: string): Promise<void> {
+    public async sendMessage(topic: string, data: any, key: string): Promise<void> {
         try {
             // Ensure producer is connected
             await this.connect();
@@ -67,20 +67,18 @@ export class KafkaService {
 
             // Create message
             const message = {
-                // todo: later figure out if we need a separate key (for partitioning) and how this would work.
-                key: key || null,
+                key: key,
                 value: JSON.stringify({
                     timestamp: new Date().toISOString(),
                     data: processedData
                 }),
-                timestamp: Date.now().toString()
             };
 
             // Send message
             await this.producer.send({
                 topic,
                 messages: [message],
-                compression: CompressionTypes.None,
+                compression: CompressionTypes.Snappy,
             });
 
             console.log(`Message sent to topic '${topic}':`, processedData);
