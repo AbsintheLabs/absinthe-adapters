@@ -246,7 +246,7 @@ export class UniswapV2Processor {
             protocolState.processState.lastInterpolatedTs = currentTs;
         }
 
-        while (protocolState.processState.lastInterpolatedTs && (protocolState.processState.lastInterpolatedTs + this.refreshWindow) < currentTs) {
+        while (protocolState.processState.lastInterpolatedTs && (Number(protocolState.processState.lastInterpolatedTs) + this.refreshWindow) < currentTs) {
             const windowsSinceEpoch = Math.floor(Number(protocolState.processState.lastInterpolatedTs) / this.refreshWindow);
             const nextBoundaryTs: number = (windowsSinceEpoch + 1) * this.refreshWindow;
 
@@ -281,7 +281,7 @@ export class UniswapV2Processor {
                     });
                 }
             }
-            protocolState.processState.lastInterpolatedTs = nextBoundaryTs;
+            protocolState.processState.lastInterpolatedTs = BigInt(nextBoundaryTs);
         }
     }
 
