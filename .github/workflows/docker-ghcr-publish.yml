@@ -59,7 +59,7 @@ jobs:
         done
   
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: build-and-push
     steps:
       - name: Trigger deployment on EC2
