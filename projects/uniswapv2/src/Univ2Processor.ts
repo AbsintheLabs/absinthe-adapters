@@ -162,7 +162,7 @@ export class UniswapV2Processor {
 
         const transactionSchema = {
             eventType: MessageType.TRANSACTION,
-            tokens: [
+            tokens : JSON.stringify([
                 {
                     token: {
                         coingeckoId: protocolState.config.token0.coingeckoId || "",
@@ -185,7 +185,7 @@ export class UniswapV2Processor {
                     amountIn: amount1In.toString(),
                     amountOut: amount1Out.toString()
                 }
-            ],
+            ]),
             rawAmount: pricedSwapVolume.toString(), // todo: fix this (should be the amount of the token that was swapped [with decimals])
             displayAmount: pricedSwapVolume,
             unixTimestampMs: block.header.timestamp,

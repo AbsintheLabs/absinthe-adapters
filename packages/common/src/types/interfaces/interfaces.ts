@@ -37,7 +37,7 @@ interface TokenDetails {
 
 interface Transaction {
     eventType: MessageType;
-    tokens: any[];
+    tokens: string;
     rawAmount: string;
     displayAmount: number; 
     unixTimestampMs: number;

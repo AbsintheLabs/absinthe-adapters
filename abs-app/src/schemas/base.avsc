@@ -108,7 +108,7 @@
                 "type": "enum",
                 "name": "CurrencyEnum",
                 "symbols": [
-                    "USD"
+                    "usd"
                 ]
             }
         }
