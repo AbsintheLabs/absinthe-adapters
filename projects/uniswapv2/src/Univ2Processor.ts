@@ -247,7 +247,7 @@ export class UniswapV2Processor {
         }
 
         while (protocolState.processState.lastInterpolatedTs && (protocolState.processState.lastInterpolatedTs + this.refreshWindow) < currentTs) {
-            const windowsSinceEpoch = Math.floor(protocolState.processState.lastInterpolatedTs / this.refreshWindow);
+            const windowsSinceEpoch = Math.floor(Number(protocolState.processState.lastInterpolatedTs) / this.refreshWindow);
             const nextBoundaryTs: number = (windowsSinceEpoch + 1) * this.refreshWindow;
 
             for (let [userAddress, data] of protocolState.activeBalances.entries()) {
