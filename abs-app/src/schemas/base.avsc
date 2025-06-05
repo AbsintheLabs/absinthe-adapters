@@ -65,22 +65,40 @@
         {
             "name": "protocolMetadata",
             "type": {
-              "type": "array",
-              "items": {
-                "type": "record",
-                "name": "ProtocolMetadataItem",
-                "fields": [
-                  { "name": "key",  "type": "string" },
-                  { "name": "type", "type": "string" },
-                  {
-                    "name": "value",
-                    "type": {
-                      "type":        "string",
-                      "logicalType": "JSON"
-                    }
-                  }
-                ]
-              }
+                "type": "array",
+                "items": {
+                    "type": "record",
+                    "name": "ProtocolMetadataItem",
+                    "fields": [
+                        {
+                            "name": "key",
+                            "type": "string"
+                        },
+                        {
+                            "name": "type",
+                            "type": {
+                                "type": "enum",
+                                "name": "MetadataValueType",
+                                "symbols": [
+                                    "bigint",
+                                    "number",
+                                    "address",
+                                    "string"
+                                ]
+                            }
+                        },
+                        {
+                            "name": "value",
+                            "type": [
+                                "null",
+                                "string",
+                                "double"
+                            ],
+                            "default": null,
+                            "doc": "bigint & address encoded as hex-or-decimal string; numeric literals use double"
+                        }
+                    ]
+                }
             },
             "default": []
         },
