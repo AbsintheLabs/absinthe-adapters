@@ -4,6 +4,8 @@ import { SchemaRegistry, SchemaType } from '@kafkajs/confluent-schema-registry';
 import { config } from '../config';
 import snappy from 'kafkajs-snappy';
 import { CompressionCodecs } from 'kafkajs';
+import { TimeWeightedBalanceEvent, TransactionEvent } from '../types';
+import { MessageType } from '../types/enums';
 
 /**
  * Kafka service for handling message production with Schema Registry
@@ -137,48 +139,19 @@ export class KafkaService {
             this.isConnected = false;
         }
     }
-
-    /**
-     * Send a message to a Kafka topic with Avro encoding
-     */
-    public async sendMessage(topic: string, data: any, key: string): Promise<void> {
-        try {
-            await this.connect();
-            // Get schema ID based on event type
-            const schemaId = await this.getSchemaIdForData(data);
-            
-            // Encode message using Avro schema
-            const encodedValue = await this.registry.encode(schemaId, data);
-
-            const message = {
-                key: key,
-                value: encodedValue, // Now using Avro encoded value
-            };
-
-            await this.producer.send({
-                topic,
-                messages: [message],
-                compression: CompressionTypes.Snappy,
-            });
-
-        } catch (error) {
-            console.error('Error sending message to Kafka:', error);
-            throw error;
-        }
-    }
-
-    // fixme: I don't like that we have separate implementations for single and multiple messages.--
     /**
      * Send multiple messages to a Kafka topic
-     *///todo: add type safety
-    public async sendMessages(topic: string, data: any, key: string): Promise<void> {
+     */
+    public async sendMessages(topic: string, data: (TransactionEvent | TimeWeightedBalanceEvent)[], key: string): Promise<void> {
+        if (!data || data.length === 0) {
+            throw new Error('No data provided to send messages');
+        }
+
         try {
             await this.connect();
-
-            const schemaId = await this.getSchemaIdForData(data[0]); // Assume all same type
-            
+            const schemaId = await this.getSchemaIdForData(data[0]);
             const kafkaMessages = await Promise.all(
-                data.map(async (event: any) => ({
+                data.map(async (event) => ({
                     key: key,
                     value: await this.registry.encode(schemaId, event),
                 }))
@@ -190,7 +163,7 @@ export class KafkaService {
                 compression: CompressionTypes.Snappy
             });
 
-            console.log(`${data.length} Avro-encoded messages sent to topic '${topic}'`);
+            console.log(`${data.length} Avro-encoded message(s) sent to topic '${topic}'`);
         } catch (error) {
             console.error('Error sending messages to Kafka:', error);
             throw error;
@@ -200,13 +173,12 @@ export class KafkaService {
     /**
      * Get schema ID based on data type
      */
-    //todo: add type safety
-    private async getSchemaIdForData(data: any): Promise<number> {
+    private async getSchemaIdForData(data: TransactionEvent | TimeWeightedBalanceEvent): Promise<number> {
         const eventType = data.eventType;
         
-        if (eventType === 'transaction') {
+        if (eventType === MessageType.TRANSACTION) {
             return this.registry.getLatestSchemaId('transaction-value');
-        } else if (eventType === 'timeWeightedBalance') {
+        } else if (eventType === MessageType.TIME_WEIGHTED_BALANCE) {
             return this.registry.getLatestSchemaId('timeWeightedBalance-value');
         }
         

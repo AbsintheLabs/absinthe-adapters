@@ -8,9 +8,9 @@ interface Chain {
     chainShortName: ChainShortName;
     chainName: ChainName;
 }
-export interface BaseEventFields {
+interface BaseEventFields {
     version: string; 
-    eventId: string; // todo: implement mdx
+    eventId: string;
     userId: string;
     chain: Chain;
     runner: Runner;

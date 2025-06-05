@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { kafkaService } from '../services/kafka';
 import { config } from '../config';
+import { TimeWeightedBalanceEvent, TransactionEvent } from '../types';
+import { MessageType } from '../types/enums';
 // import { validationService } from '../services/validation';
 
 /**
@@ -21,18 +23,12 @@ export const logRequestHandler = async (req: Request, res: Response): Promise<vo
             return;
         }
 
-        const topic = eventType === 'transaction' 
-            ? config.kafka.transactionsTopic 
+        const topic = eventType === MessageType.TRANSACTION
+            ? config.kafka.transactionsTopic
             : config.kafka.twbTopic;
 
         const apiKey = req.headers['x-api-key'] as string;
-
-        // Single batch send to Kafka - super efficient!
-        if (events.length === 1) {
-            await kafkaService.sendMessage(topic, events[0], apiKey);
-        } else {
-            await kafkaService.sendMessages(topic, events, apiKey);
-        }
+        await kafkaService.sendMessages(topic, events, apiKey);
 
 
         res.status(200).json({
