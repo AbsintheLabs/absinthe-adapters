@@ -89,7 +89,7 @@ function toTransaction(transactions: Transaction[], protocol: ProtocolConfig): T
                 {
                     key: "tokens",
                     value: e.tokens,
-                    type: "array"
+                    type: "string"
                 }
             ],
             currency: Currency.USD,
