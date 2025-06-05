@@ -64,7 +64,7 @@ function toTransaction(transactions: Transaction[], protocol: ProtocolConfig): T
 
         const baseSchema = {
             version: "1.0",
-            eventId: e.txHash, // todo: calculate
+            eventId: e.txHash || `generated-${Date.now()}-${Math.random()}`, //todo: calculate
             userId: e.userId,
             chain: {
                 chainArch: ChainType.EVM,
