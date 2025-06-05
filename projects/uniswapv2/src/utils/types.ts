@@ -1,5 +1,5 @@
 import { PoolConfig } from "../model";
-import { ActiveBalance, TimeWeightedBalanceEvent, TransactionEvent } from "@absinthe/common";
+import { ActiveBalance, HistoryWindow, Transaction } from "@absinthe/common";
 import { PoolProcessState } from "../model";
 import { PoolState } from "../model";
 
@@ -8,8 +8,8 @@ interface ProtocolState {
     state: PoolState;
     processState: PoolProcessState;
     activeBalances: Map<string, ActiveBalance>;
-    balanceWindows: TimeWeightedBalanceEvent[];
-    transactions: TransactionEvent[];
+    balanceWindows: HistoryWindow[];
+    transactions: Transaction[];
   }
   
   interface BatchContext {
@@ -18,5 +18,18 @@ interface ProtocolState {
     protocolStates: Map<string, ProtocolState>;
   }
 
+  interface ProcessValueChangeParams {
+    from: string;
+    to: string;
+    amount: bigint;
+    lpTokenSwapUsdValue: number;
+    blockTimestamp: number;
+    blockHeight: number;
+    txHash: string;
+    activeBalances: Map<string, { balance: bigint; updatedBlockTs: number; updatedBlockHeight: number }>;
+    windowDurationMs: number;
+    lpTokenPrice: number;
+    lpTokenDecimals: number;
+}
 
-export { ProtocolState, BatchContext };
+export { ProtocolState, BatchContext, ProcessValueChangeParams };

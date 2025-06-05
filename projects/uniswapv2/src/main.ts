@@ -9,8 +9,6 @@ const apiClient = new AbsintheApiClient({
   minTime: 0 // warn: remove this, it's temporary for testing
 });
 
-
-//todo: remove symbol from json
 const WINDOW_DURATION_MS = env.balanceFlushIntervalHours * HOURS_TO_MS;
 
 const uniswapProcessor = new UniswapV2Processor(env, WINDOW_DURATION_MS, apiClient);

@@ -19,34 +19,6 @@
             }
         },
         {
-            "name": "tokens",
-            "type": {
-                "type": "array",
-                "items": {
-                    "type": "record",
-                    "name": "TokenAmount",
-                    "fields": [
-                        {
-                            "name": "token",
-                            "type": {
-                                "type": "record",
-                                "name": "Token",
-                                "fields": [
-                                    {"name": "address", "type": "string"},
-                                    {"name": "symbol", "type": "string"},
-                                    {"name": "decimals", "type": "int"}
-                                ]
-                            }
-                        },
-                        {"name": "amount", "type": "string"},
-                        {"name": "amountIn", "type": "string"},
-                        {"name": "amountOut", "type": "string"}
-                    ]
-                }
-            },
-            "default": []
-        },
-        {
             "name": "rawAmount",
             "type": "string"
         },

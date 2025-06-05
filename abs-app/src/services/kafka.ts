@@ -34,7 +34,6 @@ export class KafkaService {
             maxInFlightRequests: 5,    // Default - allows pipelining for better throughput
             idempotent: true,          // Prevents duplicates with minimal perf impact
         });
-        console.log("config.kafka.schemaRegistryUrl", config.kafka.schemaRegistryUrl);
         // Initialize Schema Registry
         this.registry = new SchemaRegistry({ 
             host: config.kafka.schemaRegistryUrl 
@@ -68,8 +67,6 @@ export class KafkaService {
             // Register Base schema first and get actual version
             await this.ensureSchema('base-value', './src/schemas/base.avsc');
             const baseVersion = await this.getRegisteredVersion('base-value');
-
-            console.log("baseVersion", baseVersion);
             
             // Register dependent schemas with correct base version
             await this.ensureSchemaWithReference('transaction-value', './src/schemas/transaction.avsc', [
@@ -80,7 +77,6 @@ export class KafkaService {
                 { name: 'network.absinthe.adapters.Base', subject: 'base-value', version: baseVersion }
             ]);
             
-            console.log('All schemas initialized successfully');
         } catch (error) {
             console.error('Error initializing schemas:', error);
             throw error;
@@ -129,7 +125,6 @@ export class KafkaService {
             await this.producer.connect();
             await this.initializeSchemas(); // Initialize schemas on connect
             this.isConnected = true;
-            console.log('Kafka producer connected and schemas initialized');
         }
     }
 
@@ -140,7 +135,6 @@ export class KafkaService {
         if (this.isConnected) {
             await this.producer.disconnect();
             this.isConnected = false;
-            console.log('Kafka producer disconnected');
         }
     }
 
@@ -150,7 +144,6 @@ export class KafkaService {
     public async sendMessage(topic: string, data: any, key: string): Promise<void> {
         try {
             await this.connect();
-            console.log("data", data);
             // Get schema ID based on event type
             const schemaId = await this.getSchemaIdForData(data);
             
@@ -168,7 +161,6 @@ export class KafkaService {
                 compression: CompressionTypes.Snappy,
             });
 
-            console.log(`Avro-encoded message sent to topic '${topic}'`);
         } catch (error) {
             console.error('Error sending message to Kafka:', error);
             throw error;

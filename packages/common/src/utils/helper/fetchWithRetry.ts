@@ -10,7 +10,6 @@ export async function fetchWithRetry(
     while (true) {
         try {
             const response = await apiCall();
-            console.log("Response from API", response);
             if (response.ok) {
                 return response;
             }

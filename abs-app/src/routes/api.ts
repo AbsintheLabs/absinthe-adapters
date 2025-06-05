@@ -34,7 +34,6 @@ export const logRequestHandler = async (req: Request, res: Response): Promise<vo
             await kafkaService.sendMessages(topic, events, apiKey);
         }
 
-        console.log(`Sent ${events.length} ${eventType} events to ${topic}`);
 
         res.status(200).json({
             success: true,

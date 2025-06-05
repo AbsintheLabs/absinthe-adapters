@@ -70,7 +70,6 @@ export async function initPoolConfigIfNeeded(ctx: DataHandlerContext<Store>, blo
 
     // insert pool config into db
     const newPoolConfig = new PoolConfig({
-        // todo: figure out what the id is and if we really need it here (discuss) - its only for the db
         id: `${contractAddress}-config`,
         lpToken,
         token0,

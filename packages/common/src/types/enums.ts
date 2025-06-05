@@ -80,4 +80,9 @@ enum MessageType {
     TIME_WEIGHTED_BALANCE = 'timeWeightedBalance'
 }
 
-export { Currency, ChainId, ChainName, ChainShortName, PriceFeed, Dex, ChainType, TokenPreference, ProtocolVersion, EventType, MessageType };
+enum TimeWindowTrigger {
+    TRANSFER = 'transfer',
+    EXHAUSTED = 'exhausted'
+}
+
+export { Currency, ChainId, ChainName, ChainShortName, PriceFeed, Dex, ChainType, TokenPreference, ProtocolVersion, EventType, MessageType, TimeWindowTrigger };

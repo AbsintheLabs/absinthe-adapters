@@ -78,8 +78,6 @@ export class AbsintheApiClient {
         if (!data) {
             throw new Error('No data provided');
         }
-        console.log("Sending data to API", JSON.stringify(data));
-
 
         const normalizedEndpoint = endpoint.replace(/^\//, '');
 
