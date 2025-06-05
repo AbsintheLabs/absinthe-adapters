@@ -28,13 +28,13 @@
       },
       {
         "name": "balanceBefore",
-        "type": ["null", "double"],
+        "type": ["null", "string"],
         "default": null,
         "doc": "Raw LP tokens held at start of window (null if not needed)."
       },
       {
         "name": "balanceAfter",
-        "type": ["null", "double"],
+        "type": ["null", "string"],
         "default": null,
         "doc": "Raw LP tokens held at end of window (null if not needed)."
       },
