@@ -1,7 +1,6 @@
 import { Request, Response } from 'express';
 import { kafkaService } from '../services/kafka';
 import { config } from '../config';
-import { TimeWeightedBalanceEvent, TransactionEvent } from '../types';
 import { MessageType } from '../types/enums';
 // import { validationService } from '../services/validation';
 

@@ -4,10 +4,7 @@ import {
   AbsintheApiClient,
   ActiveBalance,
   ChainId,
-  ChainName,
   ChainShortName,
-  ChainType,
-  Currency,
   Dex,
   MessageType,
   TimeWeightedBalanceEvent,
@@ -320,7 +317,7 @@ export class UniswapV2Processor {
       );
       const nextBoundaryTs: number = (windowsSinceEpoch + 1) * this.refreshWindow;
 
-      for (let [userAddress, data] of protocolState.activeBalances.entries()) {
+      for (const [userAddress, data] of protocolState.activeBalances.entries()) {
         const oldStart = data.updatedBlockTs;
         if (data.balance > 0n && oldStart < nextBoundaryTs) {
           const lpTokenPrice = await computeLpTokenPrice(

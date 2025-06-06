@@ -5,9 +5,7 @@ import {
   ChainShortName,
   ChainType,
   Currency,
-  EventType,
   MessageType,
-  PriceFeed,
   TimeWindowTrigger,
 } from '../enums';
 import { Token } from './tokens';

@@ -7,6 +7,12 @@ import { CompressionCodecs } from 'kafkajs';
 import { TimeWeightedBalanceEvent, TransactionEvent } from '../types';
 import { MessageType } from '../types/enums';
 
+interface KafkaSubjectConfig {
+  name: string;
+  subject: string;
+  version: number;
+}
+
 /**
  * Kafka service for handling message production with Schema Registry
  */
@@ -100,7 +106,7 @@ export class KafkaService {
       const data = await response.json();
       return data.version;
     } catch (error) {
-      console.warn(`Could not get version for ${subject}, defaulting to 1`);
+      console.warn(`Could not get version for ${subject}, defaulting to 1`, error);
       return 1;
     }
   }
@@ -111,7 +117,7 @@ export class KafkaService {
   private async ensureSchemaWithReference(
     subject: string,
     avscPath: string,
-    references: any[],
+    references: KafkaSubjectConfig[],
   ): Promise<number> {
     const schemaString = readFileSync(avscPath, 'utf8');
 

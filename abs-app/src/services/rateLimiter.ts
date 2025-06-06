@@ -56,6 +56,7 @@ export class RateLimiterService {
         return validApiKeys[apiKey].points - result.consumedPoints;
       }
     } catch (e) {
+      console.error('Error getting remaining points', e);
       // If get fails, ignore and return null
     }
     return null;

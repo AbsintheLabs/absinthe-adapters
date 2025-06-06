@@ -52,10 +52,12 @@ export function validateEnv(): ValidatedEnv {
     try {
       configFilePath = findConfigFile(FILE_NAME);
     } catch (error) {
+      console.error('Error finding config file', error);
       // If abs_config.json is not found, try abs_config.example.json
       try {
         configFilePath = findConfigFile(EXAMPLE_FILE_NAME);
       } catch (exampleError) {
+        console.error('Error finding example config file', exampleError);
         throw new Error(`Neither ${FILE_NAME} nor ${EXAMPLE_FILE_NAME} could be found`);
       }
     }

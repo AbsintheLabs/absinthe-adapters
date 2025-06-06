@@ -1,23 +1,22 @@
 import { TypeormDatabase } from '@subsquid/typeorm-store';
 import { processor } from './processor';
 
-import { validateEnv, AbsintheApiClient } from '@absinthe/common';
 import { logger } from '@absinthe/common';
 // Validate environment variables at the start
-const env = validateEnv();
+// const env = validateEnv();
 // Create Absinthe API client for sending data
-const apiClient = new AbsintheApiClient({
-  baseUrl: env.absintheApiUrl,
-  apiKey: env.absintheApiKey,
-});
+// const apiClient = new AbsintheApiClient({
+//   baseUrl: env.absintheApiUrl,
+//   apiKey: env.absintheApiKey,
+// });
 
 const db = new TypeormDatabase({ supportHotBlocks: false });
 processor.run(db, async (ctx) => {
   // [INIT] batch state
 
   // [LOOP] process each block
-  for (let block of ctx.blocks) {
-    for (let log of block.logs) {
+  for (const block of ctx.blocks) {
+    for (const log of block.logs) {
       logger.info(log.toString());
     }
   }
