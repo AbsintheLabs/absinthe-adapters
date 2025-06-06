@@ -14,7 +14,9 @@
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
     "format": "prettier --write .",
-    "prepare": "husky"
+    "prepare": "husky",
+    "lint:changed": "eslint $(git diff --name-only | grep -E \"\\.ts$\" | xargs) --ext .ts --cache --cache-location .eslintcache",
+    "lint:staged": "eslint $(git diff --cached --name-only --diff-filter=ACMR | grep -E \"\\.ts$\" | xargs) --ext .ts --cache --cache-location .eslintcache"
   },
   "dependencies": {
     "@subsquid/evm-abi": "^0.3.0",
