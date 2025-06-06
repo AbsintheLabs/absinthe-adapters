@@ -89,7 +89,7 @@
 //         if (!isValid) {
 //             // Collect all errors (equivalent to allErrors: true)
 //             const errors = this.collectAllValidationErrors(avroType, requestBody);
-            
+
 //             return {
 //                 isValid: false,
 //                 errors,
@@ -108,19 +108,19 @@
 //      */
 //     private collectAllValidationErrors(avroType: avro.Type, data: any): string[] {
 //         const errors: string[] = [];
-        
+
 //         try {
 //             avroType.toBuffer(data);
 //         } catch (error) {
 //             if (error instanceof Error) {
 //                 // Parse the error message to extract multiple errors if possible
 //                 const errorMessage = error.message;
-                
+
 //                 // Split on common error separators and clean up
 //                 const errorParts = errorMessage.split(/(?:,\s*)|(?:\s*and\s*)|(?:\s*;\s*)/)
 //                     .filter(part => part.trim().length > 0)
 //                     .map(part => this.formatAvroErrorLikeAJV(part.trim()));
-                
+
 //                 if (errorParts.length > 0) {
 //                     errors.push(...errorParts);
 //                 } else {
@@ -130,7 +130,7 @@
 //                 errors.push('Unknown validation error');
 //             }
 //         }
-        
+
 //         return errors.length > 0 ? errors : ['Data does not match schema'];
 //     }
 
@@ -172,7 +172,7 @@
 //         }
 
 //         const isValid = avroType.isValid(requestBody);
-        
+
 //         if (isValid) {
 //             return [];
 //         }
@@ -182,7 +182,7 @@
 //             return [{ message: 'Data does not match schema', instancePath: 'root' }];
 //         } catch (error) {
 //             const errorMessage = error instanceof Error ? error.message : 'Unknown validation error';
-//             return [{ 
+//             return [{
 //                 message: errorMessage,
 //                 instancePath: this.extractPathFromError(errorMessage) || 'root',
 //                 schemaPath: 'unknown'
@@ -243,7 +243,7 @@
 //             // Create a minimal object with just this field to test
 //             const testObj = this.createMinimalObjectWithField(fieldPath, value);
 //             avroType.isValid(testObj);
-            
+
 //             return { isValid: true };
 //         } catch (error) {
 //             return {
@@ -271,4 +271,4 @@
 //     }
 // }
 
-// export const validationService = new ValidationService(); 
+// export const validationService = new ValidationService();

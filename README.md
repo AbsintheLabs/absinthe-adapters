@@ -5,8 +5,9 @@ A specialized blockchain indexer built with Subsquid framework to track LP token
 ## Overview
 
 This project is a blockchain indexer designed to track and record:
+
 1. LP token positions (time-weighted balances)
-2. Swap events 
+2. Swap events
 3. LP token pricing based on underlying token reserves
 
 The indexer processes blockchain events in real-time, maintains historical balance records with time-weighted windows, and includes price computation for LP tokens.
@@ -70,15 +71,19 @@ LOG_FILE_PATH=<log_file_path>
 # How to get the env variables
 
 ## RPC_URL
+
 **Purpose**: Connects your indexer to the blockchain network via RPC (Remote Procedure Call) endpoint.
 
 **Capabilities**:
+
 - Read blockchain data (blocks, transactions, events)
-- Query smart contract states  
+- Query smart contract states
 - Listen for real-time blockchain events
 
 **How to get**:
+
 1. **Alchemy** (Recommended):
+
    - Visit [alchemy.com](https://alchemy.com)
    - Create a free account
    - Create a new app for your target network
@@ -90,6 +95,7 @@ LOG_FILE_PATH=<log_file_path>
    - Get your project endpoint
 
 **Example values**:
+
 ```
 # Ethereum mainnet
 RPC_URL=https://eth-mainnet.g.alchemy.com/v2/YOUR-API-KEY
@@ -104,12 +110,15 @@ RPC_URL=https://base-mainnet.g.alchemy.com/v2/YOUR-API-KEY
 ---
 
 ## ABSINTHE_API_URL & ABSINTHE_API_KEY
+
 **Purpose**: Connects to the Absinthe API service for data transmission and retrieval.
 
 **How to get**:
+
 > ⚠️ **Note**: API key provisioning procedure is currently pending. Contact the Absinthe team for access.
 
 **Default URL**:
+
 ```
 ABSINTHE_API_URL=https://adapters.absinthe.network
 ```
@@ -117,15 +126,18 @@ ABSINTHE_API_URL=https://adapters.absinthe.network
 ---
 
 ## COINGECKO_API_KEY
+
 **Purpose**: Fetches cryptocurrency price data from CoinGecko's API.
 
 **How to get**:
+
 1. Visit [coingecko.com/en/api](https://coingecko.com/en/api)
 2. Sign up for a free account
 3. Navigate to your dashboard
 4. Generate an API key
 
 **Pricing tiers**:
+
 - **Free tier**:
   - 10,000 requests/month
   - Basic price data access
@@ -137,10 +149,13 @@ ABSINTHE_API_URL=https://adapters.absinthe.network
 ---
 
 ## Database Configuration (DB_NAME, DB_PORT, DB_URL)
+
 **Purpose**: PostgreSQL database connection settings for storing indexed data.
 
 ### Local Development
+
 If running the indexer locally:
+
 ```
 DB_URL=postgresql://postgres:postgres@localhost:5432/postgres
 DB_NAME=postgres
@@ -148,7 +163,9 @@ DB_PORT=5432
 ```
 
 ### Docker Compose
+
 If using docker-compose:
+
 ```
 DB_URL=postgresql://postgres:postgres@postgres:5432/postgres
 DB_NAME=postgres
@@ -156,8 +173,11 @@ DB_PORT=5432
 ```
 
 ### Production Database
+
 **How to get**:
+
 1. **Self-hosted PostgreSQL**:
+
    - Install PostgreSQL from [postgresql.org](https://postgresql.org)
    - Create a database and user
    - Configure connection string
@@ -171,9 +191,11 @@ DB_PORT=5432
 ---
 
 ## LOG_FILE_PATH
+
 **Purpose**: Specifies where application logs should be written.
 
 **Example values**:
+
 ```
 # Local development
 LOG_FILE_PATH=./logs/indexer.log
@@ -183,16 +205,17 @@ LOG_FILE_PATH=/var/log/uniswap-indexer/app.log
 ```
 
 **Setup**:
+
 1. Create the log directory:
    ```bash
    mkdir -p logs
    ```
 2. Ensure write permissions for the application
 
-
 ## Configuration Setup
 
 ### Prerequisites
+
 - Node.js (v20+)
 - pnpm
 
@@ -206,7 +229,7 @@ cp .env.example .env
 
 Edit the `.env` file with your specific values. See the [Environment Configuration](#environment-configuration) section above for detailed instructions on obtaining each required variable.
 
-### Step 2: Protocol Configuration Setup 
+### Step 2: Protocol Configuration Setup
 
 The indexer uses a JSON configuration file to define which protocols and pools to track.
 
@@ -217,12 +240,14 @@ cp abs_config.example.json abs_config.json
 Edit `abs_config.json` to match your indexing requirements:
 
 #### Core Settings
+
 - **`chainId`**: The blockchain network ID (1 for Ethereum mainnet)
 - **`gatewayUrl`**: Subsquid gateway URL for your target network
 - **`balanceFlushIntervalHours`**: How often to create balance snapshots (in hours)
 - **`toBlock`**: Optional ending block number for indexing
 
 #### Protocol Configuration
+
 For each Uniswap V2 pool you want to track:
 
 - **`type`**: Can be any dex type, for now we are using `"uniswap-v2"`
@@ -236,48 +261,54 @@ For each Uniswap V2 pool you want to track:
 - **`preferredTokenCoingeckoId`**: Which token to use for pricing (`"token0"` or `"token1"`)
 
 #### Example Configuration
+
 ```json
 {
-    "chainId": 1,
-    "gatewayUrl": "https://v2.archive.subsquid.io/network/ethereum-mainnet",
-    "balanceFlushIntervalHours": 24,
-    "toBlock": 14981079,
-    "protocols": [
-        {
-            "type": "uniswap-v2",
-            "name": "USDC/WETH Pool",
-            "contractAddress": "0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc",
-            "fromBlock": 10008355, 
-            "pricingStrategy": "coingecko",
-            "token0": {
-                "coingeckoId": "usd-coin",
-                "decimals": 6
-            },
-            "token1": {
-                "coingeckoId": "weth",
-                "decimals": 18
-            },
-            "preferredTokenCoingeckoId": "token0"
-        }
-    ]
+  "chainId": 1,
+  "gatewayUrl": "https://v2.archive.subsquid.io/network/ethereum-mainnet",
+  "balanceFlushIntervalHours": 24,
+  "toBlock": 14981079,
+  "protocols": [
+    {
+      "type": "uniswap-v2",
+      "name": "USDC/WETH Pool",
+      "contractAddress": "0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc",
+      "fromBlock": 10008355,
+      "pricingStrategy": "coingecko",
+      "token0": {
+        "coingeckoId": "usd-coin",
+        "decimals": 6
+      },
+      "token1": {
+        "coingeckoId": "weth",
+        "decimals": 18
+      },
+      "preferredTokenCoingeckoId": "token0"
+    }
+  ]
 }
 ```
 
 #### Important Notes
+
 ⚠️ **Configuration File Priority**: The system will look for `abs_config.json` first. If not found, it will fall back to `abs_config.example.json`. For production deployments, always use `abs_config.json`.
 
 ⚠️ **Git Ignore**: The `abs_config.json` file is included in `.gitignore` to prevent accidentally committing sensitive configuration data.
 
 ### Step 3: Install Dependencies
+
 ```bash
 pnpm install
 ```
 
 ### Step 4: Validation
+
 The indexer automatically validates both your environment variables and configuration file on startup. If there are any issues, you'll see detailed error messages indicating what needs to be fixed.
 
 ### Next Steps
+
 Once you have both files configured:
+
 1. Your `.env` file with all required environment variables
 2. Your `abs_config.json` file with protocol configurations
 
@@ -286,17 +317,20 @@ You can proceed with the development setup below.
 ## Development
 
 ### Prerequisites
+
 - Node.js (v20+)
 - pnpm
 - Setup .env file
 
 Option 1: If you want to run the indexer locally on container, you can use docker-compose to start the database and the indexer.
+
 ```bash
 sudo docker-compose up -d
 ```
 
 Option 2: If you want to run the indexer locally on your machine, you can use the following command to start the indexer.
 Make sure you already have postgres instance running, and modify the .env file with the correct values.
+
 ```bash
 pnpm install
 
@@ -374,11 +408,13 @@ The indexer tracks:
 ## Implementation Details
 
 ### Balance Tracking
+
 - LP token transfers trigger balance updates
 - Records time-weighted balances in periodic windows
 - Handles mints, burns, and transfers
 
 ### Price Calculation
+
 - Retrieves price data from Coingecko
 - Calculates LP token price based on:
   - Token reserves
@@ -386,6 +422,7 @@ The indexer tracks:
   - LP token total supply
 
 ### API Integration
+
 - Sends data to external API endpoint
 - Implements exponential backoff for retry logic
 - Handles rate limiting via Bottleneck

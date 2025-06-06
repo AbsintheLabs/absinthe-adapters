@@ -21,6 +21,3 @@ services:
 
 volumes:
   caddy_data:
-
-
-  
