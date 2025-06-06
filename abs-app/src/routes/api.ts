@@ -52,9 +52,3 @@ export const logRequestHandler = async (req: Request, res: Response): Promise<vo
 export const healthCheckHandler = (req: Request, res: Response): void => {
   res.status(200).json({ status: 'UP' });
 };
-
-// export const validateRequestHandler = (req: Request, res: Response): void => {
-//     const validationResult = validationService.validateRequest(req.body);
-//     console.log('validationResult', validationResult);
-//     res.status(200).json(validationResult);
-// };

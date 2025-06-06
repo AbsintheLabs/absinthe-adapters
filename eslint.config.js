@@ -8,8 +8,8 @@ export default [
     ignores: [
       'projects/*/src/model/generated/**',
       'projects/*/db/migrations/**',
-      'projects/*/abi/**'
-    ]
+      'projects/*/abi/**',
+    ],
   },
   // Then the TypeScript config
   {
@@ -18,19 +18,19 @@ export default [
       parser: tseslint.parser,
       parserOptions: {
         project: [
-          './tsconfig.base.json',           // Root tsconfig
-          './projects/*/tsconfig.json',     // Project-specific tsconfigs
-          './packages/*/tsconfig.json',     // Package-specific tsconfigs
-          './abs-app/tsconfig.json'         // App-specific tsconfig
+          './tsconfig.base.json', // Root tsconfig
+          './projects/*/tsconfig.json', // Project-specific tsconfigs
+          './packages/*/tsconfig.json', // Package-specific tsconfigs
+          './abs-app/tsconfig.json', // App-specific tsconfig
         ],
         tsconfigRootDir: '.',
         ecmaVersion: 'latest',
-        sourceType: 'module'
-      }
+        sourceType: 'module',
+      },
     },
     plugins: {
       '@typescript-eslint': tseslint.plugin,
-      'prettier': prettier
+      prettier: prettier,
     },
     rules: {
       'prettier/prettier': 'error',
@@ -38,7 +38,7 @@ export default [
       '@typescript-eslint/no-unused-vars': 'off',
       '@typescript-eslint/no-require-imports': 'off',
       'no-empty': 'off',
-      'no-undef': 'off'
-    }
-  }
+      'no-undef': 'off',
+    },
+  },
 ];
