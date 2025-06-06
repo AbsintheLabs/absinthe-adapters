@@ -76,21 +76,33 @@ export class KafkaService {
   public async initializeSchemas(): Promise<void> {
     try {
       // Register Base schema first and get actual version
-      await this.ensureSchema('dev.base.v1', './src/schemas/base.avsc');
-      const baseVersion = await this.getRegisteredVersion('dev.base.v1');
+      await this.ensureSchema('dev.base.v1-value', './src/schemas/base.avsc');
+      const baseVersion = await this.getRegisteredVersion('dev.base.v1-value');
 
       // Register dependent schemas with correct base version
       await this.ensureSchemaWithReference(
         // todo: devx add in config
-        'dev.transactions.v1',
+        'dev.transactions.v1-value',
         './src/schemas/transaction.avsc',
-        [{ name: 'network.absinthe.adapters.Base', subject: 'dev.base.v1', version: baseVersion }],
+        [
+          {
+            name: 'network.absinthe.adapters.Base',
+            subject: 'dev.base.v1-value',
+            version: baseVersion,
+          },
+        ],
       );
 
       await this.ensureSchemaWithReference(
-        'dev.time-wbalance.v1',
+        'dev.time-wbalance.v1-value',
         './src/schemas/timeWeightedBalance.avsc',
-        [{ name: 'network.absinthe.adapters.Base', subject: 'dev.base.v1', version: baseVersion }],
+        [
+          {
+            name: 'network.absinthe.adapters.Base',
+            subject: 'dev.base.v1-value',
+            version: baseVersion,
+          },
+        ],
       );
     } catch (error) {
       console.error('Error initializing schemas:', error);
@@ -205,9 +217,9 @@ export class KafkaService {
     const eventType = data.eventType;
 
     if (eventType === MessageType.TRANSACTION) {
-      return this.registry.getLatestSchemaId('dev.transactions.v1');
+      return this.registry.getLatestSchemaId('dev.transactions.v1-value');
     } else if (eventType === MessageType.TIME_WEIGHTED_BALANCE) {
-      return this.registry.getLatestSchemaId('dev.time-wbalance.v1');
+      return this.registry.getLatestSchemaId('dev.time-wbalance.v1-value');
     }
 
     throw new Error(`Unknown event type: ${eventType}`);
