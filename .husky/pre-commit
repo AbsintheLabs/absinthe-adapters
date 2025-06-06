@@ -1,12 +1,8 @@
 #!/bin/sh
 . "$(dirname "$0")/_/husky.sh"
 
-echo "🔍 Checking Node version:"
-node -v
-
-
-echo "💅 Running Prettier..."
-pnpm format
+# echo "💅 Running Prettier..."
+# pnpm format:staged
 
 
 echo "✅ Running Lint..."

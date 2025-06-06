@@ -76,18 +76,21 @@ export class KafkaService {
   public async initializeSchemas(): Promise<void> {
     try {
       // Register Base schema first and get actual version
-      await this.ensureSchema('base-value', './src/schemas/base.avsc');
-      const baseVersion = await this.getRegisteredVersion('base-value');
+      await this.ensureSchema('dev.base.v1', './src/schemas/base.avsc');
+      const baseVersion = await this.getRegisteredVersion('dev.base.v1');
 
       // Register dependent schemas with correct base version
-      await this.ensureSchemaWithReference('transaction-value', './src/schemas/transaction.avsc', [
-        { name: 'network.absinthe.adapters.Base', subject: 'base-value', version: baseVersion },
-      ]);
+      await this.ensureSchemaWithReference(
+        // todo: devx add in config
+        'dev.transactions.v1',
+        './src/schemas/transaction.avsc',
+        [{ name: 'network.absinthe.adapters.Base', subject: 'dev.base.v1', version: baseVersion }],
+      );
 
       await this.ensureSchemaWithReference(
-        'timeWeightedBalance-value',
+        'dev.time-wbalance.v1',
         './src/schemas/timeWeightedBalance.avsc',
-        [{ name: 'network.absinthe.adapters.Base', subject: 'base-value', version: baseVersion }],
+        [{ name: 'network.absinthe.adapters.Base', subject: 'dev.base.v1', version: baseVersion }],
       );
     } catch (error) {
       console.error('Error initializing schemas:', error);
@@ -202,9 +205,9 @@ export class KafkaService {
     const eventType = data.eventType;
 
     if (eventType === MessageType.TRANSACTION) {
-      return this.registry.getLatestSchemaId('transaction-value');
+      return this.registry.getLatestSchemaId('dev.transactions.v1');
     } else if (eventType === MessageType.TIME_WEIGHTED_BALANCE) {
-      return this.registry.getLatestSchemaId('timeWeightedBalance-value');
+      return this.registry.getLatestSchemaId('dev.time-wbalance.v1');
     }
 
     throw new Error(`Unknown event type: ${eventType}`);
