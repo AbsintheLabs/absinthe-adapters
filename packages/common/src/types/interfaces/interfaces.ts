@@ -6,6 +6,7 @@ import {
   ChainType,
   Currency,
   Dex,
+  Staking,
   MessageType,
   TimeWindowTrigger,
 } from '../enums';

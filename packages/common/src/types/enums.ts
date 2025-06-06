@@ -15,6 +15,7 @@ enum ChainId {
   ARBITRUM = 42161,
   BASE = 8453,
   OPTIMISM = 10,
+  HEMI = 43111,
 }
 
 enum ChainName {
@@ -23,6 +24,7 @@ enum ChainName {
   ARBITRUM = 'arbitrum',
   BASE = 'base',
   OPTIMISM = 'optimism',
+  HEMI = 'hemi',
 }
 
 enum ChainShortName {
@@ -31,6 +33,7 @@ enum ChainShortName {
   ARBITRUM = 'arbitrum',
   BASE = 'base',
   OPTIMISM = 'optimism',
+  HEMI = 'hemi',
 }
 
 enum PriceFeed {
@@ -58,6 +61,10 @@ enum Dex {
   COMPOUND = 'compound',
 }
 
+enum Staking {
+  HEMI = 'hemi',
+}
+
 enum ChainType {
   EVM = 'evm',
 }
@@ -77,6 +84,8 @@ enum EventType {
   SWAP = 'swap',
   MINT = 'mint',
   BURN = 'burn',
+  DEPOSIT = 'deposit',
+  WITHDRAW = 'withdraw',
 }
 
 enum MessageType {
@@ -96,7 +105,7 @@ export {
   ChainShortName,
   PriceFeed,
   Dex,
-  ChainType,
+  Staking, ChainType,
   TokenPreference,
   ProtocolVersion,
   EventType,

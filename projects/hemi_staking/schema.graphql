@@ -1,0 +1,12 @@
+type Token @entity {
+  id: ID!
+  address: String! @index
+  decimals: Int!
+  coingeckoId: String
+}
+
+type ActiveBalances @entity {
+  id: ID!
+  activeBalancesMap: JSON!
+}
+

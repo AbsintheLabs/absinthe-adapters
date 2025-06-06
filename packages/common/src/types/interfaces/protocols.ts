@@ -3,6 +3,7 @@ import {
   TokenPreference,
   PriceFeed,
   Dex,
+  Staking,
   BondingCurveProtocol,
   ChainName,
   ChainShortName,
@@ -43,6 +44,18 @@ interface BondingCurveProtocolConfig {
   rpcUrl: string;
 }
 
+interface StakingProtocolConfig {
+  type: Staking;
+  chainId: ChainId;
+  chainArch: ChainType;
+  chainShortName: ChainShortName;
+  chainName: ChainName;
+  gatewayUrl: string;
+  toBlock: number;
+  fromBlock: number;
+  rpcUrl: string;
+}
+
 interface ProtocolConfig {
   name: string;
   contractAddress: string;
@@ -57,6 +70,7 @@ interface Config {
   balanceFlushIntervalHours: number;
   dexProtocols: DexProtocolConfig[];
   bondingCurveProtocols: BondingCurveProtocolConfig[];
+  stakingProtocols: StakingProtocolConfig[];
 }
 
 export {
@@ -64,5 +78,6 @@ export {
   BaseProtocolConfig,
   DexProtocolConfig,
   BondingCurveProtocolConfig,
+  StakingProtocolConfig,
   Config,
 };

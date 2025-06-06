@@ -1,39 +1,50 @@
 {
-  "balanceFlushIntervalHours": 6,
-  "dexProtocols": [
-    {
-      "type": "uniswap-v2",
-      "chainId": 1,
-      "gatewayUrl": "https://v2.archive.subsquid.io/network/ethereum-mainnet",
-      "toBlock": 0,
-      "protocols": [
+    "balanceFlushIntervalHours": 6,
+    "dexProtocols": [
         {
-          "name": "PEPE/WETH Pool",
-          "contractAddress": "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f",
-          "fromBlock": 17046833,
-          "pricingStrategy": "coingecko",
-          "token0": {
-            "coingeckoId": "pepe",
-            "decimals": 18
-          },
-          "token1": {
-            "coingeckoId": "weth",
-            "decimals": 18
-          },
-          "preferredTokenCoingeckoId": "token1"
+            "type": "uniswap-v2",
+            "chainId": 1,
+            "gatewayUrl": "https://v2.archive.subsquid.io/network/ethereum-mainnet",
+            "toBlock": 0,
+            "protocols": [
+                {
+                    "name": "PEPE/WETH Pool",
+                    "contractAddress": "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f",
+                    "fromBlock": 17046833,
+                    "pricingStrategy": "coingecko",
+                    "token0": {
+                        "coingeckoId": "pepe",
+                        "decimals": 18
+                    },
+                    "token1": {
+                        "coingeckoId": "weth",
+                        "decimals": 18
+                    },
+                    "preferredTokenCoingeckoId": "token1"
+                }
+            ]
         }
-      ]
-    }
-  ],
-  "bondingCurveProtocols": [
-    {
-      "type": "printr",
-      "name": "Printr Base",
-      "contractAddress": "0xbdc9a5b600e9a10609b0613b860b660342a6d4c0",
-      "chainId": 8453,
-      "gatewayUrl": "https://v2.archive.subsquid.io/network/base-mainnet",
-      "toBlock": 0,
-      "fromBlock": 31168241
-    }
-  ]
+    ],
+    "bondingCurveProtocols": [
+        {
+            "type": "printr",
+            "name": "Printr Base",
+            "contractAddress": "0xbdc9a5b600e9a10609b0613b860b660342a6d4c0",
+            "chainId": 8453,
+            "gatewayUrl": "https://v2.archive.subsquid.io/network/base-mainnet",
+            "toBlock": 0,
+            "fromBlock": 31168241
+        }
+    ],
+    "stakingProtocols": [
+        {
+            "type": "hemi",
+            "name": "Hemi Staking",
+            "contractAddress": "0x4f5e928763cbfaf5ffd8907ebbb0dabd5f78ba83",
+            "chainId": 43111,
+            "gatewayUrl": "https://v2.archive.subsquid.io/network/hemi-mainnet",
+            "toBlock": 0,
+            "fromBlock": 1220463
+        }
+    ]
 }

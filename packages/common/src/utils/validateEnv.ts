@@ -17,12 +17,14 @@ import {
   BondingCurveProtocolConfig,
   DexProtocolConfig,
   ProtocolConfig,
+  StakingProtocolConfig,
 } from '../types/interfaces/protocols';
 
 export function validateEnv(): {
   baseConfig: ValidatedEnvBase;
   dexProtocols: DexProtocolConfig[];
   bondingCurveProtocols: BondingCurveProtocolConfig[];
+  stakingProtocols: StakingProtocolConfig[];
 } {
   try {
     const envSchema = z.object({
@@ -103,6 +105,33 @@ export function validateEnv(): {
         };
       });
 
+    const stakingProtocols: StakingProtocolConfig[] = configResult.data.stakingProtocols.map((stakingProtocol) => {
+      const chainId = stakingProtocol.chainId;
+      const chainKey = getChainEnumKey(chainId);
+      if (!chainKey) {
+        throw new Error(`${chainId} is not a supported chainId.`);
+      }
+      const chainName = ChainName[chainKey];
+      const chainShortName = ChainShortName[chainKey];
+      const chainArch = ChainType.EVM;
+      return {
+        type: stakingProtocol.type,
+        gatewayUrl: stakingProtocol.gatewayUrl,
+        toBlock: stakingProtocol.toBlock,
+        fromBlock: stakingProtocol.fromBlock,
+        name: stakingProtocol.name,
+        contractAddress: stakingProtocol.contractAddress,
+        chainArch: chainArch,
+        chainId: chainId,
+        chainShortName: chainShortName,
+        chainName: chainName,
+        rpcUrl:
+          stakingProtocol.chainId === ChainId.MAINNET
+            ? envResult.data.RPC_URL_MAINNET
+            : envResult.data.RPC_URL_BASE,
+      };
+    });
+
     const dexProtocols: DexProtocolConfig[] = configResult.data.dexProtocols.map((dexProtocol) => {
       const chainId = dexProtocol.chainId;
       const chainKey = getChainEnumKey(chainId);
@@ -140,6 +169,7 @@ export function validateEnv(): {
       baseConfig,
       dexProtocols,
       bondingCurveProtocols,
+      stakingProtocols,
     };
   } catch (error) {
     if (error instanceof Error) {
