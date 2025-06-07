@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { CHAINS } from './chains';
 import fs from 'fs';
 import { ValidatedEnv } from '../types/interfaces/interfaces';
 import { configSchema } from '../types/schema';
