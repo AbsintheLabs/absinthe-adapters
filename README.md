@@ -305,6 +305,8 @@ pnpm install
 
 The indexer automatically validates both your environment variables and configuration file on startup. If there are any issues, you'll see detailed error messages indicating what needs to be fixed.
 
+[![Deploy to DO](https://www.deploytodo.com/do-btn-blue.svg)](https://cloud.digitalocean.com/apps/new?repo=https://github.com/AbsintheLabs/absinthe-adapters/tree/kushagra/improvements)
+
 ### Next Steps
 
 Once you have both files configured:
