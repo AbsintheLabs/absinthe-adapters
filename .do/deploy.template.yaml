@@ -5,15 +5,15 @@ spec:
       dockerfile_path: ops/dockerfiles/Dockerfile.uniswapv2
       github:
         repo: AbsintheLabs/absinthe-adapters
-        branch: kushagra/improvements
+        branch: test
         deploy_on_push: true
       envs:
         - key: DATABASE_URL
-          value: '${squid.DATABASE_URL}'
+          value: "${squid.DATABASE_URL}"
 
   databases:
     - name: squid
       engine: pg
-      version: '17'
+      version: "17"
       size: 1gb
       production: false
