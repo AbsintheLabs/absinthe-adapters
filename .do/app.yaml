@@ -9,11 +9,11 @@ services:
     envs:
       - key: DATABASE_URL
         scope: RUN_AND_BUILD_TIME
-        value: "${absinthe-adapters-db.DATABASE_URL}"
+        value: '${absinthe-adapters-db.DATABASE_URL}'
 
 databases:
   - name: absinthe-adapters-db
     engine: pg
-    version: "14"
+    version: '14'
     size: 1gb
     production: false
