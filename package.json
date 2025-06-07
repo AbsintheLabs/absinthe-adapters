@@ -13,7 +13,7 @@
     "clean": "find . -type d -name lib -exec rm -rf {} +",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
-    "format:staged": "prettier --write $(git diff --cached --name-only --diff-filter=ACMR | xargs)",
+    "format:staged": "git diff --cached --name-only --diff-filter=ACMR | grep -E '\\.(ts|tsx|js|jsx|json|md)$' | xargs -r prettier --write",
     "format:changed": "prettier --write $(git diff --name-only | xargs)",
     "format:check": "prettier --check .",
     "format:check:staged": "prettier --check $(git diff --cached --name-only --diff-filter=ACMR | xargs)",
