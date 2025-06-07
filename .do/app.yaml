@@ -1,0 +1,19 @@
+name: absinthe-adapters
+services:
+  - name: uniswapv2-indexer
+    github:
+      repo: AbsintheLabs/absinthe-adapters
+      branch: main
+      deploy_on_push: true
+    dockerfile_path: ops/dockerfiles/Dockerfile.uniswapv2
+    envs:
+      - key: DATABASE_URL
+        scope: RUN_AND_BUILD_TIME
+        value: "${absinthe-adapters-db.DATABASE_URL}"
+
+databases:
+  - name: absinthe-adapters-db
+    engine: pg
+    version: "14"
+    size: 1gb
+    production: false
