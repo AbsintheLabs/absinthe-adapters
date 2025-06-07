@@ -1,4 +1,3 @@
-import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import prettier from 'eslint-plugin-prettier';
 
@@ -6,6 +5,9 @@ export default [
   // First, the ignore config
   {
     ignores: [
+      '**/lib/**',
+      '**/dist/**',
+      '**/build/**',
       'projects/*/src/model/generated/**',
       'projects/*/db/migrations/**',
       'projects/*/abi/**',

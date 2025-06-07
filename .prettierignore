@@ -12,3 +12,16 @@ projects/*/generated/
 # Migrations
 projects/*/src/migrations/
 **/migrations/
+
+# Build output
+**/lib/
+**/dist/
+**/build/
+
+# Generated files
+projects/*/src/model/generated/**
+projects/*/db/migrations/**
+projects/*/abi/**
+
+# Dependencies
+node_modules/
