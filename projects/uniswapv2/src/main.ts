@@ -10,6 +10,6 @@ const apiClient = new AbsintheApiClient({
 });
 
 const WINDOW_DURATION_MS = env.balanceFlushIntervalHours * HOURS_TO_MS;
-
+console.log('WINDOW_DURATION_MS', WINDOW_DURATION_MS, env.dbUrl);
 const uniswapProcessor = new UniswapV2Processor(env, WINDOW_DURATION_MS, apiClient);
 uniswapProcessor.run();
