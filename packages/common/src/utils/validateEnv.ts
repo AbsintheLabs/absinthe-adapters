@@ -7,6 +7,8 @@ import { findConfigFile } from './helper/findConfigFile';
 import { EXAMPLE_FILE_NAME } from './consts';
 import { FILE_NAME } from './consts';
 import { ProtocolConfig } from '../types/interfaces/protocols';
+import { ChainId, ChainName, ChainShortName, ChainType } from '../types/enums';
+import { getChainEnumKey } from './helper/getChainEnumKey';
 
 export function validateEnv(): ValidatedEnv {
   try {
@@ -77,10 +79,17 @@ export function validateEnv(): ValidatedEnv {
 
     // Chain Validation
     const chainId = configResult.data.chainId;
-    const chain = CHAINS.find((c) => c.chainId === chainId);
-    if (!chain) {
+    const chainKey = getChainEnumKey(chainId);
+    if (!chainKey) {
       throw new Error(`${chainId} is not a supported chainId.`);
     }
+    const chainName = ChainName[chainKey];
+    const chainShortName = ChainShortName[chainKey];
+    const chainArch = ChainType.EVM;
+    // const chain = CHAINS.find((c) => c.chainId === chainId);
+    // if (!chain) {
+    //   throw new Error(`${chainId} is not a supported chainId.`);
+    // }
 
     // Create validated environment object combining both sources
     const validatedEnv: ValidatedEnv = {
@@ -89,8 +98,9 @@ export function validateEnv(): ValidatedEnv {
       dbUrl: envResult.data.DB_URL,
       gatewayUrl: configResult.data.gatewayUrl,
       chainId: chainId,
-      chainName: chain.name,
-      chainShortName: chain.shortName,
+      chainName: chainName,
+      chainShortName: chainShortName,
+      chainArch: chainArch,
       rpcUrl: envResult.data.RPC_URL,
       toBlock: configResult.data.toBlock,
       balanceFlushIntervalHours: configResult.data.balanceFlushIntervalHours,

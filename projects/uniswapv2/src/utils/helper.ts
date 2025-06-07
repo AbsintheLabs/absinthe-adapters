@@ -1,4 +1,6 @@
-import { ActiveBalance } from '@absinthe/common';
+// todo: add this to packages/common
+
+import { ActiveBalance, ValidatedEnv } from '@absinthe/common';
 import {
   ChainId,
   ChainName,
@@ -16,21 +18,25 @@ import {
 } from '@absinthe/common';
 import { pricePosition } from './pricing';
 import { ProcessValueChangeParams } from './types';
+import { createHash } from 'crypto';
 
 function toTimeWeightedBalance(
   historyWindows: HistoryWindow[],
   protocol: ProtocolConfig,
+  env: ValidatedEnv,
 ): TimeWeightedBalanceEvent[] {
   return historyWindows.map((e) => {
+    const eventIdComponents = `${ChainId.MAINNET}-${e.userAddress}-${e.startTs}-${e.endTs}-${e.windowDurationMs}-${env.absintheApiKey}`;
+    const hash = createHash('md5').update(eventIdComponents).digest('hex').slice(0, 8);
     const baseSchema = {
       version: '1.0',
-      eventId: e.txHash || `generated-${Date.now()}-${Math.random()}`, //todo: calculate
+      eventId: hash,
       userId: e.userAddress,
       chain: {
-        chainArch: ChainType.EVM,
-        networkId: ChainId.MAINNET,
-        chainShortName: ChainShortName.MAINNET,
-        chainName: ChainName.MAINNET,
+        chainArch: env.chainArch,
+        networkId: env.chainId,
+        chainShortName: env.chainShortName,
+        chainName: env.chainName,
       },
       runner: {
         runnerId: 'uniswapv2_indexer_001', //todo: get the current PID/ docker-containerId
@@ -69,17 +75,23 @@ function toTimeWeightedBalance(
   });
 }
 
-function toTransaction(transactions: Transaction[], protocol: ProtocolConfig): TransactionEvent[] {
+function toTransaction(
+  transactions: Transaction[],
+  protocol: ProtocolConfig,
+  env: ValidatedEnv,
+): TransactionEvent[] {
   return transactions.map((e) => {
+    const hashMessage = `${env.chainId}-${e.txHash}-${e.userId}-${e.logIndex}-${env.absintheApiKey}`;
+    const hash = createHash('md5').update(hashMessage).digest('hex').slice(0, 8);
     const baseSchema = {
       version: '1.0',
-      eventId: e.txHash || `generated-${Date.now()}-${Math.random()}`, //todo: calculate
+      eventId: hash,
       userId: e.userId,
       chain: {
-        chainArch: ChainType.EVM,
-        networkId: ChainId.MAINNET,
-        chainShortName: ChainShortName.MAINNET,
-        chainName: ChainName.MAINNET,
+        chainArch: env.chainArch,
+        networkId: env.chainId,
+        chainShortName: env.chainShortName,
+        chainName: env.chainName,
       },
       runner: {
         runnerId: 'uniswapv2_indexer_001', //todo: get the current PID/ docker-containerId

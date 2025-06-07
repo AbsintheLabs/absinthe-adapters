@@ -112,9 +112,10 @@ interface ValidatedEnv {
   dbPort?: number;
   dbUrl?: string;
   gatewayUrl: string;
-  chainId: number;
-  chainName: string;
-  chainShortName: string;
+  chainId: ChainId;
+  chainName: ChainName;
+  chainShortName: ChainShortName;
+  chainArch: ChainType;
   rpcUrl: string;
   toBlock?: number;
   balanceFlushIntervalHours: number;

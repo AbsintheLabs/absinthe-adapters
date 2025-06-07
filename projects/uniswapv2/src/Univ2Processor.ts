@@ -41,6 +41,7 @@ export class UniswapV2Processor {
   private readonly schemaName: string;
   private readonly refreshWindow: number;
   private readonly apiClient: AbsintheApiClient;
+  private readonly env: ValidatedEnv;
 
   constructor(env: ValidatedEnv, refreshWindow: number, apiClient: AbsintheApiClient) {
     this.protocols = (env.protocols as UniswapV2Config[]).filter(
@@ -50,6 +51,7 @@ export class UniswapV2Processor {
     this.schemaName = this.generateSchemaName();
     this.refreshWindow = refreshWindow;
     this.apiClient = apiClient;
+    this.env = env;
   }
 
   private generateSchemaName(): string {
@@ -363,12 +365,13 @@ export class UniswapV2Processor {
   private async finalizeBatch(ctx: any, protocolStates: Map<string, ProtocolState>): Promise<void> {
     for (const protocol of this.protocols) {
       const protocolState = protocolStates.get(protocol.contractAddress)!;
-
       // Send data to Absinthe API
-      const balances = toTimeWeightedBalance(protocolState.balanceWindows, protocol).filter(
-        (e: TimeWeightedBalanceEvent) => e.startUnixTimestampMs !== e.endUnixTimestampMs,
-      );
-      const transactions = toTransaction(protocolState.transactions, protocol);
+      const balances = toTimeWeightedBalance(
+        protocolState.balanceWindows,
+        protocol,
+        this.env,
+      ).filter((e: TimeWeightedBalanceEvent) => e.startUnixTimestampMs !== e.endUnixTimestampMs);
+      const transactions = toTransaction(protocolState.transactions, protocol, this.env);
       await this.apiClient.send(balances);
       await this.apiClient.send(transactions);
 

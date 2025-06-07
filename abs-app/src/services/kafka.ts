@@ -76,30 +76,30 @@ export class KafkaService {
   public async initializeSchemas(): Promise<void> {
     try {
       // Register Base schema first and get actual version
-      await this.ensureSchema('dev.base.v1-value', './src/schemas/base.avsc');
-      const baseVersion = await this.getRegisteredVersion('dev.base.v1-value');
+      await this.ensureSchema(config.kafka.baseSchema, './src/schemas/base.avsc');
+      const baseVersion = await this.getRegisteredVersion(config.kafka.baseSchema);
 
       // Register dependent schemas with correct base version
       await this.ensureSchemaWithReference(
         // todo: devx add in config
-        'dev.transactions.v1-value',
+        config.kafka.transactionSchema,
         './src/schemas/transaction.avsc',
         [
           {
             name: 'network.absinthe.adapters.Base',
-            subject: 'dev.base.v1-value',
+            subject: config.kafka.baseSchema,
             version: baseVersion,
           },
         ],
       );
 
       await this.ensureSchemaWithReference(
-        'dev.time-wbalance.v1-value',
+        config.kafka.twbSchema,
         './src/schemas/timeWeightedBalance.avsc',
         [
           {
             name: 'network.absinthe.adapters.Base',
-            subject: 'dev.base.v1-value',
+            subject: config.kafka.baseSchema,
             version: baseVersion,
           },
         ],
@@ -217,9 +217,9 @@ export class KafkaService {
     const eventType = data.eventType;
 
     if (eventType === MessageType.TRANSACTION) {
-      return this.registry.getLatestSchemaId('dev.transactions.v1-value');
+      return this.registry.getLatestSchemaId(config.kafka.transactionSchema);
     } else if (eventType === MessageType.TIME_WEIGHTED_BALANCE) {
-      return this.registry.getLatestSchemaId('dev.time-wbalance.v1-value');
+      return this.registry.getLatestSchemaId(config.kafka.twbSchema);
     }
 
     throw new Error(`Unknown event type: ${eventType}`);

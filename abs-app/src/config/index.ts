@@ -12,6 +12,9 @@ export const config = {
     clientId: process.env.KAFKA_CLIENT_ID,
     brokers: process.env.KAFKA_BROKERS,
     schemaRegistryUrl: process.env.KAFKA_SCHEMA_REGISTRY_URL as string,
+    baseSchema: process.env.KAFKA_BASE_SCHEMA as string,
+    transactionSchema: process.env.KAFKA_TRANSACTION_SCHEMA as string,
+    twbSchema: process.env.KAFKA_TWB_SCHEMA as string,
   },
 };
 
