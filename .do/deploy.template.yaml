@@ -9,9 +9,9 @@ spec:
         deploy_on_push: true
       envs:
         - key: DATABASE_URL
-          value: '${squid.DATABASE_URL}'
+          value: "postgres://doadmin:${squid.PASSWORD}@${squid.HOST}:${squid.PORT}/${squid.DATABASE}?sslmode=require"
 
   databases:
     - name: squid
       engine: PG
-      version: '17'
+      version: "17"
