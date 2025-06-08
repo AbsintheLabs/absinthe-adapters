@@ -23,6 +23,7 @@ export function validateEnv(): ValidatedEnv {
         DB_HOST: z.string().optional(),
         DB_USER: z.string().optional(),
         DB_PASS: z.string().optional(),
+        DB_URL: z.string().optional(),
         RPC_URL: z
           .string()
           .url('RPC_URL must be a valid URL')
@@ -31,9 +32,9 @@ export function validateEnv(): ValidatedEnv {
         ABSINTHE_API_KEY: z.string().min(1, 'ABSINTHE_API_KEY is required'),
         COINGECKO_API_KEY: z.string().min(1, 'COINGECKO_API_KEY is required'),
       })
-      .refine((data) => data.DB_PORT !== undefined || data.DB_HOST !== undefined, {
-        message: 'Either DB_PORT or DB_HOST must be provided',
-        path: ['DB_PORT', 'DB_HOST'],
+      .refine((data) => data.DB_URL !== undefined, {
+        message: 'DB_URL must be provided',
+        path: ['DB_URL'],
       });
 
     // Validate environment variables
