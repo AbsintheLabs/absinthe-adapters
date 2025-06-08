@@ -18,7 +18,7 @@ spec:
           value: ${squid.PORT}
         - key: DB_NAME
           value: ${squid.DATABASE}
-        - key: DATABASE_URL
+        - key: DB_URL
           value: "postgres://$(DB_USER):$(DB_PASS)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=require"
 
   databases:
