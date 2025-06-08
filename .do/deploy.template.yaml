@@ -16,4 +16,4 @@ spec:
   databases:
     - name: squid
       engine: PG
-      version: "17"
+      version: '17'
