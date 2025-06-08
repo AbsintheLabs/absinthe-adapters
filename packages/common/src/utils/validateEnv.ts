@@ -38,7 +38,7 @@ export function validateEnv(): ValidatedEnv {
 
     // Validate environment variables
     const envResult = envSchema.safeParse(process.env);
-    const DB_URL = `postgres://${envResult.data?.DB_USER}:${envResult.data?.DB_PASS}@${envResult.data?.DB_HOST}:${envResult.data?.DB_PORT}/${envResult.data?.DB_NAME}`;
+    const DB_URL = `postgresql://${envResult.data?.DB_USER}:${envResult.data?.DB_PASS}@${envResult.data?.DB_HOST}:${envResult.data?.DB_PORT}/${envResult.data?.DB_NAME}`;
 
     console.log(
       'DB_URL',
