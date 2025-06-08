@@ -9,7 +9,7 @@ spec:
         deploy_on_push: true
       envs:
         - key: DB_URL
-          value: postgresql://doadmin:${squid.PASSWORD}@${squid.HOSTNAME}:${squid.PORT}/${squid.DATABASE}?sslmode=require
+          value: ${squid.DATABASE_URL}
         - key: NODE_TLS_REJECT_UNAUTHORIZED
           value: "0"
 
