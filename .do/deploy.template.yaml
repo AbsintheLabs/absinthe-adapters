@@ -25,4 +25,5 @@ spec:
   databases:
     - name: default
       engine: PG
-      version: "17"
+      version: "13"
+      production: true
