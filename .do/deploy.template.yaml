@@ -9,11 +9,11 @@ spec:
         deploy_on_push: true
       envs:
         - key: DB_URL
-          value: ${squid.DATABASE_URL}
+          value: ${defaultdb.DATABASE_URL}
         - key: NODE_TLS_REJECT_UNAUTHORIZED
-          value: '0'
+          value: "0"
 
   databases:
-    - name: squid
+    - name: defaultdb
       engine: PG
-      version: '17'
+      version: "17"
