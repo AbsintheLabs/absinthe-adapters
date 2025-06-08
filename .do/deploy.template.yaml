@@ -27,3 +27,6 @@ spec:
       engine: PG
       version: "16"
       production: true
+      db_name: defaultdb
+      db_user: doadmin
+      cluster_name: defaultdb
