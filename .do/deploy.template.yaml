@@ -10,15 +10,15 @@ spec:
       health_check: null
       envs:
         - key: DB_NAME
-          value: ${defaultdb.DATABASE}
+          value: ${default.DATABASE}
         - key: DB_PORT
-          value: ${defaultdb.PORT}
+          value: ${default.PORT}
         - key: DB_HOST
-          value: ${defaultdb.HOSTNAME}
+          value: ${default.HOSTNAME}
         - key: DB_USER
           value: doadmin
         - key: DB_PASS
-          value: ${defaultdb.PASSWORD}
+          value: ${default.PASSWORD}
         - key: NODE_TLS_REJECT_UNAUTHORIZED
           value: "0"
 
@@ -26,4 +26,3 @@ spec:
     - name: default
       engine: PG
       version: "13"
-      production: true
