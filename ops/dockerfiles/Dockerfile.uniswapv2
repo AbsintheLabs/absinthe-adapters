@@ -72,5 +72,5 @@ COPY --from=build /app/projects/uniswapv2/tsconfig.json ./projects/uniswapv2/
 
 WORKDIR /app/projects/uniswapv2
 
-# Use exec form and proper exit handling
-CMD ["sh", "-c", "set -e; (pnpm migration:generate || echo 'No migration changes found'); pnpm migration:apply; exec node lib/main.js"]
+# Use exec form with permission setup inline
+CMD ["sh", "-c", "set -e; echo 'Setting up database permissions...'; export PGPASSWORD=\"$(echo $DATABASE_URL | sed -n 's/.*\\/\\/[^:]*:\\([^@]*\\)@.*/\\1/p')\"; DB_USER=\"$(echo $DATABASE_URL | sed -n 's/.*\\/\\/\\([^:]*\\):.*/\\1/p')\"; DB_HOST=\"$(echo $DATABASE_URL | sed -n 's/.*@\\([^:]*\\).*/\\1/p')\"; DB_PORT=\"$(echo $DATABASE_URL | sed -n 's/.*:\\([0-9]*\\)\\/.*/\\1/p')\"; DB_NAME=\"$(echo $DATABASE_URL | sed -n 's/.*\\/\\([^?]*\\).*/\\1/p')\"; DB_PORT=\"${DB_PORT:-5432}\"; (echo \"GRANT ALL PRIVILEGES ON SCHEMA public TO \\\"$DB_USER\\\";\" | psql -h \"$DB_HOST\" -p \"$DB_PORT\" -U \"$DB_USER\" -d \"$DB_NAME\" || true); (pnpm migration:generate || echo 'No migration changes found'); pnpm migration:apply; exec node lib/main.js"]

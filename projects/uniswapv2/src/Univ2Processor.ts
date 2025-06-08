@@ -48,7 +48,7 @@ export class UniswapV2Processor {
       (protocol) => protocol.type === Dex.UNISWAP_V2,
     );
 
-    this.schemaName = this.generateSchemaName();
+    this.schemaName = 'public';
     this.refreshWindow = refreshWindow;
     this.apiClient = apiClient;
     this.env = env;
@@ -202,17 +202,17 @@ export class UniswapV2Processor {
     const pricedSwapVolume =
       protocol.preferredTokenCoingeckoId === 'token0'
         ? await computePricedSwapVolume(
-            token0Amount,
-            protocolState.config.token0.coingeckoId as string,
-            protocolState.config.token0.decimals,
-            block.header.timestamp,
-          )
+          token0Amount,
+          protocolState.config.token0.coingeckoId as string,
+          protocolState.config.token0.decimals,
+          block.header.timestamp,
+        )
         : await computePricedSwapVolume(
-            token1Amount,
-            protocolState.config.token1.coingeckoId as string,
-            protocolState.config.token1.decimals,
-            block.header.timestamp,
-          );
+          token1Amount,
+          protocolState.config.token1.coingeckoId as string,
+          protocolState.config.token1.decimals,
+          block.header.timestamp,
+        );
 
     const transactionSchema = {
       eventType: MessageType.TRANSACTION,
