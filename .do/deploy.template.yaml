@@ -21,12 +21,10 @@ spec:
           value: ${default.PASSWORD}
         - key: NODE_TLS_REJECT_UNAUTHORIZED
           value: "0"
+        - key: DB_URL
+          value: ${default.DATABASE_URL}
 
   databases:
     - name: default
       engine: PG
-      version: "16"
-      production: true
-      db_name: defaultdb
-      db_user: doadmin
-      cluster_name: defaultdb
+      version: "13"

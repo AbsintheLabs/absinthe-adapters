@@ -14,14 +14,15 @@ export function validateEnv(): ValidatedEnv {
     // Define the env schema for environment variables
     const envSchema = z
       .object({
-        DB_NAME: z.string().min(1, 'DB_NAME is required'),
+        DB_NAME: z.string().optional(),
         DB_PORT: z
           .string()
           .transform((val) => parseInt(val, 10))
-          .refine((val) => !isNaN(val), 'DB_PORT must be a valid number'),
-        DB_HOST: z.string().min(1, 'DB_HOST is required'),
-        DB_USER: z.string().min(1, 'DB_USER is required'),
-        DB_PASS: z.string().min(1, 'DB_PASS is required'),
+          .refine((val) => !isNaN(val), 'DB_PORT must be a valid number')
+          .optional(),
+        DB_HOST: z.string().optional(),
+        DB_USER: z.string().optional(),
+        DB_PASS: z.string().optional(),
         RPC_URL: z
           .string()
           .url('RPC_URL must be a valid URL')
