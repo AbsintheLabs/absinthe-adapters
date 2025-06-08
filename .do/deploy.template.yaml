@@ -8,8 +8,18 @@ spec:
         branch: test
         deploy_on_push: true
       envs:
+        - key: DB_USER
+          value: doadmin
+        - key: DB_PASS
+          value: ${squid.PASSWORD}
+        - key: DB_HOST
+          value: ${squid.HOST}
+        - key: DB_PORT
+          value: ${squid.PORT}
+        - key: DB_NAME
+          value: ${squid.DATABASE}
         - key: DATABASE_URL
-          value: "postgres://doadmin:${squid.PASSWORD}@${squid.HOST}:${squid.PORT}/${squid.DATABASE}?sslmode=require"
+          value: "postgres://$(DB_USER):$(DB_PASS)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=require"
 
   databases:
     - name: squid
