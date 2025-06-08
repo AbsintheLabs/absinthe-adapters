@@ -7,9 +7,18 @@ spec:
         repo: AbsintheLabs/absinthe-adapters
         branch: test
         deploy_on_push: true
+      health_check: null
       envs:
-        - key: DB_URL
-          value: ${defaultdb.DATABASE_URL}
+        - key: DB_NAME
+          value: ${defaultdb.DATABASE}
+        - key: DB_PORT
+          value: ${defaultdb.PORT}
+        - key: DB_HOST
+          value: ${defaultdb.HOSTNAME}
+        - key: DB_USER
+          value: doadmin
+        - key: DB_PASS
+          value: ${defaultdb.PASSWORD}
         - key: NODE_TLS_REJECT_UNAUTHORIZED
           value: "0"
 

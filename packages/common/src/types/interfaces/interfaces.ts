@@ -108,9 +108,6 @@ type ActiveBalance = {
 };
 
 interface ValidatedEnv {
-  dbName: string;
-  dbPort?: number;
-  dbUrl?: string;
   gatewayUrl: string;
   chainId: ChainId;
   chainName: ChainName;

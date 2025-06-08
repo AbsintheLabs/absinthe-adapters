@@ -18,12 +18,10 @@ export function validateEnv(): ValidatedEnv {
         DB_PORT: z
           .string()
           .transform((val) => parseInt(val, 10))
-          .refine((val) => !isNaN(val), 'DB_PORT must be a valid number')
-          .optional(),
-        DB_URL: z
-          .string()
-          .regex(/^postgresql?:\/\/.+/, 'DB_URL must be a valid postgres URL')
-          .optional(),
+          .refine((val) => !isNaN(val), 'DB_PORT must be a valid number'),
+        DB_HOST: z.string().min(1, 'DB_HOST is required'),
+        DB_USER: z.string().min(1, 'DB_USER is required'),
+        DB_PASS: z.string().min(1, 'DB_PASS is required'),
         RPC_URL: z
           .string()
           .url('RPC_URL must be a valid URL')
@@ -32,13 +30,16 @@ export function validateEnv(): ValidatedEnv {
         ABSINTHE_API_KEY: z.string().min(1, 'ABSINTHE_API_KEY is required'),
         COINGECKO_API_KEY: z.string().min(1, 'COINGECKO_API_KEY is required'),
       })
-      .refine((data) => data.DB_PORT !== undefined || data.DB_URL !== undefined, {
-        message: 'Either DB_PORT or DB_URL must be provided',
-        path: ['DB_PORT', 'DB_URL'],
+      .refine((data) => data.DB_PORT !== undefined || data.DB_HOST !== undefined, {
+        message: 'Either DB_PORT or DB_HOST must be provided',
+        path: ['DB_PORT', 'DB_HOST'],
       });
 
     // Validate environment variables
     const envResult = envSchema.safeParse(process.env);
+    const DB_URL = `postgres://${envResult.data?.DB_USER}:${envResult.data?.DB_PASS}@${envResult.data?.DB_HOST}:${envResult.data?.DB_PORT}/${envResult.data?.DB_NAME}`;
+
+    console.log('DB_URL', DB_URL);
 
     if (!envResult.success) {
       const errorMessages = envResult.error.errors
@@ -92,9 +93,6 @@ export function validateEnv(): ValidatedEnv {
 
     // Create validated environment object combining both sources
     const validatedEnv: ValidatedEnv = {
-      dbName: envResult.data.DB_NAME,
-      dbPort: envResult.data.DB_PORT,
-      dbUrl: envResult.data.DB_URL,
       gatewayUrl: configResult.data.gatewayUrl,
       chainId: chainId,
       chainName: chainName,
