@@ -23,6 +23,6 @@ spec:
           value: "0"
 
   databases:
-    - name: defaultdb
+    - name: default
       engine: PG
       version: "17"
