@@ -14,16 +14,16 @@ export function validateEnv(): ValidatedEnv {
     // Define the env schema for environment variables
     const envSchema = z
       .object({
-        DB_NAME: z.string().min(1, 'DB_NAME is required'),
+        DB_NAME: z.string().optional(),
         DB_PORT: z
           .string()
           .transform((val) => parseInt(val, 10))
           .refine((val) => !isNaN(val), 'DB_PORT must be a valid number')
           .optional(),
-        DB_URL: z
-          .string()
-          .regex(/^postgresql?:\/\/.+/, 'DB_URL must be a valid postgres URL')
-          .optional(),
+        DB_HOST: z.string().optional(),
+        DB_USER: z.string().optional(),
+        DB_PASS: z.string().optional(),
+        DB_URL: z.string().optional(),
         RPC_URL: z
           .string()
           .url('RPC_URL must be a valid URL')
@@ -32,9 +32,9 @@ export function validateEnv(): ValidatedEnv {
         ABSINTHE_API_KEY: z.string().min(1, 'ABSINTHE_API_KEY is required'),
         COINGECKO_API_KEY: z.string().min(1, 'COINGECKO_API_KEY is required'),
       })
-      .refine((data) => data.DB_PORT !== undefined || data.DB_URL !== undefined, {
-        message: 'Either DB_PORT or DB_URL must be provided',
-        path: ['DB_PORT', 'DB_URL'],
+      .refine((data) => data.DB_URL !== undefined, {
+        message: 'DB_URL must be provided',
+        path: ['DB_URL'],
       });
 
     // Validate environment variables
@@ -92,9 +92,6 @@ export function validateEnv(): ValidatedEnv {
 
     // Create validated environment object combining both sources
     const validatedEnv: ValidatedEnv = {
-      dbName: envResult.data.DB_NAME,
-      dbPort: envResult.data.DB_PORT,
-      dbUrl: envResult.data.DB_URL,
       gatewayUrl: configResult.data.gatewayUrl,
       chainId: chainId,
       chainName: chainName,
