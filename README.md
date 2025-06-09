@@ -429,6 +429,156 @@ The indexer tracks:
 - Implements exponential backoff for retry logic
 - Handles rate limiting via Bottleneck
 
+## Contributing
+
+We welcome contributions to the Absinthe Adapters project! This section outlines the development practices, tools, and guidelines for contributors.
+
+### Development Environment Setup
+
+Before contributing, ensure you have the proper development environment set up as described in the [Development](#development) section above.
+
+### Code Quality Tools
+
+Our project uses several tools to maintain code quality and consistency:
+
+#### ESLint
+
+We use ESLint with TypeScript support for code linting and catching potential issues.
+
+- **Configuration**: See `eslint.config.js` for the full configuration
+- **Rules**: Includes TypeScript-specific rules and Prettier integration
+- **Ignored files**: Generated files, builds, and migrations are excluded
+
+**Commands**:
+```bash
+# Run linting on all TypeScript files
+pnpm lint
+
+# Auto-fix linting issues where possible
+pnpm lint:fix
+
+# Lint only changed files (useful during development)
+pnpm lint:changed
+
+# Lint only staged files (used in pre-commit hooks)
+pnpm lint:staged
+```
+
+#### Prettier
+
+Code formatting is handled automatically by Prettier to ensure consistent code style.
+
+- **Configuration**: See `.prettierrc` for formatting rules
+- **Settings**: Single quotes, semicolons, trailing commas, 100 character line width
+- **Ignored files**: See `.prettierignore` for excluded files
+
+**Commands**:
+```bash
+# Format all files
+pnpm format
+
+# Format only changed files
+pnpm format:changed
+
+# Format only staged files
+pnpm format:staged
+
+# Check formatting without making changes
+pnpm format:check
+```
+
+#### Husky Git Hooks
+
+We use Husky to run automated checks before commits to ensure code quality.
+
+**Pre-commit hooks** (`.husky/pre-commit`):
+1. **Prettier formatting**: Automatically formats staged files
+2. **ESLint checks**: Runs linting on staged TypeScript files
+3. **Validation**: Ensures all checks pass before allowing commit
+
+The hooks run automatically when you commit. If any check fails, the commit will be rejected.
+
+### Commit Message Guidelines
+
+Follow conventional commit format for clear commit history:
+
+```
+type(scope): description
+
+feat(uniswap): add support for new pool types
+fix(pricing): resolve decimal precision issues
+docs(readme): update configuration instructions
+chore(deps): update dependencies
+```
+
+**Types**:
+- `feat`: New features
+- `fix`: Bug fixes
+- `docs`: Documentation changes
+- `chore`: Maintenance tasks
+- `refactor`: Code refactoring
+- `test`: Test additions/changes
+
+### Adding New Protocol Support
+
+When adding support for a new protocol:
+
+1. **Create project directory**: `projects/{protocol-name}/`
+2. **Define schema**: Create `schema.graphql` with required entities
+3. **Generate models**: Run `pnpm typegen` and `pnpm codegen`
+4. **Implement processor**: Create indexing logic in `src/`
+5. **Add configuration**: Update protocol configurations
+6. **Add tests**: Include unit tests for new functionality
+7. **Update documentation**: Document the new protocol support
+
+### Database Changes
+
+For database schema changes:
+
+1. **Modify GraphQL schema**: Update `schema.graphql` files
+2. **Generate TypeORM models**: Run `pnpm typegen`
+3. **Create migration**: Run `pnpm migration:generate`
+4. **Test migration**: Verify migration works correctly
+5. **Document changes**: Update relevant documentation
+
+
+### Testing
+
+While comprehensive tests are still being developed, when writing tests:
+
+- **Unit tests**: Test individual functions and components
+- **Integration tests**: Test interaction between components
+- **E2E tests**: Test complete indexing workflows
+- **Mock external APIs**: Use mocks for external dependencies
+
+### Documentation
+
+When contributing:
+
+- **Code comments**: Document complex logic and algorithms
+- **README updates**: Update documentation for new features
+- **Configuration examples**: Provide clear configuration examples
+- **API documentation**: Document any API changes
+
+### Code Review Process
+
+All contributions go through code review:
+
+1. **Automated checks**: CI runs linting, formatting, and tests
+2. **Manual review**: Team members review code for quality and correctness
+3. **Feedback incorporation**: Address review comments
+4. **Approval and merge**: Changes are merged after approval
+
+### Getting Help
+
+If you need help while contributing:
+
+- **Issues**: Check existing GitHub issues for similar problems
+- **Discussions**: Use GitHub Discussions for questions
+- **Documentation**: Reference this README and inline code documentation
+- **Community**: Reach out to maintainers for guidance
+
+
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
