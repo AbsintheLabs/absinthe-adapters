@@ -1,7 +1,7 @@
 import { TypeormDatabase } from "@subsquid/typeorm-store";
 import { processor } from "./processor";
 
-import { validateEnv, AbsintheApiClient,HOURS_TO_MS} from "@absinthe/common";
+import { validateStakingEnv, AbsintheApiClient,HOURS_TO_MS} from "@absinthe/common";
 import { logger } from "@absinthe/common";
 import * as hemiStakingAbi from './abi/launchPool';
 import { HemiStakingProcessor } from './HemiStakingProcessor';
@@ -10,8 +10,8 @@ import fs from 'fs';
 import path from 'path';
 
 dotenv.config();
-// Validate environment variables at the start
-const env = validateEnv();
+// Validate environment variables at the start - using staking-specific validation
+const env = validateStakingEnv();
 // Create Absinthe API client for sending data
 const apiClient = new AbsintheApiClient({
     baseUrl: env.absintheApiUrl,

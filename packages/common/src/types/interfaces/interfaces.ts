@@ -130,11 +130,45 @@ interface ValidatedEnvBase {
   coingeckoApiKey: string;
 }
 
+// Protocol-specific configuration interfaces
+interface ProtocolSpecificConfig {
+  chainId: number;
+  chainName: string;
+  chainShortName: string;
+  gatewayUrl: string;
+  toBlock?: number;
+  balanceFlushIntervalHours: number;
+}
+
+interface DexConfig extends ProtocolSpecificConfig {
+  protocols: ProtocolConfig[];
+}
+
+interface StakingConfig extends ProtocolSpecificConfig {
+  protocols: StakingProtocolConfig[];
+}
+
+interface ValidatedProtocolEnv {
+  dbName: string;
+  dbPort?: number;
+  dbUrl?: string;
+  rpcUrl: string;
+  absintheApiUrl: string;
+  absintheApiKey: string;
+  coingeckoApiKey: string;
+  dex: DexConfig;
+  staking: StakingConfig;
+}
+
 export {
   Chain,
   ValidatedEnv,
   TokenDetails,
   TransactionEvent,
+  ValidatedProtocolEnv,
+  ProtocolSpecificConfig,
+  DexConfig,
+  StakingConfig,
   ActiveBalance,
   TimeWeightedBalanceEvent,
   HistoryWindow,

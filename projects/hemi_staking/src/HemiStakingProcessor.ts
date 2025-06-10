@@ -1,40 +1,53 @@
-import { ActiveBalances } from './model';
-
+import { ActiveBalances, Token } from './model';
 import {
   AbsintheApiClient,
   ActiveBalance,
   ChainId,
-  ChainShortName,
   Staking,
-  MessageType,
-  TimeWeightedBalanceEvent,
-  TimeWindowTrigger,
 } from '@absinthe/common';
-
 import { HemiStakingConfig, ValidatedEnv } from '@absinthe/common';
 import { processor } from './processor';
 import { createHash } from 'crypto';
 import { TypeormDatabase } from '@subsquid/typeorm-store';
-import { PoolProcessState } from './model';
-import { PoolState } from './model';
-import {
-  initPoolConfigIfNeeded,
-  initPoolProcessStateIfNeeded,
-  initPoolStateIfNeeded,
-  loadActiveBalancesFromDb,
-} from './utils/pool';
-import { loadPoolProcessStateFromDb, loadPoolStateFromDb } from './utils/pool';
-import { loadPoolConfigFromDb } from './utils/pool';
-import { BatchContext, ProtocolState } from './utils/types';
-import { PoolConfig } from './model';
 import * as hemiAbi from './abi/launchPool';
-import { pricePosition } from './utils/pricing';
-import {
-  mapToJson,
-  processValueChange,
-  toTimeWeightedBalance,
-  toTransaction,
-} from './utils/helper';
+import { pricePosition, getHourlyPrice } from './utils/pricing';
+
+// Define custom interfaces for Hemi staking
+interface HemiStakingTransaction {
+  user: string;
+  amount: number;
+  timestampMs: number;
+  blockNumber: bigint;
+  txHash: string;
+  logIndex: number;
+  tokenAddress: string;
+  rawAmount: string;
+}
+
+interface HemiTimeWeightedBalance {
+  user: string;
+  amount: number;
+  startTs: number;
+  endTs: number;
+  windowDurationMs: number;
+  windowId: number;
+  tokenAmount: string;
+  tokenPrice: number;
+}
+
+interface StakingState {
+  token: Token;
+  activeBalances: Map<string, ActiveBalance>;
+  balanceWindows: HemiTimeWeightedBalance[];
+  transactions: HemiStakingTransaction[];
+  lastProcessedTimestamp: bigint;
+}
+
+interface BatchContext {
+  ctx: any;
+  block: any;
+  stakingStates: Map<string, StakingState>;
+}
 
 export class HemiStakingProcessor {
   private readonly protocols: HemiStakingConfig[];
@@ -53,11 +66,11 @@ export class HemiStakingProcessor {
   }
 
   private generateSchemaName(): string {
-    const uniquePoolCombination = this.protocols
+    const uniqueContractCombination = this.protocols
       .reduce((acc, protocol) => acc + protocol.contractAddress, '')
       .concat(ChainId.MAINNET.toString());
 
-    const hash = createHash('md5').update(uniquePoolCombination).digest('hex').slice(0, 8);
+    const hash = createHash('md5').update(uniqueContractCombination).digest('hex').slice(0, 8);
     return `hemi-staking-${hash}`;
   }
 
@@ -76,92 +89,90 @@ export class HemiStakingProcessor {
   }
 
   private async processBatch(ctx: any): Promise<void> {
-    const protocolStates = await this.initializeProtocolStates(ctx);
+    const stakingStates = await this.initializeStakingStates(ctx);
 
     for (const block of ctx.blocks) {
-      await this.processBlock({ ctx, block, protocolStates });
+      await this.processBlock({ ctx, block, stakingStates });
     }
 
-    await this.finalizeBatch(ctx, protocolStates);
+    await this.finalizeBatch(ctx, stakingStates);
   }
 
-  private async initializeProtocolStates(ctx: any): Promise<Map<string, ProtocolState>> {
-    const protocolStates = new Map<string, ProtocolState>();
+  private async initializeStakingStates(ctx: any): Promise<Map<string, StakingState>> {
+    const stakingStates = new Map<string, StakingState>();
 
     for (const protocol of this.protocols) {
       const contractAddress = protocol.contractAddress;
+      
+      // For Hemi staking, we'll use the contract address as the token identifier
+      // since it's a single-token staking contract
+      const tokenAddress = contractAddress;
+      
+      // Load or create token
+      let token = await ctx.store.get(Token, { where: { address: tokenAddress } });
+      if (!token) {
+        token = new Token({
+          id: tokenAddress,
+          address: tokenAddress,
+          decimals: protocol.token.decimals,
+          coingeckoId: protocol.token.coingeckoId,
+        });
+      }
 
-      protocolStates.set(contractAddress, {
-        config: (await loadPoolConfigFromDb(ctx, contractAddress)) || new PoolConfig({}),
-        state: (await loadPoolStateFromDb(ctx, contractAddress)) || new PoolState({}),
-        processState:
-          (await loadPoolProcessStateFromDb(ctx, contractAddress)) || new PoolProcessState({}),
-        activeBalances:
-          (await loadActiveBalancesFromDb(ctx, contractAddress)) ||
-          new Map<string, ActiveBalance>(),
+      // Load active balances
+      const activeBalancesEntity = await ctx.store.get(ActiveBalances, `${contractAddress}-active-balances`);
+      const activeBalances = activeBalancesEntity 
+        ? new Map(Object.entries(JSON.parse(activeBalancesEntity.activeBalancesMap)).map(([k, v]: [string, any]) => [
+            k, 
+            { 
+              balance: BigInt(v.balance), 
+              updated_at_block_ts: v.updated_at_block_ts, 
+              updated_at_block_height: v.updated_at_block_height 
+            }
+          ]))
+        : new Map<string, ActiveBalance>();
+
+      stakingStates.set(contractAddress, {
+        token,
+        activeBalances,
         balanceWindows: [],
         transactions: [],
+        lastProcessedTimestamp: 0n,
       });
     }
 
-    return protocolStates;
+    return stakingStates;
   }
 
   private async processBlock(batchContext: BatchContext): Promise<void> {
-    const { ctx, block, protocolStates } = batchContext;
+    const { ctx, block, stakingStates } = batchContext;
+
+    console.log(`🔍 Processing block ${block.header.height} (timestamp: ${new Date(block.header.timestamp).toISOString()})`);
 
     for (const protocol of this.protocols) {
       const contractAddress = protocol.contractAddress;
-      const protocolState = protocolStates.get(contractAddress)!;
+      const stakingState = stakingStates.get(contractAddress)!;
 
-      await this.initializeProtocolForBlock(ctx, block, contractAddress, protocol, protocolState);
-      await this.processLogsForProtocol(ctx, block, contractAddress, protocol, protocolState);
-      await this.processPeriodicBalanceFlush(ctx, block, contractAddress, protocolState);
+      await this.processLogsForContract(ctx, block, contractAddress, protocol, stakingState);
+      await this.processPeriodicBalanceFlush(ctx, block, contractAddress, stakingState);
     }
   }
 
-  private async initializeProtocolForBlock(
+  private async processLogsForContract(
     ctx: any,
     block: any,
     contractAddress: string,
     protocol: HemiStakingConfig,
-    protocolState: ProtocolState,
+    stakingState: StakingState,
   ): Promise<void> {
-    // Initialize config, state, and process state
-    protocolState.config = await initPoolConfigIfNeeded(
-      ctx,
-      block,
-      contractAddress,
-      protocolState.config,
-      protocol,
-    );
-    protocolState.state = await initPoolStateIfNeeded(
-      ctx,
-      block,
-      contractAddress,
-      protocolState.state,
-      protocolState.config,
-    );
-    protocolState.processState = await initPoolProcessStateIfNeeded(
-      ctx,
-      block,
-      contractAddress,
-      protocolState.config,
-      protocolState.processState,
-    );
-  }
+    const contractLogs = block.logs.filter((log: any) => log.address === contractAddress);
 
-  private async processLogsForProtocol(
-    ctx: any,
-    block: any,
-    contractAddress: string,
-    protocol: HemiStakingConfig,
-    protocolState: ProtocolState,
-  ): Promise<void> {
-    const poolLogs = block.logs.filter((log: any) => log.address === contractAddress);
+    if (contractLogs.length > 0) {
+      console.log(`📋 Found ${contractLogs.length} logs for contract ${contractAddress} in block ${block.header.height}`);
+    }
 
-    for (const log of poolLogs) {
-      await this.processLog(ctx, block, log, protocol, protocolState);
+    for (const log of contractLogs) {
+      await this.processLog(ctx, block, log, protocol, stakingState);
     }
   }
 
@@ -170,14 +181,14 @@ export class HemiStakingProcessor {
     block: any,
     log: any,
     protocol: HemiStakingConfig,
-    protocolState: ProtocolState,
+    stakingState: StakingState,
   ): Promise<void> {
     if (log.topics[0] === hemiAbi.events.Deposit.topic) {
-      await this.processDepositEvent(ctx, block, log, protocol, protocolState);
+      await this.processDepositEvent(ctx, block, log, protocol, stakingState);
     }
 
     if (log.topics[0] === hemiAbi.events.Withdraw.topic) {
-      await this.processWithdrawEvent(ctx, block, log, protocol, protocolState);
+      await this.processWithdrawEvent(ctx, block, log, protocol, stakingState);
     }
   }
 
@@ -186,51 +197,37 @@ export class HemiStakingProcessor {
     block: any,
     log: any,
     protocol: HemiStakingConfig,
-    protocolState: ProtocolState,
+    stakingState: StakingState,
   ): Promise<void> {
-    // Decode the Deposit event
     const { depositor, token, amount } = hemiAbi.events.Deposit.decode(log);
+
+    const formattedAmount = Number(amount) / 10 ** stakingState.token.decimals;
     
-    // Get token price and create transaction record
-    // We'll simplify this compared to the swap function since it's a deposit
-    const transactionSchema = {
-      eventType: MessageType.TRANSACTION,
-      tokens: JSON.stringify([
-        {
-          token: {
-            // Use the token from the event
-            address: token,
-            // We'll need to get this information from the protocol config
-            coingeckoId: protocolState.config.token.coingeckoId || '',
-            decimals: protocolState.config.token.decimals,
-            symbol: protocolState.config.token.symbol || '',
-          },
-          amount: amount.toString(),
-          amountIn: amount.toString(),
-          amountOut: '0', // No outgoing amount for a deposit
-        },
-      ]),
-      rawAmount: amount.toString(),
-      displayAmount: Number(amount) / 10 ** protocolState.config.token.decimals,
-      unixTimestampMs: block.header.timestamp,
+    // Log the deposit transaction details
+    console.log(`🔵 DEPOSIT | Depositor: ${depositor} | Amount: ${formattedAmount} | Token: ${token} | TxHash: ${log.transactionHash} | Block: ${block.header.height}`);
+
+    // Create transaction record
+    stakingState.transactions.push({
+      user: depositor,
+      amount: formattedAmount,
+      timestampMs: block.header.timestamp,
+      blockNumber: BigInt(block.header.height),
       txHash: log.transactionHash,
       logIndex: log.logIndex,
-      blockNumber: block.header.height,
-      blockHash: block.header.hash,
-      userId: depositor,
-    };
+      tokenAddress: token,
+      rawAmount: amount.toString(),
+    });
 
-    protocolState.transactions.push(transactionSchema);
-    
-    // Update the user's active balance
-    const userAddress = depositor;
-    const currentBalance = protocolState.activeBalances.get(userAddress)?.balance || 0n;
+    // Update user's active balance
+    const currentBalance = stakingState.activeBalances.get(depositor)?.balance || 0n;
     const newBalance = currentBalance + amount;
-    
-    protocolState.activeBalances.set(userAddress, {
+
+    console.log(`💰 BALANCE UPDATE | User: ${depositor} | Previous: ${Number(currentBalance) / 10 ** stakingState.token.decimals} | New: ${Number(newBalance) / 10 ** stakingState.token.decimals}`);
+
+    stakingState.activeBalances.set(depositor, {
       balance: newBalance,
-      updatedBlockTs: block.header.timestamp,
-      updatedBlockHeight: block.header.height,
+      updated_at_block_ts: block.header.timestamp,
+      updated_at_block_height: block.header.height,
     });
   }
 
@@ -239,48 +236,41 @@ export class HemiStakingProcessor {
     block: any,
     log: any,
     protocol: HemiStakingConfig,
-    protocolState: ProtocolState,
+    stakingState: StakingState,
   ): Promise<void> {
-    // Decode the Withdraw event
     const { withdrawer, token, amount } = hemiAbi.events.Withdraw.decode(log);
+
+    const formattedAmount = Number(amount) / 10 ** stakingState.token.decimals;
     
-    // Create transaction record for the withdrawal
-    const transactionSchema = {
-      eventType: MessageType.TRANSACTION,
-      tokens: JSON.stringify([
-        {
-          token: {
-            address: token,
-            coingeckoId: protocolState.config.token.coingeckoId || '',
-            decimals: protocolState.config.token.decimals,
-            symbol: protocolState.config.token.symbol || '',
-          },
-          amount: amount.toString(),
-          amountIn: '0', // No incoming amount for a withdrawal
-          amountOut: amount.toString(), // The amount is being withdrawn
-        },
-      ]),
-      rawAmount: amount.toString(),
-      displayAmount: Number(amount) / 10 ** protocolState.config.token.decimals,
-      unixTimestampMs: block.header.timestamp,
+    // Log the withdrawal transaction details
+    console.log(`🔴 WITHDRAW | Withdrawer: ${withdrawer} | Amount: ${formattedAmount} | Token: ${token} | TxHash: ${log.transactionHash} | Block: ${block.header.height}`);
+
+    // Create transaction record
+    stakingState.transactions.push({
+      user: withdrawer,
+      amount: formattedAmount,
+      timestampMs: block.header.timestamp,
+      blockNumber: BigInt(block.header.height),
       txHash: log.transactionHash,
       logIndex: log.logIndex,
-      blockNumber: block.header.height,
-      blockHash: block.header.hash,
-      userId: withdrawer,
-    };
+      tokenAddress: token,
+      rawAmount: amount.toString(),
+    });
 
-    protocolState.transactions.push(transactionSchema);
-    
-    // Update the user's active balance
-    const userAddress = withdrawer;
-    const currentBalance = protocolState.activeBalances.get(userAddress)?.balance || 0n;
+    // Update user's active balance
+    const currentBalance = stakingState.activeBalances.get(withdrawer)?.balance || 0n;
     const newBalance = currentBalance >= amount ? currentBalance - amount : 0n;
-    
-    protocolState.activeBalances.set(userAddress, {
+
+    console.log(`💰 BALANCE UPDATE | User: ${withdrawer} | Previous: ${Number(currentBalance) / 10 ** stakingState.token.decimals} | New: ${Number(newBalance) / 10 ** stakingState.token.decimals}`);
+
+    if (newBalance < currentBalance - amount) {
+      console.log(`⚠️  WARNING | Insufficient balance for withdrawal | User: ${withdrawer} | Attempted: ${formattedAmount} | Available: ${Number(currentBalance) / 10 ** stakingState.token.decimals}`);
+    }
+
+    stakingState.activeBalances.set(withdrawer, {
       balance: newBalance,
-      updatedBlockTs: block.header.timestamp,
-      updatedBlockHeight: block.header.height,
+      updated_at_block_ts: block.header.timestamp,
+      updated_at_block_height: block.header.height,
     });
   }
 
@@ -288,89 +278,129 @@ export class HemiStakingProcessor {
     ctx: any,
     block: any,
     contractAddress: string,
-    protocolState: ProtocolState,
+    stakingState: StakingState,
   ): Promise<void> {
     const currentTs = block.header.timestamp;
-    const currentBlockHeight = block.header.height;
 
-    if (!protocolState.processState?.lastInterpolatedTs) {
-      protocolState.processState.lastInterpolatedTs = currentTs;
+    if (!stakingState.lastProcessedTimestamp) {
+      stakingState.lastProcessedTimestamp = BigInt(currentTs);
     }
 
     while (
-      protocolState.processState.lastInterpolatedTs &&
-      Number(protocolState.processState.lastInterpolatedTs) + this.refreshWindow < currentTs
+      Number(stakingState.lastProcessedTimestamp) + this.refreshWindow < currentTs
     ) {
       const windowsSinceEpoch = Math.floor(
-        Number(protocolState.processState.lastInterpolatedTs) / this.refreshWindow,
+        Number(stakingState.lastProcessedTimestamp) / this.refreshWindow,
       );
       const nextBoundaryTs: number = (windowsSinceEpoch + 1) * this.refreshWindow;
 
-      for (const [userAddress, data] of protocolState.activeBalances.entries()) {
-        const oldStart = data.updatedBlockTs;
+      for (const [userAddress, data] of stakingState.activeBalances.entries()) {
+        const oldStart = data.updated_at_block_ts;
         if (data.balance > 0n && oldStart < nextBoundaryTs) {
-          // Use getHourlyPrice instead of computeLpTokenPrice
-          const tokenPrice = await this.apiClient.getHourlyPrice(
-            protocolState.config.token.coingeckoId as string,
+          // Get token price from CoinGecko
+          const tokenPrice = await getHourlyPrice(
+            stakingState.token.coingeckoId as string,
             nextBoundaryTs
           );
-          
+
           // Calculate the USD value of the token balance
           const balanceUsd = pricePosition(
             tokenPrice,
             data.balance,
-            protocolState.config.token.decimals,
+            stakingState.token.decimals,
           );
-          
-          // calculate the usd value of the token before and after the transfer
-          protocolState.balanceWindows.push({
-            userAddress: userAddress,
-            deltaAmount: 0,
-            trigger: TimeWindowTrigger.EXHAUSTED,
+
+          // Create time-weighted balance record
+          stakingState.balanceWindows.push({
+            user: userAddress,
+            amount: balanceUsd,
             startTs: oldStart,
             endTs: nextBoundaryTs,
             windowDurationMs: this.refreshWindow,
-            startBlockNumber: data.updatedBlockHeight,
-            endBlockNumber: block.header.height,
-            balanceBeforeUsd: balanceUsd,
-            balanceAfterUsd: balanceUsd,
-            balanceBefore: data.balance.toString(),
-            balanceAfter: data.balance.toString(),
-            txHash: null,
+            windowId: Math.floor(oldStart / this.refreshWindow),
+            tokenAmount: data.balance.toString(),
+            tokenPrice: tokenPrice,
           });
 
-          protocolState.activeBalances.set(userAddress, {
+          stakingState.activeBalances.set(userAddress, {
             balance: data.balance,
-            updatedBlockTs: nextBoundaryTs,
-            updatedBlockHeight: block.header.height,
+            updated_at_block_ts: nextBoundaryTs,
+            updated_at_block_height: block.header.height,
           });
         }
       }
-      protocolState.processState.lastInterpolatedTs = BigInt(nextBoundaryTs);
+      stakingState.lastProcessedTimestamp = BigInt(nextBoundaryTs);
     }
   }
 
-  private async finalizeBatch(ctx: any, protocolStates: Map<string, ProtocolState>): Promise<void> {
+  private async finalizeBatch(ctx: any, stakingStates: Map<string, StakingState>): Promise<void> {
     for (const protocol of this.protocols) {
-      const protocolState = protocolStates.get(protocol.contractAddress)!;
+      const stakingState = stakingStates.get(protocol.contractAddress)!;
 
-      // Send data to Absinthe API
-      const balances = toTimeWeightedBalance(protocolState.balanceWindows, protocol).filter(
-        (e: TimeWeightedBalanceEvent) => e.startUnixTimestampMs !== e.endUnixTimestampMs,
-      );
-      const transactions = toTransaction(protocolState.transactions, protocol);
-      await this.apiClient.send(balances);
-      await this.apiClient.send(transactions);
+      // Log transaction summary
+      if (stakingState.transactions.length > 0) {
+        console.log(`\n📊 TRANSACTION SUMMARY for ${protocol.name || protocol.contractAddress}:`);
+        console.log(`Total transactions: ${stakingState.transactions.length}`);
+        
+        const deposits = stakingState.transactions.filter(tx => tx.amount > 0);
+        const withdrawals = stakingState.transactions.filter(tx => tx.amount < 0);
+        
+        console.log(`- Deposits: ${deposits.length}`);
+        console.log(`- Withdrawals: ${withdrawals.length}`);
+        
+        // Log each transaction with details
+        stakingState.transactions.forEach((tx, index) => {
+          const type = tx.amount > 0 ? 'DEPOSIT' : 'WITHDRAW';
+          console.log(`  ${index + 1}. ${type} | User: ${tx.user.slice(0, 8)}...${tx.user.slice(-6)} | Amount: ${Math.abs(tx.amount)} | Token: ${tx.tokenAddress.slice(0, 8)}...${tx.tokenAddress.slice(-6)} | TxHash: ${tx.txHash}`);
+        });
+      }
+
+      // Send data to Absinthe API (simplified for now)
+      if (stakingState.balanceWindows.length > 0) {
+        console.log(`\n📈 BALANCE WINDOWS: Sending ${stakingState.balanceWindows.length} balance windows for ${protocol.contractAddress}`);
+        // TODO: Convert to proper Absinthe format when needed
+      }
+
+      if (stakingState.transactions.length > 0) {
+        console.log(`📤 TRANSACTIONS: Sending ${stakingState.transactions.length} transactions for ${protocol.contractAddress}`);
+        // TODO: Convert to proper Absinthe format when needed
+      }
+
+      // Log active balances summary
+      if (stakingState.activeBalances.size > 0) {
+        console.log(`\n👥 ACTIVE BALANCES SUMMARY:`);
+        console.log(`Total users with active balances: ${stakingState.activeBalances.size}`);
+        
+        let totalStaked = 0n;
+        for (const [user, balance] of stakingState.activeBalances.entries()) {
+          totalStaked += balance.balance;
+          if (balance.balance > 0n) {
+            const formattedBalance = Number(balance.balance) / 10 ** stakingState.token.decimals;
+            console.log(`  User: ${user.slice(0, 8)}...${user.slice(-6)} | Balance: ${formattedBalance} tokens`);
+          }
+        }
+        
+        const totalStakedFormatted = Number(totalStaked) / 10 ** stakingState.token.decimals;
+        console.log(`💎 Total Staked: ${totalStakedFormatted} tokens\n`);
+      }
 
       // Save to database
-      await ctx.store.upsert(protocolState.config.token); //saves to Token table
-      await ctx.store.upsert(protocolState.config);
-      await ctx.store.upsert(protocolState.state);
-      await ctx.store.upsert(protocolState.processState);
+      await ctx.store.upsert(stakingState.token);
       await ctx.store.upsert(
         new ActiveBalances({
           id: `${protocol.contractAddress}-active-balances`,
-          activeBalancesMap: mapToJson(protocolState.activeBalances),
+          activeBalancesMap: JSON.stringify(
+            Object.fromEntries(
+              Array.from(stakingState.activeBalances.entries()).map(([k, v]) => [
+                k,
+                {
+                  balance: v.balance.toString(),
+                  updated_at_block_ts: v.updated_at_block_ts,
+                  updated_at_block_height: v.updated_at_block_height,
+                }
+              ])
+            )
+          ),
         }),
       );
     }

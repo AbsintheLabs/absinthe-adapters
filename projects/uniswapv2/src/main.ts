@@ -3,14 +3,28 @@ import {
   validateEnv,
   HOURS_TO_MS,
   BondingCurveProtocol,
+  Staking,
   Dex,
 } from '@absinthe/common';
 import { UniswapV2Processor } from './Univ2Processor';
+import {
+  ActiveBalance,
+  SimpleTimeWeightedBalance,
+  SimpleTransaction,
+} from '@absinthe/common';
+import { PoolConfig, PoolState, ActiveBalances, PoolProcessState } from './model';
+import { loadPoolConfigFromDb, initPoolConfigIfNeeded, loadPoolStateFromDb, initPoolStateIfNeeded, loadPoolProcessStateFromDb, initPoolProcessStateIfNeeded, loadActiveBalancesFromDb } from './utils/pool';
+import { computePricedSwapVolume, computeLpTokenPrice, pricePosition } from './utils/pricing';
+import { toTimeWeightedBalance, toTransaction } from './utils/interfaceFormatter';
+import { processValueChange } from './utils/valueChangeHandler';
+import { createHash } from 'crypto';
+import { mapToJson } from './utils/helper';
+
 import dotenv from 'dotenv';
 
 dotenv.config();
-
-const env = validateEnv();
+// Validate environment variables at the start - using DEX-specific validation
+const env = validateDexEnv();
 
 const apiClient = new AbsintheApiClient({
   baseUrl: env.baseConfig.absintheApiUrl,

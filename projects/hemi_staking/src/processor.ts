@@ -15,8 +15,8 @@ const earliestFromBlock = 1931100;
 
 // Log RPC configuration for debugging
 const rpcEndpoint = "https://rpc.hemi.network/rpc";
-const blockRangeFrom = 1931561;
-const blockRangeTo = 1931630;
+const blockRangeFrom = 1931791;
+const blockRangeTo = 1931800;
 const contractAddress = "0x4f5e928763cbfaf5ffd8907ebbb0dabd5f78ba83";
 const monitoredEvents = [hemiStakingAbi.events.Deposit.topic, hemiStakingAbi.events.Withdraw.topic];
 
