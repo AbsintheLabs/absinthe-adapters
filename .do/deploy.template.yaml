@@ -27,6 +27,3 @@ spec:
     - name: squid
       engine: PG
       version: "17"
-
-  health_check:
-    skip_check: true
