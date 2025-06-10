@@ -22,6 +22,14 @@ spec:
           value: "change this"
         - key: LOG_FILE_PATH
           value: "change this"
+      health_check:
+        initial_delay_seconds: 3600
+        period_seconds: 300
+        timeout_seconds: 120
+        success_threshold: 1
+        failure_threshold: 50
+        http_path: /health
+        port: 8080
 
   databases:
     - name: squid
