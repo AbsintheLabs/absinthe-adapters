@@ -27,8 +27,8 @@ services:
 
 databases:
   - name: postgres
-    databaseName: postgres
-    user: postgres
+    databaseName: squid
+    user: squid
     ipAllowList:
       - source: 0.0.0.0/0
         description: everywhere
