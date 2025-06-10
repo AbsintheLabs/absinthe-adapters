@@ -1,0 +1,36 @@
+previews:
+  generation: automatic
+
+services:
+  - type: web
+    runtime: docker
+    name: absinthe-adapters
+    repo: https://github.com/AbsintheLabs/absinthe-adapters/tree/test
+    dockerfilePath: ./ops/dockerfiles/Dockerfile.uniswapv2
+    envVars:
+      - key: DB_URL
+        fromDatabase:
+          name: postgres
+          property: connectionString
+      - key: DB_NAME
+        fromDatabase:
+          name: postgres
+          property: database
+      - key: RPC_URL
+        sync: false
+      - key: ABSINTHE_API_URL
+        value: https://adapters.absinthe.network
+      - key: ABSINTHE_API_KEY
+        sync: false
+      - key: COINGECKO_API_KEY
+        sync: false
+
+databases:
+  - name: postgres
+    databaseName: postgres
+    user: postgres
+    ipAllowList:
+      - source: 0.0.0.0/0
+        description: everywhere
+    readReplicas:
+      - name: postgres-replica
