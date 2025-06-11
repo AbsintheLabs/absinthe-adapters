@@ -1,51 +1,55 @@
 {
-    "name": "rate-limited-api",
-    "version": "1.0.0",
-    "description": "Express API with rate limiting by API key",
-    "main": "lib/index.js",
-    "scripts": {
-        "start": "node lib/index.js",
-        "dev": "nodemon src/index.ts",
-        "build": "tsc",
-        "postinstall": "npm run build",
-        "test": "jest",
-        "test:watch": "jest --watch",
-        "test:coverage": "jest --coverage",
-        "test:simple": "npx ts-node src/test-runner.ts",
-        "test:validation": "npx ts-node src/test-runner.ts"
-    },
-    "dependencies": {
-        "ajv": "^8.17.1",
-        "dotenv": "^16.3.1",
-        "express": "^4.18.2",
-        "kafkajs": "^2.2.4",
-        "rate-limiter-flexible": "^3.0.0"
-    },
-    "devDependencies": {
-        "@types/express": "^4.17.21",
-        "@types/jest": "^29.5.14",
-        "@types/node": "^20.10.4",
-        "jest": "^29.7.0",
-        "nodemon": "^3.0.1",
-        "ts-jest": "^29.1.0",
-        "ts-node": "^10.9.1",
-        "typescript": "^5.3.3"
-    },
-    "jest": {
-        "preset": "ts-jest",
-        "testEnvironment": "node",
-        "roots": [
-            "<rootDir>/src",
-            "<rootDir>/tests"
-        ],
-        "testMatch": [
-            "**/__tests__/**/*.ts",
-            "**/?(*.)+(spec|test).ts"
-        ],
-        "collectCoverageFrom": [
-            "src/**/*.ts",
-            "!src/**/*.d.ts",
-            "!src/index.ts"
-        ]
-    }
+  "name": "rate-limited-api",
+  "version": "1.0.0",
+  "description": "Express API with rate limiting by API key",
+  "main": "lib/src/index.js",
+  "scripts": {
+    "start": "node lib/src/index.js",
+    "dev": "nodemon src/index.ts",
+    "build": "tsc",
+    "postinstall": "npm run build",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:simple": "npx ts-node src/test-runner.ts",
+    "test:validation": "npx ts-node src/test-runner.ts"
+  },
+  "dependencies": {
+    "@kafkajs/confluent-schema-registry": "^3.9.0",
+    "@types/kafkajs-snappy": "^1.0.0",
+    "ajv": "^8.17.1",
+    "avsc": "^5.7.7",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "kafkajs": "^2.2.4",
+    "kafkajs-snappy": "^1.1.0",
+    "rate-limiter-flexible": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^20.10.4",
+    "jest": "^29.7.0",
+    "nodemon": "^3.0.1",
+    "ts-jest": "^29.1.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.3.3"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "roots": [
+      "<rootDir>/src",
+      "<rootDir>/tests"
+    ],
+    "testMatch": [
+      "**/__tests__/**/*.ts",
+      "**/?(*.)+(spec|test).ts"
+    ],
+    "collectCoverageFrom": [
+      "src/**/*.ts",
+      "!src/**/*.d.ts",
+      "!src/index.ts"
+    ]
+  }
 }

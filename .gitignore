@@ -22,6 +22,6 @@ testdeploy/
 
 **/src/model/generated
 **/src/abi/
-
+.eslintcache
 absinthe.log
 logs/

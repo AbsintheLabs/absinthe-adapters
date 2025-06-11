@@ -14,11 +14,13 @@ A Node.js Express API with rate limiting by API key and Kafka message publishing
 ## Quick Start
 
 ### 1. Install Dependencies
+
 ```bash
 npm install
 ```
 
 ### 2. Environment Configuration
+
 Create a `.env` file with the following variables:
 
 ```env
@@ -38,6 +40,7 @@ KAFKA_TOPIC=api-logs
 ```
 
 ### 3. Start Kafka (if running locally)
+
 ```bash
 # Using Docker Compose
 docker-compose up -d kafka zookeeper
@@ -47,6 +50,7 @@ podman-compose up -d kafka zookeeper
 ```
 
 ### 4. Run the Application
+
 ```bash
 # Development mode
 npm run dev
@@ -59,13 +63,16 @@ npm start
 ## API Endpoints
 
 ### POST /api/log
+
 Logs request data to console, file, and Kafka topic.
 
 **Headers:**
+
 - `x-api-key`: Required API key
 - `Content-Type: application/json`
 
 **Example:**
+
 ```bash
 curl -X POST http://localhost:3000/api/log \
   -H "Content-Type: application/json" \
@@ -74,9 +81,11 @@ curl -X POST http://localhost:3000/api/log \
 ```
 
 ### GET /health
+
 Health check endpoint (no authentication required).
 
 **Example:**
+
 ```bash
 curl http://localhost:3000/health
 ```

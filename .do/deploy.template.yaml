@@ -1,0 +1,29 @@
+spec:
+  name: absinthe-adapters
+  services:
+    - name: uniswapv2-indexer
+      dockerfile_path: ops/dockerfiles/Dockerfile.uniswapv2
+      github:
+        repo: AbsintheLabs/absinthe-adapters
+        branch: test
+        deploy_on_push: true
+      envs:
+        - key: DB_URL
+          value: "change this"
+        - key: NODE_TLS_REJECT_UNAUTHORIZED
+          value: "0"
+        - key: RPC_URL
+          value: "change this"
+        - key: ABSINTHE_API_URL
+          value: "change this"
+        - key: ABSINTHE_API_KEY
+          value: "change this"
+        - key: COINGECKO_API_KEY
+          value: "change this"
+        - key: LOG_FILE_PATH
+          value: "change this"
+
+  databases:
+    - name: squid
+      engine: PG
+      version: "17"

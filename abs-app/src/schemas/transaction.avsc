@@ -1,0 +1,48 @@
+{
+  "type": "record",
+  "namespace": "network.absinthe.adapters",
+  "name": "TransactionEvent",
+  "doc": "On-chain transaction snapshot (swap, transfer, trade, etc.).",
+  "fields": [
+    {
+      "name": "base",
+      "type": "network.absinthe.adapters.Base"
+    },
+    {
+      "name": "eventType",
+      "type": {
+        "type": "enum",
+        "name": "EventType",
+        "symbols": ["transaction"]
+      }
+    },
+    {
+      "name": "rawAmount",
+      "type": "string"
+    },
+    {
+      "name": "displayAmount",
+      "type": "double"
+    },
+    {
+      "name": "unixTimestampMs",
+      "type": "long"
+    },
+    {
+      "name": "txHash",
+      "type": "string"
+    },
+    {
+      "name": "logIndex",
+      "type": "int"
+    },
+    {
+      "name": "blockNumber",
+      "type": "int"
+    },
+    {
+      "name": "blockHash",
+      "type": "string"
+    }
+  ]
+}

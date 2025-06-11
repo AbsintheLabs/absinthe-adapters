@@ -5,26 +5,31 @@ A simple Express API with rate limiting based on API keys using node-rate-limite
 ## Setup
 
 1. Run the setup script to install all dependencies:
+
    ```
    ./setup.sh
    ```
-   
+
    Or manually install dependencies:
+
    ```
    npm install
    ```
 
 2. Build the TypeScript code:
+
    ```
    npm run build
    ```
 
 3. Start the server:
+
    ```
    npm start
    ```
-   
+
    Or for development with auto-reload:
+
    ```
    npm run dev
    ```
@@ -32,21 +37,24 @@ A simple Express API with rate limiting based on API keys using node-rate-limite
 ## API Endpoints
 
 ### Log Endpoint
+
 - **URL**: `/api/log`
 - **Method**: `POST`
-- **Headers**: 
+- **Headers**:
   - `Content-Type: application/json`
   - `X-API-Key: [your-api-key]`
 - **Body**: Any JSON object
 - **Note**: This endpoint handles BigInt values automatically by converting them to strings
 
 ### Health Check
+
 - **URL**: `/health`
 - **Method**: `GET`
 
 ## Rate Limits
 
 The API uses two predefined API keys with different rate limits:
+
 - `api_key_1`: 10 requests per minute
 - `api_key_2`: 1000 requests per minute
 
@@ -80,7 +88,7 @@ fetch('/api/log', {
     'Content-Type': 'application/json',
     'x-api-key': 'api_key_1',
   },
-  body: JSON.stringify(convertBigIntToString(data))
+  body: JSON.stringify(convertBigIntToString(data)),
 });
 ```
 
@@ -100,4 +108,4 @@ Build and run using Docker:
 ```bash
 docker build -t rate-limited-api .
 docker run -p 3000:3000 rate-limited-api
-``` 
+```

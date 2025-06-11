@@ -16,6 +16,7 @@ npm run test:simple
 ```
 
 This will run comprehensive tests covering:
+
 - ✅ Valid transaction validation
 - ✅ Valid timeWeightedBalance validation (both triggers)
 - ❌ Invalid payload rejection
@@ -49,13 +50,14 @@ npx ts-node src/api-test-examples.ts
 
 # This will print ready-to-use curl commands for testing:
 # - /api/validate endpoint
-# - /api/log endpoint  
+# - /api/log endpoint
 # - Various valid/invalid payloads
 ```
 
 ## 📋 Test Categories
 
 ### Transaction Schema Tests
+
 - ✅ Valid transaction with required fields
 - ✅ Valid transaction with optional token/pricing data
 - ❌ Missing required fields (eventId, userId, etc.)
@@ -64,6 +66,7 @@ npx ts-node src/api-test-examples.ts
 - ❌ Invalid enum values (chainArch, eventType)
 
 ### TimeWeightedBalance Schema Tests
+
 - ✅ Valid TWB with "exhausted" trigger
 - ✅ Valid TWB with "transfer" trigger + required fields
 - ❌ Transfer trigger missing block/tx fields
@@ -72,6 +75,7 @@ npx ts-node src/api-test-examples.ts
 - ❌ Missing required TWB-specific fields
 
 ### General Validation Tests
+
 - ❌ Empty/null request bodies
 - ❌ Missing eventType
 - ❌ Unsupported eventType values
@@ -80,6 +84,7 @@ npx ts-node src/api-test-examples.ts
 ## 🎯 Sample Test Data
 
 ### Valid Transaction
+
 ```json
 {
   "version": "1.0.0",
@@ -90,7 +95,7 @@ npx ts-node src/api-test-examples.ts
   "networkId": 1,
   "chainShortName": "eth",
   "runner": { "runnerId": "container_123" },
-  "valueUsd": 100.50,
+  "valueUsd": 100.5,
   "unixTimestampMs": 1703095200000,
   "txHash": "0x1234...1234",
   "logIndex": 0,
@@ -100,6 +105,7 @@ npx ts-node src/api-test-examples.ts
 ```
 
 ### Valid TimeWeightedBalance (Exhausted)
+
 ```json
 {
   "version": "1.0.0",
@@ -110,7 +116,7 @@ npx ts-node src/api-test-examples.ts
   "networkId": 1,
   "chainShortName": "eth",
   "runner": { "runnerId": "container_123" },
-  "valueUsd": 100.50,
+  "valueUsd": 100.5,
   "unixTimestampMs": 1703095200000,
   "balanceBefore": 500.0,
   "balanceAfter": 600.0,
@@ -122,6 +128,7 @@ npx ts-node src/api-test-examples.ts
 ```
 
 ### Valid TimeWeightedBalance (Transfer)
+
 ```json
 {
   // ... same as above, but with:
@@ -135,29 +142,34 @@ npx ts-node src/api-test-examples.ts
 ## 🐛 Common Validation Errors
 
 ### Address Format Errors
+
 ```
 /userId: must match pattern "^0x[a-fA-F0-9]{40}$"
 ```
 
-### Hash Format Errors  
+### Hash Format Errors
+
 ```
 /txHash: must match pattern "^0x[a-fA-F0-9]{64}$"
 ```
 
 ### Missing Required Fields
+
 ```
 must have required property 'eventId'
 must have required property 'valueUsd'
 ```
 
 ### Conditional Field Errors (TWB Transfer)
+
 ```
 must have required property 'startBlockNumber'
-must have required property 'endBlockNumber' 
+must have required property 'endBlockNumber'
 must have required property 'txHash'
 ```
 
 ### Enum Validation Errors
+
 ```
 /timeWindowTrigger: must be equal to one of the allowed values
 /chainArch: must be equal to one of the allowed values
@@ -175,7 +187,7 @@ must have required property 'txHash'
 To add new test cases:
 
 1. **Simple Test Runner**: Edit `src/test-runner.ts` and add new test cases
-2. **Jest Tests**: Edit `tests/validation.test.ts` and add new describe/test blocks  
+2. **Jest Tests**: Edit `tests/validation.test.ts` and add new describe/test blocks
 3. **API Tests**: Edit `src/api-test-examples.ts` and add new sample payloads
 
 ## 🚀 Running Tests in Development
@@ -191,7 +203,8 @@ npm run test:validation
 ```
 
 This setup allows you to:
+
 - 🧪 Test schema validation logic in isolation
 - 🌐 Test actual HTTP API endpoints
 - 🔍 Debug validation errors with detailed messages
-- ⚡ Quickly iterate on schema changes 
+- ⚡ Quickly iterate on schema changes

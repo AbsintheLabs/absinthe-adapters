@@ -2,8 +2,8 @@ services:
   caddy:
     image: caddy:latest
     ports:
-      - 80:80
-      - 443:443
+      - 8080:80
+      - 8443:443
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
@@ -11,11 +11,10 @@ services:
     image: ghcr.io/absinthelabs/absinthe-abs-app:abs-app
     ports:
       - 3000:3000
-    environment:
-      - NODE_ENV=production
-      - ABSINTHE_API_URL=http://abs-app:3000
     depends_on:
       - caddy
+    env_file:
+      - .env
     volumes:
       - ./abs-app:/app
     command: npm start
