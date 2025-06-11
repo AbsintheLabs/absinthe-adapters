@@ -1,0 +1,1018 @@
+[
+    {
+        "type": "function",
+        "name": "DOMAIN_SEPARATOR",
+        "inputs": [],
+        "outputs": [
+            {
+                "name": "",
+                "type": "bytes32",
+                "internalType": "bytes32"
+            }
+        ],
+        "stateMutability": "view"
+    },
+    {
+        "type": "function",
+        "name": "REMOTE_SELL_TYPEHASH",
+        "inputs": [],
+        "outputs": [
+            {
+                "name": "",
+                "type": "bytes32",
+                "internalType": "bytes32"
+            }
+        ],
+        "stateMutability": "view"
+    },
+    {
+        "type": "function",
+        "name": "SIGNED_CANCEL_SELL_TYPEHASH",
+        "inputs": [],
+        "outputs": [
+            {
+                "name": "",
+                "type": "bytes32",
+                "internalType": "bytes32"
+            }
+        ],
+        "stateMutability": "view"
+    },
+    {
+        "type": "function",
+        "name": "SIGNED_REMOTE_SELL_TYPEHASH",
+        "inputs": [],
+        "outputs": [
+            {
+                "name": "",
+                "type": "bytes32",
+                "internalType": "bytes32"
+            }
+        ],
+        "stateMutability": "view"
+    },
+    {
+        "type": "function",
+        "name": "buy",
+        "inputs": [
+            {
+                "name": "token",
+                "type": "address",
+                "internalType": "address"
+            },
+            {
+                "name": "recipient",
+                "type": "address",
+                "internalType": "address"
+            },
+            {
+                "name": "amount",
+                "type": "uint256",
+                "internalType": "uint256"
+            },
+            {
+                "name": "maxPrice",
+                "type": "uint256",
+                "internalType": "uint256"
+            }
+        ],
+        "outputs": [
+            {
+                "name": "params",
+                "type": "tuple",
+                "internalType": "structIPrintrTrading.TradeParams",
+                "components": [
+                    {
+                        "name": "account",
+                        "type": "address",
+                        "internalType": "address"
+                    },
+                    {
+                        "name": "recipient",
+                        "type": "address",
+                        "internalType": "address"
+                    },
+                    {
+                        "name": "token",
+                        "type": "address",
+                        "internalType": "address"
+                    },
+                    {
+                        "name": "amount",
+                        "type": "uint256",
+                        "internalType": "uint256"
+                    },
+                    {
+                        "name": "priceLimit",
+                        "type": "uint256",
+                        "internalType": "uint256"
+                    },
+                    {
+                        "name": "tradingFee",
+                        "type": "uint16",
+                        "internalType": "uint16"
+                    }
+                ]
+            }
+        ],
+        "stateMutability": "payable"
+    },
+    {
+        "type": "function",
+        "name": "cancelRemoteSell",
+        "inputs": [
+            {
+                "name": "cancel",
+                "type": "tuple",
+                "internalType": "structIPrintrTrading.SignedCancelSell",
+                "components": [
+                    {
+                        "name": "salt",
+                        "type": "bytes32",
+                        "internalType": "bytes32"
+                    },
+                    {
+                        "name": "owner",
+                        "type": "address",
+                        "internalType": "address"
+                    }
+                ]
+            },
+            {
+                "name": "signature",
+                "type": "bytes",
+                "internalType": "bytes"
+            }
+        ],
+        "outputs": [],
+        "stateMutability": "nonpayable"
+    },
+    {
+        "type": "function",
+        "name": "createToken",
+        "inputs": [
+            {
+                "name": "initialSpending",
+                "type": "uint256",
+                "internalType": "uint256"
+            },
+            {
+                "name": "tokenParams",
+                "type": "tuple",
+                "internalType": "structIPrintrStorage.TokenParams",
+                "components": [
+                    {
+                        "name": "salt",
+                        "type": "bytes32",
+                        "internalType": "bytes32"
+                    },
+                    {
+                        "name": "creatorAddresses",
+                        "type": "bytes",
+                        "internalType": "bytes"
+                    },
+                    {
+                        "name": "name",
+                        "type": "bytes32",
+                        "internalType": "bytes32"
+                    },
+                    {
+                        "name": "symbol",
+                        "type": "bytes32",
+                        "internalType": "bytes32"
+                    },
+                    {
+                        "name": "packedParams",
+                        "type": "bytes32",
+                        "internalType": "bytes32"
+                    },
+                    {
+                        "name": "chains",
+                        "type": "bytes32[]",
+                        "internalType": "bytes32[]"
+                    },
+                    {
+                        "name": "basePairs",
+                        "type": "bytes32[]",
+                        "internalType": "bytes32[]"
+                    },
+                    {
+                        "name": "basePrices",
+                        "type": "bytes",
+                        "internalType": "bytes"
+                    }
+                ]
+            }
+        ],
+        "outputs": [
+            {
+                "name": "tokenAddress",
+                "type": "address",
+                "internalType": "address"
+            },
+            {
+                "name": "tokenId",
+                "type": "bytes32",
+                "internalType": "bytes32"
+            }
+        ],
+        "stateMutability": "payable"
+    },
+    {
+        "type": "function",
+        "name": "currentChainHash",
+        "inputs": [],
+        "outputs": [
+            {
+                "name": "",
+                "type": "bytes32",
+                "internalType": "bytes32"
+            }
+        ],
+        "stateMutability": "view"
+    },
+    {
+        "type": "function",
+        "name": "estimateTokenCost",
+        "inputs": [
+            {
+                "name": "token",
+                "type": "address",
+                "internalType": "address"
+            },
+            {
+                "name": "tokenAmount",
+                "type": "uint256",
+                "internalType": "uint256"
+            }
+        ],
+        "outputs": [
+            {
+                "name": "availableAmount",
+                "type": "uint256",
+                "internalType": "uint256"
+            },
+            {
+                "name": "cost",
+                "type": "uint256",
+                "internalType": "uint256"
+            },
+            {
+                "name": "fee",
+                "type": "uint256",
+                "internalType": "uint256"
+            },
+            {
+                "name": "effectivePrice",
+                "type": "uint256",
+                "internalType": "uint256"
+            },
+            {
+                "name": "mintedSupply",
+                "type": "uint256",
+                "internalType": "uint256"
+            }
+        ],
+        "stateMutability": "view"
+    },
+    {
+        "type": "function",
+        "name": "estimateTokenRefund",
+        "inputs": [
+            {
+                "name": "token",
+                "type": "address",
+                "internalType": "address"
+            },
+            {
+                "name": "tokenAmount",
+                "type": "uint256",
+                "internalType": "uint256"
+            }
+        ],
+        "outputs": [
+            {
+                "name": "refund",
+                "type": "uint256",
+                "internalType": "uint256"
+            },
+            {
+                "name": "fee",
+                "type": "uint256",
+                "internalType": "uint256"
+            },
+            {
+                "name": "effectivePrice",
+                "type": "uint256",
+                "internalType": "uint256"
+            },
+            {
+                "name": "mintedSupply",
+                "type": "uint256",
+                "internalType": "uint256"
+            }
+        ],
+        "stateMutability": "view"
+    },
+    {
+        "type": "function",
+        "name": "its",
+        "inputs": [],
+        "outputs": [
+            {
+                "name": "",
+                "type": "address",
+                "internalType": "address"
+            }
+        ],
+        "stateMutability": "view"
+    },
+    {
+        "type": "function",
+        "name": "itsFactory",
+        "inputs": [],
+        "outputs": [
+            {
+                "name": "",
+                "type": "address",
+                "internalType": "address"
+            }
+        ],
+        "stateMutability": "view"
+    },
+    {
+        "type": "function",
+        "name": "liquidityModule",
+        "inputs": [],
+        "outputs": [
+            {
+                "name": "",
+                "type": "address",
+                "internalType": "address"
+            }
+        ],
+        "stateMutability": "view"
+    },
+    {
+        "type": "function",
+        "name": "locker",
+        "inputs": [],
+        "outputs": [
+            {
+                "name": "",
+                "type": "address",
+                "internalType": "address"
+            }
+        ],
+        "stateMutability": "view"
+    },
+    {
+        "type": "function",
+        "name": "quoteTokenAmount",
+        "inputs": [
+            {
+                "name": "token",
+                "type": "address",
+                "internalType": "address"
+            },
+            {
+                "name": "baseAmount",
+                "type": "uint256",
+                "internalType": "uint256"
+            }
+        ],
+        "outputs": [
+            {
+                "name": "tokenAmount",
+                "type": "uint256",
+                "internalType": "uint256"
+            },
+            {
+                "name": "cost",
+                "type": "uint256",
+                "internalType": "uint256"
+            },
+            {
+                "name": "fee",
+                "type": "uint256",
+                "internalType": "uint256"
+            },
+            {
+                "name": "effectivePrice",
+                "type": "uint256",
+                "internalType": "uint256"
+            },
+            {
+                "name": "mintedSupply",
+                "type": "uint256",
+                "internalType": "uint256"
+            }
+        ],
+        "stateMutability": "view"
+    },
+    {
+        "type": "function",
+        "name": "sell",
+        "inputs": [
+            {
+                "name": "token",
+                "type": "address",
+                "internalType": "address"
+            },
+            {
+                "name": "recipient",
+                "type": "address",
+                "internalType": "address"
+            },
+            {
+                "name": "amount",
+                "type": "uint256",
+                "internalType": "uint256"
+            },
+            {
+                "name": "minPrice",
+                "type": "uint256",
+                "internalType": "uint256"
+            }
+        ],
+        "outputs": [
+            {
+                "name": "params",
+                "type": "tuple",
+                "internalType": "structIPrintrTrading.TradeParams",
+                "components": [
+                    {
+                        "name": "account",
+                        "type": "address",
+                        "internalType": "address"
+                    },
+                    {
+                        "name": "recipient",
+                        "type": "address",
+                        "internalType": "address"
+                    },
+                    {
+                        "name": "token",
+                        "type": "address",
+                        "internalType": "address"
+                    },
+                    {
+                        "name": "amount",
+                        "type": "uint256",
+                        "internalType": "uint256"
+                    },
+                    {
+                        "name": "priceLimit",
+                        "type": "uint256",
+                        "internalType": "uint256"
+                    },
+                    {
+                        "name": "tradingFee",
+                        "type": "uint16",
+                        "internalType": "uint16"
+                    }
+                ]
+            }
+        ],
+        "stateMutability": "nonpayable"
+    },
+    {
+        "type": "function",
+        "name": "sellRemotely",
+        "inputs": [
+            {
+                "name": "remoteSell",
+                "type": "tuple",
+                "internalType": "structIPrintrTrading.RemoteSell",
+                "components": [
+                    {
+                        "name": "token",
+                        "type": "address",
+                        "internalType": "address"
+                    },
+                    {
+                        "name": "amount",
+                        "type": "uint256",
+                        "internalType": "uint256"
+                    },
+                    {
+                        "name": "minPrice",
+                        "type": "uint256",
+                        "internalType": "uint256"
+                    }
+                ]
+            },
+            {
+                "name": "signed",
+                "type": "tuple",
+                "internalType": "structIPrintrTrading.SignedRemoteSell",
+                "components": [
+                    {
+                        "name": "salt",
+                        "type": "bytes32",
+                        "internalType": "bytes32"
+                    },
+                    {
+                        "name": "owner",
+                        "type": "address",
+                        "internalType": "address"
+                    },
+                    {
+                        "name": "recipient",
+                        "type": "address",
+                        "internalType": "address"
+                    },
+                    {
+                        "name": "deadline",
+                        "type": "uint256",
+                        "internalType": "uint256"
+                    },
+                    {
+                        "name": "remoteSellHashes",
+                        "type": "bytes32[]",
+                        "internalType": "bytes32[]"
+                    }
+                ]
+            },
+            {
+                "name": "signature",
+                "type": "bytes",
+                "internalType": "bytes"
+            }
+        ],
+        "outputs": [
+            {
+                "name": "params",
+                "type": "tuple",
+                "internalType": "structIPrintrTrading.TradeParams",
+                "components": [
+                    {
+                        "name": "account",
+                        "type": "address",
+                        "internalType": "address"
+                    },
+                    {
+                        "name": "recipient",
+                        "type": "address",
+                        "internalType": "address"
+                    },
+                    {
+                        "name": "token",
+                        "type": "address",
+                        "internalType": "address"
+                    },
+                    {
+                        "name": "amount",
+                        "type": "uint256",
+                        "internalType": "uint256"
+                    },
+                    {
+                        "name": "priceLimit",
+                        "type": "uint256",
+                        "internalType": "uint256"
+                    },
+                    {
+                        "name": "tradingFee",
+                        "type": "uint16",
+                        "internalType": "uint16"
+                    }
+                ]
+            }
+        ],
+        "stateMutability": "nonpayable"
+    },
+    {
+        "type": "function",
+        "name": "spend",
+        "inputs": [
+            {
+                "name": "token",
+                "type": "address",
+                "internalType": "address"
+            },
+            {
+                "name": "recipient",
+                "type": "address",
+                "internalType": "address"
+            },
+            {
+                "name": "baseAmount",
+                "type": "uint256",
+                "internalType": "uint256"
+            },
+            {
+                "name": "maxPrice",
+                "type": "uint256",
+                "internalType": "uint256"
+            }
+        ],
+        "outputs": [
+            {
+                "name": "params",
+                "type": "tuple",
+                "internalType": "structIPrintrTrading.TradeParams",
+                "components": [
+                    {
+                        "name": "account",
+                        "type": "address",
+                        "internalType": "address"
+                    },
+                    {
+                        "name": "recipient",
+                        "type": "address",
+                        "internalType": "address"
+                    },
+                    {
+                        "name": "token",
+                        "type": "address",
+                        "internalType": "address"
+                    },
+                    {
+                        "name": "amount",
+                        "type": "uint256",
+                        "internalType": "uint256"
+                    },
+                    {
+                        "name": "priceLimit",
+                        "type": "uint256",
+                        "internalType": "uint256"
+                    },
+                    {
+                        "name": "tradingFee",
+                        "type": "uint16",
+                        "internalType": "uint16"
+                    }
+                ]
+            }
+        ],
+        "stateMutability": "payable"
+    },
+    {
+        "type": "function",
+        "name": "spendRemotely",
+        "inputs": [
+            {
+                "name": "token",
+                "type": "address",
+                "internalType": "address"
+            },
+            {
+                "name": "recipient",
+                "type": "address",
+                "internalType": "address"
+            },
+            {
+                "name": "baseSpend",
+                "type": "uint256",
+                "internalType": "uint256"
+            },
+            {
+                "name": "maxPrice",
+                "type": "uint256",
+                "internalType": "uint256"
+            },
+            {
+                "name": "chain",
+                "type": "string",
+                "internalType": "string"
+            }
+        ],
+        "outputs": [
+            {
+                "name": "params",
+                "type": "tuple",
+                "internalType": "structIPrintrTrading.TradeParams",
+                "components": [
+                    {
+                        "name": "account",
+                        "type": "address",
+                        "internalType": "address"
+                    },
+                    {
+                        "name": "recipient",
+                        "type": "address",
+                        "internalType": "address"
+                    },
+                    {
+                        "name": "token",
+                        "type": "address",
+                        "internalType": "address"
+                    },
+                    {
+                        "name": "amount",
+                        "type": "uint256",
+                        "internalType": "uint256"
+                    },
+                    {
+                        "name": "priceLimit",
+                        "type": "uint256",
+                        "internalType": "uint256"
+                    },
+                    {
+                        "name": "tradingFee",
+                        "type": "uint16",
+                        "internalType": "uint16"
+                    }
+                ]
+            }
+        ],
+        "stateMutability": "payable"
+    },
+    {
+        "type": "function",
+        "name": "tokenFactory",
+        "inputs": [],
+        "outputs": [
+            {
+                "name": "",
+                "type": "address",
+                "internalType": "address"
+            }
+        ],
+        "stateMutability": "view"
+    },
+    {
+        "type": "function",
+        "name": "wrappedNativeToken",
+        "inputs": [],
+        "outputs": [
+            {
+                "name": "",
+                "type": "address",
+                "internalType": "address"
+            }
+        ],
+        "stateMutability": "view"
+    },
+    {
+        "type": "event",
+        "name": "CurveCreated",
+        "inputs": [
+            {
+                "name": "creator",
+                "type": "address",
+                "indexed": true,
+                "internalType": "address"
+            },
+            {
+                "name": "token",
+                "type": "address",
+                "indexed": true,
+                "internalType": "address"
+            },
+            {
+                "name": "tokenId",
+                "type": "bytes32",
+                "indexed": true,
+                "internalType": "bytes32"
+            }
+        ],
+        "anonymous": false
+    },
+    {
+        "type": "event",
+        "name": "LiquidityDeployed",
+        "inputs": [
+            {
+                "name": "token",
+                "type": "address",
+                "indexed": true,
+                "internalType": "address"
+            },
+            {
+                "name": "tokenAmount",
+                "type": "uint256",
+                "indexed": false,
+                "internalType": "uint256"
+            },
+            {
+                "name": "baseAmount",
+                "type": "uint256",
+                "indexed": false,
+                "internalType": "uint256"
+            }
+        ],
+        "anonymous": false
+    },
+    {
+        "type": "event",
+        "name": "LiquidityLocked",
+        "inputs": [
+            {
+                "name": "token",
+                "type": "address",
+                "indexed": true,
+                "internalType": "address"
+            },
+            {
+                "name": "positionManager",
+                "type": "address",
+                "indexed": true,
+                "internalType": "address"
+            },
+            {
+                "name": "positionId",
+                "type": "uint256",
+                "indexed": false,
+                "internalType": "uint256"
+            },
+            {
+                "name": "lockId",
+                "type": "uint256",
+                "indexed": false,
+                "internalType": "uint256"
+            }
+        ],
+        "anonymous": false
+    },
+    {
+        "type": "event",
+        "name": "TokenDeployed",
+        "inputs": [
+            {
+                "name": "token",
+                "type": "address",
+                "indexed": true,
+                "internalType": "address"
+            },
+            {
+                "name": "tokenId",
+                "type": "bytes32",
+                "indexed": true,
+                "internalType": "bytes32"
+            }
+        ],
+        "anonymous": false
+    },
+    {
+        "type": "event",
+        "name": "TokenTrade",
+        "inputs": [
+            {
+                "name": "token",
+                "type": "address",
+                "indexed": true,
+                "internalType": "address"
+            },
+            {
+                "name": "trader",
+                "type": "address",
+                "indexed": true,
+                "internalType": "address"
+            },
+            {
+                "name": "isBuy",
+                "type": "bool",
+                "indexed": false,
+                "internalType": "bool"
+            },
+            {
+                "name": "amount",
+                "type": "uint256",
+                "indexed": false,
+                "internalType": "uint256"
+            },
+            {
+                "name": "cost",
+                "type": "uint256",
+                "indexed": false,
+                "internalType": "uint256"
+            },
+            {
+                "name": "effectivePrice",
+                "type": "uint256",
+                "indexed": false,
+                "internalType": "uint256"
+            },
+            {
+                "name": "mintedSupply",
+                "type": "uint256",
+                "indexed": false,
+                "internalType": "uint256"
+            },
+            {
+                "name": "reserve",
+                "type": "uint256",
+                "indexed": false,
+                "internalType": "uint256"
+            }
+        ],
+        "anonymous": false
+    },
+    {
+        "type": "error",
+        "name": "CurveNotFound",
+        "inputs": []
+    },
+    {
+        "type": "error",
+        "name": "ExceedsMintedSupply",
+        "inputs": []
+    },
+    {
+        "type": "error",
+        "name": "FeeIsTooHigh",
+        "inputs": [
+            {
+                "name": "fee",
+                "type": "uint256",
+                "internalType": "uint256"
+            }
+        ]
+    },
+    {
+        "type": "error",
+        "name": "InsufficientPayment",
+        "inputs": []
+    },
+    {
+        "type": "error",
+        "name": "InvalidBasePairs",
+        "inputs": []
+    },
+    {
+        "type": "error",
+        "name": "InvalidBasePrices",
+        "inputs": []
+    },
+    {
+        "type": "error",
+        "name": "InvalidCreatorAddress",
+        "inputs": []
+    },
+    {
+        "type": "error",
+        "name": "InvalidInitialPrice",
+        "inputs": []
+    },
+    {
+        "type": "error",
+        "name": "InvalidLength",
+        "inputs": []
+    },
+    {
+        "type": "error",
+        "name": "InvalidSignature",
+        "inputs": []
+    },
+    {
+        "type": "error",
+        "name": "LiquidityAlreadyDeployed",
+        "inputs": []
+    },
+    {
+        "type": "error",
+        "name": "LiquidityDeploymentFailed",
+        "inputs": []
+    },
+    {
+        "type": "error",
+        "name": "PoolCreationFailed",
+        "inputs": []
+    },
+    {
+        "type": "error",
+        "name": "PriceSlippage",
+        "inputs": []
+    },
+    {
+        "type": "error",
+        "name": "RefundFailed",
+        "inputs": []
+    },
+    {
+        "type": "error",
+        "name": "RenounceOwnershipDisabled",
+        "inputs": []
+    },
+    {
+        "type": "error",
+        "name": "SwapFailed",
+        "inputs": []
+    },
+    {
+        "type": "error",
+        "name": "TokenNotFound",
+        "inputs": []
+    },
+    {
+        "type": "error",
+        "name": "TooHighThreshold",
+        "inputs": []
+    },
+    {
+        "type": "error",
+        "name": "UsedNonce",
+        "inputs": []
+    },
+    {
+        "type": "error",
+        "name": "WrongChainName",
+        "inputs": []
+    },
+    {
+        "type": "error",
+        "name": "ZeroThreshold",
+        "inputs": []
+    }
+]

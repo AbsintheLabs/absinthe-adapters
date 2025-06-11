@@ -1,0 +1,72 @@
+type Token @entity {
+  id: ID!
+  address: String! @index
+  decimals: Int!
+  coingeckoId: String
+  symbol: String
+  name: String
+}
+
+type BondingCurveToken @entity {
+  id: ID!                          # Token address
+  address: String! @index
+  name: String!
+  symbol: String!
+  decimals: Int!
+  creator: String!                 # Address who created the curve
+  tokenId: String!                 # Unique token ID from Printr
+  createdAt: DateTime!
+  createdAtBlock: Int!
+  isActive: Boolean!               # Whether curve is still active
+}
+
+type CurveState @entity {
+  id: ID!                          # Token address
+  token: BondingCurveToken! @index
+  currentSupply: BigInt!           # Current minted supply
+  reserve: BigInt!                 # Current reserve (WETH/ETH)
+  currentPrice: BigInt!            # Current token price
+  lastBlock: Int!
+  lastTsMs: BigInt!
+  updatedAt: DateTime!
+  isDirty: Boolean!
+}
+
+type CurveProcessState @entity {
+  id: ID!                          # Token address
+  token: BondingCurveToken! @index
+  lastProcessedBlock: Int!
+  lastInterpolatedTs: BigInt
+  lastPriceUpdate: DateTime!
+}
+
+type UserPosition @entity {
+  id: ID!                          # user-token combination
+  user: String! @index
+  token: BondingCurveToken! @index
+  balance: BigInt!                 # Current token balance
+  totalBought: BigInt!             # Total tokens bought
+  totalSold: BigInt!               # Total tokens sold
+  totalSpent: BigInt!              # Total ETH/WETH spent
+  totalReceived: BigInt!           # Total ETH/WETH received
+  averageBuyPrice: BigInt!         # Average price paid
+  firstTrade: DateTime!
+  lastTrade: DateTime!
+  lastUpdatedBlock: Int!
+}
+
+type ActiveBalances @entity {
+  id: ID!                          # token-active-balances
+  token: BondingCurveToken! @index
+  activeBalancesMap: String!       # JSON map of user addresses to balances
+}
+
+type PriceSnapshot @entity {
+  id: ID!                          # token-block combination
+  token: BondingCurveToken! @index
+  price: BigInt!
+  supply: BigInt!
+  reserve: BigInt!
+  timestamp: DateTime!
+  blockNumber: Int!
+}

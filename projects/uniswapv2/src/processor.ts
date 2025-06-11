@@ -12,20 +12,27 @@ import * as univ2Abi from './abi/univ2';
 import { Dex, validateEnv } from '@absinthe/common';
 
 const env = validateEnv();
-const contractAddresses = env.protocols
-  .filter((protocol) => protocol.type === Dex.UNISWAP_V2)
-  .map((protocol) => protocol.contractAddress);
+
+const uniswapV2DexProtocol = env.dexProtocols.find((dexProtocol) => {
+  return dexProtocol.type === Dex.UNISWAP_V2;
+});
+
+if (!uniswapV2DexProtocol) {
+  throw new Error('Uniswap V2 protocol not found');
+}
+
+const contractAddresses = uniswapV2DexProtocol.protocols.map(
+  (protocol) => protocol.contractAddress,
+);
 const earliestFromBlock = Math.min(
-  ...env.protocols
-    .filter((protocol) => protocol.type === Dex.UNISWAP_V2)
-    .map((protocol) => protocol.fromBlock),
+  ...uniswapV2DexProtocol.protocols.map((protocol) => protocol.fromBlock),
 );
 export const processor = new EvmBatchProcessor()
-  .setGateway(env.gatewayUrl)
-  .setRpcEndpoint(env.rpcUrl)
+  .setGateway(uniswapV2DexProtocol.gatewayUrl)
+  .setRpcEndpoint(uniswapV2DexProtocol.rpcUrl)
   .setBlockRange({
     from: earliestFromBlock,
-    ...(env.toBlock ? { to: Number(env.toBlock) } : {}),
+    ...(uniswapV2DexProtocol.toBlock !== 0 ? { to: Number(uniswapV2DexProtocol.toBlock) } : {}),
   })
   .setFinalityConfirmation(75)
   .addLog({

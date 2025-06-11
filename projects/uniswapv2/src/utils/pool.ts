@@ -2,13 +2,12 @@
 import { Store } from '@subsquid/typeorm-store';
 import { PoolConfig, PoolState, Token, PoolProcessState, ActiveBalances } from '../model';
 import { BlockData, DataHandlerContext } from '@subsquid/evm-processor';
-import { ActiveBalance } from '@absinthe/common';
+import { ActiveBalance, ProtocolConfig } from '@absinthe/common';
 
 // abis
 import * as univ2Abi from '../abi/univ2';
 import * as univ2LpAbi from '../abi/univ2LP';
 import { jsonToMap } from './helper';
-import { UniswapV2Config } from '@absinthe/common';
 
 // exported functions
 export async function updatePoolStateFromOnChain(
@@ -60,7 +59,7 @@ export async function initPoolConfigIfNeeded(
   block: BlockData,
   contractAddress: string,
   poolConfig: PoolConfig,
-  protocol: UniswapV2Config,
+  protocol: ProtocolConfig,
 ): Promise<PoolConfig> {
   // if already defined, do nothing
   if (poolConfig.id && poolConfig.lpToken && poolConfig.token0 && poolConfig.token1)

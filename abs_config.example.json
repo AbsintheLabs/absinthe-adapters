@@ -1,24 +1,39 @@
 {
-  "chainId": 1,
-  "gatewayUrl": "https://v2.archive.subsquid.io/network/ethereum-mainnet",
-  "toBlock": 17070370,
   "balanceFlushIntervalHours": 6,
-  "protocols": [
+  "dexProtocols": [
     {
       "type": "uniswap-v2",
-      "name": "PEPE/WETH Pool",
-      "contractAddress": "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f",
-      "fromBlock": 17046833,
-      "pricingStrategy": "coingecko",
-      "token0": {
-        "coingeckoId": "pepe",
-        "decimals": 18
-      },
-      "token1": {
-        "coingeckoId": "weth",
-        "decimals": 18
-      },
-      "preferredTokenCoingeckoId": "token1"
+      "chainId": 1,
+      "gatewayUrl": "https://v2.archive.subsquid.io/network/ethereum-mainnet",
+      "toBlock": 0,
+      "protocols": [
+        {
+          "name": "PEPE/WETH Pool",
+          "contractAddress": "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f",
+          "fromBlock": 17046833,
+          "pricingStrategy": "coingecko",
+          "token0": {
+            "coingeckoId": "pepe",
+            "decimals": 18
+          },
+          "token1": {
+            "coingeckoId": "weth",
+            "decimals": 18
+          },
+          "preferredTokenCoingeckoId": "token1"
+        }
+      ]
+    }
+  ],
+  "bondingCurveProtocols": [
+    {
+      "type": "printr",
+      "name": "Printr Base",
+      "contractAddress": "0xbdc9a5b600e9a10609b0613b860b660342a6d4c0",
+      "chainId": 8453,
+      "gatewayUrl": "https://v2.archive.subsquid.io/network/base-mainnet",
+      "toBlock": 0,
+      "fromBlock": 31168241
     }
   ]
 }

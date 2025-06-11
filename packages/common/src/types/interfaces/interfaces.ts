@@ -5,6 +5,7 @@ import {
   ChainShortName,
   ChainType,
   Currency,
+  Dex,
   MessageType,
   TimeWindowTrigger,
 } from '../enums';
@@ -54,6 +55,7 @@ interface Transaction {
   blockNumber: number;
   blockHash: string;
   userId: string;
+  currency: Currency;
 }
 
 interface TransactionEvent {
@@ -77,6 +79,7 @@ interface HistoryWindow {
   startBlockNumber: number;
   endBlockNumber: number;
   txHash: string | null;
+  currency: Currency;
   windowDurationMs: number;
   balanceBeforeUsd: number; // USD value before the transfer
   balanceAfterUsd: number; // USD value after the transfer
@@ -108,15 +111,19 @@ type ActiveBalance = {
 };
 
 interface ValidatedEnv {
+  type: Dex;
   gatewayUrl: string;
   chainId: ChainId;
   chainName: ChainName;
   chainShortName: ChainShortName;
   chainArch: ChainType;
   rpcUrl: string;
-  toBlock?: number;
-  balanceFlushIntervalHours: number;
+  toBlock: number;
   protocols: ProtocolConfig[];
+}
+
+interface ValidatedEnvBase {
+  balanceFlushIntervalHours: number;
   absintheApiUrl: string;
   absintheApiKey: string;
   coingeckoApiKey: string;
@@ -131,4 +138,5 @@ export {
   TimeWeightedBalanceEvent,
   HistoryWindow,
   Transaction,
+  ValidatedEnvBase,
 };

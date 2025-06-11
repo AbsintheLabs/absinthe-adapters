@@ -1,11 +1,8 @@
 // todo: add this to packages/common
 
-import { ActiveBalance, ValidatedEnv } from '@absinthe/common';
+import { ActiveBalance, Chain, ValidatedEnvBase } from '@absinthe/common';
 import {
   ChainId,
-  ChainName,
-  ChainShortName,
-  ChainType,
   Currency,
   HistoryWindow,
   MessageType,
@@ -23,7 +20,8 @@ import { createHash } from 'crypto';
 function toTimeWeightedBalance(
   historyWindows: HistoryWindow[],
   protocol: ProtocolConfig,
-  env: ValidatedEnv,
+  env: ValidatedEnvBase,
+  chainConfig: Chain,
 ): TimeWeightedBalanceEvent[] {
   return historyWindows.map((e) => {
     const eventIdComponents = `${ChainId.MAINNET}-${e.userAddress}-${e.startTs}-${e.endTs}-${e.windowDurationMs}-${env.absintheApiKey}`;
@@ -32,12 +30,7 @@ function toTimeWeightedBalance(
       version: '1.0',
       eventId: hash,
       userId: e.userAddress,
-      chain: {
-        chainArch: env.chainArch,
-        networkId: env.chainId,
-        chainShortName: env.chainShortName,
-        chainName: env.chainName,
-      },
+      chain: chainConfig,
       runner: {
         runnerId: 'uniswapv2_indexer_001', //todo: get the current PID/ docker-containerId
       },
@@ -53,7 +46,7 @@ function toTimeWeightedBalance(
           type: 'string',
         },
       ],
-      currency: Currency.USD,
+      currency: e.currency,
     };
 
     return {
@@ -78,21 +71,17 @@ function toTimeWeightedBalance(
 function toTransaction(
   transactions: Transaction[],
   protocol: ProtocolConfig,
-  env: ValidatedEnv,
+  env: ValidatedEnvBase,
+  chainConfig: Chain,
 ): TransactionEvent[] {
   return transactions.map((e) => {
-    const hashMessage = `${env.chainId}-${e.txHash}-${e.userId}-${e.logIndex}-${env.absintheApiKey}`;
+    const hashMessage = `${chainConfig.networkId}-${e.txHash}-${e.userId}-${e.logIndex}-${env.absintheApiKey}`;
     const hash = createHash('md5').update(hashMessage).digest('hex').slice(0, 8);
     const baseSchema = {
       version: '1.0',
       eventId: hash,
       userId: e.userId,
-      chain: {
-        chainArch: env.chainArch,
-        networkId: env.chainId,
-        chainShortName: env.chainShortName,
-        chainName: env.chainName,
-      },
+      chain: chainConfig,
       runner: {
         runnerId: 'uniswapv2_indexer_001', //todo: get the current PID/ docker-containerId
       },
@@ -113,7 +102,7 @@ function toTransaction(
           type: 'string',
         },
       ],
-      currency: Currency.USD,
+      currency: e.currency,
     };
 
     return {
@@ -158,6 +147,7 @@ function processValueChange({
         prev.balance + updatedAmount,
         lpTokenDecimals,
       );
+      //todo: balance before and after - don't include, but just include the lpTokenPrice and Decimals
       historyWindows.push({
         userAddress: userAddress,
         deltaAmount: lpTokenSwapUsdValue,
@@ -172,6 +162,7 @@ function processValueChange({
         balanceAfterUsd: balanceAfter,
         balanceBefore: prev.balance.toString(),
         balanceAfter: (prev.balance + updatedAmount).toString(),
+        currency: Currency.USD, // todo: look into this
       });
     }
 

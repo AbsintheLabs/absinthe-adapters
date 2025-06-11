@@ -450,6 +450,7 @@ We use ESLint with TypeScript support for code linting and catching potential is
 - **Ignored files**: Generated files, builds, and migrations are excluded
 
 **Commands**:
+
 ```bash
 # Run linting on all TypeScript files
 pnpm lint
@@ -473,6 +474,7 @@ Code formatting is handled automatically by Prettier to ensure consistent code s
 - **Ignored files**: See `.prettierignore` for excluded files
 
 **Commands**:
+
 ```bash
 # Format all files
 pnpm format
@@ -492,6 +494,7 @@ pnpm format:check
 We use Husky to run automated checks before commits to ensure code quality.
 
 **Pre-commit hooks** (`.husky/pre-commit`):
+
 1. **Prettier formatting**: Automatically formats staged files
 2. **ESLint checks**: Runs linting on staged TypeScript files
 3. **Validation**: Ensures all checks pass before allowing commit
@@ -512,6 +515,7 @@ chore(deps): update dependencies
 ```
 
 **Types**:
+
 - `feat`: New features
 - `fix`: Bug fixes
 - `docs`: Documentation changes
@@ -540,7 +544,6 @@ For database schema changes:
 3. **Create migration**: Run `pnpm migration:generate`
 4. **Test migration**: Verify migration works correctly
 5. **Document changes**: Update relevant documentation
-
 
 ### Testing
 
@@ -577,7 +580,6 @@ If you need help while contributing:
 - **Discussions**: Use GitHub Discussions for questions
 - **Documentation**: Reference this README and inline code documentation
 - **Community**: Reach out to maintainers for guidance
-
 
 ## License
 
