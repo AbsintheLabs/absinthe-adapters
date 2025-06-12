@@ -13,9 +13,7 @@
       "type": {
         "type": "enum",
         "name": "EventType",
-        "symbols": [
-          "transaction"
-        ]
+        "symbols": ["transaction"]
       }
     },
     {
