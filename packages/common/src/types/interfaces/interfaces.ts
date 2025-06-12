@@ -25,6 +25,7 @@ interface BaseEventFields {
   runner: Runner;
   protocolMetadata: ProtocolMetadataItem[];
   currency: Currency;
+  valueUsd: number;
 }
 
 interface ProtocolMetadataItem {

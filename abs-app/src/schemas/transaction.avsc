@@ -13,7 +13,9 @@
       "type": {
         "type": "enum",
         "name": "EventType",
-        "symbols": ["transaction"]
+        "symbols": [
+          "transaction"
+        ]
       }
     },
     {
@@ -35,6 +37,14 @@
     {
       "name": "logIndex",
       "type": "int"
+    },
+    {
+      "name": "gasUsed",
+      "type": "double"
+    },
+    {
+      "name": "gasFeeUsd",
+      "type": "double"
     },
     {
       "name": "blockNumber",
