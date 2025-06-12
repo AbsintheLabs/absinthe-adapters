@@ -42,6 +42,7 @@ export const processor = new EvmBatchProcessor()
       univ2Abi.events.Sync.topic,
       univ2Abi.events.Swap.topic,
     ],
+    transaction: true,
   })
   .setFields({
     log: {
@@ -50,6 +51,9 @@ export const processor = new EvmBatchProcessor()
     transaction: {
       to: true,
       from: true,
+      gas: true,
+      gasPrice: true,
+      gasUsed: true,
     },
   });
 
