@@ -5,7 +5,7 @@
       "type": "uniswap-v2",
       "chainId": 1,
       "gatewayUrl": "https://v2.archive.subsquid.io/network/ethereum-mainnet",
-      "toBlock": 0,
+      "toBlock": 17071888,
       "protocols": [
         {
           "name": "PEPE/WETH Pool",

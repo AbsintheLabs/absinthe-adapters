@@ -151,7 +151,6 @@ function processValueChange({
         prev.balance + updatedAmount,
         lpTokenDecimals,
       );
-      //todo: balance before and after - don't include, but just include the lpTokenPrice and Decimals
       historyWindows.push({
         userAddress: userAddress,
         deltaAmount: lpTokenSwapUsdValue,
