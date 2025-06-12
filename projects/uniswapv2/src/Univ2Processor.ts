@@ -3,15 +3,20 @@ import { ActiveBalances } from './model';
 import {
   AbsintheApiClient,
   ActiveBalance,
+  Chain,
   ChainId,
   ChainShortName,
+  Currency,
   Dex,
+  DexProtocolConfig,
   MessageType,
+  ProtocolConfig,
   TimeWeightedBalanceEvent,
   TimeWindowTrigger,
+  ValidatedEnvBase,
 } from '@absinthe/common';
 
-import { UniswapV2Config, ValidatedEnv } from '@absinthe/common';
+import { ValidatedEnv } from '@absinthe/common';
 import { processor } from './processor';
 import { createHash } from 'crypto';
 import { TypeormDatabase } from '@subsquid/typeorm-store';
@@ -28,7 +33,12 @@ import { loadPoolConfigFromDb } from './utils/pool';
 import { BatchContext, ProtocolState } from './utils/types';
 import { PoolConfig } from './model';
 import * as univ2Abi from './abi/univ2';
-import { computeLpTokenPrice, computePricedSwapVolume, pricePosition } from './utils/pricing';
+import {
+  computeLpTokenPrice,
+  computePricedSwapVolume,
+  fetchHistoricalUsd,
+  pricePosition,
+} from './utils/pricing';
 import {
   mapToJson,
   processValueChange,
@@ -37,27 +47,32 @@ import {
 } from './utils/helper';
 
 export class UniswapV2Processor {
-  private readonly protocols: UniswapV2Config[];
+  private readonly protocols: ProtocolConfig[];
   private readonly schemaName: string;
   private readonly refreshWindow: number;
   private readonly apiClient: AbsintheApiClient;
-  private readonly env: ValidatedEnv;
+  private readonly chainConfig: Chain;
+  private readonly env: ValidatedEnvBase;
 
-  constructor(env: ValidatedEnv, refreshWindow: number, apiClient: AbsintheApiClient) {
-    this.protocols = (env.protocols as UniswapV2Config[]).filter(
-      (protocol) => protocol.type === Dex.UNISWAP_V2,
-    );
-
-    this.schemaName = this.generateSchemaName();
+  constructor(
+    dexProtocol: DexProtocolConfig,
+    refreshWindow: number,
+    apiClient: AbsintheApiClient,
+    env: ValidatedEnvBase,
+    chainConfig: Chain,
+  ) {
+    this.protocols = dexProtocol.protocols;
     this.refreshWindow = refreshWindow;
     this.apiClient = apiClient;
     this.env = env;
+    this.chainConfig = chainConfig;
+    this.schemaName = this.generateSchemaName();
   }
 
   private generateSchemaName(): string {
     const uniquePoolCombination = this.protocols
       .reduce((acc, protocol) => acc + protocol.contractAddress, '')
-      .concat(ChainId.MAINNET.toString());
+      .concat(this.chainConfig.networkId.toString());
 
     const hash = createHash('md5').update(uniquePoolCombination).digest('hex').slice(0, 8);
     return `univ2-${hash}`;
@@ -126,7 +141,7 @@ export class UniswapV2Processor {
     ctx: any,
     block: any,
     contractAddress: string,
-    protocol: UniswapV2Config,
+    protocol: ProtocolConfig,
     protocolState: ProtocolState,
   ): Promise<void> {
     // Initialize config, state, and process state
@@ -157,7 +172,7 @@ export class UniswapV2Processor {
     ctx: any,
     block: any,
     contractAddress: string,
-    protocol: UniswapV2Config,
+    protocol: ProtocolConfig,
     protocolState: ProtocolState,
   ): Promise<void> {
     const poolLogs = block.logs.filter((log: any) => log.address === contractAddress);
@@ -171,7 +186,7 @@ export class UniswapV2Processor {
     ctx: any,
     block: any,
     log: any,
-    protocol: UniswapV2Config,
+    protocol: ProtocolConfig,
     protocolState: ProtocolState,
   ): Promise<void> {
     if (log.topics[0] === univ2Abi.events.Swap.topic) {
@@ -191,13 +206,19 @@ export class UniswapV2Processor {
     ctx: any,
     block: any,
     log: any,
-    protocol: UniswapV2Config,
+    protocol: ProtocolConfig,
     protocolState: ProtocolState,
   ): Promise<void> {
     const { sender, amount0In, amount0Out, amount1In, amount1Out } =
       univ2Abi.events.Swap.decode(log);
     const token0Amount = amount0In + amount0Out;
     const token1Amount = amount1In + amount1Out;
+
+    const { gasPrice, gasUsed } = log.transaction;
+    const gasFee = Number(gasUsed) * Number(gasPrice);
+    const displayGasFee = gasFee / 10 ** 18;
+    const ethPriceUsd = await fetchHistoricalUsd('ethereum', block.header.timestamp);
+    const gasFeeUsd = displayGasFee * ethPriceUsd;
 
     const pricedSwapVolume =
       protocol.preferredTokenCoingeckoId === 'token0'
@@ -240,14 +261,24 @@ export class UniswapV2Processor {
           amountOut: amount1Out.toString(),
         },
       ]),
-      rawAmount: pricedSwapVolume.toString(), // todo: fix this (should be the amount of the token that was swapped [with decimals])
-      displayAmount: pricedSwapVolume,
+      rawAmount:
+        protocol.preferredTokenCoingeckoId === 'token0'
+          ? token0Amount.toString()
+          : token1Amount.toString(),
+      displayAmount:
+        protocol.preferredTokenCoingeckoId === 'token0'
+          ? Number(BigInt(token0Amount) / BigInt(10 ** protocolState.config.token0.decimals))
+          : Number(BigInt(token1Amount) / BigInt(10 ** protocolState.config.token1.decimals)),
       unixTimestampMs: block.header.timestamp,
       txHash: log.transactionHash,
       logIndex: log.logIndex,
       blockNumber: block.header.height,
       blockHash: block.header.hash,
       userId: sender,
+      currency: Currency.USD,
+      valueUsd: pricedSwapVolume,
+      gasUsed: Number(gasUsed),
+      gasFeeUsd: gasFeeUsd,
     };
 
     protocolState.transactions.push(transactionSchema);
@@ -262,7 +293,7 @@ export class UniswapV2Processor {
     ctx: any,
     block: any,
     log: any,
-    protocol: UniswapV2Config,
+    protocol: ProtocolConfig,
     protocolState: ProtocolState,
   ): Promise<void> {
     const { from, to, value } = univ2Abi.events.Transfer.decode(log);
@@ -344,11 +375,13 @@ export class UniswapV2Processor {
             windowDurationMs: this.refreshWindow,
             startBlockNumber: data.updatedBlockHeight,
             endBlockNumber: block.header.height,
-            balanceBeforeUsd: balanceUsd,
-            balanceAfterUsd: balanceUsd,
+            lpTokenPrice: lpTokenPrice,
+            lpTokenDecimals: protocolState.config.lpToken.decimals,
             balanceBefore: data.balance.toString(),
             balanceAfter: data.balance.toString(),
             txHash: null,
+            currency: Currency.USD,
+            valueUsd: balanceUsd, //balanceBeforeUsd
           });
 
           protocolState.activeBalances.set(userAddress, {
@@ -370,8 +403,14 @@ export class UniswapV2Processor {
         protocolState.balanceWindows,
         protocol,
         this.env,
+        this.chainConfig,
       ).filter((e: TimeWeightedBalanceEvent) => e.startUnixTimestampMs !== e.endUnixTimestampMs);
-      const transactions = toTransaction(protocolState.transactions, protocol, this.env);
+      const transactions = toTransaction(
+        protocolState.transactions,
+        protocol,
+        this.env,
+        this.chainConfig,
+      );
       await this.apiClient.send(balances);
       await this.apiClient.send(transactions);
 

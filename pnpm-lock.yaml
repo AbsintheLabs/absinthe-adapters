@@ -61,9 +61,6 @@ importers:
         specifier: ^3.24.3
         version: 3.25.30
     devDependencies:
-      '@eslint/js':
-        specifier: ^9.28.0
-        version: 9.28.0
       '@subsquid/evm-typegen':
         specifier: ^4.2.0
         version: 4.4.0
@@ -142,6 +139,12 @@ importers:
       '@subsquid/typeorm-store':
         specifier: ^1.5.1
         version: 1.5.1(@subsquid/big-decimal@1.0.0)(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))
+
+  projects/printr:
+    dependencies:
+      '@absinthe/common':
+        specifier: workspace:*
+        version: link:../../packages/common
 
   projects/uniswapv2:
     dependencies:

@@ -38,6 +38,10 @@ enum PriceFeed {
   CODEX = 'codex',
 }
 
+enum BondingCurveProtocol {
+  PRINTR = 'printr',
+}
+
 enum Dex {
   UNISWAP_V2 = 'uniswap-v2',
   UNISWAP_V3 = 'uniswap-v3',
@@ -98,4 +102,5 @@ export {
   EventType,
   MessageType,
   TimeWindowTrigger,
+  BondingCurveProtocol,
 };

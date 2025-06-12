@@ -18,7 +18,7 @@ export async function fetchHistoricalUsd(id: string, tsMs: number): Promise<numb
 
   const url = `https://pro-api.coingecko.com/api/v3/coins/${id}/history?date=${date}&localization=false`;
   const res = await fetch(url, {
-    headers: { accept: 'application/json', 'x-cg-pro-api-key': env.coingeckoApiKey },
+    headers: { accept: 'application/json', 'x-cg-pro-api-key': env.baseConfig.coingeckoApiKey },
   });
   const j = await res.json();
   if (!j.market_data?.current_price?.[Currency.USD]) {

@@ -18,7 +18,6 @@
       "type": "string",
       "doc": "EVM address that triggered the event"
     },
-
     {
       "name": "chain",
       "type": {
@@ -100,6 +99,11 @@
         "name": "CurrencyEnum",
         "symbols": ["usd"]
       }
+    },
+    {
+      "name": "valueUsd",
+      "type": "double",
+      "doc": "USD value of the event"
     }
   ]
 }

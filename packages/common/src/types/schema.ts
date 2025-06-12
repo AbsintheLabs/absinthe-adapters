@@ -1,83 +1,47 @@
 import z from 'zod';
-
-// Protocol configuration schemas
-const baseProtocolSchema = z.object({
-  contractAddress: z
-    .string()
-    .regex(/^0x[a-fA-F0-9]{40}$/, 'Contract address must be a valid Ethereum address'),
-  fromBlock: z.number(),
-  name: z.string().optional(),
-});
+import { Dex, PriceFeed } from './enums';
 
 const tokenSchema = z.object({
   coingeckoId: z.string(),
   decimals: z.number(),
 });
 
-// Updated schema to support multiple protocol types
-const protocolConfigSchema = z.discriminatedUnion('type', [
-  // Uniswap V2
-  z.object({
-    type: z.literal('uniswap-v2'),
-    ...baseProtocolSchema.shape,
-    pricingStrategy: z.string(),
-    token0: tokenSchema,
-    token1: tokenSchema,
-    preferredTokenCoingeckoId: z.enum(['token0', 'token1']),
-  }),
+const protocolConfigSchema = z.object({
+  name: z.string(),
+  contractAddress: z
+    .string()
+    .regex(/^0x[a-fA-F0-9]{40}$/, 'Contract address must be a valid Ethereum address'),
+  fromBlock: z.number(),
+  pricingStrategy: z.enum([PriceFeed.COINGECKO, PriceFeed.CODEX]),
+  token0: tokenSchema,
+  token1: tokenSchema,
+  preferredTokenCoingeckoId: z.string(),
+});
 
-  // Uniswap V3
-  z.object({
-    type: z.literal('uniswap-v3'),
-    ...baseProtocolSchema.shape,
-    fee: z.number(),
-    token0: tokenSchema,
-    token1: tokenSchema,
-    preferredTokenCoingeckoId: z.enum(['token0', 'token1']),
-  }),
-
-  // Compound
-  z.object({
-    type: z.literal('compound'),
-    ...baseProtocolSchema.shape,
-    version: z.enum(['v2', 'v3']),
-    underlyingToken: tokenSchema,
-    cToken: tokenSchema,
-  }),
-
-  // Aave
-  z.object({
-    type: z.literal('aave'),
-    ...baseProtocolSchema.shape,
-    version: z.enum(['v2', 'v3']),
-    underlyingToken: tokenSchema,
-    aToken: tokenSchema,
-  }),
-
-  // Curve
-  z.object({
-    type: z.literal('curve'),
-    ...baseProtocolSchema.shape,
-    tokens: z.array(tokenSchema),
-    poolType: z.enum(['stable', 'crypto']),
-  }),
-
-  // Balancer
-  z.object({
-    type: z.literal('balancer'),
-    ...baseProtocolSchema.shape,
-    tokens: z.array(tokenSchema),
-    poolType: z.enum(['weighted', 'stable']),
-    weights: z.array(z.number()).optional(),
-  }),
-]);
-
-const configSchema = z.object({
+const dexProtocolSchema = z.object({
+  type: z.enum([Dex.UNISWAP_V2, Dex.UNISWAP_V3, Dex.COMPOUND, Dex.AAVE, Dex.CURVE, Dex.BALANCER]),
   chainId: z.number(),
   gatewayUrl: z.string().url('Gateway URL must be a valid URL'),
-  toBlock: z.number().optional(),
-  balanceFlushIntervalHours: z.number(),
+  toBlock: z.number(),
   protocols: z.array(protocolConfigSchema),
 });
 
-export { configSchema };
+const bondingCurveProtocolSchema = z.object({
+  type: z.string(),
+  name: z.string(),
+  contractAddress: z
+    .string()
+    .regex(/^0x[a-fA-F0-9]{40}$/, 'Contract address must be a valid Ethereum address'),
+  chainId: z.number(),
+  gatewayUrl: z.string().url('Gateway URL must be a valid URL'),
+  toBlock: z.number(),
+  fromBlock: z.number(),
+});
+
+const configSchema = z.object({
+  balanceFlushIntervalHours: z.number(),
+  dexProtocols: z.array(dexProtocolSchema),
+  bondingCurveProtocols: z.array(bondingCurveProtocolSchema),
+});
+
+export { configSchema, dexProtocolSchema, protocolConfigSchema };

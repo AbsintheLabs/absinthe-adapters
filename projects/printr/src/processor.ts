@@ -8,40 +8,32 @@ import {
   Log as _Log,
   Transaction as _Transaction,
 } from '@subsquid/evm-processor';
-import * as univ2Abi from './abi/univ2';
-import { Dex, validateEnv } from '@absinthe/common';
+import * as printrAbi from './abi/printr';
+import { BondingCurveProtocol, validateEnv } from '@absinthe/common';
 
 const env = validateEnv();
-
-const uniswapV2DexProtocol = env.dexProtocols.find((dexProtocol) => {
-  return dexProtocol.type === Dex.UNISWAP_V2;
+const printrBondingCurveProtocol = env.bondingCurveProtocols.find((bondingCurveProtocol) => {
+  return bondingCurveProtocol.type === BondingCurveProtocol.PRINTR;
 });
 
-if (!uniswapV2DexProtocol) {
-  throw new Error('Uniswap V2 protocol not found');
+if (!printrBondingCurveProtocol) {
+  throw new Error('Printr protocol not found');
 }
 
-const contractAddresses = uniswapV2DexProtocol.protocols.map(
-  (protocol) => protocol.contractAddress,
-);
-const earliestFromBlock = Math.min(
-  ...uniswapV2DexProtocol.protocols.map((protocol) => protocol.fromBlock),
-);
+const earliestFromBlock = printrBondingCurveProtocol.fromBlock;
 export const processor = new EvmBatchProcessor()
-  .setGateway(uniswapV2DexProtocol.gatewayUrl)
-  .setRpcEndpoint(uniswapV2DexProtocol.rpcUrl)
+  .setGateway(printrBondingCurveProtocol.gatewayUrl)
+  .setRpcEndpoint(printrBondingCurveProtocol.rpcUrl)
   .setBlockRange({
     from: earliestFromBlock,
-    ...(uniswapV2DexProtocol.toBlock !== 0 ? { to: Number(uniswapV2DexProtocol.toBlock) } : {}),
+    ...(printrBondingCurveProtocol.toBlock != 0
+      ? { to: Number(printrBondingCurveProtocol.toBlock) }
+      : {}),
   })
   .setFinalityConfirmation(75)
   .addLog({
-    address: contractAddresses,
-    topic0: [
-      univ2Abi.events.Transfer.topic,
-      univ2Abi.events.Sync.topic,
-      univ2Abi.events.Swap.topic,
-    ],
+    address: [printrBondingCurveProtocol.contractAddress],
+    topic0: [printrAbi.events.CurveCreated.topic, printrAbi.events.TokenTrade.topic],
     transaction: true,
   })
   .setFields({
