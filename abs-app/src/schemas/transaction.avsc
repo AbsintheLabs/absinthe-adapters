@@ -37,6 +37,14 @@
       "type": "int"
     },
     {
+      "name": "gasUsed",
+      "type": "double"
+    },
+    {
+      "name": "gasFeeUsd",
+      "type": "double"
+    },
+    {
       "name": "blockNumber",
       "type": "int"
     },
