@@ -17,12 +17,12 @@
       }
     },
     {
-      "name": "balanceBeforeUsd",
+      "name": "lpTokenPrice",
       "type": "double",
       "doc": "Total USD value of LP held at start of this window."
     },
     {
-      "name": "balanceAfterUsd",
+      "name": "lpTokenDecimals",
       "type": "double",
       "doc": "Total USD value of LP held at end of this window."
     },

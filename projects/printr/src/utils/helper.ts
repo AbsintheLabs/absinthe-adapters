@@ -54,7 +54,22 @@ function toTransaction(
         },
       ],
       currency: e.currency,
+      valueUsd: e.valueUsd,
     };
+
+    console.log({
+      baseSchema,
+      eventType: MessageType.TRANSACTION,
+      rawAmount: e.rawAmount,
+      displayAmount: e.displayAmount,
+      unixTimestampMs: e.unixTimestampMs,
+      txHash: e.txHash,
+      logIndex: e.logIndex,
+      blockNumber: e.blockNumber,
+      blockHash: e.blockHash,
+      gasUsed: e.gasUsed,
+      gasFeeUsd: e.gasFeeUsd,
+    });
 
     return {
       base: baseSchema,
@@ -66,6 +81,8 @@ function toTransaction(
       logIndex: e.logIndex,
       blockNumber: e.blockNumber,
       blockHash: e.blockHash,
+      gasUsed: e.gasUsed,
+      gasFeeUsd: e.gasFeeUsd,
     };
   });
 }

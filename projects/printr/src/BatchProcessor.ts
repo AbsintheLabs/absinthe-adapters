@@ -59,7 +59,7 @@ export class PrintrProcessor {
     );
 
     const hash = createHash('md5').update(uniquePoolCombination).digest('hex').slice(0, 8);
-    return `univ2-${hash}`;
+    return `printr-${hash}`;
   }
 
   async run(): Promise<void> {
@@ -155,6 +155,11 @@ export class PrintrProcessor {
   ): Promise<void> {
     const { token, trader, amount, isBuy, cost, effectivePrice, mintedSupply, reserve } =
       printrAbi.events.TokenTrade.decode(log);
+    const { gasPrice, gasUsed } = log.transaction;
+    const gasFee = Number(gasUsed) * Number(gasPrice);
+    const displayGasFee = gasFee / 10 ** 18;
+    const ethPriceUsd = await fetchHistoricalUsd('ethereum', block.header.timestamp);
+    const gasFeeUsd = displayGasFee * ethPriceUsd;
 
     const printrContract = new printrAbi.Contract(
       ctx,
@@ -163,14 +168,14 @@ export class PrintrProcessor {
     );
     const baseCurrencyAddress = await printrContract.wrappedNativeToken();
 
-    // Get base currency details (WETH/ETH) - not the traded token
+    // Get base currency details (WETH) - not the traded token
     const baseCurrencyContract = new erc20Abi.Contract(ctx, block.header, baseCurrencyAddress);
-    const baseCurrencySymbol = await baseCurrencyContract.symbol();
+    // const baseCurrencySymbol = await baseCurrencyContract.symbol();
     const baseCurrencyDecimals = await baseCurrencyContract.decimals();
-    const ethPriceUsd = await fetchHistoricalUsd('ethereum', block.header.timestamp);
+    //for now we assume the base currency is ETH
     const displayCost = Number(cost) / 10 ** baseCurrencyDecimals;
 
-    const valueInUsd = displayCost * ethPriceUsd; // todo: add in the txn schema
+    const valueInUsd = displayCost * ethPriceUsd;
     const transactionSchema = {
       eventType: MessageType.TRANSACTION,
       tokens: JSON.stringify([
@@ -183,7 +188,7 @@ export class PrintrProcessor {
           isBuy: isBuy,
         },
       ]),
-      rawAmount: amount.toString(),
+      rawAmount: cost.toString(), //todo: confirm on this - should be eth value
       displayAmount: displayCost,
       unixTimestampMs: block.header.timestamp,
       txHash: log.transactionHash,
@@ -192,6 +197,9 @@ export class PrintrProcessor {
       blockHash: block.header.hash,
       userId: trader,
       currency: Currency.USD,
+      valueUsd: valueInUsd,
+      gasUsed: Number(gasUsed),
+      gasFeeUsd: gasFeeUsd,
     };
 
     protocolState.transactions.push(transactionSchema);
@@ -204,14 +212,11 @@ export class PrintrProcessor {
     protocolState: ProtocolState,
   ): Promise<void> {
     const { token, creator } = printrAbi.events.CurveCreated.decode(log);
-    // todo: implement this
     const { gasPrice, gasUsed } = log.transaction;
     const gasFee = Number(gasUsed) * Number(gasPrice);
     const displayGasFee = gasFee / 10 ** 18;
     const ethPriceUsd = await fetchHistoricalUsd('ethereum', block.header.timestamp);
-
     const gasFeeUsd = displayGasFee * ethPriceUsd;
-    //todo: discuss on the usd value = gasFee (confirm @andrew)
     const transactionSchema = {
       eventType: MessageType.TRANSACTION,
       tokens: JSON.stringify([
@@ -224,8 +229,11 @@ export class PrintrProcessor {
           isBuy: false,
         },
       ]),
-      rawAmount: gasUsed.toString(),
-      displayAmount: gasFeeUsd,
+      rawAmount: '0',
+      displayAmount: 0,
+      valueUsd: gasFeeUsd,
+      gasUsed: Number(gasUsed),
+      gasFeeUsd: gasFeeUsd,
       unixTimestampMs: block.header.timestamp,
       txHash: log.transactionHash,
       logIndex: log.logIndex,

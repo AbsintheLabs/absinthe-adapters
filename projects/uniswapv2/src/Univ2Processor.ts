@@ -33,7 +33,12 @@ import { loadPoolConfigFromDb } from './utils/pool';
 import { BatchContext, ProtocolState } from './utils/types';
 import { PoolConfig } from './model';
 import * as univ2Abi from './abi/univ2';
-import { computeLpTokenPrice, computePricedSwapVolume, pricePosition } from './utils/pricing';
+import {
+  computeLpTokenPrice,
+  computePricedSwapVolume,
+  fetchHistoricalUsd,
+  pricePosition,
+} from './utils/pricing';
 import {
   mapToJson,
   processValueChange,
@@ -209,6 +214,12 @@ export class UniswapV2Processor {
     const token0Amount = amount0In + amount0Out;
     const token1Amount = amount1In + amount1Out;
 
+    const { gasPrice, gasUsed } = log.transaction;
+    const gasFee = Number(gasUsed) * Number(gasPrice);
+    const displayGasFee = gasFee / 10 ** 18;
+    const ethPriceUsd = await fetchHistoricalUsd('ethereum', block.header.timestamp);
+    const gasFeeUsd = displayGasFee * ethPriceUsd;
+
     const pricedSwapVolume =
       protocol.preferredTokenCoingeckoId === 'token0'
         ? await computePricedSwapVolume(
@@ -250,15 +261,24 @@ export class UniswapV2Processor {
           amountOut: amount1Out.toString(),
         },
       ]),
-      rawAmount: pricedSwapVolume.toString(), // todo: fix this (should be the amount of the token that was swapped [with decimals])
-      displayAmount: pricedSwapVolume,
+      rawAmount:
+        protocol.preferredTokenCoingeckoId === 'token0'
+          ? token0Amount.toString()
+          : token1Amount.toString(),
+      displayAmount:
+        protocol.preferredTokenCoingeckoId === 'token0'
+          ? Number(BigInt(token0Amount) / BigInt(10 ** protocolState.config.token0.decimals))
+          : Number(BigInt(token1Amount) / BigInt(10 ** protocolState.config.token1.decimals)),
       unixTimestampMs: block.header.timestamp,
       txHash: log.transactionHash,
       logIndex: log.logIndex,
       blockNumber: block.header.height,
       blockHash: block.header.hash,
       userId: sender,
-      currency: Currency.USD, //todo: this should be fixed (discuss with andrew)
+      currency: Currency.USD,
+      valueUsd: pricedSwapVolume,
+      gasUsed: Number(gasUsed),
+      gasFeeUsd: gasFeeUsd,
     };
 
     protocolState.transactions.push(transactionSchema);
@@ -355,12 +375,13 @@ export class UniswapV2Processor {
             windowDurationMs: this.refreshWindow,
             startBlockNumber: data.updatedBlockHeight,
             endBlockNumber: block.header.height,
-            balanceBeforeUsd: balanceUsd,
-            balanceAfterUsd: balanceUsd,
+            lpTokenPrice: lpTokenPrice,
+            lpTokenDecimals: protocolState.config.lpToken.decimals,
             balanceBefore: data.balance.toString(),
             balanceAfter: data.balance.toString(),
             txHash: null,
             currency: Currency.USD,
+            valueUsd: balanceUsd, //balanceBeforeUsd
           });
 
           protocolState.activeBalances.set(userAddress, {

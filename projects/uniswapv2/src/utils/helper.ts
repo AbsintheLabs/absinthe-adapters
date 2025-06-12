@@ -47,13 +47,14 @@ function toTimeWeightedBalance(
         },
       ],
       currency: e.currency,
+      valueUsd: e.valueUsd,
     };
 
     return {
       base: baseSchema,
       eventType: MessageType.TIME_WEIGHTED_BALANCE,
-      balanceBeforeUsd: e.balanceBeforeUsd,
-      balanceAfterUsd: e.balanceAfterUsd,
+      lpTokenPrice: e.lpTokenPrice,
+      lpTokenDecimals: e.lpTokenDecimals,
       balanceBefore: e.balanceBefore,
       balanceAfter: e.balanceAfter,
       timeWindowTrigger: e.trigger,
@@ -63,7 +64,7 @@ function toTimeWeightedBalance(
       startBlockNumber: e.startBlockNumber,
       endBlockNumber: e.endBlockNumber,
       txHash: e.txHash,
-      exposureUsdMs: e.balanceBeforeUsd * (e.endTs - e.startTs),
+      exposureUsdMs: e.valueUsd * (e.endTs - e.startTs),
     };
   });
 }
@@ -103,6 +104,7 @@ function toTransaction(
         },
       ],
       currency: e.currency,
+      valueUsd: e.valueUsd,
     };
 
     return {
@@ -115,6 +117,8 @@ function toTransaction(
       logIndex: e.logIndex,
       blockNumber: e.blockNumber,
       blockHash: e.blockHash,
+      gasUsed: e.gasUsed,
+      gasFeeUsd: e.gasFeeUsd,
     };
   });
 }
@@ -158,8 +162,9 @@ function processValueChange({
         endBlockNumber: blockHeight,
         txHash: txHash,
         windowDurationMs: windowDurationMs,
-        balanceBeforeUsd: balanceBefore,
-        balanceAfterUsd: balanceAfter,
+        lpTokenPrice: lpTokenPrice,
+        lpTokenDecimals: lpTokenDecimals,
+        valueUsd: balanceBefore, //balanceBeforeUsd
         balanceBefore: prev.balance.toString(),
         balanceAfter: (prev.balance + updatedAmount).toString(),
         currency: Currency.USD, // todo: look into this

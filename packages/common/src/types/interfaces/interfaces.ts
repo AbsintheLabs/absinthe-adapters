@@ -55,7 +55,10 @@ interface Transaction {
   blockNumber: number;
   blockHash: string;
   userId: string;
+  gasUsed: number;
+  gasFeeUsd: number;
   currency: Currency;
+  valueUsd: number;
 }
 
 interface TransactionEvent {
@@ -66,6 +69,8 @@ interface TransactionEvent {
   unixTimestampMs: number;
   txHash: string;
   logIndex: number;
+  gasUsed: number;
+  gasFeeUsd: number;
   blockNumber: number;
   blockHash: string;
 }
@@ -81,8 +86,9 @@ interface HistoryWindow {
   txHash: string | null;
   currency: Currency;
   windowDurationMs: number;
-  balanceBeforeUsd: number; // USD value before the transfer
-  balanceAfterUsd: number; // USD value after the transfer
+  lpTokenPrice: number;
+  lpTokenDecimals: number;
+  valueUsd: number;
   balanceBefore: string; // raw balance before the transfer
   balanceAfter: string; // raw balance after the transfer
 }
@@ -90,8 +96,8 @@ interface HistoryWindow {
 interface TimeWeightedBalanceEvent {
   base: BaseEventFields;
   eventType: MessageType;
-  balanceBeforeUsd: number;
-  balanceAfterUsd: number;
+  lpTokenPrice: number;
+  lpTokenDecimals: number;
   balanceBefore: string;
   balanceAfter: string;
   timeWindowTrigger: TimeWindowTrigger;
