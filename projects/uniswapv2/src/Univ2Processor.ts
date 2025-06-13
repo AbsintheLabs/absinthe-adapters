@@ -3,6 +3,7 @@ import { ActiveBalances } from './model';
 import {
   AbsintheApiClient,
   ActiveBalance,
+  BatchContext,
   Chain,
   ChainId,
   ChainShortName,
@@ -16,7 +17,6 @@ import {
   ValidatedEnvBase,
 } from '@absinthe/common';
 
-import { ValidatedEnv } from '@absinthe/common';
 import { processor } from './processor';
 import { createHash } from 'crypto';
 import { TypeormDatabase } from '@subsquid/typeorm-store';
@@ -30,21 +30,17 @@ import {
 } from './utils/pool';
 import { loadPoolProcessStateFromDb, loadPoolStateFromDb } from './utils/pool';
 import { loadPoolConfigFromDb } from './utils/pool';
-import { BatchContext, ProtocolState } from './utils/types';
+import { ProtocolStateUniv2 } from './utils/types';
 import { PoolConfig } from './model';
 import * as univ2Abi from './abi/univ2';
-import {
-  computeLpTokenPrice,
-  computePricedSwapVolume,
-  fetchHistoricalUsd,
-  pricePosition,
-} from './utils/pricing';
+import { computeLpTokenPrice, computePricedSwapVolume, fetchHistoricalUsd } from './utils/pricing';
 import {
   mapToJson,
   processValueChange,
   toTimeWeightedBalance,
   toTransaction,
-} from './utils/helper';
+  pricePosition,
+} from '@absinthe/common';
 
 export class UniswapV2Processor {
   private readonly protocols: ProtocolConfig[];
@@ -102,8 +98,8 @@ export class UniswapV2Processor {
     await this.finalizeBatch(ctx, protocolStates);
   }
 
-  private async initializeProtocolStates(ctx: any): Promise<Map<string, ProtocolState>> {
-    const protocolStates = new Map<string, ProtocolState>();
+  private async initializeProtocolStates(ctx: any): Promise<Map<string, ProtocolStateUniv2>> {
+    const protocolStates = new Map<string, ProtocolStateUniv2>();
 
     for (const protocol of this.protocols) {
       const contractAddress = protocol.contractAddress;
@@ -142,7 +138,7 @@ export class UniswapV2Processor {
     block: any,
     contractAddress: string,
     protocol: ProtocolConfig,
-    protocolState: ProtocolState,
+    protocolState: ProtocolStateUniv2,
   ): Promise<void> {
     // Initialize config, state, and process state
     protocolState.config = await initPoolConfigIfNeeded(
@@ -173,7 +169,7 @@ export class UniswapV2Processor {
     block: any,
     contractAddress: string,
     protocol: ProtocolConfig,
-    protocolState: ProtocolState,
+    protocolState: ProtocolStateUniv2,
   ): Promise<void> {
     const poolLogs = block.logs.filter((log: any) => log.address === contractAddress);
 
@@ -187,7 +183,7 @@ export class UniswapV2Processor {
     block: any,
     log: any,
     protocol: ProtocolConfig,
-    protocolState: ProtocolState,
+    protocolState: ProtocolStateUniv2,
   ): Promise<void> {
     if (log.topics[0] === univ2Abi.events.Swap.topic) {
       await this.processSwapEvent(ctx, block, log, protocol, protocolState);
@@ -207,7 +203,7 @@ export class UniswapV2Processor {
     block: any,
     log: any,
     protocol: ProtocolConfig,
-    protocolState: ProtocolState,
+    protocolState: ProtocolStateUniv2,
   ): Promise<void> {
     const { sender, amount0In, amount0Out, amount1In, amount1Out } =
       univ2Abi.events.Swap.decode(log);
@@ -284,7 +280,7 @@ export class UniswapV2Processor {
     protocolState.transactions.push(transactionSchema);
   }
 
-  private processSyncEvent(protocolState: ProtocolState): void {
+  private processSyncEvent(protocolState: ProtocolStateUniv2): void {
     // If we see a sync event, we need to update the pool state later since reserves and/or total supply have changed
     protocolState.state.isDirty = true;
   }
@@ -294,7 +290,7 @@ export class UniswapV2Processor {
     block: any,
     log: any,
     protocol: ProtocolConfig,
-    protocolState: ProtocolState,
+    protocolState: ProtocolStateUniv2,
   ): Promise<void> {
     const { from, to, value } = univ2Abi.events.Transfer.decode(log);
 
@@ -310,19 +306,19 @@ export class UniswapV2Processor {
       value,
       protocolState.config.lpToken.decimals,
     );
-
+    //todo: check to and from
     const newHistoryWindows = processValueChange({
       from,
       to,
       amount: value,
-      lpTokenSwapUsdValue,
+      usdValue: lpTokenSwapUsdValue,
       blockTimestamp: block.header.timestamp,
       blockHeight: block.header.height,
       txHash: log.transactionHash,
       activeBalances: protocolState.activeBalances,
       windowDurationMs: this.refreshWindow,
-      lpTokenPrice,
-      lpTokenDecimals: protocolState.config.lpToken.decimals,
+      tokenPrice: lpTokenPrice,
+      tokenDecimals: protocolState.config.lpToken.decimals,
     });
 
     protocolState.balanceWindows.push(...newHistoryWindows);
@@ -332,10 +328,10 @@ export class UniswapV2Processor {
     ctx: any,
     block: any,
     contractAddress: string,
-    protocolState: ProtocolState,
+    protocolState: ProtocolStateUniv2,
   ): Promise<void> {
     const currentTs = block.header.timestamp;
-    const currentBlockHeight = block.header.height;
+    const currentBlockHeight = block.header.height; // needed as we need to calculate lpTokenPrice
 
     if (!protocolState.processState?.lastInterpolatedTs) {
       protocolState.processState.lastInterpolatedTs = currentTs;
@@ -375,8 +371,8 @@ export class UniswapV2Processor {
             windowDurationMs: this.refreshWindow,
             startBlockNumber: data.updatedBlockHeight,
             endBlockNumber: block.header.height,
-            lpTokenPrice: lpTokenPrice,
-            lpTokenDecimals: protocolState.config.lpToken.decimals,
+            tokenPrice: lpTokenPrice,
+            tokenDecimals: protocolState.config.lpToken.decimals,
             balanceBefore: data.balance.toString(),
             balanceAfter: data.balance.toString(),
             txHash: null,
@@ -395,7 +391,10 @@ export class UniswapV2Processor {
     }
   }
 
-  private async finalizeBatch(ctx: any, protocolStates: Map<string, ProtocolState>): Promise<void> {
+  private async finalizeBatch(
+    ctx: any,
+    protocolStates: Map<string, ProtocolStateUniv2>,
+  ): Promise<void> {
     for (const protocol of this.protocols) {
       const protocolState = protocolStates.get(protocol.contractAddress)!;
       // Send data to Absinthe API

@@ -5,6 +5,7 @@ import { DataHandlerContext, BlockData } from '@subsquid/evm-processor';
 import { Store } from '@subsquid/typeorm-store';
 import { updatePoolStateFromOnChain } from './pool';
 import { Currency } from '@absinthe/common';
+import { pricePosition } from '@absinthe/common';
 
 const env = validateEnv();
 
@@ -63,10 +64,6 @@ export async function computePricedSwapVolume(
 }
 
 // Value of a token in USD
-export function pricePosition(price: number, amount: bigint, decimals: number): number {
-  return new Big(amount.toString()).div(new Big(10).pow(decimals)).mul(price).toNumber();
-}
-
 // Value of 1 LP token in USD
 export async function computeLpTokenPrice(
   ctx: DataHandlerContext<Store>,

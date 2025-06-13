@@ -11,18 +11,21 @@ import {
   ChainName,
   ChainShortName,
   ChainType,
+  StakingProtocol,
 } from '../types/enums';
 import { getChainEnumKey } from './helper/getChainEnumKey';
 import {
   BondingCurveProtocolConfig,
   DexProtocolConfig,
   ProtocolConfig,
+  StakingProtocolConfig,
 } from '../types/interfaces/protocols';
 
 export function validateEnv(): {
   baseConfig: ValidatedEnvBase;
   dexProtocols: DexProtocolConfig[];
   bondingCurveProtocols: BondingCurveProtocolConfig[];
+  stakingProtocols: StakingProtocolConfig[];
 } {
   try {
     const envSchema = z.object({
@@ -35,9 +38,14 @@ export function validateEnv(): {
         .string()
         .url('RPC_URL_BASE must be a valid URL')
         .refine((val) => val.startsWith('https://'), 'RPC_URL_BASE must be https:// not wss://'),
+      RPC_URL_HEMI: z
+        .string()
+        .url('RPC_URL_HEMI must be a valid URL')
+        .refine((val) => val.startsWith('https://'), 'RPC_URL_HEMI must be https:// not wss://'),
       ABSINTHE_API_URL: z.string().url('ABSINTHE_API_URL must be a valid URL'),
       ABSINTHE_API_KEY: z.string().min(1, 'ABSINTHE_API_KEY is required'),
       COINGECKO_API_KEY: z.string().min(1, 'COINGECKO_API_KEY is required'),
+      SEND_TO_API_FROM_TIMESTAMP: z.string().optional(),
     });
 
     const envResult = envSchema.safeParse(process.env);
@@ -129,17 +137,50 @@ export function validateEnv(): {
       };
     });
 
+    const stakingProtocols: StakingProtocolConfig[] = configResult.data.stakingProtocols.map(
+      (stakingProtocol) => {
+        const chainId = stakingProtocol.chainId;
+        const chainKey = getChainEnumKey(chainId);
+        if (!chainKey) {
+          throw new Error(`${chainId} is not a supported chainId.`);
+        }
+        const chainName = ChainName[chainKey];
+        const chainShortName = ChainShortName[chainKey];
+        const chainArch = ChainType.EVM;
+        return {
+          type: stakingProtocol.type as StakingProtocol,
+          gatewayUrl: stakingProtocol.gatewayUrl,
+          toBlock: stakingProtocol.toBlock,
+          fromBlock: stakingProtocol.fromBlock,
+          name: stakingProtocol.name,
+          contractAddress: stakingProtocol.contractAddress,
+          chainArch: chainArch,
+          chainId: chainId,
+          chainShortName: chainShortName,
+          chainName: chainName,
+          rpcUrl:
+            stakingProtocol.chainId === ChainId.HEMI
+              ? envResult.data.RPC_URL_HEMI
+              : envResult.data.RPC_URL_BASE,
+        };
+      },
+    );
+
     const baseConfig: ValidatedEnvBase = {
       balanceFlushIntervalHours: configResult.data.balanceFlushIntervalHours,
       absintheApiUrl: envResult.data.ABSINTHE_API_URL,
       absintheApiKey: envResult.data.ABSINTHE_API_KEY,
       coingeckoApiKey: envResult.data.COINGECKO_API_KEY,
+      sendToApiFromTimestamp: envResult.data.SEND_TO_API_FROM_TIMESTAMP
+        ? parseInt(envResult.data.SEND_TO_API_FROM_TIMESTAMP, 10)
+        : undefined,
     };
 
     return {
       baseConfig,
       dexProtocols,
       bondingCurveProtocols,
+      stakingProtocols,
     };
   } catch (error) {
     if (error instanceof Error) {

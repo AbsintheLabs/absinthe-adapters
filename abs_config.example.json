@@ -5,7 +5,7 @@
       "type": "uniswap-v2",
       "chainId": 1,
       "gatewayUrl": "https://v2.archive.subsquid.io/network/ethereum-mainnet",
-      "toBlock": 17071888,
+      "toBlock": 17072888,
       "protocols": [
         {
           "name": "PEPE/WETH Pool",
@@ -34,6 +34,17 @@
       "gatewayUrl": "https://v2.archive.subsquid.io/network/base-mainnet",
       "toBlock": 0,
       "fromBlock": 31168241
+    }
+  ],
+  "stakingProtocols": [
+    {
+      "type": "hemi",
+      "name": "Hemi Staking",
+      "contractAddress": "0x4f5e928763cbfaf5ffd8907ebbb0dabd5f78ba83",
+      "chainId": 43111,
+      "gatewayUrl": "https://v2.archive.subsquid.io/network/hemi-mainnet",
+      "toBlock": 0,
+      "fromBlock": 1220463
     }
   ]
 }

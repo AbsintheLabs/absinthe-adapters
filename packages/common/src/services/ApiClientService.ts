@@ -54,7 +54,6 @@ export class AbsintheApiClient {
     data: TimeWeightedBalanceEvent[] | TransactionEvent[],
   ): Promise<void> {
     const batchCount = Math.ceil(data.length / BATCH_SIZE);
-    // logger.info(`Splitting ${data.length} ${data[0].dataType} records into ${batchCount} batches...`);
 
     for (let i = 0; i < data.length; i += BATCH_SIZE) {
       const batch = data.slice(i, i + BATCH_SIZE);
@@ -111,10 +110,43 @@ export class AbsintheApiClient {
   async send(data: TimeWeightedBalanceEvent[] | TransactionEvent[]): Promise<void> {
     if (data.length === 0) return;
 
-    if (data.length <= BATCH_SIZE) {
-      await this.sendSingleBatch(data);
-    } else {
-      await this.sendMultipleBatches(data);
+    return data.length <= BATCH_SIZE
+      ? await this.sendSingleBatch(data)
+      : await this.sendMultipleBatches(data);
+  }
+
+  async sendToApiFromTimestamp(
+    data: TimeWeightedBalanceEvent[] | TransactionEvent[],
+    timestamp: number,
+  ): Promise<void> {
+    if (data.length === 0) return;
+
+    const isTWBE = (d: any): d is TimeWeightedBalanceEvent => 'startUnixTimestampMs' in d;
+
+    const beforeCutoff = data.filter((d) =>
+      isTWBE(d) ? d.startUnixTimestampMs < timestamp! : d.unixTimestampMs < timestamp!,
+    ) as TimeWeightedBalanceEvent[] | TransactionEvent[];
+
+    const atCutoff = data.filter((d) =>
+      isTWBE(d)
+        ? d.startUnixTimestampMs === timestamp! || d.endUnixTimestampMs === timestamp!
+        : d.unixTimestampMs === timestamp!,
+    ) as TimeWeightedBalanceEvent[] | TransactionEvent[];
+
+    const afterCutoff = data.filter((d) =>
+      isTWBE(d) ? d.startUnixTimestampMs > timestamp! : d.unixTimestampMs > timestamp!,
+    ) as TimeWeightedBalanceEvent[] | TransactionEvent[];
+
+    if (beforeCutoff.length)
+      console.info(`Processing ${beforeCutoff.length} items before cutoff(internal only)`);
+
+    if (atCutoff.length)
+      console.info(`Flushing ${atCutoff.length} items exactly at cutoff(no send)`);
+
+    if (afterCutoff.length) console.info(`Sending ${afterCutoff.length} items after cutoff to API`);
+
+    if (afterCutoff.length > 0) {
+      await this.send(afterCutoff);
     }
   }
 }

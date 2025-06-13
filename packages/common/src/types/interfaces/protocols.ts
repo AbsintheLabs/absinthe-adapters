@@ -8,6 +8,7 @@ import {
   ChainShortName,
   ChainType,
   ChainId,
+  StakingProtocol,
 } from '../enums';
 
 interface BaseProtocolConfig {
@@ -43,6 +44,20 @@ interface BondingCurveProtocolConfig {
   rpcUrl: string;
 }
 
+interface StakingProtocolConfig {
+  type: StakingProtocol;
+  name: string;
+  contractAddress: string;
+  chainId: number;
+  chainArch: ChainType;
+  chainShortName: ChainShortName;
+  chainName: ChainName;
+  gatewayUrl: string;
+  toBlock: number;
+  fromBlock: number;
+  rpcUrl: string;
+}
+
 interface ProtocolConfig {
   name: string;
   contractAddress: string;
@@ -57,6 +72,7 @@ interface Config {
   balanceFlushIntervalHours: number;
   dexProtocols: DexProtocolConfig[];
   bondingCurveProtocols: BondingCurveProtocolConfig[];
+  stakingProtocols: StakingProtocolConfig[];
 }
 
 export {
@@ -65,4 +81,5 @@ export {
   DexProtocolConfig,
   BondingCurveProtocolConfig,
   Config,
+  StakingProtocolConfig,
 };

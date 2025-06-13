@@ -17,12 +17,12 @@
       }
     },
     {
-      "name": "lpTokenPrice",
+      "name": "tokenPrice",
       "type": "double",
       "doc": "Total USD value of LP held at start of this window."
     },
     {
-      "name": "lpTokenDecimals",
+      "name": "tokenDecimals",
       "type": "double",
       "doc": "Total USD value of LP held at end of this window."
     },
@@ -79,12 +79,6 @@
       "type": ["null", "string"],
       "default": null,
       "doc": "The transaction hash, if timeWindowTrigger==\"transfer\"."
-    },
-    {
-      "name": "exposureUsdMs",
-      "type": ["null", "double"],
-      "default": null,
-      "doc": "Optional: (balanceBeforeUsd)*(endTs–startTs)."
     }
   ]
 }
