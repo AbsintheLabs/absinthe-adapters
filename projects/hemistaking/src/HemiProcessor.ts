@@ -61,22 +61,22 @@ const TOKEN_METADATA = [
     coingeckoId: 'bitcoin',
   },
   {
-    address: '0x93919784c523f39cacaa98ee0a9d96c3f32b593e',
-    symbol: 'BTC',
-    decimals: 8,
-    coingeckoId: 'bitcoin',
+    address: '0xbb0d083fb1be0a9f6157ec484b6c79e0a4e31c2e',
+    symbol: 'USDT',
+    decimals: 18,
+    coingeckoId: 'tether',
   },
   {
-    address: '0x93919784c523f39cacaa98ee0a9d96c3f32b593e',
-    symbol: 'BTC',
-    decimals: 8,
-    coingeckoId: 'bitcoin',
+    address: '0x4200000000000000000000000000000000000006',
+    symbol: 'WETH',
+    decimals: 18,
+    coingeckoId: 'ethereum',
   },
   {
-    address: '0x93919784c523f39cacaa98ee0a9d96c3f32b593e',
-    symbol: 'BTC',
-    decimals: 8,
-    coingeckoId: 'bitcoin',
+    address: '0x7a06c4aef988e7925575c50261297a946ad204a8',
+    symbol: 'VUSD',
+    decimals: 18,
+    coingeckoId: 'ethereum',
   },
   // {
   //   address: '0x93919784c523f39cacaa98ee0a9d96c3f32b593e',
@@ -165,7 +165,6 @@ export class HemiStakingProcessor {
     const protocolStates = await this.initializeProtocolStates(ctx);
 
     for (const block of ctx.blocks) {
-      // console.log('processing block', block.header.height);
       await this.processBlock({ ctx, block, protocolStates });
     }
 
@@ -238,19 +237,18 @@ export class HemiStakingProcessor {
   ): Promise<void> {
     const { depositor, token, amount } = hemiAbi.events.Deposit.decode(log);
 
-    // const tokenMetadata = checkToken(token);
-    // if (!tokenMetadata) {
-    //   console.warn(`Ignoring deposit for unsupported token: ${token}`);
-    //   return;
-    // }
+    const tokenMetadata = checkToken(token);
+    if (!tokenMetadata) {
+      console.warn(`Ignoring deposit for unsupported token: ${token}`);
+      return;
+    }
 
-    const baseCurrencyContract = new erc20Abi.Contract(ctx, block.header, token);
-    const baseCurrencySymbol = await baseCurrencyContract.symbol();
-    const baseCurrencyDecimals = await baseCurrencyContract.decimals();
+    // const baseCurrencyContract = new erc20Abi.Contract(ctx, block.header, token);
+    // const baseCurrencySymbol = await baseCurrencyContract.symbol();
+    // const baseCurrencyDecimals = await baseCurrencyContract.decimals();
 
-    console.log('baseCurrencySymbol', baseCurrencySymbol, baseCurrencyDecimals, token);
-    const tokenPrice = await fetchHistoricalUsd(baseCurrencySymbol, block.header.timestamp);
-    const usdValue = pricePosition(tokenPrice, amount, baseCurrencyDecimals);
+    const tokenPrice = await fetchHistoricalUsd(tokenMetadata.coingeckoId, block.header.timestamp);
+    const usdValue = pricePosition(tokenPrice, amount, tokenMetadata.decimals);
 
     const newHistoryWindows = processValueChange({
       from: depositor,
@@ -263,11 +261,9 @@ export class HemiStakingProcessor {
       activeBalances: protocolState.activeBalances,
       windowDurationMs: this.refreshWindow,
       tokenPrice,
-      tokenDecimals: baseCurrencyDecimals,
+      tokenDecimals: tokenMetadata.decimals,
       tokenAddress: token,
     });
-
-    console.log('newHistoryWindows', newHistoryWindows);
 
     protocolState.balanceWindows.push(...newHistoryWindows);
   }
@@ -285,14 +281,12 @@ export class HemiStakingProcessor {
       console.warn(`Ignoring withdraw for unsupported token: ${token}`);
       return;
     }
-    const baseCurrencyContract = new erc20Abi.Contract(ctx, block.header, token);
-    const baseCurrencySymbol = await baseCurrencyContract.symbol();
-    const baseCurrencyDecimals = await baseCurrencyContract.decimals();
+    // const baseCurrencyContract = new erc20Abi.Contract(ctx, block.header, token);
+    // const baseCurrencySymbol = await baseCurrencyContract.symbol();
+    // const baseCurrencyDecimals = await baseCurrencyContract.decimals();
 
-    console.log('baseCurrencySymbol', baseCurrencySymbol, baseCurrencyDecimals, token);
-
-    const tokenPrice = await fetchHistoricalUsd(baseCurrencySymbol, block.header.timestamp);
-    const usdValue = pricePosition(tokenPrice, amount, baseCurrencyDecimals);
+    const tokenPrice = await fetchHistoricalUsd(tokenMetadata.coingeckoId, block.header.timestamp);
+    const usdValue = pricePosition(tokenPrice, amount, tokenMetadata.decimals);
 
     const newHistoryWindows = processValueChange({
       from: ZERO_ADDRESS,
@@ -305,7 +299,7 @@ export class HemiStakingProcessor {
       activeBalances: protocolState.activeBalances,
       windowDurationMs: this.refreshWindow,
       tokenPrice,
-      tokenDecimals: baseCurrencyDecimals,
+      tokenDecimals: tokenMetadata.decimals,
       tokenAddress: token,
     });
 

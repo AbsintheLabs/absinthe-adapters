@@ -45,6 +45,7 @@ export function validateEnv(): {
       ABSINTHE_API_URL: z.string().url('ABSINTHE_API_URL must be a valid URL'),
       ABSINTHE_API_KEY: z.string().min(1, 'ABSINTHE_API_KEY is required'),
       COINGECKO_API_KEY: z.string().min(1, 'COINGECKO_API_KEY is required'),
+      SEND_TO_API_FROM_TIMESTAMP: z.string().optional(),
     });
 
     const envResult = envSchema.safeParse(process.env);
@@ -170,6 +171,9 @@ export function validateEnv(): {
       absintheApiUrl: envResult.data.ABSINTHE_API_URL,
       absintheApiKey: envResult.data.ABSINTHE_API_KEY,
       coingeckoApiKey: envResult.data.COINGECKO_API_KEY,
+      sendToApiFromTimestamp: envResult.data.SEND_TO_API_FROM_TIMESTAMP
+        ? parseInt(envResult.data.SEND_TO_API_FROM_TIMESTAMP, 10)
+        : undefined,
     };
 
     return {
