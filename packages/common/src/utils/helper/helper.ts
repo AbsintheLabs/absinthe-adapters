@@ -238,8 +238,12 @@ function pricePosition(price: number, amount: bigint, decimals: number): number 
   return new Big(amount.toString()).div(new Big(10).pow(decimals)).mul(price).toNumber();
 }
 
-async function fetchHistoricalUsd(id: string, tsMs: number): Promise<number> {
-  const env = validateEnv();
+async function fetchHistoricalUsd(
+  id: string,
+  tsMs: number,
+  coingeckoApiKey: string,
+): Promise<number> {
+  // const env = validateEnv();
   //todo improve
   const d = new Date(tsMs);
   const date = `${d.getDate().toString().padStart(2, '0')}-${(d.getMonth() + 1)
@@ -248,7 +252,7 @@ async function fetchHistoricalUsd(id: string, tsMs: number): Promise<number> {
 
   const url = `https://pro-api.coingecko.com/api/v3/coins/${id}/history?date=${date}&localization=false`;
   const res = await fetch(url, {
-    headers: { accept: 'application/json', 'x-cg-pro-api-key': env.baseConfig.coingeckoApiKey },
+    headers: { accept: 'application/json', 'x-cg-pro-api-key': coingeckoApiKey },
   });
   const j = await res.json();
   if (!j.market_data?.current_price?.[Currency.USD]) {

@@ -34,6 +34,15 @@
       "gatewayUrl": "https://v2.archive.subsquid.io/network/base-mainnet",
       "toBlock": 0,
       "fromBlock": 30000000
+    },
+    {
+      "type": "vusd-mint",
+      "name": "VUSDMint",
+      "contractAddress": "0xFd22Bcf90d63748288913336Cd38BBC0e681e298",
+      "chainId": 1,
+      "gatewayUrl": "https://v2.archive.subsquid.io/network/ethereum-mainnet",
+      "toBlock": 0,
+      "fromBlock": 22017054
     }
   ],
   "stakingProtocols": [

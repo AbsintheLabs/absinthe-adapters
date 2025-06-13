@@ -43,6 +43,7 @@ enum PriceFeed {
 
 enum BondingCurveProtocol {
   PRINTR = 'printr',
+  VUSD_MINT = 'vusd-mint',
 }
 
 enum StakingProtocol {
