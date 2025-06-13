@@ -148,7 +148,12 @@ export class PrintrProcessor {
     const { gasPrice, gasUsed } = log.transaction;
     const gasFee = Number(gasUsed) * Number(gasPrice);
     const displayGasFee = gasFee / 10 ** 18;
-    const ethPriceUsd = await fetchHistoricalUsd('ethereum', block.header.timestamp);
+    let ethPriceUsd = 0;
+    try {
+      ethPriceUsd = await fetchHistoricalUsd('ethereum', block.header.timestamp);
+    } catch (error) {
+      console.warn('Could not fetch historical USD price, using 0:', error);
+    }
     const gasFeeUsd = displayGasFee * ethPriceUsd;
 
     const printrContract = new printrAbi.Contract(

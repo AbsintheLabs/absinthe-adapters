@@ -29,7 +29,7 @@ function toTimeWeightedBalance(
   chainConfig: Chain,
 ): TimeWeightedBalanceEvent[] {
   return historyWindows.map((e) => {
-    const eventIdComponents = `${ChainId.MAINNET}-${e.userAddress}-${e.startTs}-${e.endTs}-${e.windowDurationMs}-${env.absintheApiKey}`;
+    const eventIdComponents = `${chainConfig.networkId}-${e.userAddress}-${e.startTs}-${e.endTs}-${e.windowDurationMs}-${env.absintheApiKey}`;
     const hash = createHash('md5').update(eventIdComponents).digest('hex').slice(0, 8);
     const baseSchema = {
       version: '1.0',
@@ -123,8 +123,8 @@ function toTransaction(
       logIndex: e.logIndex,
       blockNumber: e.blockNumber,
       blockHash: e.blockHash,
-      gasUsed: typeof e.gasUsed === 'number' ? e.gasUsed : 0.0,
-      gasFeeUsd: typeof e.gasFeeUsd === 'number' ? e.gasFeeUsd : 0.0,
+      gasUsed: e.gasUsed ?? 0.0,
+      gasFeeUsd: e.gasFeeUsd ?? 0.0,
     };
   });
 }
@@ -146,12 +146,21 @@ function processValueChange({
   const historyWindows: HistoryWindow[] = [];
 
   function snapshotAndUpdate(userAddress: string, updatedAmount: bigint) {
-    if (!activeBalances.has(tokenAddress)) {
-      activeBalances.set(tokenAddress, new Map());
+    // Handle both nested and flat map structures
+    let tokenBalances: Map<string, ActiveBalance>;
+
+    if (activeBalances instanceof Map && activeBalances.get(tokenAddress) instanceof Map) {
+      // Nested map structure (Map<string, Map<string, ActiveBalance>>)
+      if (!activeBalances.has(tokenAddress)) {
+        activeBalances.set(tokenAddress, new Map());
+      }
+      tokenBalances = activeBalances.get(tokenAddress)!;
+    } else {
+      // Flat map structure (Map<string, ActiveBalance>)
+      tokenBalances = activeBalances as Map<string, ActiveBalance>;
     }
 
     //todo: confirm this from andrew, is this correct ?- we are only pushing the balances for the tokenAddress of this user (not the user balan)
-    const tokenBalances = activeBalances.get(tokenAddress)!;
 
     const prev = tokenBalances.get(userAddress) ?? {
       balance: 0n,
@@ -160,8 +169,7 @@ function processValueChange({
     };
 
     if (prev.balance > 0n) {
-      const balanceBefore = pricePosition(tokenPrice, prev.balance, tokenDecimals); //todo: check if we only need to send the updatedAmount in usd instead of prev balance
-      // const balanceAfter = pricePosition(tokenPrice, prev.balance + updatedAmount, tokenDecimals);
+      const balanceBefore = pricePosition(tokenPrice, prev.balance, tokenDecimals);
       historyWindows.push({
         userAddress: userAddress,
         deltaAmount: usdValue,
@@ -174,10 +182,10 @@ function processValueChange({
         windowDurationMs: windowDurationMs,
         tokenPrice: tokenPrice,
         tokenDecimals: tokenDecimals,
-        valueUsd: balanceBefore, //balanceBeforeUsd for the specific tokenAddresss
+        valueUsd: balanceBefore,
         balanceBefore: prev.balance.toString(),
         balanceAfter: (prev.balance + updatedAmount).toString(),
-        currency: Currency.USD, // todo: look into this
+        currency: Currency.USD,
       });
     }
 

@@ -47,6 +47,7 @@ enum BondingCurveProtocol {
 
 enum StakingProtocol {
   HEMI = 'hemi',
+  VUSDBRIDGE = 'vusd-bridge',
 }
 
 enum Dex {
