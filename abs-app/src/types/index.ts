@@ -79,5 +79,4 @@ export interface TimeWeightedBalanceEvent {
   startBlockNumber: number;
   endBlockNumber: number;
   txHash: string | null;
-  exposureUsdMs: number;
 }

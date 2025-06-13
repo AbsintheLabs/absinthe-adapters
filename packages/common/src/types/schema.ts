@@ -38,10 +38,23 @@ const bondingCurveProtocolSchema = z.object({
   fromBlock: z.number(),
 });
 
+const stakingProtocolSchema = z.object({
+  type: z.string(),
+  name: z.string(),
+  contractAddress: z
+    .string()
+    .regex(/^0x[a-fA-F0-9]{40}$/, 'Contract address must be a valid Ethereum address'),
+  chainId: z.number(),
+  gatewayUrl: z.string().url('Gateway URL must be a valid URL'),
+  toBlock: z.number(),
+  fromBlock: z.number(),
+});
+
 const configSchema = z.object({
   balanceFlushIntervalHours: z.number(),
   dexProtocols: z.array(dexProtocolSchema),
   bondingCurveProtocols: z.array(bondingCurveProtocolSchema),
+  stakingProtocols: z.array(stakingProtocolSchema),
 });
 
 export { configSchema, dexProtocolSchema, protocolConfigSchema };

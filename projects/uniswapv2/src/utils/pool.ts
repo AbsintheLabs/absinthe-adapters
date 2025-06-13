@@ -7,7 +7,7 @@ import { ActiveBalance, ProtocolConfig } from '@absinthe/common';
 // abis
 import * as univ2Abi from '../abi/univ2';
 import * as univ2LpAbi from '../abi/univ2LP';
-import { jsonToMap } from './helper';
+import { jsonToMap } from '@absinthe/common';
 
 // exported functions
 export async function updatePoolStateFromOnChain(

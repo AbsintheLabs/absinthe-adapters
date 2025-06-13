@@ -13,24 +13,13 @@ import {
   ValidatedEnvBase,
 } from '@absinthe/common';
 
-import { ValidatedEnv } from '@absinthe/common';
 import { createHash } from 'crypto';
 import { TypeormDatabase } from '@subsquid/typeorm-store';
 import { processor } from './processor';
-// import { PoolProcessState, PoolState, PoolConfig } from './model';
-// import {
-//   initPoolConfigIfNeeded,
-//   initPoolProcessStateIfNeeded,
-//   initPoolStateIfNeeded,
-//   loadActiveBalancesFromDb,
-// } from './utils/pool';
-// import { loadPoolProcessStateFromDb, loadPoolStateFromDb } from './utils/pool';
-// import { loadPoolConfigFromDb } from './utils/pool';
-import { BatchContext, ProtocolState } from './utils/types';
+import { BatchContext, ProtocolState } from '@absinthe/common';
 import * as printrAbi from './abi/printr';
 import * as erc20Abi from './abi/erc20';
-import { fetchHistoricalUsd, toTransaction } from './utils/helper';
-// import { toTransaction } from './utils/helper';
+import { fetchHistoricalUsd, toTransaction } from '@absinthe/common';
 
 //todo: storage in database
 export class PrintrProcessor {
@@ -90,8 +79,9 @@ export class PrintrProcessor {
     const protocolStates = new Map<string, ProtocolState>();
 
     const contractAddress = this.bondingCurveProtocol.contractAddress;
-
+    //todo: move into a seperate function
     protocolStates.set(contractAddress, {
+      balanceWindows: [],
       transactions: [],
     });
 

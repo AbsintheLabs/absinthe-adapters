@@ -28,6 +28,32 @@ interface BaseEventFields {
   valueUsd: number;
 }
 
+interface ProtocolState {
+  balanceWindows: HistoryWindow[];
+  transactions: Transaction[];
+}
+
+interface BatchContext {
+  ctx: any;
+  block: any;
+  protocolStates: Map<string, any>; // todo: remove any
+}
+
+interface ProcessValueChangeParams {
+  from: string;
+  to: string;
+  amount: bigint;
+  usdValue: number;
+  blockTimestamp: number;
+  blockHeight: number;
+  txHash: string;
+  activeBalances: any; // todo: remove any
+  windowDurationMs: number;
+  tokenPrice: number;
+  tokenDecimals: number;
+  tokenAddress?: string;
+}
+
 interface ProtocolMetadataItem {
   key: string;
   value: any;
@@ -87,8 +113,8 @@ interface HistoryWindow {
   txHash: string | null;
   currency: Currency;
   windowDurationMs: number;
-  lpTokenPrice: number;
-  lpTokenDecimals: number;
+  tokenPrice: number;
+  tokenDecimals: number;
   valueUsd: number;
   balanceBefore: string; // raw balance before the transfer
   balanceAfter: string; // raw balance after the transfer
@@ -97,8 +123,8 @@ interface HistoryWindow {
 interface TimeWeightedBalanceEvent {
   base: BaseEventFields;
   eventType: MessageType;
-  lpTokenPrice: number;
-  lpTokenDecimals: number;
+  tokenPrice: number;
+  tokenDecimals: number;
   balanceBefore: string;
   balanceAfter: string;
   timeWindowTrigger: TimeWindowTrigger;
@@ -108,7 +134,6 @@ interface TimeWeightedBalanceEvent {
   startBlockNumber: number;
   endBlockNumber: number;
   txHash: string | null;
-  exposureUsdMs: number;
 }
 
 type ActiveBalance = {
@@ -146,4 +171,7 @@ export {
   HistoryWindow,
   Transaction,
   ValidatedEnvBase,
+  ProtocolState,
+  BatchContext,
+  ProcessValueChangeParams,
 };

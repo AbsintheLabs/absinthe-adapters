@@ -15,6 +15,7 @@ enum ChainId {
   ARBITRUM = 42161,
   BASE = 8453,
   OPTIMISM = 10,
+  HEMI = 43111,
 }
 
 enum ChainName {
@@ -23,6 +24,7 @@ enum ChainName {
   ARBITRUM = 'arbitrum',
   BASE = 'base',
   OPTIMISM = 'optimism',
+  HEMI = 'hemi',
 }
 
 enum ChainShortName {
@@ -31,6 +33,7 @@ enum ChainShortName {
   ARBITRUM = 'arbitrum',
   BASE = 'base',
   OPTIMISM = 'optimism',
+  HEMI = 'hemi',
 }
 
 enum PriceFeed {
@@ -40,6 +43,10 @@ enum PriceFeed {
 
 enum BondingCurveProtocol {
   PRINTR = 'printr',
+}
+
+enum StakingProtocol {
+  HEMI = 'hemi',
 }
 
 enum Dex {
@@ -103,4 +110,5 @@ export {
   MessageType,
   TimeWindowTrigger,
   BondingCurveProtocol,
+  StakingProtocol,
 };

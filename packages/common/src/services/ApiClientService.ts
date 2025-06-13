@@ -42,7 +42,7 @@ export class AbsintheApiClient {
   private async sendSingleBatch(
     data: TimeWeightedBalanceEvent[] | TransactionEvent[],
   ): Promise<void> {
-    logger.info(`Sending ${data.length} records to API...`);
+    logger.info(`Sending ${data.length} records to API...`, data);
     const response = await this.sendData('api/log', data);
 
     if (!response.ok) {
