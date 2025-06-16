@@ -89,7 +89,7 @@ export class VUSDBridgeProcessor {
     );
 
     const hash = createHash('md5').update(uniquePoolCombination).digest('hex').slice(0, 8);
-    return `hemi-${hash}`;
+    return `vusd-bridge-${hash}`;
   }
 
   async run(): Promise<void> {

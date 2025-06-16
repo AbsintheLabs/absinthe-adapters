@@ -27,8 +27,6 @@ const chainConfig = {
   chainName: printrBondingCurveProtocol.chainName,
 };
 
-console.log('printrBondingCurveProtocol', printrBondingCurveProtocol);
-
 const printrProcessor = new PrintrProcessor(
   printrBondingCurveProtocol,
   apiClient,

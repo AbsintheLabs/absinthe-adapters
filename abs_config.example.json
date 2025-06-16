@@ -4,7 +4,6 @@
     {
       "type": "uniswap-v2",
       "chainId": 1,
-      "gatewayUrl": "https://v2.archive.subsquid.io/network/ethereum-mainnet",
       "toBlock": 17051833,
       "protocols": [
         {
@@ -23,6 +22,43 @@
           "preferredTokenCoingeckoId": "token1"
         }
       ]
+    },
+    {
+      "type": "izumi",
+      "chainId": 42161,
+      "toBlock": 0,
+      "protocols": [
+        {
+          "name": "WETH/ hemiBTC Pool",
+          "contractAddress": "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f",
+          "fromBlock": 1276815,
+          "pricingStrategy": "coingecko",
+          "token0": {
+            "coingeckoId": "weth",
+            "decimals": 18
+          },
+          "token1": {
+            "coingeckoId": "btc",
+            "decimals": 8
+          },
+          "preferredTokenCoingeckoId": "token1"
+        },
+        {
+          "name": "VUSD/ WETH",
+          "contractAddress": "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f",
+          "fromBlock": 1274620,
+          "pricingStrategy": "coingecko",
+          "token0": {
+            "coingeckoId": "vesper-vdollar",
+            "decimals": 18
+          },
+          "token1": {
+            "coingeckoId": "weth",
+            "decimals": 18
+          },
+          "preferredTokenCoingeckoId": "token1"
+        }
+      ]
     }
   ],
   "bondingCurveProtocols": [
@@ -31,7 +67,6 @@
       "name": "Printr Base",
       "contractAddress": "0xbdc9a5b600e9a10609b0613b860b660342a6d4c0",
       "chainId": 8453,
-      "gatewayUrl": "https://v2.archive.subsquid.io/network/base-mainnet",
       "toBlock": 0,
       "fromBlock": 30000000
     },
@@ -40,9 +75,16 @@
       "name": "VUSDMint",
       "contractAddress": "0xFd22Bcf90d63748288913336Cd38BBC0e681e298",
       "chainId": 1,
-      "gatewayUrl": "https://v2.archive.subsquid.io/network/ethereum-mainnet",
       "toBlock": 0,
       "fromBlock": 22017054
+    },
+    {
+      "type": "demos",
+      "name": "Demos",
+      "contractAddress": "0x70468f06cf32b776130e2da4c0d7dd08983282ec",
+      "chainId": 43111,
+      "toBlock": 0,
+      "fromBlock": 1993447
     }
   ],
   "stakingProtocols": [
@@ -51,7 +93,6 @@
       "name": "Hemi Staking",
       "contractAddress": "0x4f5e928763cbfaf5ffd8907ebbb0dabd5f78ba83",
       "chainId": 43111,
-      "gatewayUrl": "https://v2.archive.subsquid.io/network/hemi-mainnet",
       "toBlock": 0,
       "fromBlock": 1220463
     },
@@ -60,7 +101,6 @@
       "name": "VUSDBridge",
       "contractAddress": "0x5eaa10F99e7e6D177eF9F74E519E319aa49f191e",
       "chainId": 1,
-      "gatewayUrl": "https://v2.archive.subsquid.io/network/ethereum-mainnet",
       "toBlock": 0,
       "fromBlock": 22695105
     }

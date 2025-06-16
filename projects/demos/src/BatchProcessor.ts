@@ -11,12 +11,10 @@ import { createHash } from 'crypto';
 import { TypeormDatabase } from '@subsquid/typeorm-store';
 import { processor } from './processor';
 import { BatchContext, ProtocolState } from '@absinthe/common';
-import * as vusdMintAbi from './abi/mint';
-import * as erc20Abi from './abi/erc20';
 import { fetchHistoricalUsd, toTransaction } from '@absinthe/common';
 
 //todo: storage in database
-export class VusdMintProcessor {
+export class DemosProcessor {
   private readonly bondingCurveProtocol: BondingCurveProtocolConfig;
   private readonly schemaName: string;
   private readonly apiClient: AbsintheApiClient;
@@ -97,69 +95,52 @@ export class VusdMintProcessor {
     contractAddress: string,
     protocolState: ProtocolState,
   ): Promise<void> {
-    const poolLogs = block.logs.filter((log: any) => log.address.toLowerCase() === contractAddress);
-
-    for (const log of poolLogs) {
-      await this.processLog(ctx, block, log, protocolState);
+    const transactions = block.transactions;
+    for (const transaction of transactions) {
+      await this.processLog(ctx, block, transaction, protocolState);
     }
   }
 
   private async processLog(
     ctx: any,
     block: any,
-    log: any,
+    transaction: any,
     protocolState: ProtocolState,
   ): Promise<void> {
-    if (log.topics[0] === vusdMintAbi.events.Mint.topic) {
-      await this.processMintEvent(ctx, block, log, protocolState);
+    const { input, from, to, gasPrice, gasUsed, sighash } = transaction;
+    if (input?.startsWith('0xa4760a9e')) {
+      const gasFee = Number(gasUsed) * Number(gasPrice);
+      const displayGasFee = gasFee / 10 ** 18;
+      const ethPriceUsd = await fetchHistoricalUsd(
+        'ethereum',
+        block.header.timestamp,
+        this.env.coingeckoApiKey,
+      );
+      const gasFeeUsd = displayGasFee * ethPriceUsd;
+      const transactionSchema = {
+        eventType: MessageType.TRANSACTION,
+        tokens: JSON.stringify([
+          {
+            amount: gasFee.toString(),
+            ethPriceUsd: ethPriceUsd.toString(),
+          },
+        ]),
+        rawAmount: '0',
+        displayAmount: 0,
+        valueUsd: gasFeeUsd,
+        gasUsed: Number(gasUsed),
+        gasFeeUsd: gasFeeUsd,
+        unixTimestampMs: block.header.timestamp,
+        txHash: transaction.hash,
+        logIndex: 10000, // todo: make this null value in the schema too
+        blockNumber: block.header.height,
+        blockHash: block.header.hash,
+        userId: from,
+        currency: Currency.USD,
+      };
+      console.log('transactionSchema', transactionSchema);
+      protocolState.transactions.push(transactionSchema);
     }
-  }
-
-  private async processMintEvent(
-    ctx: any,
-    block: any,
-    log: any,
-    protocolState: ProtocolState,
-  ): Promise<void> {
-    const { tokenIn, amountIn, amountInAfterTransferFee, mintage, receiver } =
-      vusdMintAbi.events.Mint.decode(log);
-    const { gasPrice, gasUsed } = log.transaction;
-    const gasFee = Number(gasUsed) * Number(gasPrice);
-    const displayGasFee = gasFee / 10 ** 18;
-    const ethPriceUsd = await fetchHistoricalUsd(
-      'vesper-vdollar',
-      block.header.timestamp,
-      this.env.coingeckoApiKey,
-    );
-
-    const gasFeeUsd = displayGasFee * ethPriceUsd;
-
-    const mintageDisplay = Number(mintage) / 10 ** 18;
-    const mintageUsd = mintageDisplay * ethPriceUsd;
-
-    const transactionSchema = {
-      eventType: MessageType.TRANSACTION,
-      tokens: JSON.stringify([
-        {
-          tokenIn: tokenIn,
-          amountIn: amountIn.toString(),
-          amountInAfterTransferFee: amountInAfterTransferFee.toString(),
-        },
-      ]),
-      rawAmount: mintage.toString(),
-      displayAmount: mintageDisplay,
-      unixTimestampMs: block.header.timestamp,
-      txHash: log.transactionHash,
-      logIndex: log.logIndex,
-      blockNumber: block.header.height,
-      blockHash: block.header.hash,
-      userId: receiver,
-      currency: Currency.USD,
-      valueUsd: mintageUsd,
-      gasUsed: Number(gasUsed),
-      gasFeeUsd: gasFeeUsd,
-    };
-    protocolState.transactions.push(transactionSchema);
   }
 
   private async finalizeBatch(ctx: any, protocolStates: Map<string, ProtocolState>): Promise<void> {
