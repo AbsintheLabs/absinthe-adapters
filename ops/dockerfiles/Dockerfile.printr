@@ -70,4 +70,4 @@ COPY --from=build /app/projects/printr/tsconfig.json ./projects/printr/
 WORKDIR /app/projects/printr
 
 # Use exec form and proper exit handling
-CMD ["sh", "-c", "set -e; (pnpm migration:generate || echo 'No migration changes found'); pnpm migration:apply; exec node lib/main.js"]
+CMD ["node", "lib/main.js"]
