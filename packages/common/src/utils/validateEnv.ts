@@ -34,15 +34,18 @@ export function validateEnv(): {
       RPC_URL_MAINNET: z
         .string()
         .url('RPC_URL_MAINNET must be a valid URL')
-        .refine((val) => val.startsWith('https://'), 'RPC_URL_MAINNET must be https:// not wss://'),
+        .refine((val) => val.startsWith('https://'), 'RPC_URL_MAINNET must be https:// not wss://')
+        .optional(),
       RPC_URL_BASE: z
         .string()
         .url('RPC_URL_BASE must be a valid URL')
-        .refine((val) => val.startsWith('https://'), 'RPC_URL_BASE must be https:// not wss://'),
+        .refine((val) => val.startsWith('https://'), 'RPC_URL_BASE must be https:// not wss://')
+        .optional(),
       RPC_URL_HEMI: z
         .string()
         .url('RPC_URL_HEMI must be a valid URL')
-        .refine((val) => val.startsWith('https://'), 'RPC_URL_HEMI must be https:// not wss://'),
+        .refine((val) => val.startsWith('https://'), 'RPC_URL_HEMI must be https:// not wss://')
+        .optional(),
       RPC_URL_POLYGON: z.string().url('RPC_URL_POLYGON must be a valid URL').optional(),
       RPC_URL_ARBITRUM: z.string().url('RPC_URL_ARBITRUM must be a valid URL').optional(),
       RPC_URL_OPTIMISM: z.string().url('RPC_URL_OPTIMISM must be a valid URL').optional(),
@@ -111,9 +114,9 @@ export function validateEnv(): {
           chainName: chainName,
           rpcUrl:
             bondingCurveProtocol.chainId === ChainId.HEMI
-              ? envResult.data.RPC_URL_HEMI
+              ? (envResult.data.RPC_URL_HEMI as string)
               : bondingCurveProtocol.chainId === ChainId.BASE
-                ? envResult.data.RPC_URL_BASE
+                ? (envResult.data.RPC_URL_BASE as string)
                 : ChainId.MAINNET === bondingCurveProtocol.chainId
                   ? (envResult.data.RPC_URL_MAINNET as string)
                   : (envResult.data.RPC_URL_POLYGON as string),
@@ -142,8 +145,8 @@ export function validateEnv(): {
         chainName: chainName,
         rpcUrl:
           dexProtocol.chainId === ChainId.MAINNET
-            ? envResult.data.RPC_URL_MAINNET
-            : envResult.data.RPC_URL_BASE,
+            ? (envResult.data.RPC_URL_MAINNET as string)
+            : (envResult.data.RPC_URL_BASE as string),
       };
     });
 
@@ -171,8 +174,8 @@ export function validateEnv(): {
           chainName: chainName,
           rpcUrl:
             stakingProtocol.chainId === ChainId.HEMI
-              ? envResult.data.RPC_URL_HEMI
-              : envResult.data.RPC_URL_MAINNET,
+              ? (envResult.data.RPC_URL_HEMI as string)
+              : (envResult.data.RPC_URL_MAINNET as string),
         };
       },
     );
