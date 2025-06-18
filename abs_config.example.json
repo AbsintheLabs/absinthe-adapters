@@ -85,6 +85,14 @@
       "chainId": 43111,
       "toBlock": 0,
       "fromBlock": 1993447
+    },
+    {
+      "type": "voucher",
+      "name": "Voucher",
+      "contractAddress": "0xa26b04b41162b0d7c2e1e2f9a33b752e28304a49",
+      "chainId": 1,
+      "toBlock": 0,
+      "fromBlock": 21557766
     }
   ],
   "stakingProtocols": [

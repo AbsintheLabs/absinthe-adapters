@@ -1,11 +1,5 @@
-import {
-  AbsintheApiClient,
-  validateEnv,
-  HOURS_TO_MS,
-  BondingCurveProtocol,
-  Dex,
-} from '@absinthe/common';
-import { UniswapV2Processor } from './Univ2Processor';
+import { AbsintheApiClient, validateEnv, BondingCurveProtocol } from '@absinthe/common';
+import { VoucherProcessor } from './BatchProcessor';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -18,31 +12,22 @@ const apiClient = new AbsintheApiClient({
   minTime: 90, // warn: remove this, it's temporary for testing
 });
 
-const uniswapV2DexProtocol = env.dexProtocols.find((dexProtocol) => {
-  return dexProtocol.type === Dex.UNISWAP_V2;
+const voucher = env.bondingCurveProtocols.find((bondingCurveProtocol) => {
+  return bondingCurveProtocol.type === BondingCurveProtocol.VOUCHER;
 });
 
-if (!uniswapV2DexProtocol) {
-  throw new Error('Uniswap V2 protocol not found');
+if (!voucher) {
+  throw new Error('Voucher protocol not found');
 }
 
 const chainConfig = {
-  chainArch: uniswapV2DexProtocol.chainArch,
-  networkId: uniswapV2DexProtocol.chainId,
-  chainShortName: uniswapV2DexProtocol.chainShortName,
-  chainName: uniswapV2DexProtocol.chainName,
+  chainArch: voucher.chainArch,
+  networkId: voucher.chainId,
+  chainShortName: voucher.chainShortName,
+  chainName: voucher.chainName,
 };
 
 // todo: make the contract address lowercase throughout the codebase
 
-console.log(process.env.DB_URL);
-
-const WINDOW_DURATION_MS = env.baseConfig.balanceFlushIntervalHours * HOURS_TO_MS;
-const uniswapProcessor = new UniswapV2Processor(
-  uniswapV2DexProtocol,
-  WINDOW_DURATION_MS,
-  apiClient,
-  env.baseConfig,
-  chainConfig,
-);
-uniswapProcessor.run();
+const voucherProcessor = new VoucherProcessor(voucher, apiClient, env.baseConfig, chainConfig);
+voucherProcessor.run();
