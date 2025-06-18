@@ -1,11 +1,11 @@
 spec:
   name: absinthe-adapters
   services:
-    - name: uniswapv2-indexer
-      dockerfile_path: ops/dockerfiles/Dockerfile.uniswapv2
+    - name: printr-indexer
+      dockerfile_path: ops/dockerfiles/Dockerfile.printr
       github:
         repo: AbsintheLabs/absinthe-adapters
-        branch: test
+        branch: develop
         deploy_on_push: true
       envs:
         - key: DB_URL

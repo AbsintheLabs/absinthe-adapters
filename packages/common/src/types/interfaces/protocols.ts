@@ -13,7 +13,7 @@ import {
 } from '../enums';
 
 interface BaseProtocolConfig {
-  type: string;
+  type: Dex | BondingCurveProtocol | StakingProtocol;
   contractAddress: string;
   fromBlock: number;
   name?: string;
@@ -60,6 +60,7 @@ interface StakingProtocolConfig {
 }
 
 interface ProtocolConfig {
+  type: string;
   name: string;
   contractAddress: string;
   fromBlock: number;

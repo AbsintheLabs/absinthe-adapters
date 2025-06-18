@@ -1,11 +1,9 @@
-import { ProtocolConfig } from './protocols';
 import {
   ChainId,
   ChainName,
   ChainShortName,
   ChainType,
   Currency,
-  Dex,
   MessageType,
   TimeWindowTrigger,
 } from '../enums';
@@ -142,17 +140,6 @@ type ActiveBalance = {
   updatedBlockHeight: number;
 };
 
-interface ValidatedEnv {
-  type: Dex;
-  chainId: ChainId;
-  chainName: ChainName;
-  chainShortName: ChainShortName;
-  chainArch: ChainType;
-  rpcUrl: string;
-  toBlock: number;
-  protocols: ProtocolConfig[];
-}
-
 interface ValidatedEnvBase {
   balanceFlushIntervalHours: number;
   absintheApiUrl: string;
@@ -163,7 +150,6 @@ interface ValidatedEnvBase {
 
 export {
   Chain,
-  ValidatedEnv,
   TokenDetails,
   TransactionEvent,
   ActiveBalance,

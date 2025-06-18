@@ -82,11 +82,14 @@ function toTransaction(
   return transactions.map((e) => {
     const hashMessage = `${chainConfig.networkId}-${e.txHash}-${e.userId}-${e.logIndex}-${env.absintheApiKey}`;
     const hash = createHash('md5').update(hashMessage).digest('hex').slice(0, 8);
+
+    const onChainId = `${protocol.type}-${chainConfig.networkId}-${protocol.contractAddress}`;
     const baseSchema = {
       version: '1.0',
       eventId: hash,
       userId: e.userId,
       chain: chainConfig,
+      onChainId,
       runner: {
         runnerId: 'uniswapv2_indexer_001', //todo: get the current PID/ docker-containerId
       },
