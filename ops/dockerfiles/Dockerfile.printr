@@ -37,10 +37,8 @@ COPY --from=deps /app/projects/printr/node_modules ./projects/printr/node_module
 WORKDIR /app/packages/common
 RUN pnpm squid-evm-typegen ./src/abi/ abi/*.json
 
-# Generate TypeScript clients for printr project ABIs and codegen
 WORKDIR /app/projects/printr
 RUN pnpm squid-evm-typegen ./src/abi/ abi/*.json
-RUN pnpm squid-typeorm-codegen
 
 # Build the common package first, then printr
 WORKDIR /app
@@ -67,7 +65,6 @@ COPY --from=build /app/abs_config.json ./
 
 # Copy source files needed for migrations
 COPY --from=build /app/projects/printr/src ./projects/printr/src
-COPY --from=build /app/projects/printr/schema.graphql ./projects/printr/
 COPY --from=build /app/projects/printr/tsconfig.json ./projects/printr/
 
 WORKDIR /app/projects/printr
