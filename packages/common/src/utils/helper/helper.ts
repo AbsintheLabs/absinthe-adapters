@@ -75,7 +75,7 @@ function toTimeWeightedBalance(
 
 function toTransaction(
   transactions: Transaction[],
-  protocol: ProtocolConfig | BondingCurveProtocolConfig,
+  protocol: ProtocolConfig | BondingCurveProtocolConfig | StakingProtocolConfig,
   env: ValidatedEnvBase,
   chainConfig: Chain,
 ): TransactionEvent[] {

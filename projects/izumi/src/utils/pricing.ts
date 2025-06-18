@@ -1,9 +1,10 @@
 import Big from 'big.js';
 import { PoolConfig, PoolState } from '../model';
+import { fetchHistoricalUsd, validateEnv } from '@absinthe/common';
 import { DataHandlerContext, BlockData } from '@subsquid/evm-processor';
 import { Store } from '@subsquid/typeorm-store';
 import { updatePoolStateFromOnChain } from './pool';
-import { fetchHistoricalUsd, pricePosition } from '@absinthe/common';
+import { pricePosition } from '@absinthe/common';
 
 /** in-memory, process-wide price cache (key = "<id>-<hourBucket>") */
 const hourlyPriceCache = new Map<string, number>();

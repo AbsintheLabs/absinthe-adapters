@@ -44,6 +44,7 @@ enum PriceFeed {
 enum BondingCurveProtocol {
   PRINTR = 'printr',
   VUSD_MINT = 'vusd-mint',
+  DEMOS = 'demos',
 }
 
 enum StakingProtocol {
@@ -51,6 +52,14 @@ enum StakingProtocol {
   VUSDBRIDGE = 'vusd-bridge',
 }
 
+enum GatewayUrl {
+  MAINNET = 'https://v2.archive.subsquid.io/network/ethereum-mainnet',
+  POLYGON = 'https://v2.archive.subsquid.io/network/polygon-mainnet',
+  ARBITRUM = 'https://v2.archive.subsquid.io/network/arbitrum-mainnet',
+  BASE = 'https://v2.archive.subsquid.io/network/base-mainnet',
+  OPTIMISM = 'https://v2.archive.subsquid.io/network/optimism-mainnet',
+  HEMI = 'https://v2.archive.subsquid.io/network/hemi-mainnet',
+}
 enum Dex {
   UNISWAP_V2 = 'uniswap-v2',
   UNISWAP_V3 = 'uniswap-v3',
@@ -65,6 +74,7 @@ enum Dex {
   PANGOLIN = 'pangolin',
   AAVE = 'aave',
   COMPOUND = 'compound',
+  IZUMI = 'izumi',
 }
 
 enum ChainType {
@@ -113,4 +123,5 @@ export {
   TimeWindowTrigger,
   BondingCurveProtocol,
   StakingProtocol,
+  GatewayUrl,
 };

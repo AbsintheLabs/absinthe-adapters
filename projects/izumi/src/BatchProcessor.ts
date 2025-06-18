@@ -33,7 +33,8 @@ import { loadPoolProcessStateFromDb, loadPoolStateFromDb } from './utils/pool';
 import { loadPoolConfigFromDb } from './utils/pool';
 import { ProtocolStateUniv2 } from './utils/types';
 import { PoolConfig } from './model';
-import * as univ2Abi from './abi/univ2';
+import * as factoryAbi from './abi/factory';
+import * as poolAbi from './abi/pool';
 import { computeLpTokenPrice, computePricedSwapVolume } from './utils/pricing';
 import {
   mapToJson,
@@ -43,7 +44,7 @@ import {
   pricePosition,
 } from '@absinthe/common';
 
-export class UniswapV2Processor {
+export class IzumiProcessor {
   private readonly protocols: ProtocolConfig[];
   private readonly schemaName: string;
   private readonly refreshWindow: number;
@@ -72,7 +73,7 @@ export class UniswapV2Processor {
       .concat(this.chainConfig.networkId.toString());
 
     const hash = createHash('md5').update(uniquePoolCombination).digest('hex').slice(0, 8);
-    return `univ2-${hash}`;
+    return `izumi-${hash}`;
   }
 
   async run(): Promise<void> {
@@ -186,16 +187,20 @@ export class UniswapV2Processor {
     protocol: ProtocolConfig,
     protocolState: ProtocolStateUniv2,
   ): Promise<void> {
-    if (log.topics[0] === univ2Abi.events.Swap.topic) {
+    if (log.topics[0] === factoryAbi.events.NewPool.topic) {
+      await this.processNewPoolEvent(ctx, block, log, protocol, protocolState);
+    }
+
+    if (log.topics[0] === poolAbi.events.Swap.topic) {
       await this.processSwapEvent(ctx, block, log, protocol, protocolState);
     }
 
-    if (log.topics[0] === univ2Abi.events.Sync.topic) {
-      this.processSyncEvent(protocolState);
+    if (log.topics[0] === poolAbi.events.Mint.topic) {
+      await this.processMintEvent(ctx, block, log, protocol, protocolState);
     }
 
-    if (log.topics[0] === univ2Abi.events.Transfer.topic) {
-      await this.processTransferEvent(ctx, block, log, protocol, protocolState);
+    if (log.topics[0] === poolAbi.events.Burn.topic) {
+      await this.processBurnEvent(ctx, block, log, protocol, protocolState);
     }
   }
 
@@ -206,15 +211,13 @@ export class UniswapV2Processor {
     protocol: ProtocolConfig,
     protocolState: ProtocolStateUniv2,
   ): Promise<void> {
-    const { sender, amount0In, amount0Out, amount1In, amount1Out } =
-      univ2Abi.events.Swap.decode(log);
-    const token0Amount = amount0In + amount0Out;
-    const token1Amount = amount1In + amount1Out;
+    const { tokenX, tokenY, fee, sellXEarnY, amountX, amountY } = poolAbi.events.Swap.decode(log);
+    const token0Amount = sellXEarnY ? amountX : amountY;
+    const token1Amount = sellXEarnY ? amountY : amountX;
 
     const { gasPrice, gasUsed } = log.transaction;
     const gasFee = Number(gasUsed) * Number(gasPrice);
     const displayGasFee = gasFee / 10 ** 18;
-    //todo:fix
     const ethPriceUsd = await fetchHistoricalUsd(
       'ethereum',
       block.header.timestamp,
@@ -250,8 +253,8 @@ export class UniswapV2Processor {
             symbol: ChainShortName.MAINNET,
           },
           amount: token0Amount.toString(),
-          amountIn: amount0In.toString(),
-          amountOut: amount0Out.toString(),
+          amountIn: token0Amount.toString(),
+          amountOut: token1Amount.toString(),
         },
         {
           token: {
@@ -261,8 +264,8 @@ export class UniswapV2Processor {
             symbol: ChainShortName.MAINNET,
           },
           amount: token1Amount.toString(),
-          amountIn: amount1In.toString(),
-          amountOut: amount1Out.toString(),
+          amountIn: token1Amount.toString(),
+          amountOut: token0Amount.toString(),
         },
       ]),
       rawAmount:
@@ -278,7 +281,7 @@ export class UniswapV2Processor {
       logIndex: log.logIndex,
       blockNumber: block.header.height,
       blockHash: block.header.hash,
-      userId: sender,
+      userId: log.transaction.from,
       currency: Currency.USD,
       valueUsd: pricedSwapVolume,
       gasUsed: Number(gasUsed),
@@ -288,49 +291,34 @@ export class UniswapV2Processor {
     protocolState.transactions.push(transactionSchema);
   }
 
-  private processSyncEvent(protocolState: ProtocolStateUniv2): void {
-    // If we see a sync event, we need to update the pool state later since reserves and/or total supply have changed
-    protocolState.state.isDirty = true;
-  }
-
-  private async processTransferEvent(
+  private async processNewPoolEvent(
     ctx: any,
     block: any,
     log: any,
     protocol: ProtocolConfig,
     protocolState: ProtocolStateUniv2,
   ): Promise<void> {
-    const { from, to, value } = univ2Abi.events.Transfer.decode(log);
+    // todo: implement
+  }
 
-    const lpTokenPrice = await computeLpTokenPrice(
-      ctx,
-      block,
-      protocolState.config,
-      protocolState.state,
-      this.env.coingeckoApiKey,
-      block.header.timestamp,
-    );
-    const lpTokenSwapUsdValue = pricePosition(
-      lpTokenPrice,
-      value,
-      protocolState.config.lpToken.decimals,
-    );
-    //todo: check to and from
-    const newHistoryWindows = processValueChange({
-      from,
-      to,
-      amount: value,
-      usdValue: lpTokenSwapUsdValue,
-      blockTimestamp: block.header.timestamp,
-      blockHeight: block.header.height,
-      txHash: log.transactionHash,
-      activeBalances: protocolState.activeBalances,
-      windowDurationMs: this.refreshWindow,
-      tokenPrice: lpTokenPrice,
-      tokenDecimals: protocolState.config.lpToken.decimals,
-    });
+  private async processBurnEvent(
+    ctx: any,
+    block: any,
+    log: any,
+    protocol: ProtocolConfig,
+    protocolState: ProtocolStateUniv2,
+  ): Promise<void> {
+    // todo: implement
+  }
 
-    protocolState.balanceWindows.push(...newHistoryWindows);
+  private async processMintEvent(
+    ctx: any,
+    block: any,
+    log: any,
+    protocol: ProtocolConfig,
+    protocolState: ProtocolStateUniv2,
+  ): Promise<void> {
+    // todo: implement
   }
 
   private async processPeriodicBalanceFlush(
@@ -421,7 +409,7 @@ export class UniswapV2Processor {
         this.chainConfig,
       );
       await this.apiClient.send(balances);
-      await this.apiClient.send(transactions);
+      await this.apiClient.sendToApiFromTimestamp(transactions, 17050833);
 
       // Save to database
       await ctx.store.upsert(protocolState.config.token0); //saves to Token table

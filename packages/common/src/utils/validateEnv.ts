@@ -11,6 +11,7 @@ import {
   ChainName,
   ChainShortName,
   ChainType,
+  GatewayUrl,
   StakingProtocol,
 } from '../types/enums';
 import { getChainEnumKey } from './helper/getChainEnumKey';
@@ -42,6 +43,9 @@ export function validateEnv(): {
         .string()
         .url('RPC_URL_HEMI must be a valid URL')
         .refine((val) => val.startsWith('https://'), 'RPC_URL_HEMI must be https:// not wss://'),
+      RPC_URL_POLYGON: z.string().url('RPC_URL_POLYGON must be a valid URL').optional(),
+      RPC_URL_ARBITRUM: z.string().url('RPC_URL_ARBITRUM must be a valid URL').optional(),
+      RPC_URL_OPTIMISM: z.string().url('RPC_URL_OPTIMISM must be a valid URL').optional(),
       ABSINTHE_API_URL: z.string().url('ABSINTHE_API_URL must be a valid URL'),
       ABSINTHE_API_KEY: z.string().min(1, 'ABSINTHE_API_KEY is required'),
       COINGECKO_API_KEY: z.string().min(1, 'COINGECKO_API_KEY is required'),
@@ -93,21 +97,26 @@ export function validateEnv(): {
         const chainName = ChainName[chainKey];
         const chainShortName = ChainShortName[chainKey];
         const chainArch = ChainType.EVM;
+        const gatewayUrl = GatewayUrl[chainKey];
         return {
           type: bondingCurveProtocol.type as BondingCurveProtocol,
-          gatewayUrl: bondingCurveProtocol.gatewayUrl,
           toBlock: bondingCurveProtocol.toBlock,
           fromBlock: bondingCurveProtocol.fromBlock,
           name: bondingCurveProtocol.name,
           contractAddress: bondingCurveProtocol.contractAddress,
           chainArch: chainArch,
           chainId: chainId,
+          gatewayUrl: gatewayUrl,
           chainShortName: chainShortName,
           chainName: chainName,
           rpcUrl:
-            bondingCurveProtocol.chainId === ChainId.MAINNET
-              ? envResult.data.RPC_URL_MAINNET
-              : envResult.data.RPC_URL_BASE,
+            bondingCurveProtocol.chainId === ChainId.HEMI
+              ? envResult.data.RPC_URL_HEMI
+              : bondingCurveProtocol.chainId === ChainId.BASE
+                ? envResult.data.RPC_URL_BASE
+                : ChainId.MAINNET === bondingCurveProtocol.chainId
+                  ? (envResult.data.RPC_URL_MAINNET as string)
+                  : (envResult.data.RPC_URL_POLYGON as string),
         };
       });
 
@@ -120,10 +129,11 @@ export function validateEnv(): {
       const chainName = ChainName[chainKey];
       const chainShortName = ChainShortName[chainKey];
       const chainArch = ChainType.EVM;
+      const gatewayUrl = GatewayUrl[chainKey];
 
       return {
         type: dexProtocol.type,
-        gatewayUrl: dexProtocol.gatewayUrl,
+        gatewayUrl: gatewayUrl,
         toBlock: dexProtocol.toBlock,
         protocols: dexProtocol.protocols as ProtocolConfig[],
         chainArch: chainArch,
@@ -147,9 +157,10 @@ export function validateEnv(): {
         const chainName = ChainName[chainKey];
         const chainShortName = ChainShortName[chainKey];
         const chainArch = ChainType.EVM;
+        const gatewayUrl = GatewayUrl[chainKey];
         return {
           type: stakingProtocol.type as StakingProtocol,
-          gatewayUrl: stakingProtocol.gatewayUrl,
+          gatewayUrl: gatewayUrl,
           toBlock: stakingProtocol.toBlock,
           fromBlock: stakingProtocol.fromBlock,
           name: stakingProtocol.name,

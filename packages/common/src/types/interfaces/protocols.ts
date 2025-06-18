@@ -9,6 +9,7 @@ import {
   ChainType,
   ChainId,
   StakingProtocol,
+  GatewayUrl,
 } from '../enums';
 
 interface BaseProtocolConfig {
@@ -20,11 +21,11 @@ interface BaseProtocolConfig {
 
 interface DexProtocolConfig {
   type: Dex;
+  gatewayUrl: GatewayUrl;
   chainId: ChainId;
   chainArch: ChainType;
   chainShortName: ChainShortName;
   chainName: ChainName;
-  gatewayUrl: string;
   rpcUrl: string;
   toBlock: number;
   protocols: ProtocolConfig[];
@@ -35,10 +36,10 @@ interface BondingCurveProtocolConfig {
   name: string;
   contractAddress: string;
   chainId: number;
+  gatewayUrl: GatewayUrl;
   chainArch: ChainType;
   chainShortName: ChainShortName;
   chainName: ChainName;
-  gatewayUrl: string;
   toBlock: number;
   fromBlock: number;
   rpcUrl: string;
@@ -49,10 +50,10 @@ interface StakingProtocolConfig {
   name: string;
   contractAddress: string;
   chainId: number;
+  gatewayUrl: GatewayUrl;
   chainArch: ChainType;
   chainShortName: ChainShortName;
   chainName: ChainName;
-  gatewayUrl: string;
   toBlock: number;
   fromBlock: number;
   rpcUrl: string;

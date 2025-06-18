@@ -144,7 +144,6 @@ type ActiveBalance = {
 
 interface ValidatedEnv {
   type: Dex;
-  gatewayUrl: string;
   chainId: ChainId;
   chainName: ChainName;
   chainShortName: ChainShortName;

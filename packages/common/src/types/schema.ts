@@ -19,9 +19,16 @@ const protocolConfigSchema = z.object({
 });
 
 const dexProtocolSchema = z.object({
-  type: z.enum([Dex.UNISWAP_V2, Dex.UNISWAP_V3, Dex.COMPOUND, Dex.AAVE, Dex.CURVE, Dex.BALANCER]),
+  type: z.enum([
+    Dex.UNISWAP_V2,
+    Dex.UNISWAP_V3,
+    Dex.COMPOUND,
+    Dex.AAVE,
+    Dex.CURVE,
+    Dex.BALANCER,
+    Dex.IZUMI,
+  ]),
   chainId: z.number(),
-  gatewayUrl: z.string().url('Gateway URL must be a valid URL'),
   toBlock: z.number(),
   protocols: z.array(protocolConfigSchema),
 });
@@ -33,7 +40,6 @@ const bondingCurveProtocolSchema = z.object({
     .string()
     .regex(/^0x[a-fA-F0-9]{40}$/, 'Contract address must be a valid Ethereum address'),
   chainId: z.number(),
-  gatewayUrl: z.string().url('Gateway URL must be a valid URL'),
   toBlock: z.number(),
   fromBlock: z.number(),
 });
@@ -45,7 +51,6 @@ const stakingProtocolSchema = z.object({
     .string()
     .regex(/^0x[a-fA-F0-9]{40}$/, 'Contract address must be a valid Ethereum address'),
   chainId: z.number(),
-  gatewayUrl: z.string().url('Gateway URL must be a valid URL'),
   toBlock: z.number(),
   fromBlock: z.number(),
 });
