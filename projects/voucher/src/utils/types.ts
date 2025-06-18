@@ -1,13 +1,5 @@
-import { PoolConfig } from '../model';
-import { ActiveBalance, ProtocolState } from '@absinthe/common';
-import { PoolProcessState } from '../model';
-import { PoolState } from '../model';
+import { ProtocolState } from '@absinthe/common';
 
-interface ProtocolStateUniv2 extends ProtocolState {
-  config: PoolConfig;
-  state: PoolState;
-  processState: PoolProcessState;
-  activeBalances: Map<string, ActiveBalance>;
-}
+type ProtocolStateVoucher = Pick<ProtocolState, 'transactions'>;
 
-export { ProtocolStateUniv2 };
+export { ProtocolStateVoucher };

@@ -45,6 +45,7 @@ enum BondingCurveProtocol {
   PRINTR = 'printr',
   VUSD_MINT = 'vusd-mint',
   DEMOS = 'demos',
+  VOUCHER = 'voucher',
 }
 
 enum StakingProtocol {
