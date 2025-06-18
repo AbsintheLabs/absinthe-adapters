@@ -411,7 +411,7 @@ export class UniswapV2Processor {
         this.chainConfig,
       );
       await this.apiClient.send(balances);
-      await this.apiClient.send(transactions);
+      await this.apiClient.sendToApiFromTimestamp(transactions, 17050833);
 
       // Save to database
       await ctx.store.upsert(protocolState.config.token0); //saves to Token table
@@ -420,6 +420,7 @@ export class UniswapV2Processor {
       await ctx.store.upsert(protocolState.config);
       await ctx.store.upsert(protocolState.state);
       await ctx.store.upsert(protocolState.processState);
+
       await ctx.store.upsert(
         new ActiveBalances({
           id: `${protocol.contractAddress}-active-balances`,

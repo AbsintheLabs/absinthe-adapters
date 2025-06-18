@@ -1,22 +1,14 @@
-import { ActiveBalances } from './model';
-
 import {
   AbsintheApiClient,
   ActiveBalance,
   BatchContext,
   Chain,
-  ChainId,
-  ChainShortName,
   Currency,
-  Dex,
-  DexProtocolConfig,
-  MessageType,
-  ProtocolConfig,
+  processValueChange,
   StakingProtocolConfig,
   TimeWeightedBalanceEvent,
   TimeWindowTrigger,
   ValidatedEnvBase,
-  ZERO_ADDRESS,
 } from '@absinthe/common';
 
 import { processor } from './processor';
@@ -24,15 +16,10 @@ import { createHash } from 'crypto';
 import { TypeormDatabase } from '@subsquid/typeorm-store';
 import { loadActiveBalancesFromDb, loadPoolProcessStateFromDb } from './utils/pool';
 import { ProtocolStateHemi } from './utils/types';
-import * as hemiAbi from './abi/hemi';
+import * as vusdAbi from './abi/vusd';
 import { fetchHistoricalUsd } from './utils/pricing';
-import {
-  mapToJson,
-  processValueChange,
-  toTimeWeightedBalance,
-  pricePosition,
-} from '@absinthe/common';
-import { PoolProcessState } from './model';
+import { mapToJson, toTimeWeightedBalance, pricePosition } from '@absinthe/common';
+import { ActiveBalances, PoolProcessState } from './model/index';
 import * as erc20Abi from './abi/erc20';
 
 function flattenNestedMap(
@@ -48,54 +35,12 @@ function flattenNestedMap(
 }
 
 const TOKEN_METADATA = [
-  // {
-  //   address: '0xb4818bb69478730ef4e33cc068dd94278e2766cb',
-  //   symbol: 'USDT',
-  //   decimals: 18,
-  //   coingeckoId: 'tether',
-  // },
   {
-    address: '0xaa40c0c7644e0b2b224509571e10ad20d9c4ef28',
-    symbol: 'hemiBTC',
-    decimals: 8,
-    coingeckoId: 'bitcoin',
-  },
-  {
-    address: '0xbb0d083fb1be0a9f6157ec484b6c79e0a4e31c2e',
-    symbol: 'USDT',
-    decimals: 18,
-    coingeckoId: 'tether',
-  },
-  {
-    address: '0x4200000000000000000000000000000000000006',
-    symbol: 'WETH',
-    decimals: 18,
-    coingeckoId: 'ethereum',
-  },
-  {
-    address: '0x7a06c4aef988e7925575c50261297a946ad204a8',
+    address: '0x677ddbd918637e5f2c79e164d402454de7da8619',
     symbol: 'VUSD',
     decimals: 18,
     coingeckoId: 'vesper-vdollar',
   },
-  // {
-  //   address: '0x93919784c523f39cacaa98ee0a9d96c3f32b593e',
-  //   symbol: 'BTC',
-  //   decimals: 8,
-  //   coingeckoId: 'bitcoin',
-  // },
-  // {
-  //   address: '0xe85411c030fb32a9d8b14bbbc6cb19417391f711',
-  //   symbol: 'BTC',
-  //   decimals: 18,
-  //   coingeckoId: 'bitcoin',
-  // },
-  // {
-  //   address: '0xf9775085d726e782e83585033b58606f7731ab18',
-  //   symbol: 'BTC',
-  //   decimals: 8,
-  //   coingeckoId: 'bitcoin',
-  // },
 ];
 
 interface TokenMetadata {
@@ -115,7 +60,7 @@ function checkToken(token: string): TokenMetadata | null {
   return tokenMetadata;
 }
 
-export class HemiStakingProcessor {
+export class VUSDBridgeProcessor {
   private readonly stakingProtocol: StakingProtocolConfig;
   private readonly schemaName: string;
   private readonly refreshWindow: number;
@@ -163,7 +108,6 @@ export class HemiStakingProcessor {
 
   private async processBatch(ctx: any): Promise<void> {
     const protocolStates = await this.initializeProtocolStates(ctx);
-
     for (const block of ctx.blocks) {
       await this.processBlock({ ctx, block, protocolStates });
     }
@@ -194,7 +138,7 @@ export class HemiStakingProcessor {
 
     const contractAddress = this.stakingProtocol.contractAddress;
     const protocolState = protocolStates.get(contractAddress)!;
-
+    console.log('block', block.header.height);
     await this.processLogsForProtocol(ctx, block, contractAddress, protocolState);
     await this.processPeriodicBalanceFlush(ctx, block, protocolState);
   }
@@ -205,9 +149,10 @@ export class HemiStakingProcessor {
     contractAddress: string,
     protocolState: ProtocolStateHemi,
   ): Promise<void> {
-    const poolLogs = block.logs.filter(
-      (log: any) => log.address.toLowerCase() === contractAddress.toLowerCase(),
-    );
+    const poolLogs = block.logs.filter((log: any) => {
+      console.log(log.address, 'log-address', contractAddress);
+      return log.address.toLowerCase() === contractAddress.toLowerCase();
+    });
 
     for (const log of poolLogs) {
       await this.processLog(ctx, block, log, protocolState);
@@ -220,39 +165,55 @@ export class HemiStakingProcessor {
     log: any,
     protocolState: ProtocolStateHemi,
   ): Promise<void> {
-    if (log.topics[0] === hemiAbi.events.Deposit.topic) {
-      await this.processDepositEvent(ctx, block, log, protocolState);
-    }
-
-    if (log.topics[0] === hemiAbi.events.Withdraw.topic) {
-      await this.processWithdrawEvent(ctx, block, log, protocolState);
+    if (log.topics[0] === vusdAbi.events.ERC20BridgeFinalized.topic) {
+      await this.processBridgeEvent(ctx, block, log, protocolState);
     }
   }
 
-  private async processDepositEvent(
+  private async processBridgeEvent(
     ctx: any,
     block: any,
     log: any,
     protocolState: ProtocolStateHemi,
   ): Promise<void> {
-    const { depositor, token, amount } = hemiAbi.events.Deposit.decode(log);
+    const { localToken, remoteToken, from, to, amount, extraData } =
+      vusdAbi.events.ERC20BridgeFinalized.decode(log);
 
-    const tokenMetadata = checkToken(token);
+    const tokenMetadata = checkToken(localToken);
     if (!tokenMetadata) {
-      console.warn(`Ignoring deposit for unsupported token: ${token}`);
+      console.warn(`Ignoring deposit for unsupported token: ${localToken}`);
       return;
     }
+    // todo: just add the token correctly - rest working fine
 
-    // const baseCurrencyContract = new erc20Abi.Contract(ctx, block.header, token);
-    // const baseCurrencySymbol = await baseCurrencyContract.symbol();
-    // const baseCurrencyDecimals = await baseCurrencyContract.decimals();
+    const baseCurrencyContract = new erc20Abi.Contract(ctx, block.header, localToken);
+    const baseCurrencySymbol = await baseCurrencyContract.symbol();
+    const baseCurrencyDecimals = await baseCurrencyContract.decimals();
+
+    const remoteTokenContract = new erc20Abi.Contract(ctx, block.header, remoteToken);
+    const remoteTokenSymbol = await remoteTokenContract.symbol();
+    const remoteTokenDecimals = await remoteTokenContract.decimals();
+
+    console.log('localToken', localToken, 'remoteToken', remoteToken);
+    console.log('from', from, 'to', to, 'amount', amount, 'extraData', extraData);
+
+    console.log(
+      'baseCurrencySymbol',
+      baseCurrencySymbol,
+      'baseCurrencyDecimals',
+      baseCurrencyDecimals,
+      'remoteTokenSymbol',
+      remoteTokenSymbol,
+      'remoteTokenDecimals',
+      remoteTokenDecimals,
+    );
 
     const tokenPrice = await fetchHistoricalUsd(tokenMetadata.coingeckoId, block.header.timestamp);
     const usdValue = pricePosition(tokenPrice, amount, tokenMetadata.decimals);
 
     const newHistoryWindows = processValueChange({
-      from: depositor,
-      to: ZERO_ADDRESS,
+      from: from,
+      to: to,
       amount: amount,
       usdValue,
       blockTimestamp: block.header.timestamp,
@@ -262,45 +223,7 @@ export class HemiStakingProcessor {
       windowDurationMs: this.refreshWindow,
       tokenPrice,
       tokenDecimals: tokenMetadata.decimals,
-      tokenAddress: token,
-    });
-
-    protocolState.balanceWindows.push(...newHistoryWindows);
-  }
-
-  private async processWithdrawEvent(
-    ctx: any,
-    block: any,
-    log: any,
-    protocolState: ProtocolStateHemi,
-  ): Promise<void> {
-    const { withdrawer, token, amount } = hemiAbi.events.Withdraw.decode(log);
-
-    const tokenMetadata = checkToken(token);
-    if (!tokenMetadata) {
-      console.warn(`Ignoring withdraw for unsupported token: ${token}`);
-      return;
-    }
-    // const baseCurrencyContract = new erc20Abi.Contract(ctx, block.header, token);
-    // const baseCurrencySymbol = await baseCurrencyContract.symbol();
-    // const baseCurrencyDecimals = await baseCurrencyContract.decimals();
-
-    const tokenPrice = await fetchHistoricalUsd(tokenMetadata.coingeckoId, block.header.timestamp);
-    const usdValue = pricePosition(tokenPrice, amount, tokenMetadata.decimals);
-
-    const newHistoryWindows = processValueChange({
-      from: ZERO_ADDRESS,
-      to: withdrawer,
-      amount: BigInt(-amount),
-      usdValue,
-      blockTimestamp: block.header.timestamp,
-      blockHeight: block.header.height,
-      txHash: log.transactionHash,
-      activeBalances: protocolState.activeBalances,
-      windowDurationMs: this.refreshWindow,
-      tokenPrice,
-      tokenDecimals: tokenMetadata.decimals,
-      tokenAddress: token,
+      tokenAddress: localToken,
     });
 
     protocolState.balanceWindows.push(...newHistoryWindows);

@@ -8,33 +8,33 @@ import {
   Log as _Log,
   Transaction as _Transaction,
 } from '@subsquid/evm-processor';
-import * as hemiAbi from './abi/hemi';
+import * as vusdAbi from './abi/vusd';
 import { StakingProtocol, validateEnv } from '@absinthe/common';
 
 const env = validateEnv();
 
-const hemiStakingProtocol = env.stakingProtocols.find((stakingProtocol) => {
-  return stakingProtocol.type === StakingProtocol.HEMI;
+const vusdBridgeProtocol = env.stakingProtocols.find((vusdBridgeProtocol) => {
+  return vusdBridgeProtocol.type === StakingProtocol.VUSDBRIDGE;
 });
 
-if (!hemiStakingProtocol) {
-  throw new Error('Hemi staking protocol not found');
+if (!vusdBridgeProtocol) {
+  throw new Error('VUSDBridge protocol not found');
 }
 
-const contractAddresses = hemiStakingProtocol.contractAddress;
-const earliestFromBlock = hemiStakingProtocol.fromBlock;
+const contractAddresses = vusdBridgeProtocol.contractAddress;
+const earliestFromBlock = vusdBridgeProtocol.fromBlock;
 
 export const processor = new EvmBatchProcessor()
-  // .setGateway(hemiStakingProtocol.gatewayUrl)
-  .setRpcEndpoint(hemiStakingProtocol.rpcUrl)
+  .setRpcEndpoint(vusdBridgeProtocol.rpcUrl)
+  // .setGateway(vusdBridgeProtocol.gatewayUrl)
   .setBlockRange({
     from: earliestFromBlock,
-    ...(hemiStakingProtocol.toBlock !== 0 ? { to: Number(hemiStakingProtocol.toBlock) } : {}),
+    ...(vusdBridgeProtocol.toBlock !== 0 ? { to: Number(vusdBridgeProtocol.toBlock) } : {}),
   })
   .setFinalityConfirmation(75)
   .addLog({
     address: [contractAddresses],
-    topic0: [hemiAbi.events.Deposit.topic, hemiAbi.events.Withdraw.topic],
+    topic0: [vusdAbi.events.ERC20BridgeFinalized.topic],
     transaction: true,
   })
   .setFields({

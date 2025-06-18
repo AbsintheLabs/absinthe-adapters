@@ -8,33 +8,32 @@ import {
   Log as _Log,
   Transaction as _Transaction,
 } from '@subsquid/evm-processor';
-import * as hemiAbi from './abi/hemi';
-import { StakingProtocol, validateEnv } from '@absinthe/common';
+import * as vusdMintAbi from './abi/mint';
+import { BondingCurveProtocol, validateEnv } from '@absinthe/common';
 
 const env = validateEnv();
-
-const hemiStakingProtocol = env.stakingProtocols.find((stakingProtocol) => {
-  return stakingProtocol.type === StakingProtocol.HEMI;
+const vusdMintBondingCurveProtocol = env.bondingCurveProtocols.find((bondingCurveProtocol) => {
+  return bondingCurveProtocol.type === BondingCurveProtocol.VUSD_MINT;
 });
 
-if (!hemiStakingProtocol) {
-  throw new Error('Hemi staking protocol not found');
+if (!vusdMintBondingCurveProtocol) {
+  throw new Error('VUSDMint protocol not found');
 }
 
-const contractAddresses = hemiStakingProtocol.contractAddress;
-const earliestFromBlock = hemiStakingProtocol.fromBlock;
-
+const earliestFromBlock = vusdMintBondingCurveProtocol.fromBlock;
 export const processor = new EvmBatchProcessor()
-  // .setGateway(hemiStakingProtocol.gatewayUrl)
-  .setRpcEndpoint(hemiStakingProtocol.rpcUrl)
+  .setGateway(vusdMintBondingCurveProtocol.gatewayUrl)
+  .setRpcEndpoint(vusdMintBondingCurveProtocol.rpcUrl)
   .setBlockRange({
     from: earliestFromBlock,
-    ...(hemiStakingProtocol.toBlock !== 0 ? { to: Number(hemiStakingProtocol.toBlock) } : {}),
+    ...(vusdMintBondingCurveProtocol.toBlock != 0
+      ? { to: Number(vusdMintBondingCurveProtocol.toBlock) }
+      : {}),
   })
   .setFinalityConfirmation(75)
   .addLog({
-    address: [contractAddresses],
-    topic0: [hemiAbi.events.Deposit.topic, hemiAbi.events.Withdraw.topic],
+    address: [vusdMintBondingCurveProtocol.contractAddress],
+    topic0: [vusdMintAbi.events.Mint.topic],
     transaction: true,
   })
   .setFields({

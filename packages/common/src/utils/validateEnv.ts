@@ -161,7 +161,7 @@ export function validateEnv(): {
           rpcUrl:
             stakingProtocol.chainId === ChainId.HEMI
               ? envResult.data.RPC_URL_HEMI
-              : envResult.data.RPC_URL_BASE,
+              : envResult.data.RPC_URL_MAINNET,
         };
       },
     );
@@ -171,9 +171,6 @@ export function validateEnv(): {
       absintheApiUrl: envResult.data.ABSINTHE_API_URL,
       absintheApiKey: envResult.data.ABSINTHE_API_KEY,
       coingeckoApiKey: envResult.data.COINGECKO_API_KEY,
-      sendToApiFromTimestamp: envResult.data.SEND_TO_API_FROM_TIMESTAMP
-        ? parseInt(envResult.data.SEND_TO_API_FROM_TIMESTAMP, 10)
-        : undefined,
     };
 
     return {

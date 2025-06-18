@@ -109,7 +109,7 @@ export class AbsintheApiClient {
    */
   async send(data: TimeWeightedBalanceEvent[] | TransactionEvent[]): Promise<void> {
     if (data.length === 0) return;
-
+    console.info(`Sending ${data.length}, ${data[0].eventType} items to API`);
     return data.length <= BATCH_SIZE
       ? await this.sendSingleBatch(data)
       : await this.sendMultipleBatches(data);

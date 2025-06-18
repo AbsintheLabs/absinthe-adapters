@@ -1,4 +1,4 @@
-import { AbsintheApiClient, BondingCurveProtocol, Dex, validateEnv } from '@absinthe/common';
+import { AbsintheApiClient, BondingCurveProtocol, validateEnv } from '@absinthe/common';
 import dotenv from 'dotenv';
 import { PrintrProcessor } from './BatchProcessor';
 
@@ -9,7 +9,7 @@ const env = validateEnv();
 const apiClient = new AbsintheApiClient({
   baseUrl: env.baseConfig.absintheApiUrl,
   apiKey: env.baseConfig.absintheApiKey,
-  minTime: 0, // todo: remove this, it's temporary for testing
+  minTime: 90, // todo: remove this, it's temporary for testing
 });
 
 const printrBondingCurveProtocol = env.bondingCurveProtocols.find((bondingCurveProtocol) => {
@@ -26,6 +26,8 @@ const chainConfig = {
   chainShortName: printrBondingCurveProtocol.chainShortName,
   chainName: printrBondingCurveProtocol.chainName,
 };
+
+console.log('printrBondingCurveProtocol', printrBondingCurveProtocol);
 
 const printrProcessor = new PrintrProcessor(
   printrBondingCurveProtocol,
