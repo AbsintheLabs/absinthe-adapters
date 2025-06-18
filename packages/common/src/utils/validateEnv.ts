@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import fs from 'fs';
-import { ValidatedEnv, ValidatedEnvBase } from '../types/interfaces/interfaces';
+import { ValidatedEnvBase } from '../types/interfaces/interfaces';
 import { configSchema } from '../types/schema';
 import { findConfigFile } from './helper/findConfigFile';
 import { EXAMPLE_FILE_NAME } from './consts';
