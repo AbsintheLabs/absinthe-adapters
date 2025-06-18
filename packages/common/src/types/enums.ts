@@ -39,6 +39,7 @@ enum ChainShortName {
 enum PriceFeed {
   COINGECKO = 'coingecko',
   CODEX = 'codex',
+  INTERNAL_TWAP = 'internal-twap',
 }
 
 enum BondingCurveProtocol {

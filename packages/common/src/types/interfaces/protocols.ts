@@ -1,4 +1,4 @@
-import { Token } from './tokens';
+/* eslint-disable prettier/prettier */
 import {
   TokenPreference,
   PriceFeed,
@@ -11,6 +11,19 @@ import {
   StakingProtocol,
   GatewayUrl,
 } from '../enums';
+import { ValidatedEnvBase } from './interfaces';
+
+interface Token {
+  coingeckoId: string;
+  decimals: number;
+  address: string;
+  symbol: string;
+}
+
+interface SimpleToken {
+  symbol: string;
+  decimals: number;
+}
 
 interface BaseProtocolConfig {
   type: Dex | BondingCurveProtocol | StakingProtocol;
@@ -19,14 +32,17 @@ interface BaseProtocolConfig {
   name?: string;
 }
 
-interface DexProtocolConfig {
-  type: Dex;
-  gatewayUrl: GatewayUrl;
+interface BaseProtocolConfigWithChain {
   chainId: ChainId;
   chainArch: ChainType;
   chainShortName: ChainShortName;
   chainName: ChainName;
   rpcUrl: string;
+  gatewayUrl: GatewayUrl;
+}
+
+interface DexProtocolConfig {
+  type: Dex;
   toBlock: number;
   protocols: ProtocolConfig[];
 }
@@ -35,28 +51,40 @@ interface BondingCurveProtocolConfig {
   type: BondingCurveProtocol;
   name: string;
   contractAddress: string;
-  chainId: number;
-  gatewayUrl: GatewayUrl;
-  chainArch: ChainType;
-  chainShortName: ChainShortName;
-  chainName: ChainName;
   toBlock: number;
   fromBlock: number;
-  rpcUrl: string;
 }
 
 interface StakingProtocolConfig {
   type: StakingProtocol;
   name: string;
   contractAddress: string;
-  chainId: number;
-  gatewayUrl: GatewayUrl;
-  chainArch: ChainType;
-  chainShortName: ChainShortName;
-  chainName: ChainName;
   toBlock: number;
   fromBlock: number;
-  rpcUrl: string;
+}
+
+interface Univ3PoolConfig {
+  name: string;
+  contractAddress: string;
+  fromBlock: number;
+  feeTier: number;
+  pricingStrategy: PriceFeed;
+  token0: SimpleToken;
+  token1: SimpleToken;
+  preferredTokenCoingeckoId: TokenPreference;
+}
+
+interface Univ3ProtocolConfig {
+  type: Dex;
+  chainId: ChainId;
+  factoryAddress: string;
+  factoryDeployedAt: number;
+  positionsAddress: string;
+  toBlock: number;
+  poolDiscovery: boolean;
+  trackPositions: boolean;
+  trackSwaps: boolean;
+  pools: Univ3PoolConfig[];
 }
 
 interface ProtocolConfig {
@@ -70,11 +98,23 @@ interface ProtocolConfig {
   preferredTokenCoingeckoId: TokenPreference;
 }
 
-interface Config {
-  balanceFlushIntervalHours: number;
-  dexProtocols: DexProtocolConfig[];
-  bondingCurveProtocols: BondingCurveProtocolConfig[];
-  stakingProtocols: StakingProtocolConfig[];
+
+interface ValidatedDexProtocolConfig extends DexProtocolConfig, BaseProtocolConfigWithChain { }
+interface ValidatedBondingCurveProtocolConfig
+  extends BondingCurveProtocolConfig,
+  BaseProtocolConfigWithChain { }
+interface ValidatedStakingProtocolConfig
+  extends StakingProtocolConfig,
+  BaseProtocolConfigWithChain { }
+
+interface ValidatedUniv3ProtocolConfig extends Univ3ProtocolConfig, BaseProtocolConfigWithChain { }
+
+interface ValidatedEnv {
+  baseConfig: ValidatedEnvBase;
+  dexProtocols: ValidatedDexProtocolConfig[];
+  bondingCurveProtocols: ValidatedBondingCurveProtocolConfig[];
+  stakingProtocols: ValidatedStakingProtocolConfig[];
+  univ3Protocols: ValidatedUniv3ProtocolConfig[];
 }
 
 export {
@@ -82,6 +122,14 @@ export {
   BaseProtocolConfig,
   DexProtocolConfig,
   BondingCurveProtocolConfig,
-  Config,
   StakingProtocolConfig,
+  ValidatedEnv,
+  ValidatedDexProtocolConfig,
+  ValidatedBondingCurveProtocolConfig,
+  ValidatedStakingProtocolConfig,
+  ValidatedUniv3ProtocolConfig,
+  Token,
+  Univ3PoolConfig,
+  Univ3ProtocolConfig,
+  BaseProtocolConfigWithChain,
 };

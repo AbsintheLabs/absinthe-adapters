@@ -9,12 +9,12 @@ import {
   ChainShortName,
   Currency,
   Dex,
-  DexProtocolConfig,
   fetchHistoricalUsd,
   MessageType,
   ProtocolConfig,
   TimeWeightedBalanceEvent,
   TimeWindowTrigger,
+  ValidatedDexProtocolConfig,
   ValidatedEnvBase,
 } from '@absinthe/common';
 
@@ -52,7 +52,7 @@ export class UniswapV2Processor {
   private readonly env: ValidatedEnvBase;
 
   constructor(
-    dexProtocol: DexProtocolConfig,
+    dexProtocol: ValidatedDexProtocolConfig,
     refreshWindow: number,
     apiClient: AbsintheApiClient,
     env: ValidatedEnvBase,
@@ -225,19 +225,19 @@ export class UniswapV2Processor {
     const pricedSwapVolume =
       protocol.preferredTokenCoingeckoId === 'token0'
         ? await computePricedSwapVolume(
-            token0Amount,
-            protocolState.config.token0.coingeckoId as string,
-            protocolState.config.token0.decimals,
-            block.header.timestamp,
-            this.env.coingeckoApiKey,
-          )
+          token0Amount,
+          protocolState.config.token0.coingeckoId as string,
+          protocolState.config.token0.decimals,
+          block.header.timestamp,
+          this.env.coingeckoApiKey,
+        )
         : await computePricedSwapVolume(
-            token1Amount,
-            protocolState.config.token1.coingeckoId as string,
-            protocolState.config.token1.decimals,
-            block.header.timestamp,
-            this.env.coingeckoApiKey,
-          );
+          token1Amount,
+          protocolState.config.token1.coingeckoId as string,
+          protocolState.config.token1.decimals,
+          block.header.timestamp,
+          this.env.coingeckoApiKey,
+        );
 
     const transactionSchema = {
       eventType: MessageType.TRANSACTION,

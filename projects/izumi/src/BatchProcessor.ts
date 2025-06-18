@@ -9,12 +9,12 @@ import {
   ChainShortName,
   Currency,
   Dex,
-  DexProtocolConfig,
   fetchHistoricalUsd,
   MessageType,
   ProtocolConfig,
   TimeWeightedBalanceEvent,
   TimeWindowTrigger,
+  ValidatedDexProtocolConfig,
   ValidatedEnvBase,
 } from '@absinthe/common';
 
@@ -36,13 +36,7 @@ import { PoolConfig } from './model';
 import * as factoryAbi from './abi/factory';
 import * as poolAbi from './abi/pool';
 import { computeLpTokenPrice, computePricedSwapVolume } from './utils/pricing';
-import {
-  mapToJson,
-  processValueChange,
-  toTimeWeightedBalance,
-  toTransaction,
-  pricePosition,
-} from '@absinthe/common';
+import { mapToJson, toTimeWeightedBalance, toTransaction, pricePosition } from '@absinthe/common';
 
 export class IzumiProcessor {
   private readonly protocols: ProtocolConfig[];
@@ -53,7 +47,7 @@ export class IzumiProcessor {
   private readonly env: ValidatedEnvBase;
 
   constructor(
-    dexProtocol: DexProtocolConfig,
+    dexProtocol: ValidatedDexProtocolConfig,
     refreshWindow: number,
     apiClient: AbsintheApiClient,
     env: ValidatedEnvBase,
@@ -228,19 +222,19 @@ export class IzumiProcessor {
     const pricedSwapVolume =
       protocol.preferredTokenCoingeckoId === 'token0'
         ? await computePricedSwapVolume(
-            token0Amount,
-            protocolState.config.token0.coingeckoId as string,
-            protocolState.config.token0.decimals,
-            block.header.timestamp,
-            this.env.coingeckoApiKey,
-          )
+          token0Amount,
+          protocolState.config.token0.coingeckoId as string,
+          protocolState.config.token0.decimals,
+          block.header.timestamp,
+          this.env.coingeckoApiKey,
+        )
         : await computePricedSwapVolume(
-            token1Amount,
-            protocolState.config.token1.coingeckoId as string,
-            protocolState.config.token1.decimals,
-            block.header.timestamp,
-            this.env.coingeckoApiKey,
-          );
+          token1Amount,
+          protocolState.config.token1.coingeckoId as string,
+          protocolState.config.token1.decimals,
+          block.header.timestamp,
+          this.env.coingeckoApiKey,
+        );
 
     const transactionSchema = {
       eventType: MessageType.TRANSACTION,

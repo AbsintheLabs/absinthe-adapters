@@ -5,10 +5,10 @@ import {
   Chain,
   Currency,
   processValueChange,
-  StakingProtocolConfig,
   TimeWeightedBalanceEvent,
   TimeWindowTrigger,
   ValidatedEnvBase,
+  ValidatedStakingProtocolConfig,
 } from '@absinthe/common';
 
 import { processor } from './processor';
@@ -61,7 +61,7 @@ function checkToken(token: string): TokenMetadata | null {
 }
 
 export class VUSDBridgeProcessor {
-  private readonly stakingProtocol: StakingProtocolConfig;
+  private readonly stakingProtocol: ValidatedStakingProtocolConfig;
   private readonly schemaName: string;
   private readonly refreshWindow: number;
   private readonly apiClient: AbsintheApiClient;
@@ -69,7 +69,7 @@ export class VUSDBridgeProcessor {
   private readonly env: ValidatedEnvBase;
 
   constructor(
-    stakingProtocol: StakingProtocolConfig,
+    stakingProtocol: ValidatedStakingProtocolConfig,
     refreshWindow: number,
     apiClient: AbsintheApiClient,
     env: ValidatedEnvBase,

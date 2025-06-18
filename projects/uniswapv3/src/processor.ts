@@ -1,4 +1,6 @@
-// https://github.com/subsquid-labs/showcase05-dex-pair-creation-and-swaps/blob/master/src/processor.ts
+import fs from 'fs';
+import { FACTORY_ADDRESS, FACTORY_DEPLOYED_AT, POSITIONS_ADDRESS } from './utils/constants';
+import { assertNotNull } from '@subsquid/util-internal';
 
 import {
   BlockHeader,
@@ -8,53 +10,74 @@ import {
   Log as _Log,
   Transaction as _Transaction,
 } from '@subsquid/evm-processor';
-import * as univ2Abi from './abi/univ2';
-import { Dex, validateEnv } from '@absinthe/common';
 
-const env = validateEnv();
+import * as factoryAbi from './abi/factory';
+import * as poolAbi from './abi/pool';
+import * as positionsAbi from './abi/NonfungiblePositionManager';
 
-const uniswapV2DexProtocol = env.dexProtocols.find((dexProtocol) => {
-  return dexProtocol.type === Dex.UNISWAP_V2;
-});
+const poolsMetadata = JSON.parse(fs.readFileSync('./assets/pools.json', 'utf-8')) as {
+  height: number;
+  pools: string[];
+};
 
-if (!uniswapV2DexProtocol) {
-  throw new Error('Uniswap V2 protocol not found');
-}
-
-const contractAddresses = uniswapV2DexProtocol.protocols.map(
-  (protocol) => protocol.contractAddress,
-);
-const earliestFromBlock = Math.min(
-  ...uniswapV2DexProtocol.protocols.map((protocol) => protocol.fromBlock),
-);
 export const processor = new EvmBatchProcessor()
-  .setGateway(uniswapV2DexProtocol.gatewayUrl)
-  .setRpcEndpoint(uniswapV2DexProtocol.rpcUrl)
+  .setRpcEndpoint('https://eth-mainnet.g.alchemy.com/v2/6666666666666666666666666666666666666666')
+  .setGateway(vusdBridgeProtocol.gatewayUrl)
   .setBlockRange({
-    from: earliestFromBlock,
-    ...(uniswapV2DexProtocol.toBlock !== 0 ? { to: Number(uniswapV2DexProtocol.toBlock) } : {}),
+    from: FACTORY_DEPLOYED_AT,
   })
   .setFinalityConfirmation(75)
   .addLog({
-    address: contractAddresses,
+    address: [FACTORY_ADDRESS],
+    topic0: [factoryAbi.events.PoolCreated.topic],
+    transaction: true,
+  })
+  .addLog({
+    address: poolsMetadata.pools,
     topic0: [
-      univ2Abi.events.Transfer.topic,
-      univ2Abi.events.Sync.topic,
-      univ2Abi.events.Swap.topic,
+      poolAbi.events.Burn.topic,
+      poolAbi.events.Mint.topic,
+      poolAbi.events.Initialize.topic,
+      poolAbi.events.Swap.topic,
+    ],
+    range: { from: FACTORY_DEPLOYED_AT, to: poolsMetadata.height },
+    transaction: true,
+  })
+  .addLog({
+    topic0: [
+      poolAbi.events.Burn.topic,
+      poolAbi.events.Mint.topic,
+      poolAbi.events.Initialize.topic,
+      poolAbi.events.Swap.topic,
+    ],
+    range: { from: poolsMetadata.height + 1 },
+    transaction: true,
+  })
+  .addLog({
+    address: [POSITIONS_ADDRESS],
+    topic0: [
+      positionsAbi.events.IncreaseLiquidity.topic,
+      positionsAbi.events.DecreaseLiquidity.topic,
+      positionsAbi.events.Collect.topic,
+      positionsAbi.events.Transfer.topic,
     ],
     transaction: true,
   })
   .setFields({
-    log: {
-      transactionHash: true,
-    },
     transaction: {
-      to: true,
       from: true,
-      gas: true,
-      gasPrice: true,
+      value: true,
+      hash: true,
       gasUsed: true,
+      gasPrice: true,
     },
+    log: {
+      topics: true,
+      data: true,
+    },
+  })
+  .setBlockRange({
+    from: FACTORY_DEPLOYED_AT,
   });
 
 export type Fields = EvmBatchProcessorFields<typeof processor>;
