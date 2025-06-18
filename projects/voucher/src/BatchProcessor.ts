@@ -135,21 +135,14 @@ export class VoucherProcessor {
     }
     const gasFeeUsd = displayGasFee * ethPriceUsd;
 
-    // const voucherContract = new erc20Abi.Contract(
-    //   ctx,
-    //   block.header,
-    //   this.bondingCurveProtocol.contractAddress,
-    // );
-    // const baseCurrencyAddress = await voucherContract.symbol();
-
-    // // Get base currency details (WETH) - not the traded token
-    // const baseCurrencyContract = new erc20Abi.Contract(ctx, block.header, baseCurrencyAddress);
-    // // const baseCurrencySymbol = await baseCurrencyContract.symbol();
-    // const baseCurrencyDecimals = await baseCurrencyContract.decimals();
-    // //for now we assume the base currency is ETH
-    // const displayCost = Number(value) / 10 ** baseCurrencyDecimals;
-    const displayCost = Number(value) / 10 ** 18;
-    const valueInUsd = displayCost * ethPriceUsd;
+    const voucherContract = new erc20Abi.Contract(
+      ctx,
+      block.header,
+      this.bondingCurveProtocol.contractAddress,
+    );
+    const baseCurrencyDecimals = await voucherContract.decimals();
+    //for now we assume the base currency is ETH
+    const displayCost = Number(value) / 10 ** baseCurrencyDecimals;
     const transactionSchema = {
       eventType: MessageType.TRANSACTION,
       tokens: JSON.stringify([
@@ -166,12 +159,10 @@ export class VoucherProcessor {
       blockHash: block.header.hash,
       userId: from,
       currency: Currency.USD,
-      valueUsd: valueInUsd,
+      valueUsd: 0,
       gasUsed: Number(gasUsed),
       gasFeeUsd: gasFeeUsd,
     };
-
-    console.log('transactionSchema', transactionSchema);
 
     protocolState.transactions.push(transactionSchema);
   }
