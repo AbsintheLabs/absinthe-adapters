@@ -8,13 +8,12 @@ import {
   ChainId,
   ChainShortName,
   Currency,
-  Dex,
-  DexProtocolConfig,
   fetchHistoricalUsd,
   MessageType,
   ProtocolConfig,
   TimeWeightedBalanceEvent,
   TimeWindowTrigger,
+  ValidatedDexProtocolConfig,
   ValidatedEnvBase,
 } from '@absinthe/common';
 
@@ -52,7 +51,7 @@ export class UniswapV2Processor {
   private readonly env: ValidatedEnvBase;
 
   constructor(
-    dexProtocol: DexProtocolConfig,
+    dexProtocol: ValidatedDexProtocolConfig,
     refreshWindow: number,
     apiClient: AbsintheApiClient,
     env: ValidatedEnvBase,

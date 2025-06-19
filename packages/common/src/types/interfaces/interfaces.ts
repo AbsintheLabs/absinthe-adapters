@@ -7,7 +7,7 @@ import {
   MessageType,
   TimeWindowTrigger,
 } from '../enums';
-import { Token } from './tokens';
+import { Token } from './protocols';
 
 interface Chain {
   chainArch: ChainType;

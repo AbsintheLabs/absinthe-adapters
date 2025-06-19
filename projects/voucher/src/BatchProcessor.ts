@@ -1,9 +1,9 @@
 import {
   AbsintheApiClient,
-  BondingCurveProtocolConfig,
   Chain,
   Currency,
   MessageType,
+  ValidatedBondingCurveProtocolConfig,
   ValidatedEnvBase,
 } from '@absinthe/common';
 
@@ -17,14 +17,14 @@ import { ProtocolStateVoucher } from './utils/types';
 
 //todo: storage in database
 export class VoucherProcessor {
-  private readonly bondingCurveProtocol: BondingCurveProtocolConfig;
+  private readonly bondingCurveProtocol: ValidatedBondingCurveProtocolConfig;
   private readonly schemaName: string;
   private readonly apiClient: AbsintheApiClient;
   private readonly env: ValidatedEnvBase;
   private readonly chainConfig: Chain;
 
   constructor(
-    bondingCurveProtocol: BondingCurveProtocolConfig,
+    bondingCurveProtocol: ValidatedBondingCurveProtocolConfig,
     apiClient: AbsintheApiClient,
     env: ValidatedEnvBase,
     chainConfig: Chain,

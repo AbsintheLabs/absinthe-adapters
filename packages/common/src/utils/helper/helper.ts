@@ -14,17 +14,17 @@ import {
 } from '../../types/interfaces/interfaces';
 import { createHash } from 'crypto';
 import {
-  BondingCurveProtocolConfig,
+  ValidatedBondingCurveProtocolConfig,
   ProtocolConfig,
-  StakingProtocolConfig,
+  ValidatedStakingProtocolConfig,
+  ValidatedUniv3ProtocolConfig,
 } from '../../types/interfaces/protocols';
-import { ChainId, Currency, MessageType, TimeWindowTrigger } from '../../types/enums';
+import { Currency, MessageType, TimeWindowTrigger } from '../../types/enums';
 import { ZERO_ADDRESS } from '../consts';
-import { validateEnv } from '../validateEnv';
 
 function toTimeWeightedBalance(
   historyWindows: HistoryWindow[],
-  protocol: ProtocolConfig | StakingProtocolConfig,
+  protocol: ProtocolConfig | ValidatedBondingCurveProtocolConfig | ValidatedStakingProtocolConfig,
   env: ValidatedEnvBase,
   chainConfig: Chain,
 ): TimeWeightedBalanceEvent[] {
@@ -75,7 +75,7 @@ function toTimeWeightedBalance(
 
 function toTransaction(
   transactions: Transaction[],
-  protocol: ProtocolConfig | BondingCurveProtocolConfig | StakingProtocolConfig,
+  protocol: ProtocolConfig | ValidatedBondingCurveProtocolConfig | ValidatedStakingProtocolConfig,
   env: ValidatedEnvBase,
   chainConfig: Chain,
 ): TransactionEvent[] {

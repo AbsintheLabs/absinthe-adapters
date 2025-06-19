@@ -1,0 +1,66 @@
+FROM node:20-slim AS base
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
+
+# Copy workspace files needed for dependency resolution
+FROM base AS deps
+WORKDIR /app
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY tsconfig.base.json ./
+COPY packages/common/package.json ./packages/common/
+COPY packages/common/tsconfig.json ./packages/common/
+COPY projects/demos/package.json ./projects/demos/
+COPY projects/demos/tsconfig.json ./projects/demos/
+
+# Install all dependencies (including workspace deps)
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --no-frozen-lockfile
+
+# Build stage - build common package and current project
+FROM base AS build
+WORKDIR /app
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY tsconfig.base.json ./
+COPY packages/ ./packages/
+COPY projects/demos/ ./projects/demos/
+
+# Copy config files - prefer abs_config.json, fallback to abs_config.example.json
+COPY abs_config.jso[n] abs_config.example.json ./
+RUN if [ ! -f abs_config.json ]; then cp abs_config.example.json abs_config.json; fi
+
+# Copy node_modules from deps stage
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/packages/common/node_modules ./packages/common/node_modules
+COPY --from=deps /app/projects/demos/node_modules ./projects/demos/node_modules
+
+# Build the common package first, then demos
+WORKDIR /app
+RUN pnpm --filter @absinthe/common build
+RUN pnpm --filter @absinthe/demos build
+
+# Production stage
+FROM base AS production
+WORKDIR /app
+
+# Copy only production dependencies
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/packages/common/node_modules ./packages/common/node_modules
+COPY --from=deps /app/projects/demos/node_modules ./projects/demos/node_modules
+
+# Copy built artifacts
+COPY --from=build /app/packages/common/lib ./packages/common/lib
+COPY --from=build /app/packages/common/package.json ./packages/common/
+COPY --from=build /app/projects/demos/lib ./projects/demos/lib
+COPY --from=build /app/projects/demos/package.json ./projects/demos/
+
+# Copy config files - use the processed config from build stage
+COPY --from=build /app/abs_config.json ./
+
+# Copy source files needed for migrations
+COPY --from=build /app/projects/demos/src ./projects/demos/src
+COPY --from=build /app/projects/demos/tsconfig.json ./projects/demos/
+
+WORKDIR /app/projects/demos
+
+# Use exec form and proper exit handling
+CMD ["node", "lib/main.js"]

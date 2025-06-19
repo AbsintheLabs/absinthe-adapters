@@ -5,17 +5,11 @@ import {
   ActiveBalance,
   BatchContext,
   Chain,
-  ChainId,
-  ChainShortName,
   Currency,
-  Dex,
-  DexProtocolConfig,
-  MessageType,
-  ProtocolConfig,
-  StakingProtocolConfig,
   TimeWeightedBalanceEvent,
   TimeWindowTrigger,
   ValidatedEnvBase,
+  ValidatedStakingProtocolConfig,
   ZERO_ADDRESS,
 } from '@absinthe/common';
 
@@ -33,8 +27,8 @@ import {
   pricePosition,
 } from '@absinthe/common';
 import { PoolProcessState } from './model';
-import * as erc20Abi from './abi/erc20';
 
+//todo: cleanup
 function flattenNestedMap(
   nestedMap: Map<string, Map<string, ActiveBalance>>,
 ): Map<string, ActiveBalance> {
@@ -116,7 +110,7 @@ function checkToken(token: string): TokenMetadata | null {
 }
 
 export class HemiStakingProcessor {
-  private readonly stakingProtocol: StakingProtocolConfig;
+  private readonly stakingProtocol: ValidatedStakingProtocolConfig;
   private readonly schemaName: string;
   private readonly refreshWindow: number;
   private readonly apiClient: AbsintheApiClient;
@@ -124,7 +118,7 @@ export class HemiStakingProcessor {
   private readonly env: ValidatedEnvBase;
 
   constructor(
-    stakingProtocol: StakingProtocolConfig,
+    stakingProtocol: ValidatedStakingProtocolConfig,
     refreshWindow: number,
     apiClient: AbsintheApiClient,
     env: ValidatedEnvBase,

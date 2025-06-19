@@ -1,10 +1,4 @@
-import {
-  AbsintheApiClient,
-  validateEnv,
-  HOURS_TO_MS,
-  StakingProtocol,
-  BondingCurveProtocol,
-} from '@absinthe/common';
+import { AbsintheApiClient, validateEnv, BondingCurveProtocol } from '@absinthe/common';
 import { DemosProcessor } from './BatchProcessor';
 
 const env = validateEnv();

@@ -1,9 +1,9 @@
 import {
   AbsintheApiClient,
-  BondingCurveProtocolConfig,
   Chain,
   Currency,
   MessageType,
+  ValidatedBondingCurveProtocolConfig,
   ValidatedEnvBase,
 } from '@absinthe/common';
 
@@ -15,14 +15,14 @@ import { fetchHistoricalUsd, toTransaction } from '@absinthe/common';
 
 //todo: storage in database
 export class DemosProcessor {
-  private readonly bondingCurveProtocol: BondingCurveProtocolConfig;
+  private readonly bondingCurveProtocol: ValidatedBondingCurveProtocolConfig;
   private readonly schemaName: string;
   private readonly apiClient: AbsintheApiClient;
   private readonly env: ValidatedEnvBase;
   private readonly chainConfig: Chain;
 
   constructor(
-    bondingCurveProtocol: BondingCurveProtocolConfig,
+    bondingCurveProtocol: ValidatedBondingCurveProtocolConfig,
     apiClient: AbsintheApiClient,
     env: ValidatedEnvBase,
     chainConfig: Chain,

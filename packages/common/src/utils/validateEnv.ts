@@ -11,23 +11,27 @@ import {
   ChainName,
   ChainShortName,
   ChainType,
+  Dex,
   GatewayUrl,
   StakingProtocol,
 } from '../types/enums';
 import { getChainEnumKey } from './helper/getChainEnumKey';
 import {
+  BaseProtocolConfigWithChain,
   BondingCurveProtocolConfig,
   DexProtocolConfig,
   ProtocolConfig,
   StakingProtocolConfig,
+  Univ3PoolConfig,
+  Univ3ProtocolConfig,
+  ValidatedBondingCurveProtocolConfig,
+  ValidatedDexProtocolConfig,
+  ValidatedEnv,
+  ValidatedStakingProtocolConfig,
+  ValidatedUniv3ProtocolConfig,
 } from '../types/interfaces/protocols';
 
-export function validateEnv(): {
-  baseConfig: ValidatedEnvBase;
-  dexProtocols: DexProtocolConfig[];
-  bondingCurveProtocols: BondingCurveProtocolConfig[];
-  stakingProtocols: StakingProtocolConfig[];
-} {
+export function validateEnv(): ValidatedEnv {
   try {
     const envSchema = z.object({
       DB_URL: z.string().min(1, 'DB_URL is required'),
@@ -90,7 +94,7 @@ export function validateEnv(): {
       throw new Error(`Config file validation failed:\n${errorMessages}`);
     }
 
-    const bondingCurveProtocols: BondingCurveProtocolConfig[] =
+    const bondingCurveProtocols: ValidatedBondingCurveProtocolConfig[] =
       configResult.data.bondingCurveProtocols.map((bondingCurveProtocol) => {
         const chainId = bondingCurveProtocol.chainId;
         const chainKey = getChainEnumKey(chainId);
@@ -123,35 +127,71 @@ export function validateEnv(): {
         };
       });
 
-    const dexProtocols: DexProtocolConfig[] = configResult.data.dexProtocols.map((dexProtocol) => {
-      const chainId = dexProtocol.chainId;
-      const chainKey = getChainEnumKey(chainId);
-      if (!chainKey) {
-        throw new Error(`${chainId} is not a supported chainId.`);
-      }
-      const chainName = ChainName[chainKey];
-      const chainShortName = ChainShortName[chainKey];
-      const chainArch = ChainType.EVM;
-      const gatewayUrl = GatewayUrl[chainKey];
+    const dexProtocols: ValidatedDexProtocolConfig[] = configResult.data.dexProtocols.map(
+      (dexProtocol) => {
+        const chainId = dexProtocol.chainId;
+        const chainKey = getChainEnumKey(chainId);
+        if (!chainKey) {
+          throw new Error(`${chainId} is not a supported chainId.`);
+        }
+        const chainName = ChainName[chainKey];
+        const chainShortName = ChainShortName[chainKey];
+        const chainArch = ChainType.EVM;
+        const gatewayUrl = GatewayUrl[chainKey];
 
-      return {
-        type: dexProtocol.type,
-        gatewayUrl: gatewayUrl,
-        toBlock: dexProtocol.toBlock,
-        protocols: dexProtocol.protocols as ProtocolConfig[],
-        chainArch: chainArch,
-        chainId: chainId,
-        chainShortName: chainShortName,
-        chainName: chainName,
-        rpcUrl:
-          dexProtocol.chainId === ChainId.MAINNET
-            ? (envResult.data.RPC_URL_MAINNET as string)
-            : (envResult.data.RPC_URL_BASE as string),
-      };
-    });
+        return {
+          type: dexProtocol.type,
+          gatewayUrl: gatewayUrl,
+          toBlock: dexProtocol.toBlock,
+          protocols: dexProtocol.protocols as ProtocolConfig[],
+          chainArch: chainArch,
+          chainId: chainId,
+          chainShortName: chainShortName,
+          chainName: chainName,
+          rpcUrl:
+            dexProtocol.chainId === ChainId.MAINNET
+              ? (envResult.data.RPC_URL_MAINNET as string)
+              : (envResult.data.RPC_URL_BASE as string),
+        };
+      },
+    );
 
-    const stakingProtocols: StakingProtocolConfig[] = configResult.data.stakingProtocols.map(
-      (stakingProtocol) => {
+    const univ3Protocols: ValidatedUniv3ProtocolConfig[] = configResult.data.univ3Protocols.map(
+      (univ3Protocol) => {
+        const chainId = univ3Protocol.chainId;
+        const chainKey = getChainEnumKey(chainId);
+        if (!chainKey) {
+          throw new Error(`${chainId} is not a supported chainId.`);
+        }
+        const chainName = ChainName[chainKey];
+        const chainShortName = ChainShortName[chainKey];
+        const chainArch = ChainType.EVM;
+        const gatewayUrl = GatewayUrl[chainKey];
+        return {
+          type: univ3Protocol.type,
+          chainId: chainId,
+          chainArch: chainArch,
+          chainShortName: chainShortName,
+          chainName: chainName,
+          gatewayUrl: gatewayUrl,
+          rpcUrl:
+            univ3Protocol.chainId === ChainId.MAINNET
+              ? (envResult.data.RPC_URL_MAINNET as string)
+              : (envResult.data.RPC_URL_BASE as string),
+          factoryAddress: univ3Protocol.factoryAddress,
+          factoryDeployedAt: univ3Protocol.factoryDeployedAt,
+          positionsAddress: univ3Protocol.positionsAddress,
+          toBlock: univ3Protocol.toBlock,
+          poolDiscovery: univ3Protocol.poolDiscovery,
+          trackPositions: univ3Protocol.trackPositions,
+          trackSwaps: univ3Protocol.trackSwaps,
+          pools: univ3Protocol.pools as Univ3PoolConfig[],
+        };
+      },
+    );
+
+    const stakingProtocols: ValidatedStakingProtocolConfig[] =
+      configResult.data.stakingProtocols.map((stakingProtocol) => {
         const chainId = stakingProtocol.chainId;
         const chainKey = getChainEnumKey(chainId);
         if (!chainKey) {
@@ -177,8 +217,7 @@ export function validateEnv(): {
               ? (envResult.data.RPC_URL_HEMI as string)
               : (envResult.data.RPC_URL_MAINNET as string),
         };
-      },
-    );
+      });
 
     const baseConfig: ValidatedEnvBase = {
       balanceFlushIntervalHours: configResult.data.balanceFlushIntervalHours,
@@ -192,6 +231,7 @@ export function validateEnv(): {
       dexProtocols,
       bondingCurveProtocols,
       stakingProtocols,
+      univ3Protocols,
     };
   } catch (error) {
     if (error instanceof Error) {

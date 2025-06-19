@@ -6,6 +6,11 @@ const tokenSchema = z.object({
   decimals: z.number(),
 });
 
+const simpleTokenSchema = z.object({
+  symbol: z.string(),
+  decimals: z.number(),
+});
+
 const protocolConfigSchema = z.object({
   name: z.string(),
   contractAddress: z
@@ -55,11 +60,36 @@ const stakingProtocolSchema = z.object({
   fromBlock: z.number(),
 });
 
+const univ3PoolSchema = z.object({
+  name: z.string(),
+  contractAddress: z.string(),
+  fromBlock: z.number(),
+  feeTier: z.number(),
+  pricingStrategy: z.enum([PriceFeed.COINGECKO, PriceFeed.CODEX, PriceFeed.INTERNAL_TWAP]),
+  token0: simpleTokenSchema,
+  token1: simpleTokenSchema,
+  preferredTokenCoingeckoId: z.string(),
+});
+
+const univ3ProtocolSchema = z.object({
+  type: z.enum([Dex.UNISWAP_V3]),
+  chainId: z.number(),
+  factoryAddress: z.string(),
+  factoryDeployedAt: z.number(),
+  positionsAddress: z.string(),
+  toBlock: z.number(),
+  poolDiscovery: z.boolean(),
+  trackPositions: z.boolean(),
+  trackSwaps: z.boolean(),
+  pools: z.array(univ3PoolSchema),
+});
+
 const configSchema = z.object({
   balanceFlushIntervalHours: z.number(),
   dexProtocols: z.array(dexProtocolSchema),
   bondingCurveProtocols: z.array(bondingCurveProtocolSchema),
   stakingProtocols: z.array(stakingProtocolSchema),
+  univ3Protocols: z.array(univ3ProtocolSchema),
 });
 
 export { configSchema, dexProtocolSchema, protocolConfigSchema };
