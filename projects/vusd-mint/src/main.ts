@@ -24,8 +24,6 @@ const chainConfig = {
   chainName: vusdMintBondingCurveProtocol.chainName,
 };
 
-console.log('vusdMintBondingCurveProtocol', vusdMintBondingCurveProtocol);
-
 const vusdMintProcessor = new VusdMintProcessor(
   vusdMintBondingCurveProtocol,
   apiClient,

@@ -4,7 +4,7 @@
     {
       "type": "uniswap-v2",
       "chainId": 1,
-      "toBlock": 17051833,
+      "toBlock": 0,
       "protocols": [
         {
           "name": "PEPE/WETH Pool",
