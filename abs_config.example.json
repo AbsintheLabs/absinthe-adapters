@@ -113,7 +113,7 @@
       "fromBlock": 22695105
     }
   ],
-  "univ3Protols": [
+  "univ3Protocols": [
     {
       "type": "uniswap-v3",
       "chainId": 1,

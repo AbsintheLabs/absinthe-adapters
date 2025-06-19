@@ -24,7 +24,11 @@ import {
   StakingProtocolConfig,
   Univ3PoolConfig,
   Univ3ProtocolConfig,
+  ValidatedBondingCurveProtocolConfig,
+  ValidatedDexProtocolConfig,
   ValidatedEnv,
+  ValidatedStakingProtocolConfig,
+  ValidatedUniv3ProtocolConfig,
 } from '../types/interfaces/protocols';
 
 export function validateEnv(): ValidatedEnv {
@@ -90,7 +94,7 @@ export function validateEnv(): ValidatedEnv {
       throw new Error(`Config file validation failed:\n${errorMessages}`);
     }
 
-    const bondingCurveProtocols: (BondingCurveProtocolConfig & BaseProtocolConfigWithChain)[] =
+    const bondingCurveProtocols: ValidatedBondingCurveProtocolConfig[] =
       configResult.data.bondingCurveProtocols.map((bondingCurveProtocol) => {
         const chainId = bondingCurveProtocol.chainId;
         const chainKey = getChainEnumKey(chainId);
@@ -123,8 +127,8 @@ export function validateEnv(): ValidatedEnv {
         };
       });
 
-    const dexProtocols: (DexProtocolConfig & BaseProtocolConfigWithChain)[] =
-      configResult.data.dexProtocols.map((dexProtocol) => {
+    const dexProtocols: ValidatedDexProtocolConfig[] = configResult.data.dexProtocols.map(
+      (dexProtocol) => {
         const chainId = dexProtocol.chainId;
         const chainKey = getChainEnumKey(chainId);
         if (!chainKey) {
@@ -149,10 +153,11 @@ export function validateEnv(): ValidatedEnv {
               ? (envResult.data.RPC_URL_MAINNET as string)
               : (envResult.data.RPC_URL_BASE as string),
         };
-      });
+      },
+    );
 
-    const univ3Protocols: (Univ3ProtocolConfig & BaseProtocolConfigWithChain)[] =
-      configResult.data.univ3Protocols.map((univ3Protocol) => {
+    const univ3Protocols: ValidatedUniv3ProtocolConfig[] = configResult.data.univ3Protocols.map(
+      (univ3Protocol) => {
         const chainId = univ3Protocol.chainId;
         const chainKey = getChainEnumKey(chainId);
         if (!chainKey) {
@@ -182,9 +187,10 @@ export function validateEnv(): ValidatedEnv {
           trackSwaps: univ3Protocol.trackSwaps,
           pools: univ3Protocol.pools as Univ3PoolConfig[],
         };
-      });
+      },
+    );
 
-    const stakingProtocols: (StakingProtocolConfig & BaseProtocolConfigWithChain)[] =
+    const stakingProtocols: ValidatedStakingProtocolConfig[] =
       configResult.data.stakingProtocols.map((stakingProtocol) => {
         const chainId = stakingProtocol.chainId;
         const chainKey = getChainEnumKey(chainId);

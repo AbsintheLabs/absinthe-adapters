@@ -98,16 +98,15 @@ interface ProtocolConfig {
   preferredTokenCoingeckoId: TokenPreference;
 }
 
-
-interface ValidatedDexProtocolConfig extends DexProtocolConfig, BaseProtocolConfigWithChain { }
+interface ValidatedDexProtocolConfig extends DexProtocolConfig, BaseProtocolConfigWithChain {}
 interface ValidatedBondingCurveProtocolConfig
   extends BondingCurveProtocolConfig,
-  BaseProtocolConfigWithChain { }
+    BaseProtocolConfigWithChain {}
 interface ValidatedStakingProtocolConfig
   extends StakingProtocolConfig,
-  BaseProtocolConfigWithChain { }
+    BaseProtocolConfigWithChain {}
 
-interface ValidatedUniv3ProtocolConfig extends Univ3ProtocolConfig, BaseProtocolConfigWithChain { }
+interface ValidatedUniv3ProtocolConfig extends Univ3ProtocolConfig, BaseProtocolConfigWithChain {}
 
 interface ValidatedEnv {
   baseConfig: ValidatedEnvBase;

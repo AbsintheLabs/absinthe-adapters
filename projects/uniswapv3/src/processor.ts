@@ -1,6 +1,4 @@
 import fs from 'fs';
-import { FACTORY_ADDRESS, FACTORY_DEPLOYED_AT, POSITIONS_ADDRESS } from './utils/constants';
-import { assertNotNull } from '@subsquid/util-internal';
 
 import {
   BlockHeader,
@@ -14,21 +12,26 @@ import {
 import * as factoryAbi from './abi/factory';
 import * as poolAbi from './abi/pool';
 import * as positionsAbi from './abi/NonfungiblePositionManager';
+import { validateEnv } from '@absinthe/common';
 
 const poolsMetadata = JSON.parse(fs.readFileSync('./assets/pools.json', 'utf-8')) as {
   height: number;
   pools: string[];
 };
 
+const env = validateEnv();
+
+const uniswapV3DexProtocol = env.univ3Protocols[0];
+
 export const processor = new EvmBatchProcessor()
-  .setRpcEndpoint('https://eth-mainnet.g.alchemy.com/v2/6666666666666666666666666666666666666666')
-  .setGateway(vusdBridgeProtocol.gatewayUrl)
+  .setRpcEndpoint(uniswapV3DexProtocol.rpcUrl)
+  .setGateway(uniswapV3DexProtocol.gatewayUrl)
   .setBlockRange({
-    from: FACTORY_DEPLOYED_AT,
+    from: uniswapV3DexProtocol.factoryDeployedAt,
   })
   .setFinalityConfirmation(75)
   .addLog({
-    address: [FACTORY_ADDRESS],
+    address: [uniswapV3DexProtocol.factoryAddress],
     topic0: [factoryAbi.events.PoolCreated.topic],
     transaction: true,
   })
@@ -40,7 +43,7 @@ export const processor = new EvmBatchProcessor()
       poolAbi.events.Initialize.topic,
       poolAbi.events.Swap.topic,
     ],
-    range: { from: FACTORY_DEPLOYED_AT, to: poolsMetadata.height },
+    range: { from: uniswapV3DexProtocol.factoryDeployedAt, to: poolsMetadata.height },
     transaction: true,
   })
   .addLog({
@@ -54,7 +57,7 @@ export const processor = new EvmBatchProcessor()
     transaction: true,
   })
   .addLog({
-    address: [POSITIONS_ADDRESS],
+    address: [uniswapV3DexProtocol.positionsAddress],
     topic0: [
       positionsAbi.events.IncreaseLiquidity.topic,
       positionsAbi.events.DecreaseLiquidity.topic,
@@ -75,9 +78,6 @@ export const processor = new EvmBatchProcessor()
       topics: true,
       data: true,
     },
-  })
-  .setBlockRange({
-    from: FACTORY_DEPLOYED_AT,
   });
 
 export type Fields = EvmBatchProcessorFields<typeof processor>;
