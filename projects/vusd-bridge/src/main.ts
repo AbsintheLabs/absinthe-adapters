@@ -1,9 +1,5 @@
 import { AbsintheApiClient, validateEnv, HOURS_TO_MS, StakingProtocol } from '@absinthe/common';
 import { VUSDBridgeProcessor } from './BatchProcessor';
-import dotenv from 'dotenv';
-
-dotenv.config();
-
 const env = validateEnv();
 
 const apiClient = new AbsintheApiClient({
@@ -28,10 +24,6 @@ const chainConfig = {
 };
 
 // todo: make the contract address lowercase throughout the codebase
-
-console.log(process.env.DB_URL);
-
-console.log('env', vusdBridgeProtocol);
 
 const WINDOW_DURATION_MS = env.baseConfig.balanceFlushIntervalHours * HOURS_TO_MS;
 const vusdBridgeProcessor = new VUSDBridgeProcessor(

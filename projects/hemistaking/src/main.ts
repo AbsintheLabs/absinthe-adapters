@@ -36,8 +36,6 @@ const chainConfig = {
 
 // todo: make the contract address lowercase throughout the codebase
 
-console.log(process.env.DB_URL);
-
 const WINDOW_DURATION_MS = env.baseConfig.balanceFlushIntervalHours * HOURS_TO_MS;
 const hemiStakingProcessor = new HemiStakingProcessor(
   hemiStakingProtocol,

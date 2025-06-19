@@ -138,7 +138,6 @@ export class DemosProcessor {
         userId: from,
         currency: Currency.USD,
       };
-      console.log('transactionSchema', transactionSchema);
       protocolState.transactions.push(transactionSchema);
     }
   }

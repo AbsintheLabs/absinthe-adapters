@@ -138,7 +138,6 @@ export class VUSDBridgeProcessor {
 
     const contractAddress = this.stakingProtocol.contractAddress;
     const protocolState = protocolStates.get(contractAddress)!;
-    console.log('block', block.header.height);
     await this.processLogsForProtocol(ctx, block, contractAddress, protocolState);
     await this.processPeriodicBalanceFlush(ctx, block, protocolState);
   }
@@ -150,7 +149,6 @@ export class VUSDBridgeProcessor {
     protocolState: ProtocolStateHemi,
   ): Promise<void> {
     const poolLogs = block.logs.filter((log: any) => {
-      console.log(log.address, 'log-address', contractAddress);
       return log.address.toLowerCase() === contractAddress.toLowerCase();
     });
 
@@ -193,20 +191,6 @@ export class VUSDBridgeProcessor {
     const remoteTokenContract = new erc20Abi.Contract(ctx, block.header, remoteToken);
     const remoteTokenSymbol = await remoteTokenContract.symbol();
     const remoteTokenDecimals = await remoteTokenContract.decimals();
-
-    console.log('localToken', localToken, 'remoteToken', remoteToken);
-    console.log('from', from, 'to', to, 'amount', amount, 'extraData', extraData);
-
-    console.log(
-      'baseCurrencySymbol',
-      baseCurrencySymbol,
-      'baseCurrencyDecimals',
-      baseCurrencyDecimals,
-      'remoteTokenSymbol',
-      remoteTokenSymbol,
-      'remoteTokenDecimals',
-      remoteTokenDecimals,
-    );
 
     const tokenPrice = await fetchHistoricalUsd(tokenMetadata.coingeckoId, block.header.timestamp);
     const usdValue = pricePosition(tokenPrice, amount, tokenMetadata.decimals);

@@ -16,8 +16,6 @@ const demosProtocol = env.bondingCurveProtocols.find((bondingCurveProtocol) => {
   return bondingCurveProtocol.type === BondingCurveProtocol.DEMOS;
 });
 
-console.log('demosProtocol', demosProtocol);
-
 if (!demosProtocol) {
   throw new Error('Demos protocol not found');
 }

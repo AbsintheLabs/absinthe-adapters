@@ -202,7 +202,6 @@ export class HemiStakingProcessor {
     const poolLogs = block.logs.filter(
       (log: any) => log.address.toLowerCase() === contractAddress.toLowerCase(),
     );
-
     for (const log of poolLogs) {
       await this.processLog(ctx, block, log, protocolState);
     }
@@ -214,6 +213,7 @@ export class HemiStakingProcessor {
     log: any,
     protocolState: ProtocolStateHemi,
   ): Promise<void> {
+    console.log(log.topics[0].header);
     if (log.topics[0] === hemiAbi.events.Deposit.topic) {
       await this.processDepositEvent(ctx, block, log, protocolState);
     }
