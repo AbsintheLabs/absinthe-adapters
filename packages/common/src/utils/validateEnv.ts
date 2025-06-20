@@ -50,13 +50,13 @@ export function validateEnv(): ValidatedEnv {
         .url('RPC_URL_HEMI must be a valid URL')
         .refine((val) => val.startsWith('https://'), 'RPC_URL_HEMI must be https:// not wss://')
         .optional(),
+      ABS_CONFIG: z.string(),
       RPC_URL_POLYGON: z.string().url('RPC_URL_POLYGON must be a valid URL').optional(),
       RPC_URL_ARBITRUM: z.string().url('RPC_URL_ARBITRUM must be a valid URL').optional(),
       RPC_URL_OPTIMISM: z.string().url('RPC_URL_OPTIMISM must be a valid URL').optional(),
       ABSINTHE_API_URL: z.string().url('ABSINTHE_API_URL must be a valid URL'),
       ABSINTHE_API_KEY: z.string().min(1, 'ABSINTHE_API_KEY is required'),
       COINGECKO_API_KEY: z.string().min(1, 'COINGECKO_API_KEY is required'),
-      SEND_TO_API_FROM_TIMESTAMP: z.string().optional(),
     });
 
     const envResult = envSchema.safeParse(process.env);
@@ -69,21 +69,36 @@ export function validateEnv(): ValidatedEnv {
       throw new Error(`Environment validation failed:\n${errorMessages}`);
     }
 
-    let configFilePath: string;
-    try {
-      configFilePath = findConfigFile(FILE_NAME);
-    } catch (error) {
-      console.error('Error finding config file', error);
-      // If abs_config.json is not found, try abs_config.example.json
+    let configData: any;
+
+    if (envResult.data.ABS_CONFIG) {
       try {
-        configFilePath = findConfigFile(EXAMPLE_FILE_NAME);
-      } catch (exampleError) {
-        console.error('Error finding example config file', exampleError);
-        throw new Error(`Neither ${FILE_NAME} nor ${EXAMPLE_FILE_NAME} could be found`);
+        configData = JSON.parse(envResult.data.ABS_CONFIG);
+      } catch (error) {
+        throw new Error(`Failed to parse ABS_CONFIG JSON: ${error}`);
       }
+    } else {
+      let configFilePath: string;
+      try {
+        configFilePath = findConfigFile(FILE_NAME);
+      } catch (error) {
+        console.error('Error finding config file', error);
+        // If abs_config.json is not found, try abs_config.example.json
+        try {
+          configFilePath = findConfigFile(EXAMPLE_FILE_NAME);
+        } catch (exampleError) {
+          console.error('Error finding example config file', exampleError);
+          throw new Error(
+            `Neither ${FILE_NAME} nor ${EXAMPLE_FILE_NAME} could be found, and ABS_CONFIG is not provided`,
+          );
+        }
+      }
+
+      configData = JSON.parse(fs.readFileSync(configFilePath, 'utf8'));
+      console.log(`Using configuration from file: ${configFilePath}`);
     }
 
-    const configData = JSON.parse(fs.readFileSync(configFilePath, 'utf8'));
+    // Validate the configuration using the same Zod schema
     const configResult = configSchema.safeParse(configData);
 
     if (!configResult.success) {
@@ -91,7 +106,7 @@ export function validateEnv(): ValidatedEnv {
         .map((err) => `${err.path.join('.')}: ${err.message}`)
         .join('\n');
 
-      throw new Error(`Config file validation failed:\n${errorMessages}`);
+      throw new Error(`Config validation failed:\n${errorMessages}`);
     }
 
     const bondingCurveProtocols: ValidatedBondingCurveProtocolConfig[] =

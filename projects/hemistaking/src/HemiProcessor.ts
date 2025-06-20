@@ -185,7 +185,6 @@ export class HemiStakingProcessor {
 
   private async processBlock(batchContext: BatchContext): Promise<void> {
     const { ctx, block, protocolStates } = batchContext;
-
     const contractAddress = this.stakingProtocol.contractAddress;
     const protocolState = protocolStates.get(contractAddress)!;
 
