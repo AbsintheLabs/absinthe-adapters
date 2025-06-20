@@ -1,16 +1,5 @@
-import {
-  AbsintheApiClient,
-  validateEnv,
-  HOURS_TO_MS,
-  BondingCurveProtocol,
-  Dex,
-  StakingProtocol,
-} from '@absinthe/common';
+import { AbsintheApiClient, validateEnv, HOURS_TO_MS, StakingProtocol } from '@absinthe/common';
 import { HemiStakingProcessor } from './HemiProcessor';
-import dotenv from 'dotenv';
-
-dotenv.config();
-
 const env = validateEnv();
 
 const apiClient = new AbsintheApiClient({
