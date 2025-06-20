@@ -31,6 +31,9 @@ function toTimeWeightedBalance(
   return historyWindows.map((e) => {
     const eventIdComponents = `${chainConfig.networkId}-${e.userAddress}-${e.startTs}-${e.endTs}-${e.windowDurationMs}-${env.absintheApiKey}`;
     const hash = createHash('md5').update(eventIdComponents).digest('hex').slice(0, 8);
+
+    const apiKeyHash = createHash('md5').update(env.absintheApiKey).digest('hex').slice(0, 8);
+
     const baseSchema = {
       version: '1.0',
       eventId: hash,
@@ -83,13 +86,11 @@ function toTransaction(
     const hashMessage = `${chainConfig.networkId}-${e.txHash}-${e.userId}-${e.logIndex}-${env.absintheApiKey}`;
     const hash = createHash('md5').update(hashMessage).digest('hex').slice(0, 8);
 
-    const onChainId = `${protocol.type}-${chainConfig.networkId}-${protocol.contractAddress}`;
     const baseSchema = {
       version: '1.0',
       eventId: hash,
       userId: e.userId,
       chain: chainConfig,
-      onChainId,
       runner: {
         runnerId: 'uniswapv2_indexer_001', //todo: get the current PID/ docker-containerId
       },
@@ -111,16 +112,14 @@ function toTransaction(
         },
       ],
       currency: e.currency,
-      valueUsd: typeof e.valueUsd === 'number' ? e.valueUsd : 0.0,
-      lpTokenPrice: 0.0,
-      lpTokenDecimals: 18.0,
+      valueUsd: e.valueUsd ?? 0.0,
     };
 
     return {
       base: baseSchema,
       eventType: MessageType.TRANSACTION,
       rawAmount: e.rawAmount,
-      displayAmount: typeof e.displayAmount === 'number' ? e.displayAmount : 0.0,
+      displayAmount: e.displayAmount ?? 0.0,
       unixTimestampMs: e.unixTimestampMs,
       txHash: e.txHash,
       logIndex: e.logIndex,
