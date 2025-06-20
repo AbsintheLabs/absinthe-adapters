@@ -20,7 +20,7 @@ import {
   ValidatedUniv3ProtocolConfig,
 } from '../../types/interfaces/protocols';
 import { Currency, MessageType, TimeWindowTrigger } from '../../types/enums';
-import { ZERO_ADDRESS } from '../consts';
+import { VERSION, ZERO_ADDRESS } from '../consts';
 
 function toTimeWeightedBalance(
   historyWindows: HistoryWindow[],
@@ -35,12 +35,16 @@ function toTimeWeightedBalance(
     const apiKeyHash = createHash('md5').update(env.absintheApiKey).digest('hex').slice(0, 8);
 
     const baseSchema = {
-      version: '1.0',
+      version: VERSION,
       eventId: hash,
       userId: e.userAddress,
       chain: chainConfig,
+      contractAddress: protocol.contractAddress.toLowerCase(),
+      protocolName: protocol.name.toLowerCase(),
+      protocolType: protocol.type.toLowerCase(),
       runner: {
         runnerId: 'uniswapv2_indexer_001', //todo: get the current PID/ docker-containerId
+        apiKeyHash,
       },
       protocolMetadata: [
         {
@@ -86,13 +90,19 @@ function toTransaction(
     const hashMessage = `${chainConfig.networkId}-${e.txHash}-${e.userId}-${e.logIndex}-${env.absintheApiKey}`;
     const hash = createHash('md5').update(hashMessage).digest('hex').slice(0, 8);
 
+    const apiKeyHash = createHash('md5').update(env.absintheApiKey).digest('hex').slice(0, 8);
+
     const baseSchema = {
-      version: '1.0',
+      version: VERSION,
       eventId: hash,
       userId: e.userId,
       chain: chainConfig,
+      contractAddress: protocol.contractAddress.toLowerCase(),
+      protocolName: protocol.name.toLowerCase(),
+      protocolType: protocol.type.toLowerCase(),
       runner: {
         runnerId: 'uniswapv2_indexer_001', //todo: get the current PID/ docker-containerId
+        apiKeyHash,
       },
       protocolMetadata: [
         {
@@ -260,7 +270,7 @@ async function fetchHistoricalUsd(
   if (!j.market_data?.current_price?.[Currency.USD]) {
     // warn: this is not a fatal error, but it should be investigated since position value will be inaccurate
     // throw new Error(`No market data found for ${id} on ${date}`);
-    console.error(`No market data found for ${id} on ${date}`);
+    // console.error(`No market data found for ${id} on ${date}`);
     return 0;
   }
   return j.market_data.current_price[Currency.USD];

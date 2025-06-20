@@ -29,7 +29,9 @@
             "type": {
               "type": "enum",
               "name": "ChainArchEnum",
-              "symbols": ["evm"]
+              "symbols": [
+                "evm"
+              ]
             }
           },
           {
@@ -48,6 +50,21 @@
       }
     },
     {
+      "name": "contractAddress",
+      "type": "string",
+      "doc": "Contract address of the protocol"
+    },
+    {
+      "name": "protocolName",
+      "type": "string",
+      "doc": "Name of the protocol"
+    },
+    {
+      "name": "protocolType",
+      "type": "string",
+      "doc": "Type of the protocol"
+    },
+    {
       "name": "runner",
       "type": {
         "type": "record",
@@ -57,6 +74,11 @@
             "name": "runnerId",
             "type": "string",
             "doc": "Container-ID of the indexer that produced this event"
+          },
+          {
+            "name": "apiKeyHash",
+            "type": "string",
+            "doc": "Hash of the API key used to produce this event (only 8 chars)"
           }
         ]
       }
@@ -78,12 +100,21 @@
               "type": {
                 "type": "enum",
                 "name": "MetadataValueType",
-                "symbols": ["bigint", "number", "address", "string"]
+                "symbols": [
+                  "bigint",
+                  "number",
+                  "address",
+                  "string"
+                ]
               }
             },
             {
               "name": "value",
-              "type": ["null", "string", "double"],
+              "type": [
+                "null",
+                "string",
+                "double"
+              ],
               "default": null,
               "doc": "bigint & address encoded as hex-or-decimal string; numeric literals use double"
             }
@@ -97,7 +128,9 @@
       "type": {
         "type": "enum",
         "name": "CurrencyEnum",
-        "symbols": ["usd"]
+        "symbols": [
+          "usd"
+        ]
       }
     },
     {
