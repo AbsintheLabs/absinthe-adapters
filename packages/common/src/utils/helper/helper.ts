@@ -219,6 +219,120 @@ function processValueChange({
   return historyWindows;
 }
 
+function processValueChangeUniswapV3({
+  from,
+  to,
+  amount,
+  usdValue,
+  blockTimestamp,
+  blockHeight,
+  txHash,
+  activeBalances,
+  windowDurationMs,
+  tickUpper,
+  tickLower,
+  currentTick,
+  poolId,
+}: {
+  from: string;
+  to: string;
+  amount: bigint;
+  usdValue: number;
+  blockTimestamp: number;
+  blockHeight: number;
+  txHash: string;
+  activeBalances: Map<string, ActiveBalance>;
+  windowDurationMs: number;
+  tickUpper: number;
+  tickLower: number;
+  currentTick: number;
+  poolId: string;
+}): {
+  userAddress: string;
+  deltaAmount: number;
+  trigger: TimeWindowTrigger;
+  startTs: Date;
+  endTs: Date;
+  startBlockNumber: number;
+  endBlockNumber: number;
+  txHash: string;
+  windowDurationMs: number;
+  valueUsd: number;
+  balanceBefore: string;
+  balanceAfter: string;
+  currency: Currency;
+  extras: any;
+}[] {
+  const historyWindows: any = [];
+
+  function snapshotAndUpdate(userAddress: string, updatedAmount: bigint) {
+    // Handle both nested and flat map structures
+    let tokenBalances: Map<string, ActiveBalance>;
+
+    if (activeBalances instanceof Map && activeBalances.get(tokenAddress) instanceof Map) {
+      // Nested map structure (Map<string, Map<string, ActiveBalance>>)
+      if (!activeBalances.has(tokenAddress)) {
+        activeBalances.set(tokenAddress, new Map());
+      }
+      tokenBalances = activeBalances.get(tokenAddress)!;
+    } else {
+      // Flat map structure (Map<string, ActiveBalance>)
+      tokenBalances = activeBalances as Map<string, ActiveBalance>;
+    }
+
+    //todo: confirm this from andrew, is this correct ?- we are only pushing the balances for the tokenAddress of this user (not the user balan)
+
+    const prev = tokenBalances.get(userAddress) ?? {
+      balance: 0n,
+      updatedBlockTs: blockTimestamp,
+      updatedBlockHeight: blockHeight,
+    };
+
+    if (prev.balance > 0n) {
+      const balanceBefore = pricePosition(tokenPrice, prev.balance, tokenDecimals);
+      historyWindows.push({
+        id: `${userAddress}-${blockHeight}-${txHash}`,
+        userAddress: userAddress,
+        deltaAmount: usdValue,
+        trigger: TimeWindowTrigger.TRANSFER,
+        poolId: poolId,
+        startTs: new Date(prev.updatedBlockTs).getTime(),
+        endTs: new Date(blockTimestamp).getTime(),
+        startBlockNumber: prev.updatedBlockHeight,
+        endBlockNumber: blockHeight,
+        txHash: txHash,
+        windowDurationMs: windowDurationMs,
+        valueUsd: balanceBefore,
+        balanceBefore: prev.balance.toString(),
+        balanceAfter: (prev.balance + updatedAmount).toString(),
+        currency: Currency.USD,
+        extras: {
+          tickUpper,
+          tickLower,
+          currentTick,
+        },
+      });
+    }
+
+    tokenBalances.set(userAddress, {
+      balance: prev.balance + updatedAmount,
+      updatedBlockTs: blockTimestamp,
+      updatedBlockHeight: blockHeight,
+    });
+  }
+
+  function processAddress(address: string, amount: bigint) {
+    if (address && address !== ZERO_ADDRESS && address !== POSITIONS_ADDRESS) {
+      snapshotAndUpdate(address, amount);
+    }
+  }
+
+  //todo: confirm this
+  processAddress(from, BigInt(-amount));
+  processAddress(to, amount);
+  return historyWindows;
+}
+
 function mapToJson(map: Map<string, ActiveBalance>): Record<string, any> {
   const result: Record<string, any> = {};
   for (const [key, value] of map.entries()) {
@@ -284,4 +398,5 @@ export {
   processValueChange,
   pricePosition,
   fetchHistoricalUsd,
+  processValueChangeUniswapV3,
 };

@@ -14,17 +14,22 @@ import * as poolAbi from './abi/pool';
 import * as positionsAbi from './abi/NonfungiblePositionManager';
 import { validateEnv } from '@absinthe/common';
 
-const poolsMetadata = JSON.parse(fs.readFileSync('./assets/pools.json', 'utf-8')) as {
+const env = validateEnv();
+
+const poolsMetadata = JSON.parse(fs.readFileSync('../../assets/pools.json', 'utf-8')) as {
   height: number;
   pools: string[];
 };
 
-const env = validateEnv();
-
 const uniswapV3DexProtocol = env.univ3Protocols[0];
+// const poolAddresses = uniswapV3DexProtocol.pools.map((pool) => pool.contractAddress);
+// const earliestFromBlock = Math.min(...uniswapV3DexProtocol.pools.map((pool) => pool.fromBlock));
 
 export const processor = new EvmBatchProcessor()
-  .setRpcEndpoint(uniswapV3DexProtocol.rpcUrl)
+  .setRpcEndpoint({
+    url: uniswapV3DexProtocol.rpcUrl,
+    maxBatchCallSize: 25,
+  })
   .setGateway(uniswapV3DexProtocol.gatewayUrl)
   .setBlockRange({
     from: uniswapV3DexProtocol.factoryDeployedAt,
