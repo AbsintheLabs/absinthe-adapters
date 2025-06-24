@@ -235,7 +235,6 @@ export class HemiStakingProcessor {
 
     const tokenPrice = await fetchHistoricalUsd(tokenMetadata.coingeckoId, block.header.timestamp);
     const usdValue = pricePosition(tokenPrice, amount, tokenMetadata.decimals);
-    console.log(amount, 'deposit amount');
 
     const newHistoryWindows = processValueChangeBalances({
       from: depositor,
@@ -251,8 +250,6 @@ export class HemiStakingProcessor {
       tokenDecimals: tokenMetadata.decimals,
       tokenAddress: token,
     });
-
-    console.log(newHistoryWindows, 'newHistoryWindows');
 
     protocolState.balanceWindows.push(...newHistoryWindows);
   }
@@ -276,7 +273,7 @@ export class HemiStakingProcessor {
 
     const tokenPrice = await fetchHistoricalUsd(tokenMetadata.coingeckoId, block.header.timestamp);
     const usdValue = pricePosition(tokenPrice, amount, tokenMetadata.decimals);
-    console.log(amount, 'withdraw amount');
+
     const newHistoryWindows = processValueChangeBalances({
       from: ZERO_ADDRESS,
       to: withdrawer,
@@ -291,8 +288,6 @@ export class HemiStakingProcessor {
       tokenDecimals: tokenMetadata.decimals,
       tokenAddress: token,
     });
-
-    console.log(newHistoryWindows, 'newHistoryWindows');
 
     protocolState.balanceWindows.push(...newHistoryWindows);
   }

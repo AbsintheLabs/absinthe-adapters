@@ -170,6 +170,7 @@ export class VusdMintProcessor {
       this.env,
       this.chainConfig,
     );
+    console.log(transactions, 'transactions');
     await this.apiClient.send(transactions);
   }
 }

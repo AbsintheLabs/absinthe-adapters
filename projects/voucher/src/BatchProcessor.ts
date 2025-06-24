@@ -179,6 +179,7 @@ export class VoucherProcessor {
       this.env,
       this.chainConfig,
     );
+    console.log(transactions, 'transactions');
     await this.apiClient.send(transactions);
   }
 }

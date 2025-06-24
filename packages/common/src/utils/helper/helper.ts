@@ -141,6 +141,73 @@ function toTransaction(
   });
 }
 
+function processValueChange({
+  from,
+  to,
+  amount,
+  usdValue,
+  blockTimestamp,
+  blockHeight,
+  txHash,
+  activeBalances,
+  windowDurationMs,
+  tokenPrice,
+  tokenDecimals,
+}: ProcessValueChangeParams): HistoryWindow[] {
+  const historyWindows: HistoryWindow[] = [];
+
+  function snapshotAndUpdate(userAddress: string, updatedAmount: bigint) {
+    // Get the user's balance for this token
+    let activeUserBalance = activeBalances.get(userAddress);
+    if (!activeUserBalance) {
+      // Create new user balance if it doesn't exist
+      activeUserBalance = {
+        balance: 0n,
+        updatedBlockTs: blockTimestamp,
+        updatedBlockHeight: blockHeight,
+      };
+      activeBalances.set(userAddress, activeUserBalance);
+    }
+
+    // Create history window if there was a previous balance
+    if (activeUserBalance.balance > 0n) {
+      const balanceBefore = pricePosition(tokenPrice, activeUserBalance.balance, tokenDecimals);
+      historyWindows.push({
+        userAddress: userAddress,
+        deltaAmount: usdValue,
+        trigger: TimeWindowTrigger.TRANSFER,
+        startTs: activeUserBalance.updatedBlockTs,
+        endTs: blockTimestamp,
+        startBlockNumber: activeUserBalance.updatedBlockHeight,
+        endBlockNumber: blockHeight,
+        txHash: txHash,
+        windowDurationMs: windowDurationMs,
+        tokenPrice: tokenPrice,
+        tokenDecimals: tokenDecimals,
+        valueUsd: balanceBefore,
+        balanceBefore: activeUserBalance.balance.toString(),
+        balanceAfter: (activeUserBalance.balance + updatedAmount).toString(),
+        currency: Currency.USD,
+      });
+    }
+
+    // Update the balance
+    activeUserBalance.balance += updatedAmount;
+    activeUserBalance.updatedBlockTs = blockTimestamp;
+    activeUserBalance.updatedBlockHeight = blockHeight;
+  }
+
+  function processAddress(address: string, amount: bigint) {
+    if (address && address !== ZERO_ADDRESS) {
+      snapshotAndUpdate(address, amount);
+    }
+  }
+
+  processAddress(from, amount); // from address loses amount
+  processAddress(to, amount); // to address gains amount
+  return historyWindows;
+}
+
 function processValueChangeBalances({
   from,
   to,
@@ -395,6 +462,7 @@ export {
   jsonToMap,
   toTimeWeightedBalance,
   toTransaction,
+  processValueChange,
   processValueChangeBalances,
   pricePosition,
   fetchHistoricalUsd,
