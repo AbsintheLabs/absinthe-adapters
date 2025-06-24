@@ -141,7 +141,7 @@ function toTransaction(
   });
 }
 
-function processValueChange({
+function processValueChangeBalances({
   from,
   to,
   amount,
@@ -158,54 +158,54 @@ function processValueChange({
   const historyWindows: HistoryWindow[] = [];
 
   function snapshotAndUpdate(userAddress: string, updatedAmount: bigint) {
-    // Handle both nested and flat map structures
-    let tokenBalances: Map<string, ActiveBalance>;
-
-    if (activeBalances instanceof Map && activeBalances.get(tokenAddress) instanceof Map) {
-      // Nested map structure (Map<string, Map<string, ActiveBalance>>)
-      if (!activeBalances.has(tokenAddress)) {
-        activeBalances.set(tokenAddress, new Map());
-      }
-      tokenBalances = activeBalances.get(tokenAddress)!;
-    } else {
-      // Flat map structure (Map<string, ActiveBalance>)
-      tokenBalances = activeBalances as Map<string, ActiveBalance>;
+    console.log(updatedAmount, 'updatedAmount', userAddress, tokenAddress);
+    // Get the token balances map for this token
+    let tokenBalances = activeBalances.get(tokenAddress);
+    if (!tokenBalances) {
+      // Create new token balances map if it doesn't exist
+      tokenBalances = new Map();
+      activeBalances.set(tokenAddress, tokenBalances);
+      console.log('Token not found, creating new map', tokenAddress);
     }
 
-    //todo: confirm this from andrew, is this correct ?- we are only pushing the balances for the tokenAddress of this user (not the user balan)
+    // Get the user's balance for this token
+    let activeUserBalance = tokenBalances.get(userAddress);
+    if (!activeUserBalance) {
+      // Create new user balance if it doesn't exist
+      activeUserBalance = {
+        balance: 0n,
+        updatedBlockTs: blockTimestamp,
+        updatedBlockHeight: blockHeight,
+      };
+      tokenBalances.set(userAddress, activeUserBalance);
+    }
 
-    const prev = tokenBalances.get(userAddress) ?? {
-      balance: 0n,
-      updatedBlockTs: blockTimestamp,
-      updatedBlockHeight: blockHeight,
-    };
-
-    if (prev.balance > 0n) {
-      const balanceBefore = pricePosition(tokenPrice, prev.balance, tokenDecimals);
+    // Create history window if there was a previous balance
+    if (activeUserBalance.balance > 0n) {
+      const balanceBefore = pricePosition(tokenPrice, activeUserBalance.balance, tokenDecimals);
       historyWindows.push({
         userAddress: userAddress,
         deltaAmount: usdValue,
         trigger: TimeWindowTrigger.TRANSFER,
-        startTs: prev.updatedBlockTs,
+        startTs: activeUserBalance.updatedBlockTs,
         endTs: blockTimestamp,
-        startBlockNumber: prev.updatedBlockHeight,
+        startBlockNumber: activeUserBalance.updatedBlockHeight,
         endBlockNumber: blockHeight,
         txHash: txHash,
         windowDurationMs: windowDurationMs,
         tokenPrice: tokenPrice,
         tokenDecimals: tokenDecimals,
         valueUsd: balanceBefore,
-        balanceBefore: prev.balance.toString(),
-        balanceAfter: (prev.balance + updatedAmount).toString(),
+        balanceBefore: activeUserBalance.balance.toString(),
+        balanceAfter: (activeUserBalance.balance + updatedAmount).toString(),
         currency: Currency.USD,
       });
     }
 
-    tokenBalances.set(userAddress, {
-      balance: prev.balance + updatedAmount,
-      updatedBlockTs: blockTimestamp,
-      updatedBlockHeight: blockHeight,
-    });
+    // Update the balance
+    activeUserBalance.balance += updatedAmount;
+    activeUserBalance.updatedBlockTs = blockTimestamp;
+    activeUserBalance.updatedBlockHeight = blockHeight;
   }
 
   function processAddress(address: string, amount: bigint) {
@@ -214,8 +214,8 @@ function processValueChange({
     }
   }
 
-  processAddress(from, amount);
-  processAddress(to, amount);
+  processAddress(from, amount); // from address loses amount
+  processAddress(to, amount); // to address gains amount
   return historyWindows;
 }
 
@@ -265,71 +265,71 @@ function processValueChangeUniswapV3({
 }[] {
   const historyWindows: any = [];
 
-  function snapshotAndUpdate(userAddress: string, updatedAmount: bigint) {
-    // Handle both nested and flat map structures
-    let tokenBalances: Map<string, ActiveBalance>;
+  // function snapshotAndUpdate(userAddress: string, updatedAmount: bigint) {
+  //   // Handle both nested and flat map structures
+  //   let tokenBalances: Map<string, ActiveBalance>;
 
-    if (activeBalances instanceof Map && activeBalances.get(tokenAddress) instanceof Map) {
-      // Nested map structure (Map<string, Map<string, ActiveBalance>>)
-      if (!activeBalances.has(tokenAddress)) {
-        activeBalances.set(tokenAddress, new Map());
-      }
-      tokenBalances = activeBalances.get(tokenAddress)!;
-    } else {
-      // Flat map structure (Map<string, ActiveBalance>)
-      tokenBalances = activeBalances as Map<string, ActiveBalance>;
-    }
+  //   if (activeBalances instanceof Map && activeBalances.get(tokenAddress) instanceof Map) {
+  //     // Nested map structure (Map<string, Map<string, ActiveBalance>>)
+  //     if (!activeBalances.has(tokenAddress)) {
+  //       activeBalances.set(tokenAddress, new Map());
+  //     }
+  //     tokenBalances = activeBalances.get(tokenAddress)!;
+  //   } else {
+  //     // Flat map structure (Map<string, ActiveBalance>)
+  //     tokenBalances = activeBalances as Map<string, ActiveBalance>;
+  //   }
 
-    //todo: confirm this from andrew, is this correct ?- we are only pushing the balances for the tokenAddress of this user (not the user balan)
+  //todo: confirm this from andrew, is this correct ?- we are only pushing the balances for the tokenAddress of this user (not the user balan)
 
-    const prev = tokenBalances.get(userAddress) ?? {
-      balance: 0n,
-      updatedBlockTs: blockTimestamp,
-      updatedBlockHeight: blockHeight,
-    };
+  // const prev = tokenBalances.get(userAddress) ?? {
+  //   balance: 0n,
+  //   updatedBlockTs: blockTimestamp,
+  //   updatedBlockHeight: blockHeight,
+  // };
 
-    if (prev.balance > 0n) {
-      const balanceBefore = pricePosition(tokenPrice, prev.balance, tokenDecimals);
-      historyWindows.push({
-        id: `${userAddress}-${blockHeight}-${txHash}`,
-        userAddress: userAddress,
-        deltaAmount: usdValue,
-        trigger: TimeWindowTrigger.TRANSFER,
-        poolId: poolId,
-        startTs: new Date(prev.updatedBlockTs).getTime(),
-        endTs: new Date(blockTimestamp).getTime(),
-        startBlockNumber: prev.updatedBlockHeight,
-        endBlockNumber: blockHeight,
-        txHash: txHash,
-        windowDurationMs: windowDurationMs,
-        valueUsd: balanceBefore,
-        balanceBefore: prev.balance.toString(),
-        balanceAfter: (prev.balance + updatedAmount).toString(),
-        currency: Currency.USD,
-        extras: {
-          tickUpper,
-          tickLower,
-          currentTick,
-        },
-      });
-    }
+  // if (prev.balance > 0n) {
+  //   const balanceBefore = pricePosition(tokenPrice, prev.balance, tokenDecimals);
+  //   historyWindows.push({
+  //     id: `${userAddress}-${blockHeight}-${txHash}`,
+  //     userAddress: userAddress,
+  //     deltaAmount: usdValue,
+  //     trigger: TimeWindowTrigger.TRANSFER,
+  //     poolId: poolId,
+  //     startTs: new Date(prev.updatedBlockTs).getTime(),
+  //     endTs: new Date(blockTimestamp).getTime(),
+  //     startBlockNumber: prev.updatedBlockHeight,
+  //     endBlockNumber: blockHeight,
+  //     txHash: txHash,
+  //     windowDurationMs: windowDurationMs,
+  //     valueUsd: balanceBefore,
+  //     balanceBefore: prev.balance.toString(),
+  //     balanceAfter: (prev.balance + updatedAmount).toString(),
+  //     currency: Currency.USD,
+  //     extras: {
+  //       tickUpper,
+  //       tickLower,
+  //       currentTick,
+  //     },
+  // });
+  // }
 
-    tokenBalances.set(userAddress, {
-      balance: prev.balance + updatedAmount,
-      updatedBlockTs: blockTimestamp,
-      updatedBlockHeight: blockHeight,
-    });
-  }
+  // tokenBalances.set(userAddress, {
+  //   balance: prev.balance + updatedAmount,
+  //   updatedBlockTs: blockTimestamp,
+  //   updatedBlockHeight: blockHeight,
+  // });
+  // }
 
-  function processAddress(address: string, amount: bigint) {
-    if (address && address !== ZERO_ADDRESS && address !== POSITIONS_ADDRESS) {
-      snapshotAndUpdate(address, amount);
-    }
-  }
+  // function processAddress(address: string, amount: bigint) {
+  //   if (address && address !== ZERO_ADDRESS && address !== POSITIONS_ADDRESS) {
+  //     snapshotAndUpdate(address, amount);
+  //   }
+  // }
 
-  //todo: confirm this
-  processAddress(from, BigInt(-amount));
-  processAddress(to, amount);
+  // //todo: confirm this
+  // processAddress(from, BigInt(-amount));
+  // processAddress(to, amount);
   return historyWindows;
 }
 
@@ -395,7 +395,7 @@ export {
   jsonToMap,
   toTimeWeightedBalance,
   toTransaction,
-  processValueChange,
+  processValueChangeBalances,
   pricePosition,
   fetchHistoricalUsd,
   processValueChangeUniswapV3,

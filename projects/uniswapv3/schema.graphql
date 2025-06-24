@@ -289,7 +289,6 @@ type Tx @entity {
   collects: [Collect]! @derivedFrom(field: "transaction")
 }
 
-
 type Collect @entity {
   # transaction hash + "#" + index in collect Transaction array
   id: ID!

@@ -6,6 +6,7 @@ import {
   BatchContext,
   Chain,
   Currency,
+  processValueChangeBalances,
   TimeWeightedBalanceEvent,
   TimeWindowTrigger,
   ValidatedEnvBase,
@@ -20,12 +21,7 @@ import { loadActiveBalancesFromDb, loadPoolProcessStateFromDb } from './utils/po
 import { ProtocolStateHemi } from './utils/types';
 import * as hemiAbi from './abi/hemi';
 import { fetchHistoricalUsd } from './utils/pricing';
-import {
-  mapToJson,
-  processValueChange,
-  toTimeWeightedBalance,
-  pricePosition,
-} from '@absinthe/common';
+import { mapToJson, toTimeWeightedBalance, pricePosition } from '@absinthe/common';
 import { PoolProcessState } from './model';
 
 //todo: cleanup
@@ -187,7 +183,6 @@ export class HemiStakingProcessor {
     const { ctx, block, protocolStates } = batchContext;
     const contractAddress = this.stakingProtocol.contractAddress;
     const protocolState = protocolStates.get(contractAddress)!;
-
     await this.processLogsForProtocol(ctx, block, contractAddress, protocolState);
     await this.processPeriodicBalanceFlush(ctx, block, protocolState);
   }
@@ -212,7 +207,6 @@ export class HemiStakingProcessor {
     log: any,
     protocolState: ProtocolStateHemi,
   ): Promise<void> {
-    console.log(log.topics[0].header);
     if (log.topics[0] === hemiAbi.events.Deposit.topic) {
       await this.processDepositEvent(ctx, block, log, protocolState);
     }
@@ -229,7 +223,6 @@ export class HemiStakingProcessor {
     protocolState: ProtocolStateHemi,
   ): Promise<void> {
     const { depositor, token, amount } = hemiAbi.events.Deposit.decode(log);
-
     const tokenMetadata = checkToken(token);
     if (!tokenMetadata) {
       console.warn(`Ignoring deposit for unsupported token: ${token}`);
@@ -242,8 +235,9 @@ export class HemiStakingProcessor {
 
     const tokenPrice = await fetchHistoricalUsd(tokenMetadata.coingeckoId, block.header.timestamp);
     const usdValue = pricePosition(tokenPrice, amount, tokenMetadata.decimals);
+    console.log(amount, 'deposit amount');
 
-    const newHistoryWindows = processValueChange({
+    const newHistoryWindows = processValueChangeBalances({
       from: depositor,
       to: ZERO_ADDRESS,
       amount: amount,
@@ -257,6 +251,8 @@ export class HemiStakingProcessor {
       tokenDecimals: tokenMetadata.decimals,
       tokenAddress: token,
     });
+
+    console.log(newHistoryWindows, 'newHistoryWindows');
 
     protocolState.balanceWindows.push(...newHistoryWindows);
   }
@@ -280,8 +276,8 @@ export class HemiStakingProcessor {
 
     const tokenPrice = await fetchHistoricalUsd(tokenMetadata.coingeckoId, block.header.timestamp);
     const usdValue = pricePosition(tokenPrice, amount, tokenMetadata.decimals);
-
-    const newHistoryWindows = processValueChange({
+    console.log(amount, 'withdraw amount');
+    const newHistoryWindows = processValueChangeBalances({
       from: ZERO_ADDRESS,
       to: withdrawer,
       amount: BigInt(-amount),
@@ -295,6 +291,8 @@ export class HemiStakingProcessor {
       tokenDecimals: tokenMetadata.decimals,
       tokenAddress: token,
     });
+
+    console.log(newHistoryWindows, 'newHistoryWindows');
 
     protocolState.balanceWindows.push(...newHistoryWindows);
   }

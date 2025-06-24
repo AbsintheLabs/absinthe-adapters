@@ -276,7 +276,7 @@ async function processMintData(ctx: ContextWithEntityManager, block: BlockHeader
       currentTick: pool.tick,
       poolId: pool.id,
     });
-    pool.balanceWindows.push(...newHistoryWindows);
+    // pool.balanceWindows.push(...newHistoryWindows);
   }
 
   //todo: remove this repetition
@@ -378,7 +378,7 @@ async function processBurnData(ctx: ContextWithEntityManager, block: BlockHeader
       poolId: pool.id,
     });
     for (const window of newHistoryWindows) {
-      ctx.entities.add(new HistoryWindow(window));
+      // ctx.entities.add(new HistoryWindow(window));
     }
   }
 
@@ -583,7 +583,7 @@ async function processSwapData(
     gasUsed: Number(data.transaction.gas),
     gasFeeUsd: Number(data.transaction.gasPrice) * Number(data.transaction.gas),
   };
-  pool.transactions.push(transactionSchema);
+  // pool.transactions.push(transactionSchema);
 
   //todo:
   // we want to find all positions that are no longer within range, we want to no longer actively flush them.

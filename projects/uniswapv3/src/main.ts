@@ -41,7 +41,7 @@ import { processFactory } from './mappings/factory';
 import { processPairs } from './mappings/core';
 import { processPositions } from './mappings/positionManager';
 
-import { Bundle, Burn, Factory, Mint, Pool, Position, Swap, Tick, Token, Tx } from './model';
+import { Bundle, Factory, Pool, Position, Tick, Token, Tx } from './model';
 
 processor.run(
   new TypeormDatabase({ supportHotBlocks: false, stateSchema: 'univ3-1' }),
@@ -60,9 +60,6 @@ processor.run(
     await ctx.store.save(entities.values(Pool));
     await ctx.store.save(entities.values(Tick));
     await ctx.store.insert(entities.values(Tx));
-    await ctx.store.insert(entities.values(Mint));
-    await ctx.store.insert(entities.values(Burn));
-    await ctx.store.insert(entities.values(Swap));
     await ctx.store.save(entities.values(Position));
   },
 );
