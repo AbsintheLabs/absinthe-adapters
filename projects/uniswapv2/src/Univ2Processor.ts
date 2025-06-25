@@ -8,6 +8,7 @@ import {
   ChainId,
   ChainShortName,
   Currency,
+  Dex,
   fetchHistoricalUsd,
   MessageType,
   ProtocolConfig,
@@ -44,6 +45,7 @@ import {
 
 export class UniswapV2Processor {
   private readonly protocols: ProtocolConfig[];
+  private readonly protocolType: Dex;
   private readonly schemaName: string;
   private readonly refreshWindow: number;
   private readonly apiClient: AbsintheApiClient;
@@ -58,6 +60,7 @@ export class UniswapV2Processor {
     chainConfig: Chain,
   ) {
     this.protocols = dexProtocol.protocols;
+    this.protocolType = dexProtocol.type;
     this.refreshWindow = refreshWindow;
     this.apiClient = apiClient;
     this.env = env;
@@ -126,7 +129,7 @@ export class UniswapV2Processor {
     for (const protocol of this.protocols) {
       const contractAddress = protocol.contractAddress;
       const protocolState = protocolStates.get(contractAddress)!;
-
+      console.log('Here to process block', block.header.height);
       await this.initializeProtocolForBlock(ctx, block, contractAddress, protocol, protocolState);
       await this.processLogsForProtocol(ctx, block, contractAddress, protocol, protocolState);
       await this.processPeriodicBalanceFlush(ctx, block, contractAddress, protocolState);
@@ -224,19 +227,19 @@ export class UniswapV2Processor {
     const pricedSwapVolume =
       protocol.preferredTokenCoingeckoId === 'token0'
         ? await computePricedSwapVolume(
-            token0Amount,
-            protocolState.config.token0.coingeckoId as string,
-            protocolState.config.token0.decimals,
-            block.header.timestamp,
-            this.env.coingeckoApiKey,
-          )
+          token0Amount,
+          protocolState.config.token0.coingeckoId as string,
+          protocolState.config.token0.decimals,
+          block.header.timestamp,
+          this.env.coingeckoApiKey,
+        )
         : await computePricedSwapVolume(
-            token1Amount,
-            protocolState.config.token1.coingeckoId as string,
-            protocolState.config.token1.decimals,
-            block.header.timestamp,
-            this.env.coingeckoApiKey,
-          );
+          token1Amount,
+          protocolState.config.token1.coingeckoId as string,
+          protocolState.config.token1.decimals,
+          block.header.timestamp,
+          this.env.coingeckoApiKey,
+        );
 
     const transactionSchema = {
       eventType: MessageType.TRANSACTION,
@@ -284,6 +287,8 @@ export class UniswapV2Processor {
       gasFeeUsd: gasFeeUsd,
     };
 
+    console.log(protocolState.transactions.length, 'protocolState.transactions');
+
     protocolState.transactions.push(transactionSchema);
   }
 
@@ -300,7 +305,6 @@ export class UniswapV2Processor {
     protocolState: ProtocolStateUniv2,
   ): Promise<void> {
     const { from, to, value } = univ2Abi.events.Transfer.decode(log);
-
     const lpTokenPrice = await computeLpTokenPrice(
       ctx,
       block,
@@ -328,7 +332,7 @@ export class UniswapV2Processor {
       tokenPrice: lpTokenPrice,
       tokenDecimals: protocolState.config.lpToken.decimals,
     });
-
+    console.log(protocolState.balanceWindows.length, 'newHistoryWindows');
     protocolState.balanceWindows.push(...newHistoryWindows);
   }
 
@@ -405,21 +409,26 @@ export class UniswapV2Processor {
     protocolStates: Map<string, ProtocolStateUniv2>,
   ): Promise<void> {
     for (const protocol of this.protocols) {
+      console.log('Here on the finalize batch');
       const protocolState = protocolStates.get(protocol.contractAddress)!;
       // Send data to Absinthe API
+
+      console.log(protocol, 'protocol');
       const balances = toTimeWeightedBalance(
         protocolState.balanceWindows,
-        protocol,
+        { ...protocol, type: this.protocolType },
         this.env,
         this.chainConfig,
       ).filter((e: TimeWeightedBalanceEvent) => e.startUnixTimestampMs !== e.endUnixTimestampMs);
       const transactions = toTransaction(
         protocolState.transactions,
-        protocol,
+        { ...protocol, type: this.protocolType },
         this.env,
         this.chainConfig,
       );
+      console.log('Sending balances', balances, transactions);
       await this.apiClient.send(balances);
+      console.log('Sending transactions');
       await this.apiClient.send(transactions);
 
       // Save to database

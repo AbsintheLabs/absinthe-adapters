@@ -52,11 +52,6 @@ function toTimeWeightedBalance(
           value: protocol.contractAddress,
           type: 'address',
         },
-        {
-          key: 'protocolName',
-          value: 'uniswapv2',
-          type: 'string',
-        },
       ],
       currency: e.currency,
       valueUsd: e.valueUsd * (e.endTs - e.startTs),
@@ -225,14 +220,12 @@ function processValueChangeBalances({
   const historyWindows: HistoryWindow[] = [];
 
   function snapshotAndUpdate(userAddress: string, updatedAmount: bigint) {
-    console.log(updatedAmount, 'updatedAmount', userAddress, tokenAddress);
     // Get the token balances map for this token
     let tokenBalances = activeBalances.get(tokenAddress);
     if (!tokenBalances) {
       // Create new token balances map if it doesn't exist
       tokenBalances = new Map();
       activeBalances.set(tokenAddress, tokenBalances);
-      console.log('Token not found, creating new map', tokenAddress);
     }
 
     // Get the user's balance for this token
