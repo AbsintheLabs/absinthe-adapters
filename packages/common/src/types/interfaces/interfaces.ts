@@ -20,6 +20,9 @@ interface BaseEventFields {
   eventId: string;
   userId: string;
   chain: Chain;
+  contractAddress: string;
+  protocolName: string;
+  protocolType: string;
   runner: Runner;
   protocolMetadata: ProtocolMetadataItem[];
   currency: Currency;
@@ -60,6 +63,7 @@ interface ProtocolMetadataItem {
 
 interface Runner {
   runnerId: string;
+  apiKeyHash: string;
 }
 
 interface TokenDetails {

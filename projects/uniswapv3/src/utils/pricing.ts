@@ -1,123 +1,92 @@
-import Big from 'big.js';
-import { PoolConfig, PoolState } from '../model';
-import { DataHandlerContext, BlockData } from '@subsquid/evm-processor';
-import { Store } from '@subsquid/typeorm-store';
-import { updatePoolStateFromOnChain } from './pool';
-import { fetchHistoricalUsd, pricePosition } from '@absinthe/common';
+import { WHITELIST_TOKENS } from './constants';
 
-/** in-memory, process-wide price cache (key = "<id>-<hourBucket>") */
-const hourlyPriceCache = new Map<string, number>();
+export function sqrtPriceX96ToTokenPrices(
+  sqrtPriceX96: bigint,
+  decimals0: number,
+  decimals1: number,
+  poolAddress: string,
+): number[] {
+  // Validate inputs
+  if (!sqrtPriceX96) {
+    return [0, 0];
+  }
 
-export async function getHourlyPrice(
-  coingeckoId: string,
-  timestampMs: number,
-  coingeckoApiKey: string,
-  isMocked: boolean = false,
-): Promise<number> {
-  if (isMocked) return 0;
-  if (!coingeckoId) throw new Error('coingeckoId required');
-  const dayBucket = new Date(timestampMs).setHours(0, 0, 0, 0); // round to top-of-day
-  const k = `${coingeckoId}-${dayBucket}`;
+  if (sqrtPriceX96 <= 0n) {
+    return [0, 0];
+  }
 
-  if (hourlyPriceCache.has(k)) return hourlyPriceCache.get(k)!;
+  if (decimals0 < 0 || decimals1 < 0) {
+    return [0, 0];
+  }
 
-  const price = await fetchHistoricalUsd(coingeckoId, timestampMs, coingeckoApiKey);
-  hourlyPriceCache.set(k, price);
-  return price;
+  try {
+    // Convert sqrtPriceX96 to number safely
+    const sqrtPriceFloat = Number(sqrtPriceX96);
+    if (!isFinite(sqrtPriceFloat)) {
+      throw new Error('sqrtPrice conversion to float resulted in non-finite number');
+    }
+
+    // Calculate square of price with decimal adjustment
+    const price =
+      (sqrtPriceFloat * sqrtPriceFloat * Math.pow(10, decimals0 - decimals1)) / Number(1n << 192n);
+
+    // Validate calculated price
+    if (!isFinite(price) || price <= 0) {
+      throw new Error('Invalid price calculation result');
+    }
+
+    const price0 = 1 / price;
+    const price1 = price;
+
+    // Validate final prices
+    if (!isFinite(price0) || !isFinite(price1) || price0 <= 0 || price1 <= 0) {
+      throw new Error('Invalid final price values');
+    }
+
+    return [price0, price1];
+  } catch (err) {
+    const error = err instanceof Error ? err.message : 'Unknown error';
+    console.error(`Price calculation failed for pool ${poolAddress}: ${error}`);
+    console.error(
+      `Input values: sqrtPriceX96=${sqrtPriceX96}, decimals0=${decimals0}, decimals1=${decimals1}`,
+    );
+
+    return [0, 0];
+  }
 }
 
-export async function computePricedSwapVolume(
-  tokenAmount: bigint,
-  coingeckoId: string,
-  decimals: number,
-  atMs: number,
-  coingeckoApiKey: string,
-  isMocked: boolean = false,
-): Promise<number> {
-  if (isMocked) return 0;
-  const price = await getHourlyPrice(coingeckoId, atMs, coingeckoApiKey);
-  return pricePosition(price, tokenAmount, decimals);
-}
+/**
+ * Accepts tokens and amounts, return tracked amount based on token whitelist
+ * If one token on whitelist, return amount in that token converted to USD * 2.
+ * If both are, return sum of two amounts
+ * If neither is, return 0
+ */
+export function getTrackedAmountUSD(
+  token0: string,
+  amount0USD: number,
+  token1: string,
+  amount1USD: number,
+): number {
+  // Convert addresses to lowercase for comparison
+  const t0 = token0.toLowerCase();
+  const t1 = token1.toLowerCase();
+  const whitelist = WHITELIST_TOKENS.map((t) => t.toLowerCase());
 
-// Value of a token in USD
-// Value of 1 LP token in USD
-export async function computeLpTokenPrice(
-  ctx: DataHandlerContext<Store>,
-  block: BlockData,
-  poolConfig: PoolConfig,
-  poolState: PoolState,
-  coingeckoApiKey: string,
-  timestampMs?: number,
-): Promise<number> {
-  if (!poolConfig) {
-    throw new Error('No poolConfig provided to computeLpTokenPrice');
+  // both are whitelist tokens, return sum of both amounts
+  if (whitelist.includes(t0) && whitelist.includes(t1)) {
+    return (amount0USD + amount1USD) / 2;
   }
 
-  if (!poolState) {
-    throw new Error('No poolState provided to computeLpTokenPrice');
+  // take value of the whitelisted token amount
+  if (whitelist.includes(t0) && !whitelist.includes(t1)) {
+    return amount0USD;
   }
 
-  if (!poolConfig.token0) {
-    throw new Error(`poolConfig.token0 is missing in poolConfig ${poolConfig.id}`);
+  // take value of the whitelisted token amount
+  if (!whitelist.includes(t0) && whitelist.includes(t1)) {
+    return amount1USD;
   }
 
-  if (!poolConfig.token1) {
-    throw new Error(`poolConfig.token1 is missing in poolConfig ${poolConfig.id}`);
-  }
-
-  if (!poolConfig.lpToken) {
-    throw new Error(`poolConfig.lpToken is missing in poolConfig ${poolConfig.id}`);
-  }
-
-  if (!poolConfig.token0.coingeckoId || !poolConfig.token1.coingeckoId) {
-    throw new Error('No coingecko id found for token0 or token1');
-  }
-
-  if (poolState.isDirty) {
-    poolState = await updatePoolStateFromOnChain(
-      ctx,
-      block,
-      poolConfig.lpToken.address,
-      poolConfig,
-    );
-  }
-
-  // Check for zero total supply to avoid division by zero
-  if (poolState.totalSupply === 0n) {
-    console.warn(`Pool ${poolConfig.id} has zero total supply, returning price 0`);
-    return 0;
-  }
-
-  const timestamp = timestampMs ?? Number(poolState.lastTsMs);
-  const [token0Price, token1Price] = await Promise.all([
-    getHourlyPrice(poolConfig.token0.coingeckoId, timestamp, coingeckoApiKey),
-    getHourlyPrice(poolConfig.token1.coingeckoId, timestamp, coingeckoApiKey),
-  ]);
-
-  if (token0Price === 0 || token1Price === 0) {
-    console.warn(`One or both token prices are 0 for pool ${poolConfig.id}, returning price 0`);
-    return 0;
-  }
-
-  const token0Value = pricePosition(token0Price, poolState.reserve0, poolConfig.token0.decimals);
-  const token1Value = pricePosition(token1Price, poolState.reserve1, poolConfig.token1.decimals);
-
-  const totalPoolValue = token0Value + token1Value;
-
-  // Calculate price per LP token
-  const totalSupplyBig = new Big(poolState.totalSupply.toString()).div(
-    new Big(10).pow(poolConfig.lpToken.decimals),
-  );
-
-  // Additional safety check for zero total supply after conversion
-  if (totalSupplyBig.eq(0)) {
-    console.warn(
-      `Pool ${poolConfig.id} has zero total supply after decimal conversion, returning price 0`,
-    );
-    return 0;
-  }
-
-  const price = new Big(totalPoolValue).div(totalSupplyBig).toNumber();
-
-  return price;
+  // neither token is on white list, tracked amount is 0
+  return 0;
 }

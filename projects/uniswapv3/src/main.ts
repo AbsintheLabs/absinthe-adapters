@@ -33,3 +33,33 @@ const WINDOW_DURATION_MS = env.baseConfig.balanceFlushIntervalHours * HOURS_TO_M
 //   chainConfig,
 // );
 // uniswapProcessor.run();
+
+import { TypeormDatabase } from '@subsquid/typeorm-store';
+import { processor } from './processor';
+import { EntityManager } from './utils/entityManager';
+import { processFactory } from './mappings/factory';
+import { processPairs } from './mappings/core';
+import { processPositions } from './mappings/positionManager';
+
+import { Bundle, Factory, Pool, Position, Tick, Token, Tx } from './model';
+
+processor.run(
+  new TypeormDatabase({ supportHotBlocks: false, stateSchema: 'univ3-1' }),
+  async (ctx) => {
+    const entities = new EntityManager(ctx.store);
+    const entitiesCtx = { ...ctx, entities };
+
+    await processFactory(entitiesCtx, ctx.blocks);
+    await processPairs(entitiesCtx, ctx.blocks);
+
+    // await processPositions(entitiesCtx, ctx.blocks);
+
+    await ctx.store.save(entities.values(Bundle));
+    await ctx.store.save(entities.values(Factory));
+    await ctx.store.save(entities.values(Token));
+    await ctx.store.save(entities.values(Pool));
+    await ctx.store.save(entities.values(Tick));
+    await ctx.store.insert(entities.values(Tx));
+    await ctx.store.save(entities.values(Position));
+  },
+);

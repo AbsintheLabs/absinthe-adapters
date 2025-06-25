@@ -4,7 +4,7 @@ import {
   BatchContext,
   Chain,
   Currency,
-  processValueChange,
+  processValueChangeBalances,
   TimeWeightedBalanceEvent,
   TimeWindowTrigger,
   ValidatedEnvBase,
@@ -195,7 +195,7 @@ export class VUSDBridgeProcessor {
     const tokenPrice = await fetchHistoricalUsd(tokenMetadata.coingeckoId, block.header.timestamp);
     const usdValue = pricePosition(tokenPrice, amount, tokenMetadata.decimals);
 
-    const newHistoryWindows = processValueChange({
+    const newHistoryWindows = processValueChangeBalances({
       from: from,
       to: to,
       amount: amount,

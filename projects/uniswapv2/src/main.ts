@@ -1,15 +1,5 @@
-import {
-  AbsintheApiClient,
-  validateEnv,
-  HOURS_TO_MS,
-  BondingCurveProtocol,
-  Dex,
-} from '@absinthe/common';
+import { AbsintheApiClient, validateEnv, HOURS_TO_MS, Dex } from '@absinthe/common';
 import { UniswapV2Processor } from './Univ2Processor';
-import dotenv from 'dotenv';
-
-dotenv.config();
-
 const env = validateEnv();
 
 const apiClient = new AbsintheApiClient({
@@ -34,8 +24,6 @@ const chainConfig = {
 };
 
 // todo: make the contract address lowercase throughout the codebase
-
-console.log(process.env.DB_URL);
 
 const WINDOW_DURATION_MS = env.baseConfig.balanceFlushIntervalHours * HOURS_TO_MS;
 const uniswapProcessor = new UniswapV2Processor(
