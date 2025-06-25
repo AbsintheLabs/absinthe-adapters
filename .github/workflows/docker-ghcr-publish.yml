@@ -71,6 +71,7 @@ jobs:
 
             echo "Building + pushing ${image_name} → tags: $tags"
             docker buildx build \
+              --platform linux/amd64,linux/arm64 \
               --file "$dockerfile_path" \
               --push \
               $(printf -- "--tag %s " $tags) \
