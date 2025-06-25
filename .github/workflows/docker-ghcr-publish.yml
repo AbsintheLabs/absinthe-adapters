@@ -16,6 +16,19 @@ jobs:
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine SemVer
+        id: semver
+        run: |
+          VERSION="$(git tag --points-at HEAD | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' || true)"
+          if [ -z "$VERSION" ]; then
+            echo "No exact semver tag on this commit, skipping versioned push."
+          else
+            echo "SemVer detected: $VERSION"
+            echo "VERSION=$VERSION" >> $GITHUB_ENV
+          fi
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -49,14 +62,19 @@ jobs:
               image_name=$(echo "$dockerfile" | sed 's/Dockerfile[.-]*//' | tr '[:upper:]' '[:lower:]')
             fi
             
-            # Build and push
+            tags="ghcr.io/absinthelabs/absinthe-${image_name}:latest"
+            
+            # if VERSION is set, add the semver tag
+            if [ -n "${VERSION:-}" ]; then
+              tags="$tags ghcr.io/absinthelabs/absinthe-${image_name}:$VERSION"
+            fi
+
+            echo "Building + pushing ${image_name} → tags: $tags"
             docker buildx build \
               --file "$dockerfile_path" \
               --push \
-              --tag "ghcr.io/absinthelabs/absinthe-${image_name}:${image_name}" \
+              $(printf -- "--tag %s " $tags) \
               .
-            
-            echo "✅ Successfully built and pushed $image_name"
           done
 
   deploy:
