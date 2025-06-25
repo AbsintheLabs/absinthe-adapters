@@ -183,8 +183,6 @@ DB_PORT=5432
    - Configure connection string
 
 2. **Cloud providers**:
-   - **AWS RDS**: Create PostgreSQL instance
-   - **Google Cloud SQL**: Set up PostgreSQL database
    - **Heroku Postgres**: Add Heroku Postgres addon
    - **Supabase**: Create project at [supabase.com](https://supabase.com)
 
