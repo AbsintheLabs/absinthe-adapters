@@ -119,8 +119,8 @@ type Select<T, R extends Req<T>, K = false> = {
 export type WithProp<K extends string, V> = [V] extends [never]
   ? {}
   : {
-    [k in K]: V;
-  };
+      [k in K]: V;
+    };
 
 export type TransactionRequest = Omit<PlainReq<EvmTransaction>, keyof TransactionDefaultRequest>;
 
@@ -133,8 +133,8 @@ type TransactionFields<R extends TransactionRequest> = Select<
 export type TransactionType<R> = R extends true
   ? EvmTransaction
   : R extends TransactionRequest
-  ? TransactionFields<R>
-  : never;
+    ? TransactionFields<R>
+    : never;
 
 type LogFields<R extends LogRequest> = Select<EvmLog, R, keyof LogDefaultRequest>;
 
@@ -179,29 +179,29 @@ export type TransactionItem<R = false> = WithKind<
 export type ItemMerge<A, B, R> = [A] extends [never]
   ? B
   : [B] extends [never]
-  ? A
-  : [Exclude<R, undefined | boolean>] extends [never]
-  ? A
-  : undefined extends A
-  ?
-  | undefined
-  | ObjectItemMerge<
-    Exclude<A, undefined>,
-    Exclude<B, undefined>,
-    Exclude<R, undefined | boolean>
-  >
-  : ObjectItemMerge<A, B, Exclude<R, undefined | boolean>>;
+    ? A
+    : [Exclude<R, undefined | boolean>] extends [never]
+      ? A
+      : undefined extends A
+        ?
+            | undefined
+            | ObjectItemMerge<
+                Exclude<A, undefined>,
+                Exclude<B, undefined>,
+                Exclude<R, undefined | boolean>
+              >
+        : ObjectItemMerge<A, B, Exclude<R, undefined | boolean>>;
 
 type ObjectItemMerge<A, B, R> = {
   [K in keyof A | keyof B]: K extends keyof A
-  ? K extends keyof B
-  ? K extends keyof R
-  ? ItemMerge<A[K], B[K], R[K]>
-  : A[K]
-  : A[K]
-  : K extends keyof B
-  ? B[K]
-  : never;
+    ? K extends keyof B
+      ? K extends keyof R
+        ? ItemMerge<A[K], B[K], R[K]>
+        : A[K]
+      : A[K]
+    : K extends keyof B
+      ? B[K]
+      : never;
 };
 
 type ItemKind = {
