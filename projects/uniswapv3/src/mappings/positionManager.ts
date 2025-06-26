@@ -61,8 +61,6 @@ export async function processPositions(
   // await updateFeeVars(createContext(last(blocks).header), ctx.entities.values(Position))
 }
 
-//todo: review removed defer and load steps from here
-//todo: remove memory traces from business logic
 async function prefetch(
   ctx: ContextWithEntityManager,
   eventsData: BlockMap<EventData>,
@@ -71,8 +69,6 @@ async function prefetch(
   const positionIds = new Set<string>();
   for (const [, blockEventsData] of eventsData) {
     for (const data of blockEventsData) {
-      //don't add in defferedIds if its in cache already.
-      // ctx.entities.defer(Position, data.tokenId);
       positionIds.add(data.tokenId);
     }
   }
@@ -134,18 +130,43 @@ function processItems(ctx: CommonHandlerContext<unknown>, blocks: BlockData[]) {
 }
 
 async function processIncreaseData(
-  ctx: ContextWithEntityManager,
+  ctx: BlockHandlerContext<Store>,
   block: BlockHeader,
   data: IncreaseData,
 ) {
   //todo: fail if ttl
-  let position = ctx.entities.get(Position, data.tokenId, false);
-  if (position == null) return;
+  const multicall = new Multicall(ctx, MULTICALL_ADDRESS);
 
-  let token0 = await ctx.entities.get(Token, position.token0Id);
-  let token1 = await ctx.entities.get(Token, position.token1Id);
+  // Single call for ownerOf
+  const ownerOfCall: [string, { tokenId: bigint }] = [
+    POSITIONS_ADDRESS,
+    { tokenId: BigInt(data.tokenId) },
+  ];
 
-  if (!token0 || !token1) return;
+  // Single call for positions
+  const positionsCall: [string, { tokenId: bigint }] = [
+    POSITIONS_ADDRESS,
+    { tokenId: BigInt(data.tokenId) },
+  ];
+
+  // Execute both calls
+  const [owners, positions] = await Promise.all([
+    multicall.aggregate(positionsAbi.functions.ownerOf, [ownerOfCall], MULTICALL_PAGE_SIZE),
+    multicall.aggregate(positionsAbi.functions.positions, [positionsCall], MULTICALL_PAGE_SIZE),
+  ]);
+
+  const owner = owners[0];
+  const positionData = positions[0];
+
+  // if (!owner || !positionData) return;
+
+  // let position = ctx.entities.get(Position, data.tokenId, false);
+  // if (position == null) return;
+
+  // let token0 = await ctx.entities.get(Token, position.token0Id);
+  // let token1 = await ctx.entities.get(Token, position.token1Id);
+
+  // if (!token0 || !token1) return;
 
   let amount0 = BigDecimal(data.amount0, token0.decimals).toNumber();
   let amount1 = BigDecimal(data.amount1, token1.decimals).toNumber();
@@ -154,7 +175,7 @@ async function processIncreaseData(
   position.depositedToken0 = position.depositedToken0 + amount0;
   position.depositedToken1 = position.depositedToken1 + amount1;
 
-  updatePositionSnapshot(ctx, block, position.id);
+  // updatePositionSnapshot(ctx, block, position.id);
 }
 
 async function processDecreaseData(

@@ -4,6 +4,7 @@ import {
   BlockHandlerContext,
   LogHandlerContext,
   BlockHeader,
+  SwapData,
 } from '../utils/interfaces/interfaces';
 import { DataHandlerContext, assertNotNull } from '@subsquid/evm-processor';
 
@@ -217,7 +218,7 @@ async function processInitializeData(
   let usdcPool = await ctx.entities.get(Pool, USDC_WETH_03_POOL);
   bundle.ethPriceUSD = usdcPool?.token0Price || 0;
 
-  //todo: do we need the twb logic ?
+  //todo: discuss - we don't need twb logic
 }
 
 async function processMintData(ctx: ContextWithEntityManager, block: BlockHeader, data: MintData) {
@@ -375,7 +376,7 @@ async function processBurnData(ctx: ContextWithEntityManager, block: BlockHeader
       tickUpper: data.tickUpper,
       tickLower: data.tickLower,
       currentTick: pool.tick,
-      poolId: pool.id,
+      positionId: data.id,
     });
     for (const window of newHistoryWindows) {
       // ctx.entities.add(new HistoryWindow(window));
@@ -757,20 +758,6 @@ function processBurn(log: EvmLog, transaction: any): BurnData {
     logIndex: log.logIndex,
   };
 }
-
-interface SwapData {
-  transaction: { hash: string; gasPrice: bigint; from: string; gas: bigint };
-  poolId: string;
-  amount0: bigint;
-  amount1: bigint;
-  tick: number;
-  sqrtPrice: bigint;
-  sender: string;
-  recipient: string;
-  liquidity: bigint;
-  logIndex: number;
-}
-
 function processSwap(log: EvmLog, transaction: any): SwapData {
   let event = poolAbi.events.Swap.decode(log);
   return {

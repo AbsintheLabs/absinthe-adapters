@@ -16,21 +16,13 @@ services:
       - app-network
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U postgres']
-  uniswapv2:
-    build:
-      context: .
-      dockerfile: ops/dockerfiles/Dockerfile.uniswapv2
-    container_name: uniswapv2-service
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - '6379:6379'
     networks:
       - app-network
-    depends_on:
-      postgres:
-        condition: service_healthy
-    env_file:
-      - .env
-    volumes:
-      - ./logs/uniswapv2:/app/logs
-    restart: unless-stopped
 
 networks:
   app-network:

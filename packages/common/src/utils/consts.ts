@@ -3,6 +3,7 @@ const HOURS_TO_MS = 60 * 60 * 1000;
 const MINUTES_TO_MS = 60 * 1000;
 const SECONDS_TO_MS = 1000;
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+const POSITIONS_ADDRESS = '0xc36442b4a4522e871399cd717abdd847ab11fe88';
 const VERSION = '1.0';
 const FILE_NAME = 'abs_config.json';
 const EXAMPLE_FILE_NAME = 'abs_config.example.json';
@@ -18,4 +19,5 @@ export {
   LOG_FILE_PATH,
   ZERO_ADDRESS,
   VERSION,
+  POSITIONS_ADDRESS,
 };
