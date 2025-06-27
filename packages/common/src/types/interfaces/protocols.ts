@@ -116,6 +116,10 @@ interface ValidatedEnv {
   univ3Protocols: ValidatedUniv3ProtocolConfig[];
 }
 
+interface HelperProtocolConfig extends Univ3PoolConfig {
+  type: Dex;
+}
+
 export {
   ProtocolConfig,
   BaseProtocolConfig,
@@ -131,4 +135,5 @@ export {
   Univ3PoolConfig,
   Univ3ProtocolConfig,
   BaseProtocolConfigWithChain,
+  HelperProtocolConfig,
 };

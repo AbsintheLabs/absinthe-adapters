@@ -1,9 +1,8 @@
-import { DataHandlerContext, BlockData } from '@subsquid/evm-processor';
 import { BlockHandlerContext } from './interfaces/interfaces';
 import * as ERC20 from '../abi/ERC20';
 import * as ERC20NameBytes from '../abi/ERC20NameBytes';
 import * as ERC20SymbolBytes from '../abi/ERC20SymbolBytes';
-import { Multicall } from '../abi/multicall';
+import { Multicall } from './multicall';
 import { MULTICALL_ADDRESS } from './constants';
 import { StaticTokenDefinition } from './staticTokenDefinition';
 import { removeNullBytes } from './tools';
@@ -11,7 +10,6 @@ import { Store } from '@subsquid/typeorm-store';
 
 export async function fetchTokensSymbol(ctx: BlockHandlerContext<Store>, tokenAddresses: string[]) {
   const multicall = new Multicall(ctx, MULTICALL_ADDRESS);
-
   const symbols = new Map<string, string>();
 
   const results = await multicall.tryAggregate(
@@ -102,7 +100,7 @@ export async function fetchTokensDecimals(
   );
 
   return new Map(
-    results.map((res, i) => {
+    results.map((res: any, i: any) => {
       i = Number(i);
       let address = tokenAddresses[i];
       let decimals = res.success ? res.value : 0;

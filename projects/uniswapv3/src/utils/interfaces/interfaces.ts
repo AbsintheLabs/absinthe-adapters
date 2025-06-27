@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import { Logger } from '@subsquid/logger';
 
 import { Chain } from '@subsquid/evm-processor/src/interfaces/chain';
@@ -10,6 +11,19 @@ export interface BlockHeader {
   hash: string;
   parentHash: string;
   timestamp: number;
+}
+
+export interface SwapData {
+  transaction: { hash: string; gasPrice: bigint; from: string; gas: bigint };
+  poolId: string;
+  amount0: bigint;
+  amount1: bigint;
+  tick: number;
+  sqrtPrice: bigint;
+  sender: string;
+  recipient: string;
+  liquidity: bigint;
+  logIndex: number;
 }
 
 export interface BatchBlock<Item> {

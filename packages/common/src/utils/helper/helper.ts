@@ -1,4 +1,3 @@
-// todo: add this to packages/common
 import Big from 'big.js';
 import {
   ActiveBalance,
@@ -18,13 +17,19 @@ import {
   ProtocolConfig,
   ValidatedStakingProtocolConfig,
   ValidatedUniv3ProtocolConfig,
+  Univ3PoolConfig,
+  HelperProtocolConfig,
 } from '../../types/interfaces/protocols';
 import { Currency, MessageType, TimeWindowTrigger } from '../../types/enums';
-import { VERSION, ZERO_ADDRESS } from '../consts';
+import { POSITIONS_ADDRESS, VERSION, ZERO_ADDRESS } from '../consts';
 
 function toTimeWeightedBalance(
   historyWindows: HistoryWindow[],
-  protocol: ProtocolConfig | ValidatedBondingCurveProtocolConfig | ValidatedStakingProtocolConfig,
+  protocol:
+    | ProtocolConfig
+    | ValidatedBondingCurveProtocolConfig
+    | ValidatedStakingProtocolConfig
+    | HelperProtocolConfig,
   env: ValidatedEnvBase,
   chainConfig: Chain,
 ): TimeWeightedBalanceEvent[] {
@@ -77,7 +82,11 @@ function toTimeWeightedBalance(
 
 function toTransaction(
   transactions: Transaction[],
-  protocol: ProtocolConfig | ValidatedBondingCurveProtocolConfig | ValidatedStakingProtocolConfig,
+  protocol:
+    | ProtocolConfig
+    | ValidatedBondingCurveProtocolConfig
+    | ValidatedStakingProtocolConfig
+    | HelperProtocolConfig,
   env: ValidatedEnvBase,
   chainConfig: Chain,
 ): TransactionEvent[] {
@@ -242,7 +251,11 @@ function processValueChangeBalances({
 
     // Create history window if there was a previous balance
     if (activeUserBalance.balance > 0n) {
-      const balanceBefore = pricePosition(tokenPrice, activeUserBalance.balance, tokenDecimals);
+      const balanceBeforeInUSD = pricePosition(
+        tokenPrice,
+        activeUserBalance.balance,
+        tokenDecimals,
+      );
       historyWindows.push({
         userAddress: userAddress,
         deltaAmount: usdValue,
@@ -255,7 +268,7 @@ function processValueChangeBalances({
         windowDurationMs: windowDurationMs,
         tokenPrice: tokenPrice,
         tokenDecimals: tokenDecimals,
-        valueUsd: balanceBefore,
+        valueUsd: balanceBeforeInUSD,
         balanceBefore: activeUserBalance.balance.toString(),
         balanceAfter: (activeUserBalance.balance + updatedAmount).toString(),
         currency: Currency.USD,
@@ -276,120 +289,6 @@ function processValueChangeBalances({
 
   processAddress(from, amount); // from address loses amount
   processAddress(to, amount); // to address gains amount
-  return historyWindows;
-}
-
-function processValueChangeUniswapV3({
-  from,
-  to,
-  amount,
-  usdValue,
-  blockTimestamp,
-  blockHeight,
-  txHash,
-  activeBalances,
-  windowDurationMs,
-  tickUpper,
-  tickLower,
-  currentTick,
-  poolId,
-}: {
-  from: string;
-  to: string;
-  amount: bigint;
-  usdValue: number;
-  blockTimestamp: number;
-  blockHeight: number;
-  txHash: string;
-  activeBalances: Map<string, ActiveBalance>;
-  windowDurationMs: number;
-  tickUpper: number;
-  tickLower: number;
-  currentTick: number;
-  poolId: string;
-}): {
-  userAddress: string;
-  deltaAmount: number;
-  trigger: TimeWindowTrigger;
-  startTs: Date;
-  endTs: Date;
-  startBlockNumber: number;
-  endBlockNumber: number;
-  txHash: string;
-  windowDurationMs: number;
-  valueUsd: number;
-  balanceBefore: string;
-  balanceAfter: string;
-  currency: Currency;
-  extras: any;
-}[] {
-  const historyWindows: any = [];
-
-  // function snapshotAndUpdate(userAddress: string, updatedAmount: bigint) {
-  //   // Handle both nested and flat map structures
-  //   let tokenBalances: Map<string, ActiveBalance>;
-
-  //   if (activeBalances instanceof Map && activeBalances.get(tokenAddress) instanceof Map) {
-  //     // Nested map structure (Map<string, Map<string, ActiveBalance>>)
-  //     if (!activeBalances.has(tokenAddress)) {
-  //       activeBalances.set(tokenAddress, new Map());
-  //     }
-  //     tokenBalances = activeBalances.get(tokenAddress)!;
-  //   } else {
-  //     // Flat map structure (Map<string, ActiveBalance>)
-  //     tokenBalances = activeBalances as Map<string, ActiveBalance>;
-  //   }
-
-  //todo: confirm this from andrew, is this correct ?- we are only pushing the balances for the tokenAddress of this user (not the user balan)
-
-  // const prev = tokenBalances.get(userAddress) ?? {
-  //   balance: 0n,
-  //   updatedBlockTs: blockTimestamp,
-  //   updatedBlockHeight: blockHeight,
-  // };
-
-  // if (prev.balance > 0n) {
-  //   const balanceBefore = pricePosition(tokenPrice, prev.balance, tokenDecimals);
-  //   historyWindows.push({
-  //     id: `${userAddress}-${blockHeight}-${txHash}`,
-  //     userAddress: userAddress,
-  //     deltaAmount: usdValue,
-  //     trigger: TimeWindowTrigger.TRANSFER,
-  //     poolId: poolId,
-  //     startTs: new Date(prev.updatedBlockTs).getTime(),
-  //     endTs: new Date(blockTimestamp).getTime(),
-  //     startBlockNumber: prev.updatedBlockHeight,
-  //     endBlockNumber: blockHeight,
-  //     txHash: txHash,
-  //     windowDurationMs: windowDurationMs,
-  //     valueUsd: balanceBefore,
-  //     balanceBefore: prev.balance.toString(),
-  //     balanceAfter: (prev.balance + updatedAmount).toString(),
-  //     currency: Currency.USD,
-  //     extras: {
-  //       tickUpper,
-  //       tickLower,
-  //       currentTick,
-  //     },
-  // });
-  // }
-
-  // tokenBalances.set(userAddress, {
-  //   balance: prev.balance + updatedAmount,
-  //   updatedBlockTs: blockTimestamp,
-  //   updatedBlockHeight: blockHeight,
-  // });
-  // }
-
-  // function processAddress(address: string, amount: bigint) {
-  //   if (address && address !== ZERO_ADDRESS && address !== POSITIONS_ADDRESS) {
-  //     snapshotAndUpdate(address, amount);
-  //   }
-  // }
-
-  // //todo: confirm this
-  // processAddress(from, BigInt(-amount));
-  // processAddress(to, amount);
   return historyWindows;
 }
 
@@ -429,25 +328,33 @@ async function fetchHistoricalUsd(
   tsMs: number,
   coingeckoApiKey: string,
 ): Promise<number> {
-  // const env = validateEnv();
-  //todo improve
-  const d = new Date(tsMs);
-  const date = `${d.getDate().toString().padStart(2, '0')}-${(d.getMonth() + 1)
-    .toString()
-    .padStart(2, '0')}-${d.getFullYear()}`;
+  try {
+    const d = new Date(tsMs);
+    const date = `${d.getDate().toString().padStart(2, '0')}-${(d.getMonth() + 1)
+      .toString()
+      .padStart(2, '0')}-${d.getFullYear()}`;
 
-  const url = `https://pro-api.coingecko.com/api/v3/coins/${id}/history?date=${date}&localization=false`;
-  const res = await fetch(url, {
-    headers: { accept: 'application/json', 'x-cg-pro-api-key': coingeckoApiKey },
-  });
-  const j = await res.json();
-  if (!j.market_data?.current_price?.[Currency.USD]) {
-    // warn: this is not a fatal error, but it should be investigated since position value will be inaccurate
-    // throw new Error(`No market data found for ${id} on ${date}`);
-    // console.error(`No market data found for ${id} on ${date}`);
+    const url = `https://pro-api.coingecko.com/api/v3/coins/${id}/history?date=${date}&localization=false`;
+    const res = await fetch(url, {
+      headers: { accept: 'application/json', 'x-cg-pro-api-key': coingeckoApiKey },
+    });
+
+    if (!res.ok) {
+      // console.warn(`CoinGecko API error for ${id}: ${res.status} ${res.statusText}`);
+      return 0;
+    }
+
+    const j = await res.json();
+    if (!j.market_data?.current_price?.[Currency.USD]) {
+      console.warn(`No market data found for ${id} on ${date}`);
+      return 0;
+    }
+
+    return j.market_data.current_price[Currency.USD];
+  } catch (error) {
+    console.warn(`Failed to fetch historical USD price for ${id}:`, error);
     return 0;
   }
-  return j.market_data.current_price[Currency.USD];
 }
 
 export {
@@ -459,5 +366,4 @@ export {
   processValueChangeBalances,
   pricePosition,
   fetchHistoricalUsd,
-  processValueChangeUniswapV3,
 };

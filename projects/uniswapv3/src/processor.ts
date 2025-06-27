@@ -1,5 +1,3 @@
-import fs from 'fs';
-
 import {
   BlockHeader,
   DataHandlerContext,
@@ -16,14 +14,9 @@ import { validateEnv } from '@absinthe/common';
 
 const env = validateEnv();
 
-const poolsMetadata = JSON.parse(fs.readFileSync('../../assets/pools.json', 'utf-8')) as {
-  height: number;
-  pools: string[];
-};
-
 const uniswapV3DexProtocol = env.univ3Protocols[0];
-// const poolAddresses = uniswapV3DexProtocol.pools.map((pool) => pool.contractAddress);
-// const earliestFromBlock = Math.min(...uniswapV3DexProtocol.pools.map((pool) => pool.fromBlock));
+const poolAddresses = uniswapV3DexProtocol.pools.map((pool) => pool.contractAddress);
+const earliestFromBlock = Math.min(...uniswapV3DexProtocol.pools.map((pool) => pool.fromBlock));
 
 export const processor = new EvmBatchProcessor()
   .setRpcEndpoint({
@@ -31,36 +24,31 @@ export const processor = new EvmBatchProcessor()
     maxBatchCallSize: 25,
   })
   .setGateway(uniswapV3DexProtocol.gatewayUrl)
-  .setBlockRange({
-    from: uniswapV3DexProtocol.factoryDeployedAt,
-  })
   .setFinalityConfirmation(75)
   .addLog({
     address: [uniswapV3DexProtocol.factoryAddress],
     topic0: [factoryAbi.events.PoolCreated.topic],
     transaction: true,
+    range: {
+      from: uniswapV3DexProtocol.factoryDeployedAt,
+      ...(uniswapV3DexProtocol.toBlock > 0 && { to: uniswapV3DexProtocol.toBlock }),
+    },
   })
   .addLog({
-    address: poolsMetadata.pools,
+    address: poolAddresses,
     topic0: [
       poolAbi.events.Burn.topic,
       poolAbi.events.Mint.topic,
       poolAbi.events.Initialize.topic,
       poolAbi.events.Swap.topic,
     ],
-    range: { from: uniswapV3DexProtocol.factoryDeployedAt, to: poolsMetadata.height },
+    range: {
+      from: earliestFromBlock,
+      ...(uniswapV3DexProtocol.toBlock > 0 && { to: uniswapV3DexProtocol.toBlock }),
+    },
     transaction: true,
   })
-  .addLog({
-    topic0: [
-      poolAbi.events.Burn.topic,
-      poolAbi.events.Mint.topic,
-      poolAbi.events.Initialize.topic,
-      poolAbi.events.Swap.topic,
-    ],
-    range: { from: poolsMetadata.height + 1 },
-    transaction: true,
-  })
+
   .addLog({
     address: [uniswapV3DexProtocol.positionsAddress],
     topic0: [
@@ -70,6 +58,10 @@ export const processor = new EvmBatchProcessor()
       positionsAbi.events.Transfer.topic,
     ],
     transaction: true,
+    range: {
+      from: earliestFromBlock,
+      ...(uniswapV3DexProtocol.toBlock > 0 && { to: uniswapV3DexProtocol.toBlock }),
+    },
   })
   .setFields({
     transaction: {
