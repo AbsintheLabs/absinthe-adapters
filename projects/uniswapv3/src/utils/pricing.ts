@@ -4,7 +4,6 @@ export function sqrtPriceX96ToTokenPrices(
   sqrtPriceX96: bigint,
   decimals0: number,
   decimals1: number,
-  poolAddress: string,
 ): number[] {
   // Validate inputs
   if (!sqrtPriceX96) {
@@ -46,7 +45,7 @@ export function sqrtPriceX96ToTokenPrices(
     return [price0, price1];
   } catch (err) {
     const error = err instanceof Error ? err.message : 'Unknown error';
-    console.error(`Price calculation failed for pool ${poolAddress}: ${error}`);
+    console.error(`Price calculation failed: ${error}`);
     console.error(
       `Input values: sqrtPriceX96=${sqrtPriceX96}, decimals0=${decimals0}, decimals1=${decimals1}`,
     );

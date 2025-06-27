@@ -1,198 +1,227 @@
-import { SwapData } from '../utils/interfaces/interfaces';
+import { Currency, HistoryWindow, TimeWindowTrigger } from '@absinthe/common';
+import { BlockHeader, SwapData } from '../utils/interfaces/interfaces';
+import { PositionStorageService } from './PositionStorageService';
 
+interface PositionData {
+  positionId: string;
+  owner: string;
+  liquidity: string;
+  tickLower: number;
+  tickUpper: number;
+  token0Id: string;
+  token1Id: string;
+  fee: number;
+  depositedToken0: string;
+  depositedToken1: string;
+  isActive: string;
+  isTracked: string;
+  lastUpdatedBlockTs: number;
+  lastUpdatedBlockHeight: number;
+  poolId: string;
+}
+
+interface IncDecData {
+  tokenId: string;
+  amount0: bigint;
+  amount1: bigint;
+  liquidity: bigint;
+  transactionHash: string;
+}
+
+interface TransferData {
+  tokenId: string;
+  to: string;
+  transactionHash: string;
+}
 /* eslint-disable prettier/prettier */
-class PositionTracker {
-  // Activate Position - START TRACKING (don't flush)
-  private async activatePosition(positionKey: string, swapData: SwapData) {
-    const position = this.positions.get(positionKey);
-    if (!position) return;
+export class PositionTracker {
+  private positionStorageService: PositionStorageService;
+  private windowDurationMs: number;
 
-    position.isActive = true;
-    position.isTracked = true;
-    position.lastUpdated = Date.now();
-
-    // Initialize active balance tracking
-    this.activeBalances.set(positionKey, {
-      balance: position.liquidity,
-      updatedBlockTs: swapData.blockTimestamp,
-      updatedBlockHeight: swapData.blockHeight,
-    });
-
-    // ✅ DON'T flush to API - just start tracking
-    console.log(`Started tracking position ${positionKey} at tick ${swapData.tick}`);
+  constructor(positionStorageService: PositionStorageService, windowDurationMs: number) {
+    this.positionStorageService = positionStorageService;
+    this.windowDurationMs = windowDurationMs;
   }
 
-  // Deactivate Position - STOP TRACKING (flush final balance)
-  private async deactivatePosition(positionKey: string, swapData: SwapData) {
-    const position = this.positions.get(positionKey);
-    if (!position) return;
+  private async activatePosition(block: BlockHeader, positions: PositionData[]) {
+    for (const position of positions) {
+      position.isActive = 'true';
+      position.isTracked = 'true';
+      position.lastUpdatedBlockTs = block.timestamp;
+      position.lastUpdatedBlockHeight = block.height;
+      await this.positionStorageService.updatePosition(position);
 
-    // ✅ Flush final balance before deactivation
-    await this.flushPositionToAPI(position, swapData, 'DEACTIVATION');
-
-    position.isActive = false;
-    position.isTracked = false;
-    position.lastUpdated = Date.now();
-
-    // Remove from active tracking
-    this.activeBalances.delete(positionKey);
-
-    console.log(`Stopped tracking position ${positionKey} at tick ${swapData.tick}`);
-  }
-
-  // Handle Increase Liquidity - FLUSH IF ACTIVE
-  async handleIncreaseLiquidity(ctx: ContextWithEntityManager, data: IncreaseData) {
-    const positionKey = this.findPositionKey(data.tokenId);
-    const position = this.positions.get(positionKey);
-
-    if (!position) return;
-
-    const oldLiquidity = position.liquidity;
-    position.liquidity += data.liquidity;
-    position.lastUpdated = Date.now();
-
-    // ✅ Only flush if position is active and tracked
-    if (position.isActive && position.isTracked) {
-      await this.flushLiquidityChange(position, oldLiquidity, data, 'INCREASE_LIQUIDITY');
+      console.log(`Started tracking position ${position.positionId}`);
     }
   }
 
-  // Handle Decrease Liquidity - FLUSH IF ACTIVE
-  async handleDecreaseLiquidity(ctx: ContextWithEntityManager, data: DecreaseData) {
-    const positionKey = this.findPositionKey(data.tokenId);
-    const position = this.positions.get(positionKey);
+  private async deactivatePosition(block: BlockHeader, positions: PositionData[]) {
+    for (const position of positions) {
+      position.isActive = 'false';
+      position.isTracked = 'false';
+      position.lastUpdatedBlockTs = block.timestamp;
+      position.lastUpdatedBlockHeight = block.height;
+      await this.positionStorageService.updatePosition(position);
 
-    if (!position) return;
-
-    const oldLiquidity = position.liquidity;
-    position.liquidity -= data.liquidity;
-    position.lastUpdated = Date.now();
-
-    // ✅ Only flush if position is active and tracked
-    if (position.isActive && position.isTracked) {
-      await this.flushLiquidityChange(position, oldLiquidity, data, 'DECREASE_LIQUIDITY');
+      console.log(`Stopped tracking position ${position.positionId}`);
     }
   }
 
-  // Handle Transfer - FLUSH IF ACTIVE
-  async handleTransfer(ctx: ContextWithEntityManager, data: TransferData) {
-    const positionKey = this.findPositionKey(data.tokenId);
-    const position = this.positions.get(positionKey);
+  async handleIncreaseLiquidity(block: BlockHeader, data: IncDecData, amountMintedETH: number) {
+    const position = await this.positionStorageService.getPosition(data.tokenId);
 
-    if (!position) return;
+    if (!position) {
+      //this case is already handled and should never happen
+      console.log(`Position ${data.tokenId} not found case reached`);
+    } else {
+      //todo: check if it is still updated incase not tracked
+      const oldLiquidity = position.liquidity;
+      position.liquidity = (BigInt(position.liquidity) + data.liquidity).toString();
 
-    // ✅ Only flush if position is active and tracked
-    if (position.isActive && position.isTracked) {
-      await this.flushTransfer(position, data);
-    }
-
-    // Update owner
-    position.owner = data.to;
-    position.lastUpdated = Date.now();
-  }
-
-  // Handle Swap - CHECK ACTIVATION/DEACTIVATION
-  async handleSwap(ctx: ContextWithEntityManager, data: SwapData) {
-    const currentTick = data.tick;
-    // Check all positions in this pool for activation/deactivation
-    for (const [positionKey, position] of this.positions) {
-      if (position.poolId === data.poolId) {
-        const wasActive = position.isActive;
-        const isNowActive = position.tickLower <= currentTick && position.tickUpper > currentTick;
-
-        if (!wasActive && isNowActive) {
-          // Position just became active - start tracking
-          await this.activatePosition(positionKey, data);
-        } else if (wasActive && !isNowActive) {
-          // Position just became inactive - stop tracking and flush
-          await this.deactivatePosition(positionKey, data);
-        }
-
-        // ✅ If position is active, update current tick for future reference
-        if (position.isActive) {
-          position.currentTick = currentTick;
-        }
+      if (position.isActive && position.isTracked) {
+        const historyWindow = await this.flushLiquidityChange(
+          position.positionId,
+          oldLiquidity,
+          data.liquidity.toString(),
+          TimeWindowTrigger.INCREASE,
+          block,
+          data.transactionHash,
+          amountMintedETH,
+        );
+        return historyWindow;
+      } else {
+        position.lastUpdatedBlockTs = block.timestamp;
+        position.lastUpdatedBlockHeight = block.height;
+        await this.positionStorageService.updatePosition(position);
       }
     }
+    return null;
   }
 
-  // Flush Position to API - ONLY CALLED ON EVENTS
-  private async flushPositionToAPI(position: PositionState, eventData: any, trigger: string) {
-    const activeBalance = this.activeBalances.get(position.tokenId);
-    if (!activeBalance) return;
+  async handleDecreaseLiquidity(block: BlockHeader, data: IncDecData, amountBurnedETH: number) {
+    const position = await this.positionStorageService.getPosition(data.tokenId);
+    if (!position) return;
 
-    const historyWindow = {
-      userAddress: position.owner,
-      deltaAmount: 0, // No change for deactivation
-      trigger: TimeWindowTrigger.TRANSFER,
-      startTs: activeBalance.updatedBlockTs,
-      endTs: eventData.blockTimestamp,
-      startBlockNumber: activeBalance.updatedBlockHeight,
-      endBlockNumber: eventData.blockHeight,
-      txHash: eventData.transaction.hash,
-      windowDurationMs: WINDOW_DURATION_MS,
-      valueUsd: 0, // Calculate based on position value
-      balanceBefore: activeBalance.balance.toString(),
-      balanceAfter: position.liquidity.toString(),
-      currency: Currency.USD,
-      extras: {
-        tickUpper: position.tickUpper,
-        tickLower: position.tickLower,
-        currentTick: eventData.tick,
-        poolId: position.poolId,
-        trigger: trigger,
-      },
-    };
+    const oldLiquidity = position.liquidity;
+    const newLiquidity = (BigInt(position.liquidity) - data.liquidity).toString();
+    position.liquidity = newLiquidity;
 
-    // Send to API
-    await this.apiClient.sendTimeWeightedBalance([historyWindow]);
+    if (BigInt(newLiquidity) === 0n) {
+      //if balance is 0, delete the position from tracking- just delete it
+      await this.positionStorageService.deletePosition(data.tokenId);
+      return;
+    }
 
-    console.log(`Flushed position ${position.tokenId} due to ${trigger}`);
+    if (position.isActive && position.isTracked) {
+      const historyWindow = await this.flushLiquidityChange(
+        position.positionId,
+        oldLiquidity,
+        data.liquidity.toString(),
+        TimeWindowTrigger.DECREASE,
+        block,
+        data.transactionHash,
+        amountBurnedETH,
+      );
+      return historyWindow;
+    } else {
+      position.lastUpdatedBlockTs = block.timestamp;
+      position.lastUpdatedBlockHeight = block.height;
+      await this.positionStorageService.updatePosition(position);
+
+      return null;
+    }
   }
 
-  // Flush Liquidity Change - ONLY CALLED ON INCREASE/DECREASE
+  async handleTransfer(block: BlockHeader, data: TransferData) {
+    const position = await this.positionStorageService.getPosition(data.tokenId);
+
+    if (!position) return;
+
+    if (position.isActive && position.isTracked) {
+      const historyWindow = await this.flushLiquidityChange(
+        position.positionId,
+        position.liquidity,
+        '0', //in case of transfer, the liquidity delta is 0
+        TimeWindowTrigger.TRANSFER,
+        block,
+        data.transactionHash,
+        0,
+      );
+      return historyWindow;
+    } else {
+      position.lastUpdatedBlockTs = block.timestamp;
+      position.lastUpdatedBlockHeight = block.height;
+      position.owner = data.to;
+      await this.positionStorageService.updatePosition(position);
+      return null;
+    }
+  }
+
+  async handleSwap(block: BlockHeader, data: SwapData, poolId: string) {
+    const currentTick = data.tick;
+    const positionsToActivate: PositionData[] = [];
+    const positionsToDeactivate: PositionData[] = [];
+
+    const positions = await this.positionStorageService.getAllPositionsByPoolId(poolId);
+    for (const position of positions) {
+      const wasActive = position.isActive;
+      const isNowActive = position.tickLower <= currentTick && position.tickUpper > currentTick;
+
+      if (!wasActive && isNowActive) {
+        positionsToActivate.push(position);
+      } else if (wasActive && !isNowActive) {
+        positionsToDeactivate.push(position);
+      }
+    }
+
+    await Promise.all([
+      this.activatePosition(block, positionsToActivate),
+      this.deactivatePosition(block, positionsToDeactivate),
+    ]);
+  }
+
   private async flushLiquidityChange(
-    position: PositionState,
-    oldLiquidity: bigint,
-    eventData: any,
-    trigger: string,
-  ) {
-    const activeBalance = this.activeBalances.get(position.tokenId);
-    if (!activeBalance) return;
+    positionId: string,
+    oldLiquidity: string,
+    liquidity: string,
+    trigger: TimeWindowTrigger,
+    block: BlockHeader,
+    transactionHash: string,
+    deltaAmountUSD: number,
+  ): Promise<HistoryWindow | null> {
+    const position = await this.positionStorageService.getPosition(positionId);
+
+    const blockTimestamp = block.timestamp;
+    const blockHeight = block.height;
+
+    if (!position) return null;
+    if (oldLiquidity === '0') return null;
 
     const historyWindow = {
       userAddress: position.owner,
-      deltaAmount: Number(position.liquidity - oldLiquidity),
-      trigger: TimeWindowTrigger.TRANSFER,
-      startTs: activeBalance.updatedBlockTs,
-      endTs: eventData.blockTimestamp,
-      startBlockNumber: activeBalance.updatedBlockHeight,
-      endBlockNumber: eventData.blockHeight,
-      txHash: eventData.transaction.hash,
-      windowDurationMs: WINDOW_DURATION_MS,
-      valueUsd: 0, // Calculate based on position value
+      deltaAmount: deltaAmountUSD,
+      trigger: trigger,
+      startTs: position.lastUpdatedBlockTs,
+      endTs: blockTimestamp,
+      startBlockNumber: position.lastUpdatedBlockHeight,
+      endBlockNumber: blockHeight,
+      txHash: transactionHash,
+      windowDurationMs: this.windowDurationMs,
+      valueUsd: Number(oldLiquidity), //todo: make it usd value
       balanceBefore: oldLiquidity.toString(),
       balanceAfter: position.liquidity.toString(),
       currency: Currency.USD,
-      extras: {
-        tickUpper: position.tickUpper,
-        tickLower: position.tickLower,
-        currentTick: eventData.tick,
-        poolId: position.poolId,
-        trigger: trigger,
-      },
+      tokenPrice: 0, //todo: remove them
+      tokenDecimals: 0, //todo:remove them
     };
 
-    // Update active balance
-    activeBalance.balance = position.liquidity;
-    activeBalance.updatedBlockTs = eventData.blockTimestamp;
-    activeBalance.updatedBlockHeight = eventData.blockHeight;
-
-    // Send to API
-    await this.apiClient.sendTimeWeightedBalance([historyWindow]);
+    position.lastUpdatedBlockTs = blockTimestamp;
+    position.lastUpdatedBlockHeight = blockHeight;
+    await this.positionStorageService.updatePosition(position);
 
     console.log(
-      `Flushed liquidity change for position ${position.tokenId}: ${oldLiquidity} -> ${position.liquidity}`,
+      `Flushed liquidity change for position ${position.positionId}: ${oldLiquidity} -> ${position.liquidity}`,
     );
+    return historyWindow;
   }
 }

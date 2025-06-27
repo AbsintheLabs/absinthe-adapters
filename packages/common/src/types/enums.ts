@@ -108,6 +108,8 @@ enum MessageType {
 enum TimeWindowTrigger {
   TRANSFER = 'transfer',
   EXHAUSTED = 'exhausted',
+  INCREASE = 'increase',
+  DECREASE = 'decrease',
 }
 
 export {

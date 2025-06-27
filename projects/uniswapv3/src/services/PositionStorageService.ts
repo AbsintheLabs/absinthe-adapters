@@ -1,4 +1,5 @@
 /* eslint-disable prettier/prettier */
+import { fetchHistoricalUsd } from '@absinthe/common';
 import { createClient, RedisClientType } from 'redis';
 
 interface PositionData {
@@ -9,10 +10,37 @@ interface PositionData {
   tickUpper: number;
   token0Id: string;
   token1Id: string;
+  fee: number;
   depositedToken0: string;
   depositedToken1: string;
-  isActive: boolean;
-  lastUpdated: number;
+  isActive: string;
+  isTracked: string;
+  lastUpdatedBlockTs: number;
+  lastUpdatedBlockHeight: number;
+  poolId: string;
+}
+
+interface Token {
+  id: string;
+  symbol: string;
+  name: string;
+  totalSupply: bigint;
+  decimals: number;
+  derivedETH: number;
+  volume: number;
+  volumeUSD: number;
+  feesUSD: number;
+  untrackedVolumeUSD: number;
+  totalValueLocked: number;
+  totalValueLockedUSD: number;
+  totalValueLockedUSDUntracked: number;
+  txCount: number;
+  poolCount: bigint;
+  whitelistPools: string[];
+}
+interface PoolMetadata {
+  sqrtPriceX96: string;
+  tick: number;
 }
 
 export class PositionStorageService {
@@ -20,9 +48,8 @@ export class PositionStorageService {
   private isConnected = false;
 
   constructor() {
-    // Redis client
     this.redis = createClient({
-      url: process.env.REDIS_URL || 'redis://localhost:6379',
+      url: process.env.REDIS_URL,
       socket: {
         reconnectStrategy: (retries) => Math.min(retries * 50, 500),
       },
@@ -41,35 +68,128 @@ export class PositionStorageService {
     }
   }
 
-  // Store position data
+  // async storePoolMetadata(poolId: string, poolMetadata: PoolMetadata): Promise<void> {
+  //   const poolMetadataKey = `poolMetadata:${poolId}`;
+  //   await this.redis.set(poolMetadataKey, JSON.stringify(poolMetadata));
+  // }
+
+  // async getPoolMetadata(poolId: string): Promise<PoolMetadata | null> {
+  //   const poolMetadataKey = `poolMetadata:${poolId}`;
+  //   const data = await this.redis.get(poolMetadataKey);
+  //   if (!data) return null;
+  //   return JSON.parse(data);
+  // }
+
+  async getAllTokens(): Promise<Token[]> {
+    const tokens = await this.redis.hGetAll('token:*');
+    return tokens as unknown as Token[];
+  }
+
+  async storeToken(token: Token): Promise<void> {
+    const tokenKey = `token:${token.id}`;
+    await this.redis.hSet(tokenKey, {
+      id: token.id,
+      symbol: token.symbol,
+      name: token.name,
+      totalSupply: token.totalSupply.toString(),
+      decimals: token.decimals.toString(),
+      derivedETH: token.derivedETH.toString(),
+      volume: token.volume.toString(),
+      volumeUSD: token.volumeUSD.toString(),
+      feesUSD: token.feesUSD.toString(),
+      untrackedVolumeUSD: token.untrackedVolumeUSD.toString(),
+      totalValueLocked: token.totalValueLocked.toString(),
+      totalValueLockedUSD: token.totalValueLockedUSD.toString(),
+      totalValueLockedUSDUntracked: token.totalValueLockedUSDUntracked.toString(),
+      txCount: token.txCount.toString(),
+      poolCount: token.poolCount.toString(),
+      whitelistPools: JSON.stringify(token.whitelistPools),
+    });
+  }
+
+  async storeMultipleTokens(tokens: Token[]): Promise<void> {
+    for (const token of tokens) {
+      await this.storeToken(token);
+    }
+  }
+
+  async getToken(tokenId: string): Promise<Token | null> {
+    const tokenKey = `token:${tokenId}`;
+    const data = await this.redis.hGetAll(tokenKey);
+    if (!data.id) return null;
+    return data as unknown as Token;
+  }
+
+  async storeEthUsdPrice(ethUsdPrice: number): Promise<void> {
+    const ethUsdPriceKey = `ethUsdPrice`;
+    await this.redis.setEx(ethUsdPriceKey, 60 * 5, ethUsdPrice.toString());
+  }
+
+  async getEthUsdPrice(): Promise<number> {
+    const ethUsdPriceKey = `ethUsdPrice`;
+    const data = await this.redis.get(ethUsdPriceKey);
+    if (data) {
+      return Number(data);
+    }
+
+    try {
+      const coingeckoPrice = await fetchHistoricalUsd(
+        'ethereum',
+        Date.now(),
+        process.env.COINGECKO_API_KEY || '', //todo: add this
+      );
+      if (coingeckoPrice > 0) {
+        await this.storeEthUsdPrice(coingeckoPrice);
+        return coingeckoPrice;
+      }
+    } catch (error) {
+      console.warn('Failed to fetch ETH price from CoinGecko:', error);
+    }
+
+    return 0;
+  }
+
   async storePosition(position: PositionData): Promise<void> {
     if (!this.isConnected) {
       throw new Error('Redis not connected');
     }
-
-    const positionKey = `position:${position.positionId}`;
-    const tickRangeKey = `tick:${position.tickLower}:positions`;
-
-    // Store position data
+    const positionKey = `pool:${position.poolId}:position:${position.positionId}`;
     await this.redis.hSet(positionKey, {
-      ...position,
-      lastUpdated: Date.now().toString(),
-    });
-
-    // Add to tick range sorted set (score = tickUpper)
-    await this.redis.zAdd(tickRangeKey, {
-      score: position.tickUpper,
-      value: position.positionId,
+      positionId: position.positionId,
+      owner: position.owner,
+      liquidity: position.liquidity,
+      tickLower: position.tickLower.toString(),
+      tickUpper: position.tickUpper.toString(),
+      token0Id: position.token0Id,
+      token1Id: position.token1Id,
+      fee: position.fee,
+      poolId: position.poolId,
+      depositedToken0: position.depositedToken0,
+      depositedToken1: position.depositedToken1,
+      isActive: position.isActive,
+      isTracked: position.isTracked,
+      lastUpdatedBlockTs: position.lastUpdatedBlockTs.toString(),
+      lastUpdatedBlockHeight: position.lastUpdatedBlockHeight.toString(),
     });
   }
 
-  // Get position by ID
+  async storeBatchPositions(positions: PositionData[]): Promise<void> {
+    for (const position of positions) {
+      await this.storePosition(position);
+    }
+  }
+
+  async checkIfPositionExists(positionId: string): Promise<boolean> {
+    const positionKey = `pool:*:position:${positionId}`;
+    const data = await this.redis.hGetAll(positionKey);
+    return data !== null;
+  }
+
   async getPosition(positionId: string): Promise<PositionData | null> {
-    const positionKey = `position:${positionId}`;
+    const positionKey = `pool:*:position:${positionId}`;
 
     if (!this.isConnected) return null;
 
-    // Get from Redis
     const data = await this.redis.hGetAll(positionKey);
     if (!data.positionId) return null;
 
@@ -81,137 +201,70 @@ export class PositionStorageService {
       tickUpper: parseInt(data.tickUpper),
       token0Id: data.token0Id,
       token1Id: data.token1Id,
+      fee: parseInt(data.fee),
+      poolId: data.poolId,
       depositedToken0: data.depositedToken0,
       depositedToken1: data.depositedToken1,
-      isActive: data.isActive === 'true',
-      lastUpdated: parseInt(data.lastUpdated),
+      isActive: data.isActive,
+      isTracked: data.isTracked,
+      lastUpdatedBlockTs: parseInt(data.lastUpdatedBlockTs),
+      lastUpdatedBlockHeight: parseInt(data.lastUpdatedBlockHeight),
     };
 
     return position;
   }
 
-  // Get all positions
-  async getAllPositions(): Promise<PositionData[]> {
-    const positions = await this.redis.hGetAll('position:*');
-    return positions.map((position) => ({
-      positionId: position.positionId,
+  async getPositionByPoolId(poolId: string): Promise<PositionData | null> {
+    const positionKey = `pool:${poolId}:position:*`;
+
+    if (!this.isConnected) return null;
+
+    const data = await this.redis.hGetAll(positionKey);
+    if (!data.positionId) return null;
+
+    const position: PositionData = {
+      positionId: data.positionId,
+      owner: data.owner,
+      liquidity: data.liquidity,
+      tickLower: parseInt(data.tickLower),
+      tickUpper: parseInt(data.tickUpper),
+      token0Id: data.token0Id,
+      token1Id: data.token1Id,
+      fee: parseInt(data.fee),
+      poolId: data.poolId,
+      depositedToken0: data.depositedToken0,
+      depositedToken1: data.depositedToken1,
+      isActive: data.isActive,
+      isTracked: data.isTracked,
+      lastUpdatedBlockTs: parseInt(data.lastUpdatedBlockTs),
+      lastUpdatedBlockHeight: parseInt(data.lastUpdatedBlockHeight),
+    };
+
+    return position;
+  }
+
+  async updatePosition(position: PositionData): Promise<void> {
+    const positionKey = `pool:*:position:${position.positionId}`;
+    await this.redis.hSet(positionKey, {
       owner: position.owner,
       liquidity: position.liquidity,
-      tickLower: parseInt(position.tickLower),
-      tickUpper: parseInt(position.tickUpper),
-      token0Id: position.token0Id,
-      token1Id: position.token1Id,
-      depositedToken0: position.depositedToken0,
-      depositedToken1: position.depositedToken1,
-      isActive: isActive,
-      lastUpdated: parseInt(position.lastUpdated),
-    }));
+      isActive: position.isActive,
+      isTracked: position.isTracked,
+      lastUpdatedBlockTs: position.lastUpdatedBlockTs.toString(),
+      lastUpdatedBlockHeight: position.lastUpdatedBlockHeight.toString(),
+    });
   }
 
-  // Get active positions for a pool at current tick
-  async getActivePositions(poolId: string, currentTick: number): Promise<PositionData[]> {
-    if (!this.isConnected) return [];
-
-    const poolKey = `pool:${poolId}:positions`;
-    const positionIds = await this.redis.sMembers(poolKey);
-
-    const activePositions: PositionData[] = [];
-
-    for (const positionId of positionIds) {
-      const position = await this.getPosition(positionId);
-      if (
-        position &&
-        position.isActive &&
-        position.tickLower <= currentTick &&
-        position.tickUpper > currentTick
-      ) {
-        activePositions.push(position);
-      }
-    }
-
-    return activePositions;
+  async getAllPositionsByPoolId(poolId: string): Promise<PositionData[]> {
+    const positionKey = `pool:${poolId}:position:*`;
+    console.log('positionKey', positionKey);
+    const data = await this.redis.hGetAll(positionKey);
+    return data as unknown as PositionData[];
   }
 
-  // Update position activity status based on current tick
-  async updatePositionActivity(poolId: string, currentTick: number): Promise<void> {
-    if (!this.isConnected) return;
-
-    const poolKey = `pool:${poolId}:positions`;
-    const positionIds = await this.redis.sMembers(poolKey);
-
-    for (const positionId of positionIds) {
-      const position = await this.getPosition(positionId);
-      if (!position) continue;
-
-      const wasActive = position.isActive;
-      const isNowActive = position.tickLower <= currentTick && position.tickUpper > currentTick;
-
-      if (wasActive !== isNowActive) {
-        position.isActive = isNowActive;
-        await this.storePosition(position);
-      }
-    }
-  }
-
-  // Get positions in a specific tick range
-  async getPositionsInTickRange(
-    poolId: string,
-    tickLower: number,
-    tickUpper: number,
-  ): Promise<PositionData[]> {
-    if (!this.isConnected) return [];
-
-    const tickRangeKey = `pool:${poolId}:tick:${tickLower}:positions`;
-    const positionIds = await this.redis.zRangeByScore(tickRangeKey, tickLower, tickUpper);
-
-    const positions: PositionData[] = [];
-    for (const positionId of positionIds) {
-      const position = await this.getPosition(positionId);
-      if (position) positions.push(position);
-    }
-
-    return positions;
-  }
-
-  // Batch operations for better performance
-  async batchStorePositions(positions: PositionData[]): Promise<void> {
-    if (!this.isConnected) return;
-
-    const pipeline = this.redis.multi();
-
-    for (const position of positions) {
-      const positionKey = `position:${position.positionId}`;
-      const poolKey = `pool:${position.poolId}:positions`;
-      const tickRangeKey = `pool:${position.poolId}:tick:${position.tickLower}:positions`;
-
-      pipeline.hSet(positionKey, {
-        ...position,
-        lastUpdated: Date.now().toString(),
-      });
-      pipeline.sAdd(poolKey, position.positionId);
-      pipeline.zAdd(tickRangeKey, {
-        score: position.tickUpper,
-        value: position.positionId,
-      });
-    }
-
-    await pipeline.exec();
-  }
-
-  // Cleanup old positions (optional)
-  async cleanupOldPositions(olderThanMs: number): Promise<void> {
-    if (!this.isConnected) return;
-
-    const cutoff = Date.now() - olderThanMs;
-    const pattern = 'position:*';
-    const keys = await this.redis.keys(pattern);
-
-    for (const key of keys) {
-      const lastUpdated = await this.redis.hGet(key, 'lastUpdated');
-      if (lastUpdated && parseInt(lastUpdated) < cutoff) {
-        await this.redis.del(key);
-      }
-    }
+  async deletePosition(positionId: string): Promise<void> {
+    const positionKey = `pool:*:position:${positionId}`;
+    await this.redis.del(positionKey);
   }
 
   async disconnect(): Promise<void> {
