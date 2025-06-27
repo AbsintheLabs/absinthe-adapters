@@ -117,7 +117,7 @@ async function syncTokens(ctx: BlockHandlerContext<Store>, tokens: Token[]) {
   for (const token of tokens) {
     token.symbol = assertNotNull(symbols.get(token.id));
     token.name = assertNotNull(names.get(token.id));
-    token.totalSupply = BigInt(assertNotNull(totalSupplies.get(token.id)));
+    token.totalSupply = BigInt(totalSupplies.get(token.id) || '0');
     token.decimals = Number(assertNotNull(decimals.get(token.id)));
   }
 }

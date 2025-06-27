@@ -6,7 +6,7 @@ import {
   BlockHeader,
 } from '../utils/interfaces/interfaces';
 import * as factoryAbi from './../abi/factory';
-import { Multicall } from '../abi/multicall';
+import { Multicall } from '../utils/multicall';
 import { BlockMap } from '../utils/blockMap';
 import {
   FACTORY_ADDRESS,
@@ -16,6 +16,7 @@ import {
 } from '../utils/constants';
 import { EntityManager } from '../utils/entityManager';
 import { last } from '../utils/tools';
+import * as poolAbi from './../abi/pool';
 import * as positionsAbi from './../abi/NonfungiblePositionManager';
 import { BlockData, DataHandlerContext } from '@subsquid/evm-processor';
 import { EvmLog } from '@subsquid/evm-processor/src/interfaces/evm';
@@ -66,14 +67,12 @@ export async function processPositions(
 ): Promise<void> {
   console.log('processPositions', blocks.length, blocks[0].header);
   const eventsData = processItems(ctx, blocks);
-  console.log(eventsData.size, 'eventsData');
   if (!eventsData || eventsData.size == 0) return;
 
   await prefetch(ctx, eventsData, last(blocks).header, positionStorageService);
 
   for (const [block, blockEventsData] of eventsData) {
     for (const data of blockEventsData) {
-      console.log(data);
       switch (data.type) {
         case 'Increase':
           await processIncreaseData(
@@ -98,7 +97,14 @@ export async function processPositions(
           );
           break;
         case 'Transfer':
-          await processTransferData(ctx, block, data, protocolStates, positionTracker);
+          await processTransferData(
+            ctx,
+            block,
+            data,
+            protocolStates,
+            positionTracker,
+            positionStorageService,
+          );
           break;
       }
     }
@@ -107,6 +113,7 @@ export async function processPositions(
   // await updateFeeVars(createContext(last(blocks).header), ctx.entities.values(Position))
 }
 
+//todo: research if the position already exists, has the events already marked in positions , if it runs again what happens ?
 async function prefetch(
   ctx: ContextWithEntityManager,
   eventsData: BlockMap<EventData>,
@@ -119,13 +126,15 @@ async function prefetch(
       const checkIfPositionExists = await positionStorageService.checkIfPositionExists(
         data.tokenId,
       );
-      if (checkIfPositionExists) {
+      if (!checkIfPositionExists) {
         positionIds.add(data.tokenId);
       }
     }
   }
   const positions = await initPositions({ ...ctx, block }, Array.from(positionIds));
-  await positionStorageService.storeBatchPositions(positions);
+  if (positions && positions.length > 0) {
+    await positionStorageService.storeBatchPositions(positions);
+  }
 }
 
 function processItems(ctx: CommonHandlerContext<unknown>, blocks: BlockData[]) {
@@ -187,25 +196,38 @@ async function processIncreaseData(
 
   const token0 = await positionStorageService.getToken(position.token0Id);
   const token1 = await positionStorageService.getToken(position.token1Id);
-
+  if (!token0 || !token1) {
+    console.warn(
+      `Skipping position ${data.tokenId} - missing token data: token0=${!!token0}, token1=${!!token1}`,
+    );
+    return;
+  }
   const token0inETH = await fetchHistoricalUsd(
-    token0!.id, //todo: should be coingecko id
+    token0.id, //todo: should be coingecko id
     block.timestamp,
     coingeckoApiKey,
   );
   const token1inETH = await fetchHistoricalUsd(
-    token1!.id, //todo: should be coingecko id
+    token1.id, //todo: should be coingecko id
     block.timestamp,
     coingeckoApiKey,
   );
+
   const amount0 = BigDecimal(data.amount0, token0!.decimals).toNumber();
   const amount1 = BigDecimal(data.amount1, token1!.decimals).toNumber();
   const amountMintedETH = amount0 * token0inETH + amount1 * token1inETH;
   const trackerData = await positionTracker.handleIncreaseLiquidity(block, data, amountMintedETH);
 
   if (trackerData) {
-    protocolStates.get(position.poolId)!.balanceWindows.push(trackerData);
-    console.log(trackerData, 'got the data');
+    const poolState = protocolStates.get(position.poolId);
+    if (poolState) {
+      poolState.balanceWindows.push(trackerData);
+    } else {
+      protocolStates.set(position.poolId, {
+        balanceWindows: [trackerData],
+        transactions: [],
+      });
+    }
   }
 }
 
@@ -223,7 +245,12 @@ async function processDecreaseData(
 
   const token0 = await positionStorageService.getToken(position.token0Id);
   const token1 = await positionStorageService.getToken(position.token1Id);
-
+  if (!token0 || !token1) {
+    console.warn(
+      `Skipping position ${data.tokenId} - missing token data: token0=${!!token0}, token1=${!!token1}`,
+    );
+    return;
+  }
   // let prices = sqrtPriceX96ToTokenPrices(
   //   BigInt(priceMetadata?.sqrtPriceX96 || '0'),
   //   token0!.decimals,
@@ -233,12 +260,12 @@ async function processDecreaseData(
   // const token1Price = prices[1];
 
   const token0inETH = await fetchHistoricalUsd(
-    token0!.id, //todo: should be coingecko id
+    token0.id, //todo: should be coingecko id
     block.timestamp,
     coingeckoApiKey,
   );
   const token1inETH = await fetchHistoricalUsd(
-    token1!.id, //todo: should be coingecko id
+    token1.id, //todo: should be coingecko id
     block.timestamp,
     coingeckoApiKey,
   );
@@ -249,8 +276,15 @@ async function processDecreaseData(
   const trackerData = await positionTracker.handleDecreaseLiquidity(block, data, amountBurnedETH);
 
   if (trackerData) {
-    protocolStates.get(position.poolId)!.balanceWindows.push(trackerData);
-    console.log(trackerData, 'got the data');
+    const poolState = protocolStates.get(position.poolId);
+    if (poolState) {
+      poolState.balanceWindows.push(trackerData);
+    } else {
+      protocolStates.set(position.poolId, {
+        balanceWindows: [trackerData],
+        transactions: [],
+      });
+    }
   }
 }
 
@@ -260,85 +294,195 @@ async function processTransferData(
   data: TransferData,
   protocolStates: Map<string, ProtocolStateUniswapV3>,
   positionTracker: PositionTracker,
+  positionStorageService: PositionStorageService,
 ) {
+  const position = await positionStorageService.getPosition(data.tokenId);
+  if (!position) return;
+
   const trackerData = await positionTracker.handleTransfer(block, data);
-  //todo: check if we need any of the above data from here
   if (trackerData) {
-    //todo: test
-    // protocolStates.get(position.poolId)!.balanceWindows.push(trackerData);
-    console.log(trackerData, 'got the data');
+    const poolState = protocolStates.get(position.poolId);
+    if (poolState) {
+      poolState.balanceWindows.push(trackerData);
+    } else {
+      protocolStates.set(position.poolId, {
+        balanceWindows: [trackerData],
+        transactions: [],
+      });
+    }
   }
 }
 
+//todo: logic check
 async function initPositions(ctx: BlockHandlerContext<Store>, ids: string[]) {
-  console.log(ids, ids.length);
+  console.log('🚀 Starting initPositions', { totalIds: ids.length });
+
+  if (!ids || ids.length === 0) {
+    console.log('⚠️ No IDs provided');
+    return [];
+  }
+
   const positions: PositionData[] = [];
+  const positionsByPool = new Map<string, PositionData[]>();
+  const tickPoolIds: Set<string> = new Set();
+  const poolTicks = new Map<string, number>();
   const multicall = new Multicall(ctx, MULTICALL_ADDRESS);
+  const batchSize = 3000;
 
-  const positionResults = await multicall.tryAggregate(
-    positionsAbi.functions.positions,
-    POSITIONS_ADDRESS,
-    ids.map((id) => {
-      return { tokenId: BigInt(id) };
-    }),
-    MULTICALL_PAGE_SIZE,
-  );
+  for (let i = 0; i < ids.length; i += batchSize) {
+    const batch = ids.slice(i, i + batchSize);
+    console.log(
+      `📦 Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(ids.length / batchSize)} (IDs ${i + 1}-${i + batch.length})`,
+    );
 
-  const owners = await multicall.aggregate(
-    positionsAbi.functions.ownerOf,
-    POSITIONS_ADDRESS,
-    ids.map((id) => {
-      return { tokenId: BigInt(id) };
-    }),
-    MULTICALL_PAGE_SIZE,
-  );
+    try {
+      // Get position data
+      const positionResults = await multicall.tryAggregate(
+        positionsAbi.functions.positions,
+        POSITIONS_ADDRESS,
+        batch.map((id) => ({ tokenId: BigInt(id) })),
+        MULTICALL_PAGE_SIZE,
+      );
 
-  console.log(positionResults, owners);
+      // Get owner data
+      const ownerResults = await multicall.tryAggregate(
+        positionsAbi.functions.ownerOf,
+        POSITIONS_ADDRESS,
+        batch.map((id) => ({ tokenId: BigInt(id) })),
+        MULTICALL_PAGE_SIZE,
+      );
 
-  for (let i = 0; i < ids.length; i++) {
-    const result = positionResults[i];
-    const owner = owners[i];
-    console.log(result, owner);
-    if (result.success) {
-      console.log(result.success, result, owner, 'inside');
-      //todo: check after testing
-      positions.push({
-        positionId: ids[i].toLowerCase(),
-        token0Id: result.value.token0.toLowerCase(),
-        token1Id: result.value.token1.toLowerCase(),
-        liquidity: '0',
-        fee: result.value.fee,
-        tickLower: result.value.tickLower,
-        tickUpper: result.value.tickUpper,
-        depositedToken0: '0',
-        depositedToken1: '0',
-        owner: owner.toLowerCase(),
-        isActive: 'false',
-        isTracked: 'false',
-        lastUpdatedBlockTs: 0,
-        lastUpdatedBlockHeight: 0,
-        poolId: '',
+      // Process results
+      for (let j = 0; j < batch.length; j++) {
+        const positionResult = positionResults[j];
+        const ownerResult = ownerResults[j];
+        const positionId = batch[j];
+
+        // Skip if either call failed
+        if (!positionResult.success || !ownerResult.success) {
+          console.warn(
+            `⚠️ Skipping ${positionId} - position: ${positionResult.success}, owner: ${ownerResult.success}`,
+          );
+          continue;
+        }
+
+        // Skip if owner is zero address (burned position)
+        if (ownerResult.value === '0x0000000000000000000000000000000000000000') {
+          console.warn(`⚠️ Skipping ${positionId} - burned position (zero owner)`);
+          continue;
+        }
+
+        // Add valid position
+        positions.push({
+          positionId: positionId.toLowerCase(),
+          token0Id: positionResult.value.token0.toLowerCase(),
+          token1Id: positionResult.value.token1.toLowerCase(),
+          liquidity: '0',
+          fee: positionResult.value.fee,
+          tickLower: positionResult.value.tickLower,
+          tickUpper: positionResult.value.tickUpper,
+          depositedToken0: '0',
+          depositedToken1: '0',
+          owner: ownerResult.value.toLowerCase(),
+          isActive: 'false',
+          isTracked: 'false',
+          lastUpdatedBlockTs: 0,
+          lastUpdatedBlockHeight: 0,
+          poolId: '',
+        });
+      }
+
+      console.log(`✅ Batch completed. Total positions: ${positions.length}`);
+    } catch (error) {
+      console.error(`❌ Batch failed:`, error);
+      continue; // Continue with next batch
+    }
+  }
+
+  // Get pool IDs for valid positions
+  if (positions.length > 0) {
+    console.log(`🏊 Getting pool IDs for ${positions.length} positions...`);
+
+    try {
+      const poolIds = await multicall.aggregate(
+        factoryAbi.functions.getPool,
+        FACTORY_ADDRESS,
+        positions.map((p) => ({
+          tokenA: p.token0Id,
+          tokenB: p.token1Id,
+          fee: p.fee,
+        })),
+        MULTICALL_PAGE_SIZE,
+      );
+
+      positions.forEach((position, index) => {
+        const poolId = poolIds[index]?.toLowerCase() || '';
+        tickPoolIds.add(poolId);
+        position.poolId = poolId;
+        if (!positionsByPool.has(poolId)) {
+          positionsByPool.set(poolId, []);
+        }
+        positionsByPool.get(poolId)!.push(position);
+      });
+      console.log(`🎯 Getting current ticks for ${tickPoolIds.size} pools...`);
+
+      for (const poolId of Array.from(tickPoolIds)) {
+        if (poolId) {
+          try {
+            //todo: think of reducing the rpc calls over here
+            const result = await multicall.tryAggregate(
+              poolAbi.functions.slot0,
+              poolId, // Call on the actual pool address
+              [{}],
+              MULTICALL_PAGE_SIZE,
+            );
+            if (result[0]?.success) {
+              poolTicks.set(poolId, result[0].value!.tick);
+            }
+          } catch (error) {
+            console.warn(`Failed to get slot0 for pool ${poolId}:`, error);
+          }
+        }
+      }
+
+      positionsByPool.forEach((positions, poolId) => {
+        const currentTick = poolTicks.get(poolId);
+
+        if (currentTick !== undefined) {
+          // Update all positions in this pool
+          positions.forEach((position) => {
+            const isInRange =
+              position.tickLower <= currentTick && currentTick <= position.tickUpper;
+            position.isActive = isInRange ? 'true' : 'false';
+
+            console.log(
+              `Position ${position.positionId}: tickLower=${position.tickLower}, tickUpper=${position.tickUpper}, currentTick=${currentTick}, isActive=${position.isActive}`,
+            );
+          });
+        } else {
+          positions.forEach((position) => {
+            position.isActive = 'false';
+            console.warn(
+              `Failed to get tick for position ${position.positionId} (pool: ${poolId})`,
+            );
+          });
+        }
+      });
+    } catch (error) {
+      console.error('❌ Failed to get pool IDs or slot0 data:', error);
+      positions.forEach((p) => {
+        p.poolId = '';
+        p.isActive = 'false';
       });
     }
   }
 
-  const poolIds = await multicall.aggregate(
-    factoryAbi.functions.getPool,
-    FACTORY_ADDRESS,
-    positions.map((p) => {
-      return {
-        tokenA: p.token0Id,
-        tokenB: p.token1Id,
-        fee: p.fee,
-      };
-    }),
-    MULTICALL_PAGE_SIZE,
-  );
+  console.log('🎉 initPositions completed:', {
+    totalPositions: positions.length,
+    successRate: `${((positions.length / ids.length) * 100).toFixed(1)}%`,
+  });
 
-  for (let i = 0; i < positions.length; i++) {
-    positions[i].poolId = poolIds[i].toLowerCase();
-  }
-  console.log('returning positions', positions);
+  //todo: improve redis saving op by sending the map later on
   return positions;
 }
 

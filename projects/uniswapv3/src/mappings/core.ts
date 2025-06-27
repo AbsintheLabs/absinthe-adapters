@@ -17,7 +17,7 @@ import {
 } from '@absinthe/common';
 import { PositionStorageService } from '../services/PositionStorageService';
 import { PositionTracker } from '../services/PositionTracker';
-type EventData = (SwapData & { type: 'Swap' }) | (InitializeData & { type: 'Initialize' });
+type EventData = SwapData & { type: 'Swap' };
 
 type ContextWithEntityManager = DataHandlerContext<Store> & {
   entities: EntityManager;
@@ -43,7 +43,6 @@ export async function processPairs(
   for (let [block, blockEventsData] of eventsData) {
     for (let data of blockEventsData) {
       if (data.type === 'Swap') {
-        console.log(data);
         await processSwapData(
           ctx,
           block,
@@ -86,13 +85,6 @@ async function processItems(ctx: ContextWithEntityManager, blocks: BlockData[]) 
           ...data,
         });
       }
-      if (log.topics[0] === poolAbi.events.Initialize.topic) {
-        let data = processInitialize(evmLog);
-        eventsData.push(block.header, {
-          type: 'Initialize',
-          ...data,
-        });
-      }
     }
   }
   return eventsData;
@@ -119,14 +111,23 @@ async function processSwapData(
   positionStorageService: PositionStorageService,
   protocolStates: Map<string, ProtocolStateUniswapV3>,
 ): Promise<void> {
-  const position = await positionStorageService.getPositionByPoolId(data.poolId);
-  if (!position) return;
+  const positions = await positionStorageService.getAllPositionsByPoolId(data.poolId);
+  if (positions.length === 0) return;
 
-  const token0 = await positionStorageService.getToken(position.token0Id);
-  const token1 = await positionStorageService.getToken(position.token1Id);
+  const positionForReference = positions[0];
 
-  const amount0 = BigDecimal(data.amount0, token0!.decimals).toNumber();
-  const amount1 = BigDecimal(data.amount1, token1!.decimals).toNumber();
+  const token0 = await positionStorageService.getToken(positionForReference.token0Id);
+  const token1 = await positionStorageService.getToken(positionForReference.token1Id);
+
+  if (!token0 || !token1) {
+    console.warn(
+      `Skipping swap for pool ${data.poolId} - missing token data: token0=${!!token0}, token1=${!!token1}`,
+    );
+    return;
+  }
+
+  const amount0 = BigDecimal(data.amount0, token0.decimals).toNumber();
+  const amount1 = BigDecimal(data.amount1, token1.decimals).toNumber();
 
   // need absolute amounts for volume
   const amount0Abs = Math.abs(amount0);
@@ -146,12 +147,12 @@ async function processSwapData(
 
   // update USD pricing
   const token0inETH = await fetchHistoricalUsd(
-    token0!.id, //todo: should be coingecko id
+    token0.id, //todo: should be coingecko id
     block.timestamp,
     process.env.COINGECKO_API_KEY || '',
   );
   const token1inETH = await fetchHistoricalUsd(
-    token1!.id, //todo: should be coingecko id
+    token1.id, //todo: should be coingecko id
     block.timestamp,
     process.env.COINGECKO_API_KEY || '',
   );
@@ -180,7 +181,7 @@ async function processSwapData(
         amount: amount1.toString(),
       },
       {
-        liquidity: position.liquidity.toString(),
+        liquidity: positionForReference.liquidity.toString(),
       },
     ]),
     rawAmount: swappedAmountETH.toString(), //todo: decimal adjusted
@@ -196,24 +197,31 @@ async function processSwapData(
     gasUsed: Number(data.transaction.gas),
     gasFeeUsd: Number(data.transaction.gasPrice) * Number(data.transaction.gas),
   };
-  protocolStates.get(data.poolId)!.transactions.push(transactionSchema);
-  await positionTracker.handleSwap(block, data, position.poolId);
+  const protocolState = protocolStates.get(data.poolId);
+  if (protocolState) {
+    protocolState.transactions.push(transactionSchema);
+  } else {
+    protocolStates.set(data.poolId, {
+      balanceWindows: [],
+      transactions: [transactionSchema],
+    });
+  }
+  await positionTracker.handleSwap(block, data, positions);
 }
+// interface InitializeData {
+//   poolId: string;
+//   tick: number;
+//   sqrtPrice: bigint;
+// }
 
-interface InitializeData {
-  poolId: string;
-  tick: number;
-  sqrtPrice: bigint;
-}
-
-function processInitialize(log: EvmLog): InitializeData {
-  let { tick, sqrtPriceX96 } = poolAbi.events.Initialize.decode(log);
-  return {
-    poolId: log.address,
-    tick: tick,
-    sqrtPrice: sqrtPriceX96,
-  };
-}
+// function processInitialize(log: EvmLog): InitializeData {
+//   let { tick, sqrtPriceX96 } = poolAbi.events.Initialize.decode(log);
+//   return {
+//     poolId: log.address,
+//     tick: tick,
+//     sqrtPrice: sqrtPriceX96,
+//   };
+// }
 
 function processSwap(log: EvmLog, transaction: any): SwapData {
   let event = poolAbi.events.Swap.decode(log);

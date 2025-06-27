@@ -10,6 +10,8 @@ import {
   AbsintheApiClient,
   Chain,
   HistoryWindow,
+  toTimeWeightedBalance,
+  toTransaction,
   Transaction,
   ValidatedEnvBase,
 } from '@absinthe/common';
@@ -68,6 +70,7 @@ export class UniswapV3Processor {
   }
 
   async run(): Promise<void> {
+    //todo: confirm with andrew will this ever be realtime ??
     processor.run(
       new TypeormDatabase({ supportHotBlocks: false, stateSchema: this.schemaName }),
       async (ctx) => {
@@ -85,13 +88,15 @@ export class UniswapV3Processor {
           this.env.coingeckoApiKey,
           protocolStates,
         );
-        // await processPairs(
-        //   entitiesCtx,
-        //   ctx.blocks,
-        //   positionTracker,
-        //   positionStorageService,
-        //   protocolStates,
-        // );
+        await processPairs(
+          entitiesCtx,
+          ctx.blocks,
+          positionTracker,
+          positionStorageService,
+          protocolStates,
+        );
+
+        await this.finalizeBatch(entitiesCtx, protocolStates);
 
         // await ctx.store.save(entities.values(Bundle));
         // await ctx.store.save(entities.values(Factory));
@@ -102,5 +107,32 @@ export class UniswapV3Processor {
         // await ctx.store.save(entities.values(Position));
       },
     );
+  }
+
+  private async finalizeBatch(
+    ctx: any,
+    protocolStates: Map<string, ProtocolStateUniswapV3>,
+  ): Promise<void> {
+    for (const pool of this.uniswapV3DexProtocol.pools) {
+      const protocolState = protocolStates.get(pool.contractAddress);
+      console.log(protocolState, 'protocolState');
+      if (!protocolState) continue;
+
+      //todo: tell rollan to update the schema with the latest enums, as its possible this doesn't go through
+      const balances = toTimeWeightedBalance(
+        protocolState.balanceWindows,
+        { ...pool, type: this.uniswapV3DexProtocol.type },
+        this.env,
+        this.chainConfig,
+      );
+      const transactions = toTransaction(
+        protocolState.transactions,
+        { ...pool, type: this.uniswapV3DexProtocol.type },
+        this.env,
+        this.chainConfig,
+      );
+      await this.apiClient.send(balances);
+      await this.apiClient.send(transactions);
+    }
   }
 }

@@ -33,7 +33,7 @@ interface TransferData {
   to: string;
   transactionHash: string;
 }
-/* eslint-disable prettier/prettier */
+
 export class PositionTracker {
   private positionStorageService: PositionStorageService;
   private windowDurationMs: number;
@@ -74,7 +74,6 @@ export class PositionTracker {
       //this case is already handled and should never happen
       console.log(`Position ${data.tokenId} not found case reached`);
     } else {
-      //todo: check if it is still updated incase not tracked
       const oldLiquidity = position.liquidity;
       position.liquidity = (BigInt(position.liquidity) + data.liquidity).toString();
 
@@ -83,7 +82,7 @@ export class PositionTracker {
           position.positionId,
           oldLiquidity,
           data.liquidity.toString(),
-          TimeWindowTrigger.INCREASE,
+          TimeWindowTrigger.TRANSFER, // todo: change to inc
           block,
           data.transactionHash,
           amountMintedETH,
@@ -117,7 +116,7 @@ export class PositionTracker {
         position.positionId,
         oldLiquidity,
         data.liquidity.toString(),
-        TimeWindowTrigger.DECREASE,
+        TimeWindowTrigger.TRANSFER, // todo: change to dec
         block,
         data.transactionHash,
         amountBurnedETH,
@@ -157,12 +156,13 @@ export class PositionTracker {
     }
   }
 
-  async handleSwap(block: BlockHeader, data: SwapData, poolId: string) {
+  async handleSwap(block: BlockHeader, data: SwapData, positions: PositionData[]) {
     const currentTick = data.tick;
+    console.log(block.height, 'block.height');
+    console.log(currentTick, 'currentTick', positions[0].poolId);
     const positionsToActivate: PositionData[] = [];
     const positionsToDeactivate: PositionData[] = [];
 
-    const positions = await this.positionStorageService.getAllPositionsByPoolId(poolId);
     for (const position of positions) {
       const wasActive = position.isActive;
       const isNowActive = position.tickLower <= currentTick && position.tickUpper > currentTick;
@@ -195,7 +195,8 @@ export class PositionTracker {
     const blockHeight = block.height;
 
     if (!position) return null;
-    if (oldLiquidity === '0') return null;
+    //todo: uncomment this later on for sure 100%
+    // if (oldLiquidity === '0') return null;
 
     const historyWindow = {
       userAddress: position.owner,
@@ -221,6 +222,7 @@ export class PositionTracker {
 
     console.log(
       `Flushed liquidity change for position ${position.positionId}: ${oldLiquidity} -> ${position.liquidity}`,
+      block.height,
     );
     return historyWindow;
   }

@@ -1,4 +1,3 @@
-/* eslint-disable prettier/prettier */
 import { fetchHistoricalUsd } from '@absinthe/common';
 import { createClient, RedisClientType } from 'redis';
 
@@ -26,10 +25,6 @@ interface Token {
   name: string;
   totalSupply: bigint;
   decimals: number;
-}
-interface PoolMetadata {
-  sqrtPriceX96: string;
-  tick: number;
 }
 
 export class PositionStorageService {
@@ -122,6 +117,7 @@ export class PositionStorageService {
     return 0;
   }
 
+  //todo: make it efficient
   async storePosition(position: PositionData): Promise<void> {
     if (!this.isConnected) {
       throw new Error('Redis not connected');
@@ -144,6 +140,8 @@ export class PositionStorageService {
       lastUpdatedBlockTs: position.lastUpdatedBlockTs.toString(),
       lastUpdatedBlockHeight: position.lastUpdatedBlockHeight.toString(),
     });
+    await this.redis.set(`positionPool:${position.positionId}`, position.poolId);
+    await this.redis.sAdd(`pool:${position.poolId}:positions`, position.positionId);
   }
 
   async storeBatchPositions(positions: PositionData[]): Promise<void> {
@@ -153,45 +151,17 @@ export class PositionStorageService {
   }
 
   async checkIfPositionExists(positionId: string): Promise<boolean> {
-    const positionKey = `pool:*:position:${positionId}`;
-    const data = await this.redis.hGetAll(positionKey);
-    return data !== null;
+    const poolId = await this.redis.get(`positionPool:${positionId}`);
+    return poolId !== null;
   }
 
   async getPosition(positionId: string): Promise<PositionData | null> {
-    const positionKey = `pool:*:position:${positionId}`;
-
     if (!this.isConnected) return null;
 
-    const data = await this.redis.hGetAll(positionKey);
-    if (!data.positionId) return null;
+    const poolId = await this.redis.get(`positionPool:${positionId}`);
+    if (!poolId) return null;
 
-    const position: PositionData = {
-      positionId: data.positionId,
-      owner: data.owner,
-      liquidity: data.liquidity,
-      tickLower: parseInt(data.tickLower),
-      tickUpper: parseInt(data.tickUpper),
-      token0Id: data.token0Id,
-      token1Id: data.token1Id,
-      fee: parseInt(data.fee),
-      poolId: data.poolId,
-      depositedToken0: data.depositedToken0,
-      depositedToken1: data.depositedToken1,
-      isActive: data.isActive,
-      isTracked: data.isTracked,
-      lastUpdatedBlockTs: parseInt(data.lastUpdatedBlockTs),
-      lastUpdatedBlockHeight: parseInt(data.lastUpdatedBlockHeight),
-    };
-
-    return position;
-  }
-
-  async getPositionByPoolId(poolId: string): Promise<PositionData | null> {
-    const positionKey = `pool:${poolId}:position:*`;
-
-    if (!this.isConnected) return null;
-
+    const positionKey = `pool:${poolId}:position:${positionId}`;
     const data = await this.redis.hGetAll(positionKey);
     if (!data.positionId) return null;
 
@@ -217,7 +187,10 @@ export class PositionStorageService {
   }
 
   async updatePosition(position: PositionData): Promise<void> {
-    const positionKey = `pool:*:position:${position.positionId}`;
+    const poolId = await this.redis.get(`positionPool:${position.positionId}`);
+    if (!poolId) return;
+
+    const positionKey = `pool:${poolId}:position:${position.positionId}`;
     await this.redis.hSet(positionKey, {
       owner: position.owner,
       liquidity: position.liquidity,
@@ -228,16 +201,32 @@ export class PositionStorageService {
     });
   }
 
+  //todo: make it efficient
   async getAllPositionsByPoolId(poolId: string): Promise<PositionData[]> {
-    const positionKey = `pool:${poolId}:position:*`;
-    console.log('positionKey', positionKey);
-    const data = await this.redis.hGetAll(positionKey);
-    return data as unknown as PositionData[];
+    const positionIds = await this.redis.sMembers(`pool:${poolId}:positions`);
+    const positions: PositionData[] = [];
+
+    for (const positionId of positionIds) {
+      const position = await this.getPosition(positionId);
+      if (position) {
+        positions.push(position);
+      }
+    }
+
+    return positions;
   }
 
   async deletePosition(positionId: string): Promise<void> {
-    const positionKey = `pool:*:position:${positionId}`;
+    const poolId = await this.redis.get(`positionPool:${positionId}`);
+    if (!poolId) {
+      throw new Error(`Position ${positionId} not found`);
+    }
+
+    const positionKey = `pool:${poolId}:position:${positionId}`;
     await this.redis.del(positionKey);
+    await this.redis.del(`positionPool:${positionId}`);
+
+    await this.redis.sRem(`pool:${poolId}:positions`, positionId);
   }
 
   async disconnect(): Promise<void> {

@@ -1,4 +1,3 @@
-// todo: add this to packages/common
 import Big from 'big.js';
 import {
   ActiveBalance,
@@ -18,13 +17,19 @@ import {
   ProtocolConfig,
   ValidatedStakingProtocolConfig,
   ValidatedUniv3ProtocolConfig,
+  Univ3PoolConfig,
+  HelperProtocolConfig,
 } from '../../types/interfaces/protocols';
 import { Currency, MessageType, TimeWindowTrigger } from '../../types/enums';
 import { POSITIONS_ADDRESS, VERSION, ZERO_ADDRESS } from '../consts';
 
 function toTimeWeightedBalance(
   historyWindows: HistoryWindow[],
-  protocol: ProtocolConfig | ValidatedBondingCurveProtocolConfig | ValidatedStakingProtocolConfig,
+  protocol:
+    | ProtocolConfig
+    | ValidatedBondingCurveProtocolConfig
+    | ValidatedStakingProtocolConfig
+    | HelperProtocolConfig,
   env: ValidatedEnvBase,
   chainConfig: Chain,
 ): TimeWeightedBalanceEvent[] {
@@ -77,7 +82,11 @@ function toTimeWeightedBalance(
 
 function toTransaction(
   transactions: Transaction[],
-  protocol: ProtocolConfig | ValidatedBondingCurveProtocolConfig | ValidatedStakingProtocolConfig,
+  protocol:
+    | ProtocolConfig
+    | ValidatedBondingCurveProtocolConfig
+    | ValidatedStakingProtocolConfig
+    | HelperProtocolConfig,
   env: ValidatedEnvBase,
   chainConfig: Chain,
 ): TransactionEvent[] {
@@ -331,7 +340,7 @@ async function fetchHistoricalUsd(
     });
 
     if (!res.ok) {
-      console.warn(`CoinGecko API error for ${id}: ${res.status} ${res.statusText}`);
+      // console.warn(`CoinGecko API error for ${id}: ${res.status} ${res.statusText}`);
       return 0;
     }
 
