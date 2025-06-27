@@ -11,7 +11,6 @@ import { Store } from '@subsquid/typeorm-store';
 
 export async function fetchTokensSymbol(ctx: BlockHandlerContext<Store>, tokenAddresses: string[]) {
   const multicall = new Multicall(ctx, MULTICALL_ADDRESS);
-
   const symbols = new Map<string, string>();
 
   const results = await multicall.tryAggregate(

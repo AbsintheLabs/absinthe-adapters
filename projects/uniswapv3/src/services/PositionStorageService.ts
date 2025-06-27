@@ -26,17 +26,6 @@ interface Token {
   name: string;
   totalSupply: bigint;
   decimals: number;
-  derivedETH: number;
-  volume: number;
-  volumeUSD: number;
-  feesUSD: number;
-  untrackedVolumeUSD: number;
-  totalValueLocked: number;
-  totalValueLockedUSD: number;
-  totalValueLockedUSDUntracked: number;
-  txCount: number;
-  poolCount: bigint;
-  whitelistPools: string[];
 }
 interface PoolMetadata {
   sqrtPriceX96: string;
@@ -80,11 +69,6 @@ export class PositionStorageService {
   //   return JSON.parse(data);
   // }
 
-  async getAllTokens(): Promise<Token[]> {
-    const tokens = await this.redis.hGetAll('token:*');
-    return tokens as unknown as Token[];
-  }
-
   async storeToken(token: Token): Promise<void> {
     const tokenKey = `token:${token.id}`;
     await this.redis.hSet(tokenKey, {
@@ -93,17 +77,6 @@ export class PositionStorageService {
       name: token.name,
       totalSupply: token.totalSupply.toString(),
       decimals: token.decimals.toString(),
-      derivedETH: token.derivedETH.toString(),
-      volume: token.volume.toString(),
-      volumeUSD: token.volumeUSD.toString(),
-      feesUSD: token.feesUSD.toString(),
-      untrackedVolumeUSD: token.untrackedVolumeUSD.toString(),
-      totalValueLocked: token.totalValueLocked.toString(),
-      totalValueLockedUSD: token.totalValueLockedUSD.toString(),
-      totalValueLockedUSDUntracked: token.totalValueLockedUSDUntracked.toString(),
-      txCount: token.txCount.toString(),
-      poolCount: token.poolCount.toString(),
-      whitelistPools: JSON.stringify(token.whitelistPools),
     });
   }
 

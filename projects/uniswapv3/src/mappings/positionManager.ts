@@ -64,13 +64,16 @@ export async function processPositions(
   coingeckoApiKey: string,
   protocolStates: Map<string, ProtocolStateUniswapV3>,
 ): Promise<void> {
+  console.log('processPositions', blocks.length, blocks[0].header);
   const eventsData = processItems(ctx, blocks);
+  console.log(eventsData.size, 'eventsData');
   if (!eventsData || eventsData.size == 0) return;
 
   await prefetch(ctx, eventsData, last(blocks).header, positionStorageService);
 
   for (const [block, blockEventsData] of eventsData) {
     for (const data of blockEventsData) {
+      console.log(data);
       switch (data.type) {
         case 'Increase':
           await processIncreaseData(
@@ -268,6 +271,7 @@ async function processTransferData(
 }
 
 async function initPositions(ctx: BlockHandlerContext<Store>, ids: string[]) {
+  console.log(ids, ids.length);
   const positions: PositionData[] = [];
   const multicall = new Multicall(ctx, MULTICALL_ADDRESS);
 
@@ -289,10 +293,14 @@ async function initPositions(ctx: BlockHandlerContext<Store>, ids: string[]) {
     MULTICALL_PAGE_SIZE,
   );
 
+  console.log(positionResults, owners);
+
   for (let i = 0; i < ids.length; i++) {
     const result = positionResults[i];
     const owner = owners[i];
+    console.log(result, owner);
     if (result.success) {
+      console.log(result.success, result, owner, 'inside');
       //todo: check after testing
       positions.push({
         positionId: ids[i].toLowerCase(),

@@ -27,17 +27,6 @@ interface Token {
   name: string;
   totalSupply: bigint;
   decimals: number;
-  derivedETH: number;
-  volume: number;
-  volumeUSD: number;
-  feesUSD: number;
-  untrackedVolumeUSD: number;
-  totalValueLocked: number;
-  totalValueLockedUSD: number;
-  totalValueLockedUSDUntracked: number;
-  txCount: number;
-  poolCount: bigint;
-  whitelistPools: string[];
 }
 
 type ContextWithEntityManager = DataHandlerContext<Store> & {
@@ -50,29 +39,20 @@ export async function processFactory(
   positionStorageService: PositionStorageService,
 ): Promise<void> {
   const newPairsData = await processItems(blocks);
+  const tokens: Token[] = [];
+  console.log('newPairsData', newPairsData.size);
   if (newPairsData.size == 0) return;
 
   for (const [, blockEventsData] of newPairsData) {
     for (const data of blockEventsData) {
-      let token0 = await positionStorageService.getToken(data.token0Id);
-      if (!token0) {
-        token0 = createToken(data.token0Id);
-      }
-
-      let token1 = await positionStorageService.getToken(data.token1Id);
-      if (!token1) {
-        token1 = createToken(data.token1Id);
-      }
-      if (WHITELIST_TOKENS.includes(token0!.id)) token1!.whitelistPools.push(data.poolId);
-      if (WHITELIST_TOKENS.includes(token1!.id)) token0!.whitelistPools.push(data.poolId);
-      await positionStorageService.storeMultipleTokens([token0!, token1!]);
+      const token0 = createToken(data.token0Id);
+      const token1 = createToken(data.token1Id);
+      tokens.push(token0);
+      tokens.push(token1);
     }
   }
-
-  await syncTokens(
-    { ...ctx, block: last(blocks).header },
-    await positionStorageService.getAllTokens(),
-  );
+  await syncTokens({ ...ctx, block: last(blocks).header }, tokens);
+  await positionStorageService.storeMultipleTokens(tokens);
 
   //todo: save in redis
   // await ctx.store.save(ctx.entities.values(Token));
@@ -120,27 +100,13 @@ function createToken(id: string) {
     name: 'unknown',
     totalSupply: 0n,
     decimals: 0,
-    derivedETH: 0,
-    volume: 0,
-    volumeUSD: 0,
-    feesUSD: 0,
-    untrackedVolumeUSD: 0,
-    totalValueLocked: 0,
-    totalValueLockedUSD: 0,
-    totalValueLockedUSDUntracked: 0,
-    txCount: 0,
-    poolCount: 0n,
-    whitelistPools: [],
   };
 
   return token;
 }
 
 async function syncTokens(ctx: BlockHandlerContext<Store>, tokens: Token[]) {
-  console.log('syncTokens', tokens);
-
   const ids = tokens.map((t) => t.id);
-
   const [symbols, names, totalSupplies, decimals] = await Promise.all([
     fetchTokensSymbol(ctx, ids),
     fetchTokensName(ctx, ids),

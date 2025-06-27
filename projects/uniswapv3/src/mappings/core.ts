@@ -35,12 +35,15 @@ export async function processPairs(
   positionStorageService: PositionStorageService,
   protocolStates: Map<string, ProtocolStateUniswapV3>,
 ): Promise<void> {
+  console.log('processPairs', blocks.length, blocks[0].header);
   let eventsData = await processItems(ctx, blocks);
+  console.log(eventsData.size, 'eventsData');
   if (!eventsData || eventsData.size == 0) return;
 
   for (let [block, blockEventsData] of eventsData) {
     for (let data of blockEventsData) {
       if (data.type === 'Swap') {
+        console.log(data);
         await processSwapData(
           ctx,
           block,

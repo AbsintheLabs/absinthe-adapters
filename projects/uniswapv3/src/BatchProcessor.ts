@@ -36,12 +36,12 @@ export class UniswapV3Processor {
     env: ValidatedEnvBase,
     chainConfig: Chain,
   ) {
-    this.schemaName = this.generateSchemaName();
     this.refreshWindow = refreshWindow;
     this.apiClient = apiClient;
     this.env = env;
     this.chainConfig = chainConfig;
     this.uniswapV3DexProtocol = uniswapV3DexProtocol;
+    this.schemaName = this.generateSchemaName();
   }
 
   private generateSchemaName(): string {
@@ -53,12 +53,12 @@ export class UniswapV3Processor {
     return `uniswapv3-${hash}`;
   }
 
-  private async initializeProtocolStates(ctx: any): Promise<Map<string, ProtocolStateUniswapV3>> {
+  private async initializeProtocolStates(): Promise<Map<string, ProtocolStateUniswapV3>> {
     const protocolStates = new Map<string, ProtocolStateUniswapV3>();
 
     const positionsAddress = this.uniswapV3DexProtocol.positionsAddress;
 
-    //this is in my process memory
+    //todo: this is in my process memory
     protocolStates.set(positionsAddress, {
       balanceWindows: [],
       transactions: [],
@@ -75,15 +75,8 @@ export class UniswapV3Processor {
         const entitiesCtx = { ...ctx, entities };
         const positionStorageService = new PositionStorageService();
         const positionTracker = new PositionTracker(positionStorageService, this.refreshWindow);
-        const protocolStates = await this.initializeProtocolStates(ctx);
+        const protocolStates = await this.initializeProtocolStates();
         await processFactory(entitiesCtx, ctx.blocks, positionStorageService);
-        await processPairs(
-          entitiesCtx,
-          ctx.blocks,
-          positionTracker,
-          positionStorageService,
-          protocolStates,
-        );
         await processPositions(
           entitiesCtx,
           ctx.blocks,
@@ -92,6 +85,13 @@ export class UniswapV3Processor {
           this.env.coingeckoApiKey,
           protocolStates,
         );
+        // await processPairs(
+        //   entitiesCtx,
+        //   ctx.blocks,
+        //   positionTracker,
+        //   positionStorageService,
+        //   protocolStates,
+        // );
 
         // await ctx.store.save(entities.values(Bundle));
         // await ctx.store.save(entities.values(Factory));
