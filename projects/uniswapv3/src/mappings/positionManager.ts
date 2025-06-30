@@ -51,7 +51,6 @@ interface PositionData {
   depositedToken0: string;
   depositedToken1: string;
   isActive: string;
-  isTracked: string;
   lastUpdatedBlockTs: number;
   lastUpdatedBlockHeight: number;
   poolId: string;
@@ -385,7 +384,6 @@ async function initPositions(ctx: BlockHandlerContext<Store>, ids: string[]) {
           depositedToken1: '0',
           owner: ownerResult.value.toLowerCase(),
           isActive: 'false',
-          isTracked: 'false',
           lastUpdatedBlockTs: 0,
           lastUpdatedBlockHeight: 0,
           poolId: '',

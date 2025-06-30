@@ -14,7 +14,6 @@ interface PositionData {
   depositedToken0: string;
   depositedToken1: string;
   isActive: string;
-  isTracked: string;
   lastUpdatedBlockTs: number;
   lastUpdatedBlockHeight: number;
   poolId: string;
@@ -46,7 +45,6 @@ export class PositionTracker {
   private async activatePosition(block: BlockHeader, positions: PositionData[]) {
     for (const position of positions) {
       position.isActive = 'true';
-      position.isTracked = 'true';
       position.lastUpdatedBlockTs = block.timestamp;
       position.lastUpdatedBlockHeight = block.height;
       await this.positionStorageService.updatePosition(position);
@@ -58,7 +56,6 @@ export class PositionTracker {
   private async deactivatePosition(block: BlockHeader, positions: PositionData[]) {
     for (const position of positions) {
       position.isActive = 'false';
-      position.isTracked = 'false';
       position.lastUpdatedBlockTs = block.timestamp;
       position.lastUpdatedBlockHeight = block.height;
       await this.positionStorageService.updatePosition(position);
@@ -77,7 +74,7 @@ export class PositionTracker {
       const oldLiquidity = position.liquidity;
       position.liquidity = (BigInt(position.liquidity) + data.liquidity).toString();
 
-      if (position.isActive && position.isTracked) {
+      if (position.isActive) {
         const historyWindow = await this.flushLiquidityChange(
           position.positionId,
           oldLiquidity,
@@ -111,7 +108,7 @@ export class PositionTracker {
       return;
     }
 
-    if (position.isActive && position.isTracked) {
+    if (position.isActive) {
       const historyWindow = await this.flushLiquidityChange(
         position.positionId,
         oldLiquidity,
@@ -136,7 +133,7 @@ export class PositionTracker {
 
     if (!position) return;
 
-    if (position.isActive && position.isTracked) {
+    if (position.isActive) {
       const historyWindow = await this.flushLiquidityChange(
         position.positionId,
         position.liquidity,
