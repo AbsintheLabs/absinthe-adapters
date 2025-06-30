@@ -159,12 +159,11 @@ export class PositionTracker {
   async handleSwap(block: BlockHeader, data: SwapData, positions: PositionData[]) {
     const currentTick = data.tick;
     console.log(block.height, 'block.height');
-    console.log(currentTick, 'currentTick', positions[0].poolId);
     const positionsToActivate: PositionData[] = [];
     const positionsToDeactivate: PositionData[] = [];
 
     for (const position of positions) {
-      const wasActive = position.isActive;
+      const wasActive = position.isActive === 'true';
       const isNowActive = position.tickLower <= currentTick && position.tickUpper > currentTick;
 
       if (!wasActive && isNowActive) {

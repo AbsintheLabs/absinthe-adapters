@@ -80,14 +80,14 @@ export class UniswapV3Processor {
         const positionTracker = new PositionTracker(positionStorageService, this.refreshWindow);
         const protocolStates = await this.initializeProtocolStates();
         await processFactory(entitiesCtx, ctx.blocks, positionStorageService);
-        await processPositions(
-          entitiesCtx,
-          ctx.blocks,
-          positionTracker,
-          positionStorageService,
-          this.env.coingeckoApiKey,
-          protocolStates,
-        );
+        // await processPositions(
+        //   entitiesCtx,
+        //   ctx.blocks,
+        //   positionTracker,
+        //   positionStorageService,
+        //   this.env.coingeckoApiKey,
+        //   protocolStates,
+        // );
         await processPairs(
           entitiesCtx,
           ctx.blocks,
@@ -96,7 +96,7 @@ export class UniswapV3Processor {
           protocolStates,
         );
 
-        await this.finalizeBatch(entitiesCtx, protocolStates);
+        // await this.finalizeBatch(entitiesCtx, protocolStates);
 
         // await ctx.store.save(entities.values(Bundle));
         // await ctx.store.save(entities.values(Factory));

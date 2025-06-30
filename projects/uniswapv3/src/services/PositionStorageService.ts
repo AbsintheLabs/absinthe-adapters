@@ -117,7 +117,7 @@ export class PositionStorageService {
     return 0;
   }
 
-  //todo: make it efficient
+  //todo: make it efficient - redis pipeline
   async storePosition(position: PositionData): Promise<void> {
     if (!this.isConnected) {
       throw new Error('Redis not connected');
