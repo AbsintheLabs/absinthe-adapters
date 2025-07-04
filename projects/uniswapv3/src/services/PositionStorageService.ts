@@ -13,7 +13,6 @@ interface PositionData {
   depositedToken0: string;
   depositedToken1: string;
   isActive: string;
-  isTracked: string;
   lastUpdatedBlockTs: number;
   lastUpdatedBlockHeight: number;
   poolId: string;
@@ -117,7 +116,7 @@ export class PositionStorageService {
     return 0;
   }
 
-  //todo: make it efficient
+  //todo: make it efficient - redis pipeline
   async storePosition(position: PositionData): Promise<void> {
     if (!this.isConnected) {
       throw new Error('Redis not connected');
@@ -136,7 +135,6 @@ export class PositionStorageService {
       depositedToken0: position.depositedToken0,
       depositedToken1: position.depositedToken1,
       isActive: position.isActive,
-      isTracked: position.isTracked,
       lastUpdatedBlockTs: position.lastUpdatedBlockTs.toString(),
       lastUpdatedBlockHeight: position.lastUpdatedBlockHeight.toString(),
     });
@@ -178,7 +176,6 @@ export class PositionStorageService {
       depositedToken0: data.depositedToken0,
       depositedToken1: data.depositedToken1,
       isActive: data.isActive,
-      isTracked: data.isTracked,
       lastUpdatedBlockTs: parseInt(data.lastUpdatedBlockTs),
       lastUpdatedBlockHeight: parseInt(data.lastUpdatedBlockHeight),
     };
@@ -195,7 +192,6 @@ export class PositionStorageService {
       owner: position.owner,
       liquidity: position.liquidity,
       isActive: position.isActive,
-      isTracked: position.isTracked,
       lastUpdatedBlockTs: position.lastUpdatedBlockTs.toString(),
       lastUpdatedBlockHeight: position.lastUpdatedBlockHeight.toString(),
     });
