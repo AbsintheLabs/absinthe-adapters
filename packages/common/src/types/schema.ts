@@ -1,5 +1,5 @@
 import z from 'zod';
-import { Dex, PriceFeed } from './enums';
+import { ProtocolType, PriceFeed } from './enums';
 
 const tokenSchema = z.object({
   coingeckoId: z.string(),
@@ -25,13 +25,13 @@ const protocolConfigSchema = z.object({
 
 const dexProtocolSchema = z.object({
   type: z.enum([
-    Dex.UNISWAP_V2,
-    Dex.UNISWAP_V3,
-    Dex.COMPOUND,
-    Dex.AAVE,
-    Dex.CURVE,
-    Dex.BALANCER,
-    Dex.IZUMI,
+    ProtocolType.UNISWAP_V2,
+    ProtocolType.UNISWAP_V3,
+    ProtocolType.COMPOUND,
+    ProtocolType.AAVE,
+    ProtocolType.CURVE,
+    ProtocolType.BALANCER,
+    ProtocolType.IZUMI,
   ]),
   chainId: z.number(),
   toBlock: z.number(),
@@ -72,7 +72,7 @@ const univ3PoolSchema = z.object({
 });
 
 const univ3ProtocolSchema = z.object({
-  type: z.enum([Dex.UNISWAP_V3]),
+  type: z.enum([ProtocolType.UNISWAP_V3]),
   chainId: z.number(),
   factoryAddress: z.string(),
   factoryDeployedAt: z.number(),
@@ -84,12 +84,27 @@ const univ3ProtocolSchema = z.object({
   pools: z.array(univ3PoolSchema),
 });
 
+const zebuClientSchema = z.object({
+  name: z.string(),
+  contractAddress: z.string(),
+  chainId: z.number(),
+  fromBlock: z.number(),
+});
+
+const zebuProtocolSchema = z.object({
+  type: z.enum([ProtocolType.ZEBU]),
+  name: z.string(),
+  toBlock: z.number(),
+  clients: z.array(zebuClientSchema),
+});
+
 const configSchema = z.object({
   balanceFlushIntervalHours: z.number(),
   dexProtocols: z.array(dexProtocolSchema),
   bondingCurveProtocols: z.array(bondingCurveProtocolSchema),
   stakingProtocols: z.array(stakingProtocolSchema),
   univ3Protocols: z.array(univ3ProtocolSchema),
+  zebuProtocols: z.array(zebuProtocolSchema),
 });
 
 export { configSchema, dexProtocolSchema, protocolConfigSchema };

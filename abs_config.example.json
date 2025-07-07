@@ -102,7 +102,7 @@
       "contractAddress": "0x4f5e928763cbfaf5ffd8907ebbb0dabd5f78ba83",
       "chainId": 43111,
       "toBlock": 0,
-      "fromBlock": 1220463
+      "fromBlock": 2025621
     },
     {
       "type": "vusd-bridge",
@@ -120,16 +120,32 @@
       "factoryAddress": "0x1f98431c8ad98523631ae4a59f267346ea31f984",
       "factoryDeployedAt": 12369621,
       "positionsAddress": "0xc36442b4a4522e871399cd717abdd847ab11fe88",
-      "toBlock": 12369621,
+      "toBlock": 12505499,
       "poolDiscovery": true,
       "trackPositions": true,
       "trackSwaps": true,
       "pools": [
         {
-          "name": "usdc/usdt 0.01% pool",
-          "contractAddress": "0x3416cF6C708Da44DB2624D63ea0AAef7113527C6",
+          "name": "pepe/weth 0.3% pool",
+          "contractAddress": "0x11950d141ecb863f01007add7d1a342041227b58",
           "fromBlock": 13609065,
-          "feeTier": 100,
+          "feeTier": 3000,
+          "pricingStrategy": "internal-twap",
+          "token0": {
+            "symbol": "PEPE",
+            "decimals": 18
+          },
+          "token1": {
+            "symbol": "WETH",
+            "decimals": 18
+          },
+          "preferredTokenCoingeckoId": "token1"
+        },
+        {
+          "name": "wepe/weth 0.3% pool",
+          "contractAddress": "0xa3c2076eb97d573cc8842f1db1ecdf7b6f77ba27",
+          "fromBlock": 12376729,
+          "feeTier": 3000,
           "pricingStrategy": "internal-twap",
           "token0": {
             "symbol": "WEPE",
@@ -142,10 +158,10 @@
           "preferredTokenCoingeckoId": "token1"
         },
         {
-          "name": "usdc/weth 0.05% pool",
-          "contractAddress": "0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640",
-          "fromBlock": 12376729,
-          "feeTier": 500,
+          "name": "usdc/weth 0.3% pool",
+          "contractAddress": "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640",
+          "fromBlock": 1620250931,
+          "feeTier": 3000,
           "pricingStrategy": "internal-twap",
           "token0": {
             "symbol": "USDC",
@@ -156,6 +172,70 @@
             "decimals": 18
           },
           "preferredTokenCoingeckoId": "token1"
+        }
+      ]
+    }
+  ],
+  "zebuProtocols": [
+    {
+      "type": "zebu",
+      "name": "Zebu-New",
+      "toBlock": 0,
+      "clients": [
+        {
+          "name": "xyz-1",
+          "contractAddress": "0xD71954165a026924cA771C53164FB0a781c54C83",
+          "chainId": 137,
+          "fromBlock": 51164234
+        },
+        {
+          "name": "xyz-2",
+          "contractAddress": "0x3e4768dB375094b753929B7A540121d970fcb24e",
+          "chainId": 137,
+          "fromBlock": 61059459
+        },
+        {
+          "name": "xyz-3",
+          "contractAddress": "0x5859Ff44A3BDCD00c7047E68B94e93d34aF0fd71",
+          "chainId": 8453,
+          "fromBlock": 15286409
+        },
+        {
+          "name": "xyz-4",
+          "contractAddress": "0xE3EB2347bAE4E2C6905D7B832847E7848Ff6938c",
+          "chainId": 137,
+          "fromBlock": 61695150
+        },
+        {
+          "name": "xyz-5",
+          "contractAddress": "0x19633c8006236f6c016a34B9ca48e98AD10418B4",
+          "chainId": 137,
+          "fromBlock": 64199277
+        },
+        {
+          "name": "xyz-6",
+          "contractAddress": "0x0c18F35EcfF53b7c587bD754fc070b683cB9063B",
+          "chainId": 8453,
+          "fromBlock": 20328800
+        },
+        {
+          "name": "xyz-7",
+          "contractAddress": "0xDD4d9ae148b7c821b8157828806c78BD0FeCE8C4",
+          "chainId": 137,
+          "fromBlock": 73490308
+        }
+      ]
+    },
+    {
+      "type": "zebu",
+      "name": "Zebu-Legacy",
+      "toBlock": 0,
+      "clients": [
+        {
+          "name": "xyz-1",
+          "contractAddress": "0xd7829F0EFC16086a91Cf211CFbb0E4Ef29D16BEE",
+          "chainId": 8453,
+          "fromBlock": 27296063
         }
       ]
     }

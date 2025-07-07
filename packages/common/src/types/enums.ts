@@ -62,7 +62,7 @@ enum GatewayUrl {
   OPTIMISM = 'https://v2.archive.subsquid.io/network/optimism-mainnet',
   HEMI = 'https://v2.archive.subsquid.io/network/hemi-mainnet',
 }
-enum Dex {
+enum ProtocolType {
   UNISWAP_V2 = 'uniswap-v2',
   UNISWAP_V3 = 'uniswap-v3',
   CURVE = 'curve',
@@ -77,6 +77,7 @@ enum Dex {
   AAVE = 'aave',
   COMPOUND = 'compound',
   IZUMI = 'izumi',
+  ZEBU = 'zebu',
 }
 
 enum ChainType {
@@ -118,7 +119,7 @@ export {
   ChainName,
   ChainShortName,
   PriceFeed,
-  Dex,
+  ProtocolType,
   ChainType,
   TokenPreference,
   ProtocolVersion,
