@@ -1,0 +1,67 @@
+FROM node:20-slim AS base
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
+
+# Copy workspace files needed for dependency resolution
+FROM base AS deps
+WORKDIR /app
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY tsconfig.base.json ./
+COPY packages/common/package.json ./packages/common/
+COPY packages/common/tsconfig.json ./packages/common/
+COPY projects/zebu-new/package.json ./projects/zebu-new/
+COPY projects/zebu-new/tsconfig.json ./projects/zebu-new/
+
+# Install all dependencies (including workspace deps)
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --no-frozen-lockfile
+
+# Build stage - build common package and current project
+FROM base AS build
+WORKDIR /app
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY tsconfig.base.json ./
+COPY packages/ ./packages/
+COPY projects/zebu-new/ ./projects/zebu-new/
+
+# Copy node_modules from deps stage
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/packages/common/node_modules ./packages/common/node_modules
+COPY --from=deps /app/projects/zebu-new/node_modules ./projects/zebu-new/node_modules
+
+# Generate TypeScript clients for common package ABIs
+WORKDIR /app/packages/common
+RUN pnpm squid-evm-typegen ./src/abi/ abi/*.json
+
+# Generate TypeScript clients for zebu-new project ABIs 
+WORKDIR /app/projects/zebu-new
+RUN pnpm squid-evm-typegen ./src/abi/ abi/*.json
+
+# Build the common package first, then zebu-new
+WORKDIR /app
+RUN pnpm --filter @absinthe/common build
+RUN pnpm --filter @absinthe/zebu-new build
+
+# Production stage
+FROM base AS production
+WORKDIR /app
+
+# Copy only production dependencies
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/packages/common/node_modules ./packages/common/node_modules
+COPY --from=deps /app/projects/zebu-new/node_modules ./projects/zebu-new/node_modules
+
+# Copy built artifacts
+COPY --from=build /app/packages/common/lib ./packages/common/lib
+COPY --from=build /app/packages/common/package.json ./packages/common/
+COPY --from=build /app/projects/zebu-new/lib ./projects/zebu-new/lib
+COPY --from=build /app/projects/zebu-new/package.json ./projects/zebu-new/
+
+# Copy source files needed for migrations
+COPY --from=build /app/projects/zebu-new/src ./projects/zebu-new/src
+COPY --from=build /app/projects/zebu-new/tsconfig.json ./projects/zebu-new/
+
+WORKDIR /app/projects/zebu-new
+
+# Use exec form and proper exit handling
+CMD ["node", "lib/main.js", "polygon"]
