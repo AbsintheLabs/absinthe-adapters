@@ -1,4 +1,4 @@
-import { AbsintheApiClient, validateEnv, HOURS_TO_MS, Dex } from '@absinthe/common';
+import { AbsintheApiClient, validateEnv, HOURS_TO_MS, ProtocolType } from '@absinthe/common';
 import { UniswapV2Processor } from './Univ2Processor';
 const env = validateEnv();
 
@@ -9,7 +9,7 @@ const apiClient = new AbsintheApiClient({
 });
 
 const uniswapV2DexProtocol = env.dexProtocols.find((dexProtocol) => {
-  return dexProtocol.type === Dex.UNISWAP_V2;
+  return dexProtocol.type === ProtocolType.UNISWAP_V2;
 });
 
 if (!uniswapV2DexProtocol) {

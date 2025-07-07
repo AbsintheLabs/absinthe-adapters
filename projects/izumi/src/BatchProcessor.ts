@@ -8,7 +8,6 @@ import {
   ChainId,
   ChainShortName,
   Currency,
-  Dex,
   fetchHistoricalUsd,
   MessageType,
   ProtocolConfig,

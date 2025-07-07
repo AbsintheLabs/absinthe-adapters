@@ -10,12 +10,12 @@ import {
 } from '@subsquid/evm-processor';
 import * as factoryAbi from './abi/factory';
 import * as poolAbi from './abi/pool';
-import { Dex, validateEnv } from '@absinthe/common';
+import { ProtocolType, validateEnv } from '@absinthe/common';
 
 const env = validateEnv();
 
 const izumiDexProtocol = env.dexProtocols.find((dexProtocol) => {
-  return dexProtocol.type === Dex.IZUMI;
+  return dexProtocol.type === ProtocolType.IZUMI;
 });
 
 if (!izumiDexProtocol) {

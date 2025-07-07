@@ -1,4 +1,4 @@
-import { AbsintheApiClient, validateEnv, HOURS_TO_MS, Dex } from '@absinthe/common';
+import { AbsintheApiClient, validateEnv, HOURS_TO_MS, ProtocolType } from '@absinthe/common';
 import { IzumiProcessor } from './BatchProcessor';
 import dotenv from 'dotenv';
 
@@ -13,7 +13,7 @@ const apiClient = new AbsintheApiClient({
 });
 
 const izumiDexProtocol = env.dexProtocols.find((dexProtocol) => {
-  return dexProtocol.type === Dex.IZUMI;
+  return dexProtocol.type === ProtocolType.IZUMI;
 });
 
 if (!izumiDexProtocol) {

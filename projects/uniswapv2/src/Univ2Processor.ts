@@ -8,7 +8,7 @@ import {
   ChainId,
   ChainShortName,
   Currency,
-  Dex,
+  ProtocolType,
   fetchHistoricalUsd,
   MessageType,
   ProtocolConfig,
@@ -45,7 +45,7 @@ import {
 
 export class UniswapV2Processor {
   private readonly protocols: ProtocolConfig[];
-  private readonly protocolType: Dex;
+  private readonly protocolType: ProtocolType;
   private readonly schemaName: string;
   private readonly refreshWindow: number;
   private readonly apiClient: AbsintheApiClient;
