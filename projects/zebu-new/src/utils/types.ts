@@ -1,5 +1,5 @@
 import { ProtocolState } from '@absinthe/common';
 
-type ProtocolStateVoucher = Pick<ProtocolState, 'transactions'>;
+type ZebuNewProtocolState = Pick<ProtocolState, 'transactions'>;
 
-export { ProtocolStateVoucher };
+export { ZebuNewProtocolState };

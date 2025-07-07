@@ -1,9 +1,5 @@
-import { AbsintheApiClient, validateEnv, BondingCurveProtocol } from '@absinthe/common';
-import { VoucherProcessor } from './BatchProcessor';
-import dotenv from 'dotenv';
-
-dotenv.config();
-
+import { AbsintheApiClient, validateEnv, ProtocolType } from '@absinthe/common';
+import { ZebuLegacyProcessor } from './BatchProcessor';
 const env = validateEnv();
 
 const apiClient = new AbsintheApiClient({
@@ -12,22 +8,18 @@ const apiClient = new AbsintheApiClient({
   minTime: 90, // warn: remove this, it's temporary for testing
 });
 
-const voucher = env.bondingCurveProtocols.find((bondingCurveProtocol) => {
-  return bondingCurveProtocol.type === BondingCurveProtocol.VOUCHER;
+const zebuLegacy = env.zebuProtocols.find((zebuProtocol) => {
+  return (
+    zebuProtocol.type === ProtocolType.ZEBU && zebuProtocol.name.toLowerCase() === 'zebu-legacy'
+  );
 });
 
-if (!voucher) {
-  throw new Error('Voucher protocol not found');
+if (!zebuLegacy) {
+  throw new Error('Zebu-Legacy protocol not found');
 }
+const zebuLegacyClients = zebuLegacy.clients;
 
-const chainConfig = {
-  chainArch: voucher.chainArch,
-  networkId: voucher.chainId,
-  chainShortName: voucher.chainShortName,
-  chainName: voucher.chainName,
-};
+console.log(zebuLegacyClients, 'zebuLegacyClients');
 
-// todo: make the contract address lowercase throughout the codebase
-
-const voucherProcessor = new VoucherProcessor(voucher, apiClient, env.baseConfig, chainConfig);
-voucherProcessor.run();
+const zebuLegacyProcessor = new ZebuLegacyProcessor(zebuLegacyClients, apiClient, env.baseConfig);
+zebuLegacyProcessor.run();

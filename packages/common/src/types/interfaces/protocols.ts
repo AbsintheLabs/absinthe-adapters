@@ -1,8 +1,7 @@
-/* eslint-disable prettier/prettier */
 import {
   TokenPreference,
   PriceFeed,
-  Dex,
+  ProtocolType,
   BondingCurveProtocol,
   ChainName,
   ChainShortName,
@@ -26,7 +25,7 @@ interface SimpleToken {
 }
 
 interface BaseProtocolConfig {
-  type: Dex | BondingCurveProtocol | StakingProtocol;
+  type: ProtocolType | BondingCurveProtocol | StakingProtocol;
   contractAddress: string;
   fromBlock: number;
   name?: string;
@@ -42,7 +41,7 @@ interface BaseProtocolConfigWithChain {
 }
 
 interface DexProtocolConfig {
-  type: Dex;
+  type: ProtocolType;
   toBlock: number;
   protocols: ProtocolConfig[];
 }
@@ -63,6 +62,20 @@ interface StakingProtocolConfig {
   fromBlock: number;
 }
 
+interface ZebuClientConfig {
+  name: string;
+  contractAddress: string;
+  chainId: ChainId;
+  fromBlock: number;
+}
+
+interface ZebuProtocolConfig {
+  type: ProtocolType;
+  name: string;
+  toBlock: number;
+  clients: ZebuClientConfig[];
+}
+
 interface Univ3PoolConfig {
   name: string;
   contractAddress: string;
@@ -75,7 +88,7 @@ interface Univ3PoolConfig {
 }
 
 interface Univ3ProtocolConfig {
-  type: Dex;
+  type: ProtocolType;
   chainId: ChainId;
   factoryAddress: string;
   factoryDeployedAt: number;
@@ -98,6 +111,14 @@ interface ProtocolConfig {
   preferredTokenCoingeckoId: TokenPreference;
 }
 
+interface ZebuClientConfigWithChain extends ZebuClientConfig {
+  chainArch: ChainType;
+  chainShortName: ChainShortName;
+  chainName: ChainName;
+  rpcUrl: string;
+  gatewayUrl: GatewayUrl;
+}
+
 interface ValidatedDexProtocolConfig extends DexProtocolConfig, BaseProtocolConfigWithChain {}
 interface ValidatedBondingCurveProtocolConfig
   extends BondingCurveProtocolConfig,
@@ -106,7 +127,17 @@ interface ValidatedStakingProtocolConfig
   extends StakingProtocolConfig,
     BaseProtocolConfigWithChain {}
 
+interface ZebuProtocolConfigWithChain extends ZebuProtocolConfig {
+  clients: ZebuClientConfigWithChain[];
+}
+
 interface ValidatedUniv3ProtocolConfig extends Univ3ProtocolConfig, BaseProtocolConfigWithChain {}
+interface ValidatedZebuProtocolConfig {
+  type: ProtocolType;
+  name: string;
+  toBlock: number;
+  clients: ZebuClientConfigWithChain[];
+}
 
 interface ValidatedEnv {
   baseConfig: ValidatedEnvBase;
@@ -114,10 +145,11 @@ interface ValidatedEnv {
   bondingCurveProtocols: ValidatedBondingCurveProtocolConfig[];
   stakingProtocols: ValidatedStakingProtocolConfig[];
   univ3Protocols: ValidatedUniv3ProtocolConfig[];
+  zebuProtocols: ValidatedZebuProtocolConfig[];
 }
 
 interface HelperProtocolConfig extends Univ3PoolConfig {
-  type: Dex;
+  type: ProtocolType;
 }
 
 export {
@@ -136,4 +168,9 @@ export {
   Univ3ProtocolConfig,
   BaseProtocolConfigWithChain,
   HelperProtocolConfig,
+  ZebuClientConfig,
+  ZebuProtocolConfig,
+  ZebuClientConfigWithChain,
+  ZebuProtocolConfigWithChain,
+  ValidatedZebuProtocolConfig,
 };

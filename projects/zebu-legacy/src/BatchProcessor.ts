@@ -1,44 +1,42 @@
 import {
   AbsintheApiClient,
-  Chain,
   Currency,
   MessageType,
-  ValidatedBondingCurveProtocolConfig,
+  ProtocolType,
   ValidatedEnvBase,
+  ZebuClientConfigWithChain,
 } from '@absinthe/common';
 
 import { createHash } from 'crypto';
 import { TypeormDatabase } from '@subsquid/typeorm-store';
-import { processor } from './processor';
+import { createProcessor } from './processor';
 import { BatchContext } from '@absinthe/common';
-import * as erc20Abi from './abi/erc20';
+import * as mainAbi from './abi/main';
 import { fetchHistoricalUsd, toTransaction } from '@absinthe/common';
-import { ProtocolStateVoucher } from './utils/types';
+import { ProtocolStateZebuLegacy } from './utils/types';
 
 //todo: storage in database
-export class VoucherProcessor {
-  private readonly bondingCurveProtocol: ValidatedBondingCurveProtocolConfig;
+export class ZebuLegacyProcessor {
+  private readonly zebuNewProtocol: ZebuClientConfigWithChain[];
   private readonly schemaName: string;
   private readonly apiClient: AbsintheApiClient;
   private readonly env: ValidatedEnvBase;
-  private readonly chainConfig: Chain;
 
   constructor(
-    bondingCurveProtocol: ValidatedBondingCurveProtocolConfig,
+    zebuNewProtocol: ZebuClientConfigWithChain[],
     apiClient: AbsintheApiClient,
     env: ValidatedEnvBase,
-    chainConfig: Chain,
   ) {
-    this.bondingCurveProtocol = bondingCurveProtocol;
+    this.zebuNewProtocol = zebuNewProtocol;
     this.schemaName = this.generateSchemaName();
     this.apiClient = apiClient;
     this.env = env;
-    this.chainConfig = chainConfig;
   }
 
+  //not needed hence its like this
   private generateSchemaName(): string {
-    const uniquePoolCombination = this.bondingCurveProtocol.contractAddress.concat(
-      this.bondingCurveProtocol.chainId.toString(),
+    const uniquePoolCombination = this.zebuNewProtocol[0].contractAddress.concat(
+      this.zebuNewProtocol[0].chainId.toString(),
     );
 
     const hash = createHash('md5').update(uniquePoolCombination).digest('hex').slice(0, 8);
@@ -46,7 +44,7 @@ export class VoucherProcessor {
   }
 
   async run(): Promise<void> {
-    processor.run(
+    createProcessor(this.zebuNewProtocol).run(
       new TypeormDatabase({ supportHotBlocks: false, stateSchema: this.schemaName }),
       async (ctx) => {
         try {
@@ -69,36 +67,37 @@ export class VoucherProcessor {
     await this.finalizeBatch(ctx, protocolStates);
   }
 
-  private async initializeProtocolStates(ctx: any): Promise<Map<string, ProtocolStateVoucher>> {
-    const protocolStates = new Map<string, ProtocolStateVoucher>();
+  private async initializeProtocolStates(ctx: any): Promise<Map<string, ProtocolStateZebuLegacy>> {
+    const protocolStates = new Map<string, ProtocolStateZebuLegacy>();
 
-    const contractAddress = this.bondingCurveProtocol.contractAddress;
-    //todo: move into a seperate function
-    protocolStates.set(contractAddress, {
-      transactions: [],
-    });
-
+    for (const client of this.zebuNewProtocol) {
+      const contractAddress = client.contractAddress.toLowerCase();
+      protocolStates.set(contractAddress, {
+        transactions: [],
+      });
+    }
     return protocolStates;
   }
-
   private async processBlock(batchContext: BatchContext): Promise<void> {
     const { ctx, block, protocolStates } = batchContext;
 
-    const contractAddress = this.bondingCurveProtocol.contractAddress;
-    const protocolState = protocolStates.get(contractAddress)!;
+    for (const client of this.zebuNewProtocol) {
+      const contractAddress = client.contractAddress.toLowerCase();
+      const protocolState = protocolStates.get(contractAddress)!;
 
-    await this.processLogsForProtocol(ctx, block, contractAddress, protocolState);
+      await this.processLogsForProtocol(ctx, block, contractAddress, protocolState);
+    }
   }
 
   private async processLogsForProtocol(
     ctx: any,
     block: any,
     contractAddress: string,
-    protocolState: ProtocolStateVoucher,
+    protocolState: ProtocolStateZebuLegacy,
   ): Promise<void> {
     const poolLogs = block.logs.filter((log: any) => log.address === contractAddress);
     for (const log of poolLogs) {
-      await this.processLog(ctx, block, log, protocolState);
+      await this.processLog(ctx, block, log, protocolState, contractAddress);
     }
   }
 
@@ -106,10 +105,11 @@ export class VoucherProcessor {
     ctx: any,
     block: any,
     log: any,
-    protocolState: ProtocolStateVoucher,
+    protocolState: ProtocolStateZebuLegacy,
+    contractAddress: string,
   ): Promise<void> {
-    if (log.topics[0] === erc20Abi.events.Transfer.topic) {
-      await this.processTransferEvent(ctx, block, log, protocolState);
+    if (log.topics[0] === mainAbi.events.Auction_BidPlaced.topic) {
+      await this.processTransferEvent(ctx, block, log, protocolState, contractAddress);
     }
   }
 
@@ -117,9 +117,10 @@ export class VoucherProcessor {
     ctx: any,
     block: any,
     log: any,
-    protocolState: ProtocolStateVoucher,
+    protocolState: ProtocolStateZebuLegacy,
+    contractAddress: string,
   ): Promise<void> {
-    const { from, to, value } = erc20Abi.events.Transfer.decode(log);
+    const { _bidder, _bidAmount, _auctionID } = mainAbi.events.Auction_BidPlaced.decode(log);
     const { gasPrice, gasUsed } = log.transaction;
     const gasFee = Number(gasUsed) * Number(gasPrice);
     const displayGasFee = gasFee / 10 ** 18;
@@ -135,31 +136,28 @@ export class VoucherProcessor {
     }
     const gasFeeUsd = displayGasFee * ethPriceUsd;
 
-    const voucherContract = new erc20Abi.Contract(
-      ctx,
-      block.header,
-      this.bondingCurveProtocol.contractAddress,
-    );
-    const baseCurrencyDecimals = await voucherContract.decimals();
-    //for now we assume the base currency is ETH
-    const displayCost = Number(value) / 10 ** baseCurrencyDecimals;
+    // const voucherContract = new mainAbi.Contract(ctx, block.header, contractAddress);
+    const displayCost = Number(_bidAmount) / 10 ** 18;
+    //note: using eth price usd to get usd value
+    const usdValue = displayCost * ethPriceUsd;
     const transactionSchema = {
       eventType: MessageType.TRANSACTION,
       tokens: JSON.stringify([
         {
-          token: this.bondingCurveProtocol.contractAddress,
+          clientDiamondContractAddress: contractAddress,
+          saleId: _auctionID.toString(),
         },
       ]),
-      rawAmount: value.toString(),
+      rawAmount: _bidAmount.toString(),
       displayAmount: displayCost,
       unixTimestampMs: block.header.timestamp,
       txHash: log.transactionHash,
       logIndex: log.logIndex,
       blockNumber: block.header.height,
       blockHash: block.header.hash,
-      userId: from,
+      userId: _bidder,
       currency: Currency.USD,
-      valueUsd: 0,
+      valueUsd: usdValue,
       gasUsed: Number(gasUsed),
       gasFeeUsd: gasFeeUsd,
     };
@@ -169,17 +167,25 @@ export class VoucherProcessor {
 
   private async finalizeBatch(
     ctx: any,
-    protocolStates: Map<string, ProtocolStateVoucher>,
+    protocolStates: Map<string, ProtocolStateZebuLegacy>,
   ): Promise<void> {
-    const contractAddress = this.bondingCurveProtocol.contractAddress;
-    const protocolState = protocolStates.get(contractAddress)!;
-    const transactions = toTransaction(
-      protocolState.transactions,
-      this.bondingCurveProtocol,
-      this.env,
-      this.chainConfig,
-    );
-    console.log(transactions, 'transactions');
-    await this.apiClient.send(transactions);
+    for (const client of this.zebuNewProtocol) {
+      const contractAddress = client.contractAddress.toLowerCase();
+      const protocolState = protocolStates.get(contractAddress)!;
+      const chainConfig = {
+        chainArch: client.chainArch,
+        networkId: client.chainId,
+        chainShortName: client.chainShortName,
+        chainName: client.chainName,
+      };
+      const transactions = toTransaction(
+        protocolState.transactions,
+        { ...client, type: ProtocolType.ZEBU },
+        this.env,
+        chainConfig,
+      );
+      console.log(transactions, 'transactions');
+      await this.apiClient.send(transactions);
+    }
   }
 }

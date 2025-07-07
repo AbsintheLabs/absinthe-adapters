@@ -19,8 +19,9 @@ import {
   ValidatedUniv3ProtocolConfig,
   Univ3PoolConfig,
   HelperProtocolConfig,
+  ZebuClientConfigWithChain,
 } from '../../types/interfaces/protocols';
-import { Currency, MessageType, TimeWindowTrigger } from '../../types/enums';
+import { Currency, MessageType, ProtocolType, TimeWindowTrigger } from '../../types/enums';
 import { POSITIONS_ADDRESS, VERSION, ZERO_ADDRESS } from '../consts';
 
 function toTimeWeightedBalance(
@@ -86,7 +87,8 @@ function toTransaction(
     | ProtocolConfig
     | ValidatedBondingCurveProtocolConfig
     | ValidatedStakingProtocolConfig
-    | HelperProtocolConfig,
+    | HelperProtocolConfig
+    | (ZebuClientConfigWithChain & { type: ProtocolType }),
   env: ValidatedEnvBase,
   chainConfig: Chain,
 ): TransactionEvent[] {

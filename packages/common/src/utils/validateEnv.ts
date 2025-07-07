@@ -11,24 +11,20 @@ import {
   ChainName,
   ChainShortName,
   ChainType,
-  Dex,
   GatewayUrl,
   StakingProtocol,
 } from '../types/enums';
 import { getChainEnumKey } from './helper/getChainEnumKey';
 import {
-  BaseProtocolConfigWithChain,
-  BondingCurveProtocolConfig,
-  DexProtocolConfig,
   ProtocolConfig,
-  StakingProtocolConfig,
   Univ3PoolConfig,
-  Univ3ProtocolConfig,
   ValidatedBondingCurveProtocolConfig,
   ValidatedDexProtocolConfig,
   ValidatedEnv,
   ValidatedStakingProtocolConfig,
   ValidatedUniv3ProtocolConfig,
+  ValidatedZebuProtocolConfig,
+  ZebuClientConfigWithChain,
 } from '../types/interfaces/protocols';
 
 export function validateEnv(): ValidatedEnv {
@@ -234,6 +230,41 @@ export function validateEnv(): ValidatedEnv {
         };
       });
 
+    const zebuProtocols: ValidatedZebuProtocolConfig[] = configResult.data.zebuProtocols.map(
+      (zebuProtocol) => {
+        const enhancedClients: ZebuClientConfigWithChain[] = zebuProtocol.clients.map((client) => {
+          const clientChainKey = getChainEnumKey(client.chainId);
+          if (!clientChainKey) {
+            throw new Error(
+              `${client.chainId} is not a supported chainId for client ${client.name}`,
+            );
+          }
+
+          return {
+            name: client.name,
+            contractAddress: client.contractAddress,
+            chainId: client.chainId,
+            fromBlock: client.fromBlock,
+            chainArch: ChainType.EVM,
+            chainShortName: ChainShortName[clientChainKey],
+            chainName: ChainName[clientChainKey],
+            rpcUrl:
+              client.chainId === ChainId.HEMI
+                ? (envResult.data.RPC_URL_HEMI as string)
+                : (envResult.data.RPC_URL_MAINNET as string),
+            gatewayUrl: GatewayUrl[clientChainKey],
+          };
+        });
+
+        return {
+          type: zebuProtocol.type,
+          name: zebuProtocol.name,
+          toBlock: zebuProtocol.toBlock,
+          clients: enhancedClients,
+        };
+      },
+    );
+
     const baseConfig: ValidatedEnvBase = {
       balanceFlushIntervalHours: configResult.data.balanceFlushIntervalHours,
       absintheApiUrl: envResult.data.ABSINTHE_API_URL,
@@ -247,6 +278,7 @@ export function validateEnv(): ValidatedEnv {
       bondingCurveProtocols,
       stakingProtocols,
       univ3Protocols,
+      zebuProtocols,
     };
   } catch (error) {
     if (error instanceof Error) {

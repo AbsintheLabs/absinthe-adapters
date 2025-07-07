@@ -8,6 +8,8 @@
     "build": "tsc -p .",
     "start": "node --env-file=../../.env lib/main.js",
     "dev": "pnpm --filter @absinthe/common build && pnpm build && node --env-file=../../.env lib/main.js",
+    "dev:polygon": "pnpm --filter @absinthe/common build && pnpm build && node --env-file=../../.env lib/main.js polygon",
+    "dev:base": "pnpm --filter @absinthe/common build && pnpm build && node --env-file=../../.env lib/main.js base",
     "migration:clean": "npx rimraf ./db/migrations",
     "migration:generate": "squid-typeorm-migration-generate",
     "migration:apply": "squid-typeorm-migration apply",

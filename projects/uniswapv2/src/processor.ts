@@ -9,12 +9,12 @@ import {
   Transaction as _Transaction,
 } from '@subsquid/evm-processor';
 import * as univ2Abi from './abi/univ2';
-import { Dex, validateEnv } from '@absinthe/common';
+import { ProtocolType, validateEnv } from '@absinthe/common';
 
 const env = validateEnv();
 
 const uniswapV2DexProtocol = env.dexProtocols.find((dexProtocol) => {
-  return dexProtocol.type === Dex.UNISWAP_V2;
+  return dexProtocol.type === ProtocolType.UNISWAP_V2;
 });
 
 if (!uniswapV2DexProtocol) {
