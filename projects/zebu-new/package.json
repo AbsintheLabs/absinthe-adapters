@@ -1,5 +1,5 @@
 {
-  "name": "@absinthe/voucher",
+  "name": "@absinthe/zebu-new",
   "version": "0.0.0",
   "private": true,
   "main": "lib/index.js",
