@@ -25,7 +25,7 @@ const currencies = [
   {
     name: 'MANA',
     symbol: 'aave-mana',
-    decimals: 6,
+    decimals: 18,
   },
   {
     name: 'RUM',
@@ -169,7 +169,6 @@ export class ZebuNewProcessor {
     //todo: run the script and then try to find everything
     const erc20Contract = new erc20Abi.Contract(ctx, block.header, currencyAddress);
     const currencySymbol = await erc20Contract.symbol();
-    const currencyDecimals = await erc20Contract.decimals();
     const currency = currencies.find((currency) => currency.name === currencySymbol);
 
     let usdToCurrencyValue = 0;
@@ -183,7 +182,7 @@ export class ZebuNewProcessor {
       );
     }
 
-    const displayCost = Number(bidamount) / 10 ** 18;
+    const displayCost = Number(bidamount) / 10 ** (currency?.decimals ?? 18);
     const usdValue = displayCost * usdToCurrencyValue;
     const transactionSchema = {
       eventType: MessageType.TRANSACTION,
