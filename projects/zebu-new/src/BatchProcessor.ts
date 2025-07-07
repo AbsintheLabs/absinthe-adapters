@@ -12,10 +12,33 @@ import { TypeormDatabase } from '@subsquid/typeorm-store';
 import { createProcessor } from './processor';
 import { BatchContext } from '@absinthe/common';
 import * as mainAbi from './abi/main';
+import * as erc20Abi from './abi/erc20';
 import { fetchHistoricalUsd, toTransaction } from '@absinthe/common';
 import { ZebuNewProtocolState } from './utils/types';
 
-//todo: storage in database
+const currencies = [
+  {
+    name: 'USDC',
+    symbol: 'usd',
+    decimals: 6,
+  },
+  {
+    name: 'USDT',
+    symbol: 'USDT',
+    decimals: 6,
+  },
+  {
+    name: 'RUM',
+    symbol: 'arrland-rum',
+    decimals: 18,
+  },
+  {
+    name: 'ETH',
+    symbol: 'ethereum',
+    decimals: 18,
+  },
+];
+
 export class ZebuNewProcessor {
   private readonly zebuNewProtocol: ZebuClientConfigWithChain[];
   private readonly schemaName: string;
@@ -64,7 +87,7 @@ export class ZebuNewProcessor {
       await this.processBlock({ ctx, block, protocolStates });
     }
 
-    await this.finalizeBatch(ctx, protocolStates);
+    // await this.finalizeBatch(ctx, protocolStates);
   }
 
   private async initializeProtocolStates(ctx: any): Promise<Map<string, ZebuNewProtocolState>> {
@@ -144,7 +167,27 @@ export class ZebuNewProcessor {
     const currencyId = await zebuNewContract.getSale_CurrencyID(saleID);
     const currencyAddress = await zebuNewContract.getSale_Currency_Address(currencyId);
     //todo: run the script and then try to find everything
+    const erc20Contract = new erc20Abi.Contract(ctx, block.header, currencyAddress);
+    const currencySymbol = await erc20Contract.symbol();
+    const currencyDecimals = await erc20Contract.decimals();
+    const currency = currencies.find((currency) => currency.name === currencySymbol);
+
+    console.log(currencySymbol, currencyDecimals, 'currencySymbol, currencyDecimals');
+
+    let usdToCurrencyValue = 0;
+    if (!currency) {
+      console.warn(`Currency ${currencySymbol} not found`);
+    } else {
+      usdToCurrencyValue = await fetchHistoricalUsd(
+        currency.symbol,
+        block.header.timestamp,
+        this.env.coingeckoApiKey,
+      );
+      console.log(usdToCurrencyValue, 'usdToCurrencyValue');
+    }
+
     const displayCost = Number(bidamount) / 10 ** 18;
+    const usdValue = displayCost * usdToCurrencyValue;
     const transactionSchema = {
       eventType: MessageType.TRANSACTION,
       tokens: JSON.stringify([
@@ -163,7 +206,7 @@ export class ZebuNewProcessor {
       blockHash: block.header.hash,
       userId: bidder,
       currency: Currency.USD,
-      valueUsd: 0,
+      valueUsd: usdValue,
       gasUsed: Number(gasUsed),
       gasFeeUsd: gasFeeUsd,
     };

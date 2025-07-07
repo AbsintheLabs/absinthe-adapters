@@ -186,7 +186,7 @@
           "name": "xyz-1",
           "contractAddress": "0xD71954165a026924cA771C53164FB0a781c54C83",
           "chainId": 137,
-          "fromBlock": 51164234
+          "fromBlock": 61059459
         },
         {
           "name": "xyz-2",

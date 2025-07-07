@@ -249,9 +249,9 @@ export function validateEnv(): ValidatedEnv {
             chainShortName: ChainShortName[clientChainKey],
             chainName: ChainName[clientChainKey],
             rpcUrl:
-              client.chainId === ChainId.HEMI
-                ? (envResult.data.RPC_URL_HEMI as string)
-                : (envResult.data.RPC_URL_MAINNET as string),
+              client.chainId === ChainId.BASE
+                ? (envResult.data.RPC_URL_BASE as string)
+                : (envResult.data.RPC_URL_POLYGON as string),
             gatewayUrl: GatewayUrl[clientChainKey],
           };
         });
