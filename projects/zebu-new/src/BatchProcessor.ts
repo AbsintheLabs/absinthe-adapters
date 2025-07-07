@@ -23,8 +23,8 @@ const currencies = [
     decimals: 6,
   },
   {
-    name: 'USDT',
-    symbol: 'USDT',
+    name: 'MANA',
+    symbol: 'aave-mana',
     decimals: 6,
   },
   {
@@ -87,7 +87,7 @@ export class ZebuNewProcessor {
       await this.processBlock({ ctx, block, protocolStates });
     }
 
-    // await this.finalizeBatch(ctx, protocolStates);
+    await this.finalizeBatch(ctx, protocolStates);
   }
 
   private async initializeProtocolStates(ctx: any): Promise<Map<string, ZebuNewProtocolState>> {
@@ -172,8 +172,6 @@ export class ZebuNewProcessor {
     const currencyDecimals = await erc20Contract.decimals();
     const currency = currencies.find((currency) => currency.name === currencySymbol);
 
-    console.log(currencySymbol, currencyDecimals, 'currencySymbol, currencyDecimals');
-
     let usdToCurrencyValue = 0;
     if (!currency) {
       console.warn(`Currency ${currencySymbol} not found`);
@@ -183,7 +181,6 @@ export class ZebuNewProcessor {
         block.header.timestamp,
         this.env.coingeckoApiKey,
       );
-      console.log(usdToCurrencyValue, 'usdToCurrencyValue');
     }
 
     const displayCost = Number(bidamount) / 10 ** 18;
@@ -280,7 +277,6 @@ export class ZebuNewProcessor {
         this.env,
         chainConfig,
       );
-      console.log(transactions, 'transactions');
       await this.apiClient.send(transactions);
     }
   }
