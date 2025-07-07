@@ -184,7 +184,6 @@ export class ZebuLegacyProcessor {
         this.env,
         chainConfig,
       );
-      console.log(transactions, 'transactions');
       await this.apiClient.send(transactions);
     }
   }
