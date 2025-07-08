@@ -54,9 +54,9 @@ function toTimeWeightedBalance(
       },
       protocolMetadata: [
         {
-          key: 'poolAddress',
-          value: protocol.contractAddress,
-          type: 'address',
+          key: 'data',
+          value: null,
+          type: 'string',
         },
       ],
       currency: e.currency,
@@ -112,17 +112,7 @@ function toTransaction(
       },
       protocolMetadata: [
         {
-          key: 'poolAddress',
-          value: protocol.contractAddress,
-          type: 'address',
-        },
-        {
-          key: 'protocolName',
-          value: 'uniswapv2',
-          type: 'string',
-        },
-        {
-          key: 'tokens',
+          key: 'data',
           value: e.tokens,
           type: 'string',
         },

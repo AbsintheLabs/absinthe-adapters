@@ -165,23 +165,15 @@ async function processSwapData(
     eventType: MessageType.TRANSACTION,
     tokens: JSON.stringify([
       {
-        token: {
-          decimals: token0!.decimals,
-          address: token0!.id,
-          symbol: token0!.symbol,
-        },
-        amount: amount0.toString(),
-      },
-      {
-        token: {
-          decimals: token1!.decimals,
-          address: token1!.id,
-          symbol: token1!.symbol,
-        },
-        amount: amount1.toString(),
-      },
-      {
-        liquidity: positionForReference.liquidity.toString(),
+        token0Decimals: token0!.decimals,
+        token0Address: token0!.id,
+        token0Symbol: token0!.symbol,
+        token0PriceUsd: token0inETH,
+        token0Amount: amount0.toString(),
+        token1Decimals: token1!.decimals,
+        token1Address: token1!.id,
+        token1Symbol: token1!.symbol,
+        token1PriceUsd: token1inETH,
       },
     ]),
     rawAmount: swappedAmountETH.toString(), //todo: decimal adjusted
