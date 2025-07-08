@@ -29,9 +29,7 @@
             "type": {
               "type": "enum",
               "name": "ChainArchEnum",
-              "symbols": [
-                "evm"
-              ]
+              "symbols": ["evm"]
             }
           },
           {
@@ -100,20 +98,12 @@
               "type": {
                 "type": "enum",
                 "name": "MetadataValueType",
-                "symbols": [
-                  "bigint",
-                  "number",
-                  "address",
-                  "string"
-                ]
+                "symbols": ["bigint", "number", "address", "string"]
               }
             },
             {
               "name": "value",
-              "type": [
-                "null",
-                "string"
-              ],
+              "type": ["null", "string"],
               "default": null,
               "doc": "bigint & address encoded as hex-or-decimal string; numeric literals use double"
             }
@@ -127,9 +117,7 @@
       "type": {
         "type": "enum",
         "name": "CurrencyEnum",
-        "symbols": [
-          "usd"
-        ]
+        "symbols": ["usd"]
       }
     },
     {
