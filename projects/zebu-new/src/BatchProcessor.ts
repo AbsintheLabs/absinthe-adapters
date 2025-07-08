@@ -239,7 +239,8 @@ export class ZebuNewProcessor {
       tokens: JSON.stringify([
         {
           clientDiamondContractAddress: contractAddress,
-          saleId: saleID.toString(),
+          saleId: null,
+          bidIndex: null,
           winner: true,
         },
       ]),
