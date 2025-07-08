@@ -144,7 +144,6 @@ export class ZebuLegacyProcessor {
       eventType: MessageType.TRANSACTION,
       tokens: JSON.stringify([
         {
-          clientDiamondContractAddress: contractAddress,
           saleId: _auctionID.toString(),
         },
       ]),

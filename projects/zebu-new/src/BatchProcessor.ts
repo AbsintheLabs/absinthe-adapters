@@ -188,7 +188,6 @@ export class ZebuNewProcessor {
       eventType: MessageType.TRANSACTION,
       tokens: JSON.stringify([
         {
-          clientDiamondContractAddress: contractAddress,
           saleId: saleID.toString(),
           bidIndex: bidIndex.toString(),
           winner: false,
@@ -238,7 +237,6 @@ export class ZebuNewProcessor {
       eventType: MessageType.TRANSACTION,
       tokens: JSON.stringify([
         {
-          clientDiamondContractAddress: contractAddress,
           saleId: null,
           bidIndex: null,
           winner: true,
@@ -279,6 +277,7 @@ export class ZebuNewProcessor {
         this.env,
         chainConfig,
       );
+      console.log(JSON.stringify(transactions, null, 2));
       await this.apiClient.send(transactions);
     }
   }

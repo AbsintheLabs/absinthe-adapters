@@ -169,6 +169,7 @@ export class PrintrProcessor {
     const displayCost = Number(cost) / 10 ** baseCurrencyDecimals;
 
     const valueInUsd = displayCost * ethPriceUsd;
+
     const transactionSchema = {
       eventType: MessageType.TRANSACTION,
       tokens: JSON.stringify([

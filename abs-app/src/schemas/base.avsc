@@ -103,7 +103,7 @@
             },
             {
               "name": "value",
-              "type": ["null", "string", "double"],
+              "type": ["null", "string"],
               "default": null,
               "doc": "bigint & address encoded as hex-or-decimal string; numeric literals use double"
             }

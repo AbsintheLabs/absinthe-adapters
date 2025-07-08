@@ -54,9 +54,9 @@ function toTimeWeightedBalance(
       },
       protocolMetadata: [
         {
-          key: 'poolAddress',
-          value: protocol.contractAddress,
-          type: 'address',
+          key: 'data',
+          value: null,
+          type: 'string',
         },
       ],
       currency: e.currency,
@@ -97,7 +97,6 @@ function toTransaction(
     const hash = createHash('md5').update(hashMessage).digest('hex').slice(0, 8);
 
     const apiKeyHash = createHash('md5').update(env.absintheApiKey).digest('hex').slice(0, 8);
-
     const baseSchema = {
       version: VERSION,
       eventId: hash,
@@ -112,17 +111,7 @@ function toTransaction(
       },
       protocolMetadata: [
         {
-          key: 'poolAddress',
-          value: protocol.contractAddress,
-          type: 'address',
-        },
-        {
-          key: 'protocolName',
-          value: 'uniswapv2',
-          type: 'string',
-        },
-        {
-          key: 'tokens',
+          key: 'data',
           value: e.tokens,
           type: 'string',
         },
