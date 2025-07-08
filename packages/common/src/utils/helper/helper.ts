@@ -22,7 +22,7 @@ import {
   ZebuClientConfigWithChain,
 } from '../../types/interfaces/protocols';
 import { Currency, MessageType, ProtocolType, TimeWindowTrigger } from '../../types/enums';
-import { POSITIONS_ADDRESS, VERSION, ZERO_ADDRESS } from '../consts';
+import { VERSION, ZERO_ADDRESS } from '../consts';
 
 function toTimeWeightedBalance(
   historyWindows: HistoryWindow[],
@@ -55,7 +55,7 @@ function toTimeWeightedBalance(
       protocolMetadata: [
         {
           key: 'data',
-          value: null,
+          value: '',
           type: 'string',
         },
       ],
@@ -63,9 +63,12 @@ function toTimeWeightedBalance(
       valueUsd: e.valueUsd * (e.endTs - e.startTs),
     };
 
+    const currentTime = Date.now();
+
     return {
       base: baseSchema,
       eventType: MessageType.TIME_WEIGHTED_BALANCE,
+      indexedTimeMs: currentTime,
       tokenPrice: e.tokenPrice,
       tokenDecimals: e.tokenDecimals,
       balanceBefore: e.balanceBefore,
@@ -120,9 +123,13 @@ function toTransaction(
       valueUsd: e.valueUsd ?? 0.0,
     };
 
+    const currentTime = Date.now();
+
     return {
       base: baseSchema,
       eventType: MessageType.TRANSACTION,
+      indexedTimeMs: currentTime,
+      eventName: e.eventName,
       rawAmount: e.rawAmount,
       displayAmount: e.displayAmount ?? 0.0,
       unixTimestampMs: e.unixTimestampMs,

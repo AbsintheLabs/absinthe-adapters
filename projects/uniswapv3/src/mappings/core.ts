@@ -163,6 +163,7 @@ async function processSwapData(
 
   const transactionSchema = {
     eventType: MessageType.TRANSACTION,
+    eventName: 'Swap',
     tokens: JSON.stringify([
       {
         token0Decimals: token0!.decimals,

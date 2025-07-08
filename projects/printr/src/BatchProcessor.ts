@@ -172,6 +172,7 @@ export class PrintrProcessor {
 
     const transactionSchema = {
       eventType: MessageType.TRANSACTION,
+      eventName: 'TokenTrade',
       tokens: JSON.stringify([
         {
           token: token,
@@ -217,6 +218,7 @@ export class PrintrProcessor {
     const gasFeeUsd = displayGasFee * ethPriceUsd;
     const transactionSchema = {
       eventType: MessageType.TRANSACTION,
+      eventName: 'CurveCreated',
       tokens: JSON.stringify([
         {
           token: token,

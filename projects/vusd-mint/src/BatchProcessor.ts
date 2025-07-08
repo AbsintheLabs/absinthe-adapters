@@ -138,6 +138,7 @@ export class VusdMintProcessor {
 
     const transactionSchema = {
       eventType: MessageType.TRANSACTION,
+      eventName: 'Mint',
       tokens: JSON.stringify([
         {
           tokenIn: tokenIn,

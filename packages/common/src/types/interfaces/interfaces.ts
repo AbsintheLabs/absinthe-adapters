@@ -75,6 +75,7 @@ interface TokenDetails {
 
 interface Transaction {
   eventType: MessageType;
+  eventName: string;
   tokens: string;
   rawAmount: string;
   displayAmount: number;

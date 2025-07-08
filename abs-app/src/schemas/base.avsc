@@ -103,9 +103,8 @@
             },
             {
               "name": "value",
-              "type": ["string"],
-              "default": null,
-              "doc": "bigint & address encoded as hex-or-decimal string; numeric literals use double"
+              "type": "string",
+              "doc": "JSON string"
             }
           ]
         }
