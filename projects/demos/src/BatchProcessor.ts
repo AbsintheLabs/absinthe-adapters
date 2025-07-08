@@ -119,6 +119,7 @@ export class DemosProcessor {
       const gasFeeUsd = displayGasFee * ethPriceUsd;
       const transactionSchema = {
         eventType: MessageType.TRANSACTION,
+        eventName: 'func_0xa4760a9e',
         tokens: JSON.stringify([
           {
             amount: gasFee.toString(),

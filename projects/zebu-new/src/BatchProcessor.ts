@@ -186,6 +186,7 @@ export class ZebuNewProcessor {
     const usdValue = displayCost * usdToCurrencyValue;
     const transactionSchema = {
       eventType: MessageType.TRANSACTION,
+      eventName: 'AuctionBid_Placed',
       tokens: JSON.stringify([
         {
           saleId: saleID.toString(),
@@ -235,6 +236,7 @@ export class ZebuNewProcessor {
 
     const transactionSchema = {
       eventType: MessageType.TRANSACTION,
+      eventName: 'Auction_Claimed',
       tokens: JSON.stringify([
         {
           saleId: null,

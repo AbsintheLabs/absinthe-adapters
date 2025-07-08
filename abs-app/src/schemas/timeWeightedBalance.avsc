@@ -17,6 +17,11 @@
       }
     },
     {
+      "name": "indexedTimeMs",
+      "type": "long",
+      "doc": "Timestamp of the event"
+    },
+    {
       "name": "tokenPrice",
       "type": "double",
       "doc": "Total USD value of LP held at start of this window."

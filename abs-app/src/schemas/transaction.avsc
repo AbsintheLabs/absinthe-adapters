@@ -17,6 +17,16 @@
       }
     },
     {
+      "name": "eventName",
+      "type": "string",
+      "doc": "Name of the event"
+    },
+    {
+      "name": "indexedTimeMs",
+      "type": "long",
+      "doc": "Timestamp of the event"
+    },
+    {
       "name": "rawAmount",
       "type": "string"
     },

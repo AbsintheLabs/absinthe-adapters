@@ -145,6 +145,7 @@ export class VoucherProcessor {
     const displayCost = Number(value) / 10 ** baseCurrencyDecimals;
     const transactionSchema = {
       eventType: MessageType.TRANSACTION,
+      eventName: 'Transfer',
       tokens: JSON.stringify([
         {
           token: this.bondingCurveProtocol.contractAddress,
@@ -179,7 +180,6 @@ export class VoucherProcessor {
       this.env,
       this.chainConfig,
     );
-    console.log(transactions, 'transactions');
     await this.apiClient.send(transactions);
   }
 }

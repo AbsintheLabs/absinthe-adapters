@@ -242,6 +242,7 @@ export class UniswapV2Processor {
 
     const transactionSchema = {
       eventType: MessageType.TRANSACTION,
+      eventName: 'Swap',
       tokens: JSON.stringify([
         {
           token0Decimals: protocolState.config.token0.decimals,
