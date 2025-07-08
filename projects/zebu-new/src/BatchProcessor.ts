@@ -191,6 +191,7 @@ export class ZebuNewProcessor {
           clientDiamondContractAddress: contractAddress,
           saleId: saleID.toString(),
           bidIndex: bidIndex.toString(),
+          winner: false,
         },
       ]),
       rawAmount: bidamount.toString(),
@@ -239,6 +240,7 @@ export class ZebuNewProcessor {
         {
           clientDiamondContractAddress: contractAddress,
           saleId: saleID.toString(),
+          winner: true,
         },
       ]),
       rawAmount: '0',
