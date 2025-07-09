@@ -1,90 +1,67 @@
 import { BigDecimal } from '@subsquid/big-decimal';
 import { EvmLog } from '@subsquid/evm-processor/lib/interfaces/evm';
 import { BlockHeader, SwapData } from '../utils/interfaces/interfaces';
-import { DataHandlerContext } from '@subsquid/evm-processor';
-
-import { Store } from '@subsquid/typeorm-store';
 import * as poolAbi from '../abi/pool';
 import { BlockMap } from '../utils/blockMap';
-import { EntityManager } from '../utils/entityManager';
 import { BlockData } from '@subsquid/evm-processor/src/interfaces/data';
-import {
-  Currency,
-  fetchHistoricalUsd,
-  HistoryWindow,
-  MessageType,
-  Transaction,
-} from '@absinthe/common';
+import { Currency, fetchHistoricalUsd, MessageType } from '@absinthe/common';
 import { PositionStorageService } from '../services/PositionStorageService';
 import { PositionTracker } from '../services/PositionTracker';
+import { ContextWithEntityManager, ProtocolStateUniswapV3 } from '../utils/interfaces/univ3Types';
 type EventData = SwapData & { type: 'Swap' };
-
-type ContextWithEntityManager = DataHandlerContext<Store> & {
-  entities: EntityManager;
-};
-
-interface ProtocolStateUniswapV3 {
-  balanceWindows: HistoryWindow[];
-  transactions: Transaction[];
-}
 
 export async function processPairs(
   ctx: ContextWithEntityManager,
-  blocks: BlockData[],
+  block: BlockData,
   positionTracker: PositionTracker,
   positionStorageService: PositionStorageService,
   protocolStates: Map<string, ProtocolStateUniswapV3>,
 ): Promise<void> {
-  console.log('processPairs', blocks.length, blocks[0].header);
-  let eventsData = await processItems(ctx, blocks);
-  console.log(eventsData.size, 'eventsData');
-  if (!eventsData || eventsData.size == 0) return;
+  let eventsData = await processItems(ctx, block);
+  console.log('Swap_event_data_for_current_block', eventsData.length);
+  if (!eventsData || eventsData.length == 0) return;
 
-  for (let [block, blockEventsData] of eventsData) {
-    for (let data of blockEventsData) {
-      if (data.type === 'Swap') {
-        await processSwapData(
-          ctx,
-          block,
-          data,
-          positionTracker,
-          positionStorageService,
-          protocolStates,
-        );
-      }
-      // if (data.type === 'Initialize') {
-      //   await processInitializeData(ctx, block, data, positionStorageService);
-      // }
+  for (let data of eventsData) {
+    if (data.type === 'Swap') {
+      await processSwapData(
+        ctx,
+        block.header,
+        data,
+        positionTracker,
+        positionStorageService,
+        protocolStates,
+      );
     }
+    // if (data.type === 'Initialize') {
+    //   await processInitializeData(ctx, block, data, positionStorageService);
+    // }
   }
-
-  //todo: research
-  // await Promise.all([
-  //   updatePoolFeeVars({ ...ctx, block: last(blocks).header }, ctx.entities.values(Pool)),
-  //   updateTickFeeVars({ ...ctx, block: last(blocks).header }, ctx.entities.values(Tick)),
-  // ]);
 }
 
-async function processItems(ctx: ContextWithEntityManager, blocks: BlockData[]) {
-  let eventsData = new BlockMap<EventData>();
+//todo: research
+// await Promise.all([
+//   updatePoolFeeVars({ ...ctx, block: last(blocks).header }, ctx.entities.values(Pool)),
+//   updateTickFeeVars({ ...ctx, block: last(blocks).header }, ctx.entities.values(Tick)),
+// ]);
 
-  for (let block of blocks) {
-    for (let log of block.logs) {
-      let evmLog = {
-        logIndex: log.logIndex,
-        transactionIndex: log.transactionIndex,
-        transactionHash: log.transaction?.hash || '',
-        address: log.address,
-        data: log.data,
-        topics: log.topics,
-      };
-      if (log.topics[0] === poolAbi.events.Swap.topic) {
-        let data = processSwap(evmLog, log.transaction);
-        eventsData.push(block.header, {
-          type: 'Swap',
-          ...data,
-        });
-      }
+async function processItems(ctx: ContextWithEntityManager, block: BlockData) {
+  let eventsData: EventData[] = [];
+
+  for (let log of block.logs) {
+    let evmLog = {
+      logIndex: log.logIndex,
+      transactionIndex: log.transactionIndex,
+      transactionHash: log.transaction?.hash || '',
+      address: log.address,
+      data: log.data,
+      topics: log.topics,
+    };
+    if (log.topics[0] === poolAbi.events.Swap.topic) {
+      let data = processSwap(evmLog, log.transaction);
+      eventsData.push({
+        type: 'Swap',
+        ...data,
+      });
     }
   }
   return eventsData;
@@ -121,7 +98,7 @@ async function processSwapData(
 
   if (!token0 || !token1) {
     console.warn(
-      `Skipping swap for pool ${data.poolId} - missing token data: token0=${!!token0}, token1=${!!token1}`,
+      `Skipping swap for pool ${data.poolId} - missing token data: token0=${!!token0}, token1=${!!token1}, token0Id=${positionForReference.token0Id}, token1Id=${positionForReference.token1Id}`,
     );
     return;
   }

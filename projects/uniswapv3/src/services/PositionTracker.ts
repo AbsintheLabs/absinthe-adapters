@@ -1,23 +1,7 @@
 import { Currency, HistoryWindow, TimeWindowTrigger } from '@absinthe/common';
 import { BlockHeader, SwapData } from '../utils/interfaces/interfaces';
 import { PositionStorageService } from './PositionStorageService';
-
-interface PositionData {
-  positionId: string;
-  owner: string;
-  liquidity: string;
-  tickLower: number;
-  tickUpper: number;
-  token0Id: string;
-  token1Id: string;
-  fee: number;
-  depositedToken0: string;
-  depositedToken1: string;
-  isActive: string;
-  lastUpdatedBlockTs: number;
-  lastUpdatedBlockHeight: number;
-  poolId: string;
-}
+import { PositionData } from '../utils/interfaces/univ3Types';
 
 interface IncDecData {
   tokenId: string;

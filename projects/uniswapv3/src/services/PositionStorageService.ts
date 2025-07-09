@@ -1,30 +1,6 @@
 import { fetchHistoricalUsd } from '@absinthe/common';
 import { createClient, RedisClientType } from 'redis';
-
-interface PositionData {
-  positionId: string;
-  owner: string;
-  liquidity: string;
-  tickLower: number;
-  tickUpper: number;
-  token0Id: string;
-  token1Id: string;
-  fee: number;
-  depositedToken0: string;
-  depositedToken1: string;
-  isActive: string;
-  lastUpdatedBlockTs: number;
-  lastUpdatedBlockHeight: number;
-  poolId: string;
-}
-
-interface Token {
-  id: string;
-  symbol: string;
-  name: string;
-  totalSupply: bigint;
-  decimals: number;
-}
+import { PositionData, Token } from '../utils/interfaces/univ3Types';
 
 export class PositionStorageService {
   private redis: RedisClientType;

@@ -7,7 +7,6 @@ import {
 } from '../utils/interfaces/interfaces';
 import * as factoryAbi from './../abi/factory';
 import { Multicall } from '../utils/multicall';
-import { BlockMap } from '../utils/blockMap';
 import {
   FACTORY_ADDRESS,
   MULTICALL_ADDRESS,
@@ -15,7 +14,6 @@ import {
   POSITIONS_ADDRESS,
 } from '../utils/constants';
 import { EntityManager } from '../utils/entityManager';
-import { last } from '../utils/tools';
 import * as poolAbi from './../abi/pool';
 import * as positionsAbi from './../abi/NonfungiblePositionManager';
 import { BlockData, DataHandlerContext } from '@subsquid/evm-processor';
@@ -24,6 +22,8 @@ import { Store } from '@subsquid/typeorm-store';
 import { PositionTracker } from '../services/PositionTracker';
 import { PositionStorageService } from '../services/PositionStorageService';
 import { fetchHistoricalUsd, HistoryWindow, Transaction } from '@absinthe/common';
+import { PositionData, ProtocolStateUniswapV3 } from '../utils/interfaces/univ3Types';
+import { processPairs } from './core';
 
 type EventData =
   | (TransferData & { type: 'Transfer' })
@@ -34,100 +34,73 @@ type ContextWithEntityManager = DataHandlerContext<Store> & {
   entities: EntityManager;
 };
 
-interface ProtocolStateUniswapV3 {
-  balanceWindows: HistoryWindow[];
-  transactions: Transaction[];
-}
-
-interface PositionData {
-  positionId: string;
-  owner: string;
-  liquidity: string;
-  tickLower: number;
-  tickUpper: number;
-  token0Id: string;
-  token1Id: string;
-  fee: number;
-  depositedToken0: string;
-  depositedToken1: string;
-  isActive: string;
-  lastUpdatedBlockTs: number;
-  lastUpdatedBlockHeight: number;
-  poolId: string;
-}
-
 export async function processPositions(
   ctx: ContextWithEntityManager,
-  blocks: BlockData[],
+  block: BlockData,
   positionTracker: PositionTracker,
   positionStorageService: PositionStorageService,
   coingeckoApiKey: string,
   protocolStates: Map<string, ProtocolStateUniswapV3>,
 ): Promise<void> {
-  console.log('processPositions', blocks.length, blocks[0].header);
-  const eventsData = processItems(ctx, blocks);
-  if (!eventsData || eventsData.size == 0) return;
+  const eventsData = processItems(ctx, block);
+  console.log('PositionManager_event_data_for_current_block', eventsData.length);
+  if (!eventsData || eventsData.length == 0) return;
 
-  await prefetch(ctx, eventsData, last(blocks).header, positionStorageService);
+  await prefetch(ctx, eventsData, block.header, positionStorageService);
 
-  for (const [block, blockEventsData] of eventsData) {
-    for (const data of blockEventsData) {
-      switch (data.type) {
-        case 'Increase':
-          await processIncreaseData(
-            ctx,
-            block,
-            data,
-            protocolStates,
-            positionTracker,
-            positionStorageService,
-            coingeckoApiKey,
-          );
-          break;
-        case 'Decrease':
-          await processDecreaseData(
-            ctx,
-            block,
-            data,
-            protocolStates,
-            positionTracker,
-            positionStorageService,
-            coingeckoApiKey,
-          );
-          break;
-        case 'Transfer':
-          await processTransferData(
-            ctx,
-            block,
-            data,
-            protocolStates,
-            positionTracker,
-            positionStorageService,
-          );
-          break;
-      }
+  await processPairs(ctx, block, positionTracker, positionStorageService, protocolStates);
+
+  for (const data of eventsData) {
+    switch (data.type) {
+      case 'Increase':
+        await processIncreaseData(
+          ctx,
+          block.header,
+          data,
+          protocolStates,
+          positionTracker,
+          positionStorageService,
+          coingeckoApiKey,
+        );
+        break;
+      case 'Decrease':
+        await processDecreaseData(
+          ctx,
+          block.header,
+          data,
+          protocolStates,
+          positionTracker,
+          positionStorageService,
+          coingeckoApiKey,
+        );
+        break;
+      case 'Transfer':
+        await processTransferData(
+          ctx,
+          block.header,
+          data,
+          protocolStates,
+          positionTracker,
+          positionStorageService,
+        );
+        break;
     }
   }
 
   // await updateFeeVars(createContext(last(blocks).header), ctx.entities.values(Position))
 }
 
-//todo: research if the position already exists, has the events already marked in positions , if it runs again what happens ?
 async function prefetch(
   ctx: ContextWithEntityManager,
-  eventsData: BlockMap<EventData>,
+  eventsData: EventData[],
   block: BlockHeader,
   positionStorageService: PositionStorageService,
 ) {
   const positionIds = new Set<string>();
-  for (const [, blockEventsData] of eventsData) {
-    for (const data of blockEventsData) {
-      const checkIfPositionExists = await positionStorageService.checkIfPositionExists(
-        data.tokenId,
-      );
-      if (!checkIfPositionExists) {
-        positionIds.add(data.tokenId);
-      }
+  for (const data of eventsData) {
+    const checkIfPositionExists = await positionStorageService.checkIfPositionExists(data.tokenId);
+    if (!checkIfPositionExists) {
+      positionIds.add(data.tokenId);
     }
   }
   const positions = await initPositions({ ...ctx, block }, Array.from(positionIds));
@@ -136,44 +109,46 @@ async function prefetch(
   }
 }
 
-function processItems(ctx: CommonHandlerContext<unknown>, blocks: BlockData[]) {
-  let eventsData = new BlockMap<EventData>();
+function processItems(ctx: CommonHandlerContext<unknown>, block: BlockData) {
+  let eventsData: EventData[] = [];
 
-  for (let block of blocks) {
-    for (let log of block.logs) {
-      let evmLog = {
-        logIndex: log.logIndex,
-        transactionIndex: log.transactionIndex,
-        transactionHash: log.transaction?.hash || '',
-        address: log.address,
-        data: log.data,
-        topics: log.topics,
-      };
-      switch (log.topics[0]) {
-        case positionsAbi.events.IncreaseLiquidity.topic: {
-          const data = processInreaseLiquidity(evmLog);
-          eventsData.push(block.header, {
-            type: 'Increase',
-            ...data,
-          });
-          break;
-        }
-        case positionsAbi.events.DecreaseLiquidity.topic: {
-          const data = processDecreaseLiquidity(evmLog);
-          eventsData.push(block.header, {
-            type: 'Decrease',
-            ...data,
-          });
-          break;
-        }
-        case positionsAbi.events.Transfer.topic: {
-          const data = processTransfer(evmLog);
-          eventsData.push(block.header, {
-            type: 'Transfer',
-            ...data,
-          });
-          break;
-        }
+  for (let log of block.logs) {
+    let evmLog = {
+      logIndex: log.logIndex,
+      transactionIndex: log.transactionIndex,
+      transactionHash: log.transaction?.hash || '',
+      address: log.address,
+      data: log.data,
+      topics: log.topics,
+    };
+    switch (log.topics[0]) {
+      case positionsAbi.events.IncreaseLiquidity.topic: {
+        const data = processInreaseLiquidity(evmLog);
+        console.log('IncreaseLiquidity_event_data_for_current_block');
+        eventsData.push({
+          type: 'Increase',
+          ...data,
+        });
+        break;
+      }
+      case positionsAbi.events.DecreaseLiquidity.topic: {
+        const data = processDecreaseLiquidity(evmLog);
+        console.log('DecreaseLiquidity_event_data_for_current_block');
+
+        eventsData.push({
+          type: 'Decrease',
+          ...data,
+        });
+        break;
+      }
+      case positionsAbi.events.Transfer.topic: {
+        const data = processTransfer(evmLog);
+        console.log('Transfer_event_data_for_current_block');
+        eventsData.push({
+          type: 'Transfer',
+          ...data,
+        });
+        break;
       }
     }
   }
@@ -312,7 +287,6 @@ async function processTransferData(
   }
 }
 
-//todo: logic check
 async function initPositions(ctx: BlockHandlerContext<Store>, ids: string[]) {
   console.log('🚀 Starting initPositions', { totalIds: ids.length });
 

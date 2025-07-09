@@ -9,7 +9,9 @@ import { createHash } from 'crypto';
 import {
   AbsintheApiClient,
   Chain,
+  Currency,
   HistoryWindow,
+  TimeWindowTrigger,
   toTimeWeightedBalance,
   toTransaction,
   Transaction,
@@ -17,6 +19,8 @@ import {
 } from '@absinthe/common';
 import { PositionStorageService } from './services/PositionStorageService';
 import { PositionTracker } from './services/PositionTracker';
+import { ContextWithEntityManager, PositionData } from './utils/interfaces/univ3Types';
+import { BlockData } from '@subsquid/evm-processor';
 
 interface ProtocolStateUniswapV3 {
   balanceWindows: HistoryWindow[];
@@ -57,20 +61,14 @@ export class UniswapV3Processor {
 
   private async initializeProtocolStates(): Promise<Map<string, ProtocolStateUniswapV3>> {
     const protocolStates = new Map<string, ProtocolStateUniswapV3>();
-
-    const positionsAddress = this.uniswapV3DexProtocol.positionsAddress;
-
-    //todo: this is in my process memory
-    protocolStates.set(positionsAddress, {
-      balanceWindows: [],
-      transactions: [],
-    });
-
+    //todo: check if we can add the logic in this file only
     return protocolStates;
   }
 
+  //todo: add the prefetch step over here, and we can then also add the processPair function in this file only.
+  //todo: we can first process all the ctx.blocks in one go for the position Events, and we would store all the things in memory, we would not process the events in this step
+  //todo: then when we will do each block processing, we would just use this from the memory and then process the events, and clear these events from the memory.
   async run(): Promise<void> {
-    //todo: confirm with andrew will this ever be realtime ??
     processor.run(
       new TypeormDatabase({ supportHotBlocks: false, stateSchema: this.schemaName }),
       async (ctx) => {
@@ -79,46 +77,228 @@ export class UniswapV3Processor {
         const positionStorageService = new PositionStorageService();
         const positionTracker = new PositionTracker(positionStorageService, this.refreshWindow);
         const protocolStates = await this.initializeProtocolStates();
+
+        //process all blocks for factory in one go
         await processFactory(entitiesCtx, ctx.blocks, positionStorageService);
-        // await processPositions(
-        //   entitiesCtx,
-        //   ctx.blocks,
-        //   positionTracker,
-        //   positionStorageService,
-        //   this.env.coingeckoApiKey,
-        //   protocolStates,
-        // );
-        await processPairs(
-          entitiesCtx,
-          ctx.blocks,
-          positionTracker,
-          positionStorageService,
-          protocolStates,
-        );
+
+        for (const block of ctx.blocks) {
+          console.log('processing block', block.header.height);
+          await this.processBlock(
+            entitiesCtx,
+            block,
+            positionStorageService,
+            positionTracker,
+            protocolStates,
+          );
+        }
 
         // await this.finalizeBatch(entitiesCtx, protocolStates);
-
-        // await ctx.store.save(entities.values(Bundle));
-        // await ctx.store.save(entities.values(Factory));
-        // await ctx.store.save(entities.values(Token));
-        // await ctx.store.save(entities.values(Pool));
-        // await ctx.store.save(entities.values(Tick));
-        // await ctx.store.insert(entities.values(Tx));
-        // await ctx.store.save(entities.values(Position));
       },
     );
   }
 
+  private async processBlock(
+    entitiesCtx: ContextWithEntityManager,
+    block: BlockData,
+    positionStorageService: PositionStorageService,
+    positionTracker: PositionTracker,
+    protocolStates: Map<string, ProtocolStateUniswapV3>,
+  ): Promise<void> {
+    await processPositions(
+      entitiesCtx,
+      block,
+      positionTracker,
+      positionStorageService,
+      this.env.coingeckoApiKey,
+      protocolStates,
+    );
+    // await processPairs(entitiesCtx, block, positionTracker, positionStorageService, protocolStates);
+
+    await this.processPeriodicBalanceFlush(
+      entitiesCtx,
+      block,
+      protocolStates,
+      positionStorageService,
+    );
+  }
+
+  private async processPeriodicBalanceFlush(
+    ctx: ContextWithEntityManager,
+    block: BlockData,
+    protocolStates: Map<string, ProtocolStateUniswapV3>,
+    positionStorageService: PositionStorageService,
+  ): Promise<void> {
+    console.log(
+      `🔄 Starting balance flush for block ${block.header.height} (${block.header.timestamp})`,
+    );
+    console.log(`📊 Protocol states count: ${protocolStates.size}`);
+
+    for (const [contractAddress, protocolState] of protocolStates.entries()) {
+      console.log(`🏊 Processing pool: ${contractAddress}`);
+
+      const positionsByPoolId =
+        await positionStorageService.getAllPositionsByPoolId(contractAddress);
+      console.log(`📍 Found ${positionsByPoolId.length} positions for pool ${contractAddress}`);
+
+      if (positionsByPoolId.length === 0) {
+        console.log(`⚠️ No positions found for pool ${contractAddress}, skipping`);
+        continue;
+      }
+
+      let processedPositions = 0;
+      let exhaustedPositions = 0;
+
+      for (const position of positionsByPoolId) {
+        console.log(`🎯 Processing position ${position.positionId} (owner: ${position.owner})`);
+        console.log(`   - Liquidity: ${position.liquidity}`);
+        console.log(`   - IsActive: ${position.isActive}`);
+        console.log(`   - LastUpdatedBlockTs: ${position.lastUpdatedBlockTs}`);
+        console.log(`   - LastUpdatedBlockHeight: ${position.lastUpdatedBlockHeight}`);
+
+        const beforeBalanceWindows = protocolState.balanceWindows.length;
+
+        await this.processPositionExhaustion(
+          position,
+          block,
+          protocolState,
+          positionStorageService,
+        );
+
+        const afterBalanceWindows = protocolState.balanceWindows.length;
+        const windowsCreated = afterBalanceWindows - beforeBalanceWindows;
+
+        if (windowsCreated > 0) {
+          exhaustedPositions++;
+          console.log(
+            `✅ Position ${position.positionId} exhausted: ${windowsCreated} balance windows created`,
+          );
+        } else {
+          console.log(`⏭️ Position ${position.positionId} no exhaustion needed`);
+        }
+
+        processedPositions++;
+      }
+
+      console.log(
+        `📈 Pool ${contractAddress} summary: ${processedPositions} processed, ${exhaustedPositions} exhausted`,
+      );
+    }
+
+    console.log(`🎉 Balance flush completed for block ${block.header.height}`);
+  }
+
+  private async processPositionExhaustion(
+    position: PositionData,
+    block: any,
+    protocolState: ProtocolStateUniswapV3,
+    positionStorageService: PositionStorageService,
+  ): Promise<void> {
+    const currentTs = block.header.timestamp;
+    const currentBlockHeight = block.header.height;
+
+    console.log(`🔍 Exhaustion check for position ${position.positionId}:`);
+    console.log(`   - Current timestamp: ${currentTs}`);
+    console.log(`   - Current block height: ${currentBlockHeight}`);
+    console.log(`   - Last updated timestamp: ${position.lastUpdatedBlockTs}`);
+    console.log(`   - Refresh window: ${this.refreshWindow}ms`);
+
+    if (!position.lastUpdatedBlockTs) {
+      console.log(
+        `⚠️ Position ${position.positionId} has no lastUpdatedBlockTs, skipping exhaustion`,
+      );
+      return;
+    }
+
+    const timeSinceLastUpdate = Number(currentTs) - Number(position.lastUpdatedBlockTs);
+    console.log(`⏰ Time since last update: ${timeSinceLastUpdate}ms`);
+
+    if (timeSinceLastUpdate < this.refreshWindow) {
+      console.log(
+        `⏭️ Position ${position.positionId} doesn't need exhaustion (${timeSinceLastUpdate}ms < ${this.refreshWindow}ms)`,
+      );
+      return;
+    }
+
+    let exhaustionCount = 0;
+
+    while (
+      position.lastUpdatedBlockTs &&
+      Number(position.lastUpdatedBlockTs) + this.refreshWindow < currentTs
+    ) {
+      const windowsSinceEpoch = Math.floor(
+        Number(position.lastUpdatedBlockTs) / this.refreshWindow,
+      );
+      const nextBoundaryTs: number = (windowsSinceEpoch + 1) * this.refreshWindow;
+
+      console.log(
+        `🔄 Exhaustion iteration ${exhaustionCount + 1} for position ${position.positionId}:`,
+      );
+      console.log(`   - Windows since epoch: ${windowsSinceEpoch}`);
+      console.log(`   - Next boundary timestamp: ${nextBoundaryTs}`);
+      console.log(`   - Time window: ${position.lastUpdatedBlockTs} → ${nextBoundaryTs}`);
+
+      if (position.isActive === 'true' && BigInt(position.liquidity) > 0n) {
+        console.log(`✅ Creating balance window for active position ${position.positionId}`);
+
+        const balanceWindow = {
+          userAddress: position.owner,
+          deltaAmount: 0,
+          trigger: TimeWindowTrigger.EXHAUSTED,
+          startTs: position.lastUpdatedBlockTs,
+          endTs: nextBoundaryTs,
+          windowDurationMs: this.refreshWindow,
+          startBlockNumber: position.lastUpdatedBlockHeight,
+          endBlockNumber: block.height,
+          txHash: null,
+          currency: Currency.USD,
+          valueUsd: Number(position.liquidity), // TODO: Calculate USD value
+          balanceBefore: position.liquidity,
+          balanceAfter: position.liquidity,
+          tokenPrice: 0, // TODO: Calculate token price
+          tokenDecimals: 0, // TODO: Get from position
+        };
+
+        protocolState.balanceWindows.push(balanceWindow);
+        console.log(`📊 Balance window created: ${JSON.stringify(balanceWindow, null, 2)}`);
+      } else {
+        console.log(
+          `⏭️ Skipping balance window for position ${position.positionId} (inactive or zero liquidity)`,
+        );
+      }
+
+      const oldTimestamp = position.lastUpdatedBlockTs;
+      const oldBlockHeight = position.lastUpdatedBlockHeight;
+
+      position.lastUpdatedBlockTs = nextBoundaryTs;
+      position.lastUpdatedBlockHeight = block.height;
+
+      console.log(`🔄 Updated position ${position.positionId}:`);
+      console.log(`   - Timestamp: ${oldTimestamp} → ${position.lastUpdatedBlockTs}`);
+      console.log(`   - Block height: ${oldBlockHeight} → ${position.lastUpdatedBlockHeight}`);
+
+      await positionStorageService.updatePosition(position);
+      console.log(`💾 Position ${position.positionId} updated in storage`);
+
+      exhaustionCount++;
+    }
+
+    if (exhaustionCount > 0) {
+      console.log(
+        `🎉 Position ${position.positionId} exhaustion completed: ${exhaustionCount} iterations`,
+      );
+    } else {
+      console.log(`⏭️ Position ${position.positionId} no exhaustion iterations needed`);
+    }
+  }
+
   private async finalizeBatch(
-    ctx: any,
+    ctx: ContextWithEntityManager,
     protocolStates: Map<string, ProtocolStateUniswapV3>,
   ): Promise<void> {
     for (const pool of this.uniswapV3DexProtocol.pools) {
       const protocolState = protocolStates.get(pool.contractAddress);
       console.log(protocolState, 'protocolState');
       if (!protocolState) continue;
-
-      //todo: tell rollan to update the schema with the latest enums, as its possible this doesn't go through
       const balances = toTimeWeightedBalance(
         protocolState.balanceWindows,
         { ...pool, type: this.uniswapV3DexProtocol.type },
