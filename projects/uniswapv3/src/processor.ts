@@ -21,7 +21,6 @@ const earliestFromBlock = Math.min(...uniswapV3DexProtocol.pools.map((pool) => p
 export const processor = new EvmBatchProcessor()
   .setRpcEndpoint({
     url: uniswapV3DexProtocol.rpcUrl,
-    maxBatchCallSize: 25,
   })
   .setGateway(uniswapV3DexProtocol.gatewayUrl)
   .setFinalityConfirmation(75)
@@ -36,12 +35,7 @@ export const processor = new EvmBatchProcessor()
   })
   .addLog({
     address: poolAddresses,
-    topic0: [
-      poolAbi.events.Burn.topic,
-      poolAbi.events.Mint.topic,
-      poolAbi.events.Initialize.topic,
-      poolAbi.events.Swap.topic,
-    ],
+    topic0: [poolAbi.events.Swap.topic],
     range: {
       from: earliestFromBlock,
       ...(uniswapV3DexProtocol.toBlock > 0 && { to: uniswapV3DexProtocol.toBlock }),

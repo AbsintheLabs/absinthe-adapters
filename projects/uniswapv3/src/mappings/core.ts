@@ -2,12 +2,12 @@ import { BigDecimal } from '@subsquid/big-decimal';
 import { EvmLog } from '@subsquid/evm-processor/lib/interfaces/evm';
 import { BlockHeader, SwapData } from '../utils/interfaces/interfaces';
 import * as poolAbi from '../abi/pool';
-import { BlockMap } from '../utils/blockMap';
 import { BlockData } from '@subsquid/evm-processor/src/interfaces/data';
 import { Currency, fetchHistoricalUsd, MessageType } from '@absinthe/common';
 import { PositionStorageService } from '../services/PositionStorageService';
 import { PositionTracker } from '../services/PositionTracker';
 import { ContextWithEntityManager, ProtocolStateUniswapV3 } from '../utils/interfaces/univ3Types';
+import { getOptimizedTokenPrices } from '../utils/pricing';
 type EventData = SwapData & { type: 'Swap' };
 
 export async function processPairs(
@@ -16,6 +16,7 @@ export async function processPairs(
   positionTracker: PositionTracker,
   positionStorageService: PositionStorageService,
   protocolStates: Map<string, ProtocolStateUniswapV3>,
+  coingeckoApiKey: string,
 ): Promise<void> {
   let eventsData = await processItems(ctx, block);
   console.log('Swap_event_data_for_current_block', eventsData.length);
@@ -30,6 +31,7 @@ export async function processPairs(
         positionTracker,
         positionStorageService,
         protocolStates,
+        coingeckoApiKey,
       );
     }
     // if (data.type === 'Initialize') {
@@ -87,6 +89,7 @@ async function processSwapData(
   positionTracker: PositionTracker,
   positionStorageService: PositionStorageService,
   protocolStates: Map<string, ProtocolStateUniswapV3>,
+  coingeckoApiKey: string,
 ): Promise<void> {
   const positions = await positionStorageService.getAllPositionsByPoolId(data.poolId);
   if (positions.length === 0) return;
@@ -110,33 +113,18 @@ async function processSwapData(
   const amount0Abs = Math.abs(amount0);
   const amount1Abs = Math.abs(amount1);
 
-  // const amount0ETH = amount0Abs * token0.derivedETH;
-  // const amount1ETH = amount1Abs * token1.derivedETH;
-
-  // const amount0USD = amount0ETH * bundle.ethPriceUSD;
-  // const amount1USD = amount1ETH * bundle.ethPriceUSD;
-
-  //swap fees calculation
-  // const amountTotalUSDTracked = getTrackedAmountUSD(token0.id, amount0USD, token1.id, amount1USD);
-  // const amountTotalETHTracked = safeDiv(amountTotalUSDTracked, bundle.ethPriceUSD);
-  // const feesETH = (Number(amountTotalETHTracked) * Number(pool.feeTier)) / 1000000;
-  // const feesUSD = (Number(amountTotalUSDTracked) * Number(pool.feeTier)) / 1000000;
-
-  // update USD pricing
-  const token0inETH = await fetchHistoricalUsd(
-    token0.id, //todo: should be coingecko id
-    block.timestamp,
-    process.env.COINGECKO_API_KEY || '',
-  );
-  const token1inETH = await fetchHistoricalUsd(
-    token1.id, //todo: should be coingecko id
-    block.timestamp,
-    process.env.COINGECKO_API_KEY || '',
+  // Use optimized pricing strategy - returns USD prices directly
+  const [token0inUSD, token1inUSD] = await getOptimizedTokenPrices(
+    data.poolId,
+    token0,
+    token1,
+    block,
+    coingeckoApiKey,
+    ctx,
   );
 
-  const ethPriceUSD = await positionStorageService.getEthUsdPrice();
-  const swappedAmountETH = amount0Abs * token0inETH + amount1Abs * token1inETH;
-  const swappedAmountUSD = swappedAmountETH * ethPriceUSD;
+  // Direct USD calculation - no need to convert through ETH
+  const swappedAmountUSD = amount0Abs * token0inUSD + amount1Abs * token1inUSD;
 
   const transactionSchema = {
     eventType: MessageType.TRANSACTION,
@@ -146,16 +134,16 @@ async function processSwapData(
         token0Decimals: token0!.decimals,
         token0Address: token0!.id,
         token0Symbol: token0!.symbol,
-        token0PriceUsd: token0inETH,
+        token0PriceUsd: token0inUSD, // Direct USD price
         token0Amount: amount0.toString(),
         token1Decimals: token1!.decimals,
         token1Address: token1!.id,
         token1Symbol: token1!.symbol,
-        token1PriceUsd: token1inETH,
+        token1PriceUsd: token1inUSD,
       },
     ]),
-    rawAmount: swappedAmountETH.toString(), //todo: decimal adjusted
-    displayAmount: swappedAmountETH,
+    rawAmount: (amount0Abs + amount1Abs).toString(),
+    displayAmount: swappedAmountUSD,
     unixTimestampMs: block.timestamp,
     txHash: data.transaction.hash,
     logIndex: data.logIndex,
@@ -167,6 +155,7 @@ async function processSwapData(
     gasUsed: Number(data.transaction.gas),
     gasFeeUsd: Number(data.transaction.gasPrice) * Number(data.transaction.gas),
   };
+
   const protocolState = protocolStates.get(data.poolId);
   if (protocolState) {
     protocolState.transactions.push(transactionSchema);

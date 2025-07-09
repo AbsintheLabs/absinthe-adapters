@@ -24,6 +24,7 @@ import { PositionStorageService } from '../services/PositionStorageService';
 import { fetchHistoricalUsd, HistoryWindow, Transaction } from '@absinthe/common';
 import { PositionData, ProtocolStateUniswapV3 } from '../utils/interfaces/univ3Types';
 import { processPairs } from './core';
+import { getOptimizedTokenPrices } from '../utils/pricing';
 
 type EventData =
   | (TransferData & { type: 'Transfer' })
@@ -42,13 +43,19 @@ export async function processPositions(
   coingeckoApiKey: string,
   protocolStates: Map<string, ProtocolStateUniswapV3>,
 ): Promise<void> {
-  const eventsData = processItems(ctx, block);
-  console.log('PositionManager_event_data_for_current_block', eventsData.length);
+  const eventsData = processItems(ctx, block, protocolStates);
   if (!eventsData || eventsData.length == 0) return;
 
-  await prefetch(ctx, eventsData, block.header, positionStorageService);
+  await prefetch(ctx, eventsData, block.header, positionStorageService, protocolStates);
 
-  await processPairs(ctx, block, positionTracker, positionStorageService, protocolStates);
+  await processPairs(
+    ctx,
+    block,
+    positionTracker,
+    positionStorageService,
+    protocolStates,
+    coingeckoApiKey,
+  );
 
   for (const data of eventsData) {
     switch (data.type) {
@@ -95,6 +102,7 @@ async function prefetch(
   eventsData: EventData[],
   block: BlockHeader,
   positionStorageService: PositionStorageService,
+  protocolStates: Map<string, ProtocolStateUniswapV3>,
 ) {
   const positionIds = new Set<string>();
   for (const data of eventsData) {
@@ -103,13 +111,21 @@ async function prefetch(
       positionIds.add(data.tokenId);
     }
   }
-  const positions = await initPositions({ ...ctx, block }, Array.from(positionIds));
+  const positions = await initPositions(
+    { ...ctx, block },
+    Array.from(positionIds),
+    Array.from(protocolStates.keys()),
+  );
   if (positions && positions.length > 0) {
     await positionStorageService.storeBatchPositions(positions);
   }
 }
 
-function processItems(ctx: CommonHandlerContext<unknown>, block: BlockData) {
+function processItems(
+  ctx: CommonHandlerContext<unknown>,
+  block: BlockData,
+  protocolStates: Map<string, ProtocolStateUniswapV3>,
+) {
   let eventsData: EventData[] = [];
 
   for (let log of block.logs) {
@@ -121,6 +137,7 @@ function processItems(ctx: CommonHandlerContext<unknown>, block: BlockData) {
       data: log.data,
       topics: log.topics,
     };
+
     switch (log.topics[0]) {
       case positionsAbi.events.IncreaseLiquidity.topic: {
         const data = processInreaseLiquidity(evmLog);
@@ -176,21 +193,19 @@ async function processIncreaseData(
     );
     return;
   }
-  const token0inETH = await fetchHistoricalUsd(
-    token0.id, //todo: should be coingecko id
-    block.timestamp,
+  const [token0inUSD, token1inUSD] = await getOptimizedTokenPrices(
+    position.poolId,
+    token0,
+    token1,
+    block,
     coingeckoApiKey,
-  );
-  const token1inETH = await fetchHistoricalUsd(
-    token1.id, //todo: should be coingecko id
-    block.timestamp,
-    coingeckoApiKey,
+    ctx,
   );
 
   const amount0 = BigDecimal(data.amount0, token0!.decimals).toNumber();
   const amount1 = BigDecimal(data.amount1, token1!.decimals).toNumber();
-  const amountMintedETH = amount0 * token0inETH + amount1 * token1inETH;
-  const trackerData = await positionTracker.handleIncreaseLiquidity(block, data, amountMintedETH);
+  const amountMintedUSD = amount0 * token0inUSD + amount1 * token1inUSD;
+  const trackerData = await positionTracker.handleIncreaseLiquidity(block, data, amountMintedUSD);
 
   if (trackerData) {
     const poolState = protocolStates.get(position.poolId);
@@ -233,21 +248,20 @@ async function processDecreaseData(
   // const token0Price = prices[0];
   // const token1Price = prices[1];
 
-  const token0inETH = await fetchHistoricalUsd(
-    token0.id, //todo: should be coingecko id
-    block.timestamp,
+  const [token0inUSD, token1inUSD] = await getOptimizedTokenPrices(
+    position.poolId,
+    token0,
+    token1,
+    block,
     coingeckoApiKey,
+    ctx,
   );
-  const token1inETH = await fetchHistoricalUsd(
-    token1.id, //todo: should be coingecko id
-    block.timestamp,
-    coingeckoApiKey,
-  );
+
   const amount0 = BigDecimal(data.amount0, token0!.decimals).toNumber();
   const amount1 = BigDecimal(data.amount1, token1!.decimals).toNumber();
-  const amountBurnedETH = amount0 * token0inETH + amount1 * token1inETH;
+  const amountBurnedUSD = amount0 * token0inUSD + amount1 * token1inUSD; // Direct USD calculation
 
-  const trackerData = await positionTracker.handleDecreaseLiquidity(block, data, amountBurnedETH);
+  const trackerData = await positionTracker.handleDecreaseLiquidity(block, data, amountBurnedUSD);
 
   if (trackerData) {
     const poolState = protocolStates.get(position.poolId);
@@ -276,9 +290,11 @@ async function processTransferData(
   const trackerData = await positionTracker.handleTransfer(block, data);
   if (trackerData) {
     const poolState = protocolStates.get(position.poolId);
+
     if (poolState) {
       poolState.balanceWindows.push(trackerData);
     } else {
+      console.log('Setting pool state for position', position.poolId);
       protocolStates.set(position.poolId, {
         balanceWindows: [trackerData],
         transactions: [],
@@ -287,7 +303,11 @@ async function processTransferData(
   }
 }
 
-async function initPositions(ctx: BlockHandlerContext<Store>, ids: string[]) {
+async function initPositions(
+  ctx: BlockHandlerContext<Store>,
+  ids: string[],
+  poolAddresses: string[],
+) {
   console.log('🚀 Starting initPositions', { totalIds: ids.length });
 
   if (!ids || ids.length === 0) {
@@ -449,13 +469,15 @@ async function initPositions(ctx: BlockHandlerContext<Store>, ids: string[]) {
     }
   }
 
+  const filteredPositions = positions.filter((pos) => poolAddresses.includes(pos.poolId));
+
   console.log('🎉 initPositions completed:', {
-    totalPositions: positions.length,
-    successRate: `${((positions.length / ids.length) * 100).toFixed(1)}%`,
+    totalPositions: filteredPositions.length,
+    successRate: `${((filteredPositions.length / ids.length) * 100).toFixed(1)}%`,
   });
 
   //todo: improve redis saving op by sending the map later on
-  return positions;
+  return filteredPositions;
 }
 
 // async function updateFeeVars(ctx: BlockHandlerContext<Store>, positions: Position[]) {

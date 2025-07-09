@@ -126,9 +126,9 @@
       "trackSwaps": true,
       "pools": [
         {
-          "name": "pepe-weth-0.3",
-          "contractAddress": "0x11950d141ecb863f01007add7d1a342041227b58",
-          "fromBlock": 13609065,
+          "name": "wbtc-usdc",
+          "contractAddress": "0x99ac8cA7087fA4A2A1FB6357269965A2014ABc35",
+          "fromBlock": 12376048,
           "feeTier": 3000,
           "pricingStrategy": "internal-twap",
           "token0": {
@@ -142,26 +142,10 @@
           "preferredTokenCoingeckoId": "token1"
         },
         {
-          "name": "wepe-weth-0.3",
-          "contractAddress": "0xa3c2076eb97d573cc8842f1db1ecdf7b6f77ba27",
-          "fromBlock": 12376729,
-          "feeTier": 3000,
-          "pricingStrategy": "internal-twap",
-          "token0": {
-            "symbol": "WEPE",
-            "decimals": 18
-          },
-          "token1": {
-            "symbol": "WETH",
-            "decimals": 18
-          },
-          "preferredTokenCoingeckoId": "token1"
-        },
-        {
-          "name": "usdc-weth-0.3",
+          "name": "usdc-weth",
           "contractAddress": "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640",
-          "fromBlock": 1620250931,
-          "feeTier": 3000,
+          "fromBlock": 12376729,
+          "feeTier": 5000,
           "pricingStrategy": "internal-twap",
           "token0": {
             "symbol": "USDC",

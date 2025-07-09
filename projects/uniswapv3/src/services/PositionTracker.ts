@@ -48,7 +48,7 @@ export class PositionTracker {
     }
   }
 
-  async handleIncreaseLiquidity(block: BlockHeader, data: IncDecData, amountMintedETH: number) {
+  async handleIncreaseLiquidity(block: BlockHeader, data: IncDecData, amountMintedUSD: number) {
     const position = await this.positionStorageService.getPosition(data.tokenId);
 
     if (!position) {
@@ -63,10 +63,10 @@ export class PositionTracker {
           position.positionId,
           oldLiquidity,
           data.liquidity.toString(),
-          TimeWindowTrigger.TRANSFER, // todo: change to inc
+          TimeWindowTrigger.INCREASE,
           block,
           data.transactionHash,
-          amountMintedETH,
+          amountMintedUSD,
         );
         return historyWindow;
       } else {
@@ -78,7 +78,7 @@ export class PositionTracker {
     return null;
   }
 
-  async handleDecreaseLiquidity(block: BlockHeader, data: IncDecData, amountBurnedETH: number) {
+  async handleDecreaseLiquidity(block: BlockHeader, data: IncDecData, amountBurnedUSD: number) {
     const position = await this.positionStorageService.getPosition(data.tokenId);
     if (!position) return;
 
@@ -97,10 +97,10 @@ export class PositionTracker {
         position.positionId,
         oldLiquidity,
         data.liquidity.toString(),
-        TimeWindowTrigger.TRANSFER, // todo: change to dec
+        TimeWindowTrigger.DECREASE,
         block,
         data.transactionHash,
-        amountBurnedETH,
+        amountBurnedUSD,
       );
       return historyWindow;
     } else {

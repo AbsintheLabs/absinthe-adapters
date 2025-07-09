@@ -61,7 +61,17 @@ export class UniswapV3Processor {
 
   private async initializeProtocolStates(): Promise<Map<string, ProtocolStateUniswapV3>> {
     const protocolStates = new Map<string, ProtocolStateUniswapV3>();
-    //todo: check if we can add the logic in this file only
+    const poolAddresses = this.uniswapV3DexProtocol.pools.map((pool: any) =>
+      pool.contractAddress.toLowerCase(),
+    );
+    console.log('poolAddresses', poolAddresses);
+    for (const poolAddress of poolAddresses) {
+      protocolStates.set(poolAddress, {
+        balanceWindows: [],
+        transactions: [],
+      });
+    }
+
     return protocolStates;
   }
 
@@ -114,12 +124,12 @@ export class UniswapV3Processor {
     );
     // await processPairs(entitiesCtx, block, positionTracker, positionStorageService, protocolStates);
 
-    await this.processPeriodicBalanceFlush(
-      entitiesCtx,
-      block,
-      protocolStates,
-      positionStorageService,
-    );
+    // await this.processPeriodicBalanceFlush(
+    //   entitiesCtx,
+    //   block,
+    //   protocolStates,
+    //   positionStorageService,
+    // );
   }
 
   private async processPeriodicBalanceFlush(
