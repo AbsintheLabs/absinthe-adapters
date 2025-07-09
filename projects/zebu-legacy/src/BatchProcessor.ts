@@ -40,7 +40,7 @@ export class ZebuLegacyProcessor {
     );
 
     const hash = createHash('md5').update(uniquePoolCombination).digest('hex').slice(0, 8);
-    return `voucher-${hash}`;
+    return `zebu-legacy-${hash}`;
   }
 
   async run(): Promise<void> {
