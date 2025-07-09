@@ -304,16 +304,34 @@ function mapToJson(map: Map<string, ActiveBalance>): Record<string, any> {
 
 function jsonToMap(json: Record<string, any>): Map<string, ActiveBalance> {
   const result = new Map<string, ActiveBalance>();
-  if (!json) return result;
 
-  for (const [key, value] of Object.entries(json)) {
-    if (key === '__metadata') continue;
-    result.set(key, {
-      balance: BigInt(value.balance),
-      updatedBlockTs: value.updatedBlockTs,
-      updatedBlockHeight: value.updatedBlockHeight,
-    });
+  // Better validation
+  if (!json || typeof json !== 'object' || Array.isArray(json)) {
+    console.warn('jsonToMap: Invalid json input, returning empty map');
+    return result;
   }
+
+  try {
+    for (const [key, value] of Object.entries(json)) {
+      if (key === '__metadata') continue;
+
+      // Validate the value structure
+      if (!value || typeof value !== 'object' || !value.balance) {
+        console.warn(`jsonToMap: Invalid value for key ${key}, skipping`);
+        continue;
+      }
+
+      result.set(key, {
+        balance: BigInt(value.balance),
+        updatedBlockTs: value.updatedBlockTs,
+        updatedBlockHeight: value.updatedBlockHeight,
+      });
+    }
+  } catch (error) {
+    console.error('jsonToMap: Error processing json:', error);
+    return new Map(); // Return empty map on error
+  }
+
   return result;
 }
 
