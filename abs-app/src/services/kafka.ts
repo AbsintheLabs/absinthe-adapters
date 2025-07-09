@@ -26,7 +26,6 @@ export class KafkaService {
     if (!config.kafka.brokers) {
       throw new Error('KAFKA_BROKERS must be set in your .env');
     }
-    console.log(config.kafka, 'config.kafka.brokers');
     CompressionCodecs[CompressionTypes.Snappy] = snappy;
 
     this.kafka = new Kafka({

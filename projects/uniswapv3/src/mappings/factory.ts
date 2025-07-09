@@ -13,25 +13,7 @@ import { last } from '../utils/tools';
 import { Store } from '@subsquid/typeorm-store';
 import { BlockHandlerContext } from '../utils/interfaces/interfaces';
 import { PositionStorageService } from '../services/PositionStorageService';
-
-interface PairCreatedData {
-  poolId: string;
-  token0Id: string;
-  token1Id: string;
-  fee: number;
-}
-
-interface Token {
-  id: string;
-  symbol: string;
-  name: string;
-  totalSupply: bigint;
-  decimals: number;
-}
-
-type ContextWithEntityManager = DataHandlerContext<Store> & {
-  entities: EntityManager;
-};
+import { ContextWithEntityManager, Token, PairCreatedData } from '../utils/interfaces/univ3Types';
 
 export async function processFactory(
   ctx: ContextWithEntityManager,
@@ -40,7 +22,7 @@ export async function processFactory(
 ): Promise<void> {
   const newPairsData = await processItems(blocks);
   const tokens: Token[] = [];
-  console.log('newPairsData', newPairsData.size);
+  console.log('PoolCreated_event_data_for_all_blocks', newPairsData.size);
   if (newPairsData.size == 0) return;
 
   for (const [, blockEventsData] of newPairsData) {
@@ -53,22 +35,7 @@ export async function processFactory(
   }
   await syncTokens({ ...ctx, block: last(blocks).header }, tokens);
   await positionStorageService.storeMultipleTokens(tokens);
-
-  //todo: save in redis
-  // await ctx.store.save(ctx.entities.values(Token));
 }
-
-// async function prefetchTokens(
-//   ctx: ContextWithEntityManager,
-//   eventsData: BlockMap<PairCreatedData>,
-// ) {
-//   for (const [, blockEventsData] of eventsData) {
-//     for (const data of blockEventsData) {
-//       ctx.entities.defer(Token, data.token0Id, data.token1Id);
-//     }
-//   }
-//   await ctx.entities.load(Token);
-// }
 
 async function processItems(blocks: BlockData[]) {
   let newPairsData = new BlockMap<PairCreatedData>();

@@ -1,23 +1,7 @@
 import { Currency, HistoryWindow, TimeWindowTrigger } from '@absinthe/common';
 import { BlockHeader, SwapData } from '../utils/interfaces/interfaces';
 import { PositionStorageService } from './PositionStorageService';
-
-interface PositionData {
-  positionId: string;
-  owner: string;
-  liquidity: string;
-  tickLower: number;
-  tickUpper: number;
-  token0Id: string;
-  token1Id: string;
-  fee: number;
-  depositedToken0: string;
-  depositedToken1: string;
-  isActive: string;
-  lastUpdatedBlockTs: number;
-  lastUpdatedBlockHeight: number;
-  poolId: string;
-}
+import { PositionData } from '../utils/interfaces/univ3Types';
 
 interface IncDecData {
   tokenId: string;
@@ -64,7 +48,7 @@ export class PositionTracker {
     }
   }
 
-  async handleIncreaseLiquidity(block: BlockHeader, data: IncDecData, amountMintedETH: number) {
+  async handleIncreaseLiquidity(block: BlockHeader, data: IncDecData, amountMintedUSD: number) {
     const position = await this.positionStorageService.getPosition(data.tokenId);
 
     if (!position) {
@@ -79,10 +63,10 @@ export class PositionTracker {
           position.positionId,
           oldLiquidity,
           data.liquidity.toString(),
-          TimeWindowTrigger.TRANSFER, // todo: change to inc
+          TimeWindowTrigger.INCREASE,
           block,
           data.transactionHash,
-          amountMintedETH,
+          amountMintedUSD,
         );
         return historyWindow;
       } else {
@@ -94,7 +78,7 @@ export class PositionTracker {
     return null;
   }
 
-  async handleDecreaseLiquidity(block: BlockHeader, data: IncDecData, amountBurnedETH: number) {
+  async handleDecreaseLiquidity(block: BlockHeader, data: IncDecData, amountBurnedUSD: number) {
     const position = await this.positionStorageService.getPosition(data.tokenId);
     if (!position) return;
 
@@ -113,10 +97,10 @@ export class PositionTracker {
         position.positionId,
         oldLiquidity,
         data.liquidity.toString(),
-        TimeWindowTrigger.TRANSFER, // todo: change to dec
+        TimeWindowTrigger.DECREASE,
         block,
         data.transactionHash,
-        amountBurnedETH,
+        amountBurnedUSD,
       );
       return historyWindow;
     } else {

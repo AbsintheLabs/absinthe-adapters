@@ -168,18 +168,32 @@ export class ZebuNewProcessor {
     const currencyAddress = await zebuNewContract.getSale_Currency_Address(currencyId);
     //todo: run the script and then try to find everything
     const erc20Contract = new erc20Abi.Contract(ctx, block.header, currencyAddress);
-    const currencySymbol = await erc20Contract.symbol();
-    const currency = currencies.find((currency) => currency.name === currencySymbol);
+
+    let currencySymbol = 'UNKNOWN';
+    let currency = null;
+
+    try {
+      currencySymbol = await erc20Contract.symbol();
+      currency = currencies.find((currency) => currency.name === currencySymbol);
+    } catch (error) {
+      console.warn(`Failed to get symbol for contract ${currencyAddress}, using UNKNOWN:`, error);
+      // Continue with UNKNOWN symbol
+    }
 
     let usdToCurrencyValue = 0;
     if (!currency) {
-      console.warn(`Currency ${currencySymbol} not found`);
+      console.warn(`Currency ${currencySymbol} not found, using 0 USD value`);
     } else {
-      usdToCurrencyValue = await fetchHistoricalUsd(
-        currency.symbol,
-        block.header.timestamp,
-        this.env.coingeckoApiKey,
-      );
+      try {
+        usdToCurrencyValue = await fetchHistoricalUsd(
+          currency.symbol,
+          block.header.timestamp,
+          this.env.coingeckoApiKey,
+        );
+      } catch (error) {
+        console.warn(`Failed to fetch USD price for ${currencySymbol}, using 0:`, error);
+        usdToCurrencyValue = 0;
+      }
     }
 
     const displayCost = Number(bidamount) / 10 ** (currency?.decimals ?? 18);
@@ -279,7 +293,6 @@ export class ZebuNewProcessor {
         this.env,
         chainConfig,
       );
-      console.log(JSON.stringify(transactions, null, 2));
       await this.apiClient.send(transactions);
     }
   }

@@ -7,7 +7,7 @@
       "toBlock": 0,
       "protocols": [
         {
-          "name": "PEPE/WETH Pool",
+          "name": "pepe-weth",
           "contractAddress": "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f",
           "fromBlock": 17046833,
           "pricingStrategy": "coingecko",
@@ -29,7 +29,7 @@
       "toBlock": 0,
       "protocols": [
         {
-          "name": "WETH/ hemiBTC Pool",
+          "name": "weth-hemitbtc",
           "contractAddress": "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f",
           "fromBlock": 1276815,
           "pricingStrategy": "coingecko",
@@ -44,7 +44,7 @@
           "preferredTokenCoingeckoId": "token1"
         },
         {
-          "name": "VUSD/ WETH",
+          "name": "vusd-weth",
           "contractAddress": "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f",
           "fromBlock": 1274620,
           "pricingStrategy": "coingecko",
@@ -64,7 +64,7 @@
   "bondingCurveProtocols": [
     {
       "type": "printr",
-      "name": "Printr Base",
+      "name": "printr-base",
       "contractAddress": "0xbdc9a5b600e9a10609b0613b860b660342a6d4c0",
       "chainId": 8453,
       "toBlock": 0,
@@ -72,7 +72,7 @@
     },
     {
       "type": "vusd-mint",
-      "name": "VUSDMint",
+      "name": "vusd-mint",
       "contractAddress": "0xFd22Bcf90d63748288913336Cd38BBC0e681e298",
       "chainId": 1,
       "toBlock": 0,
@@ -80,7 +80,7 @@
     },
     {
       "type": "demos",
-      "name": "Demos",
+      "name": "demos",
       "contractAddress": "0x70468f06cf32b776130e2da4c0d7dd08983282ec",
       "chainId": 43111,
       "toBlock": 0,
@@ -88,7 +88,7 @@
     },
     {
       "type": "voucher",
-      "name": "Voucher",
+      "name": "voucher",
       "contractAddress": "0xa26b04b41162b0d7c2e1e2f9a33b752e28304a49",
       "chainId": 1,
       "toBlock": 0,
@@ -98,7 +98,7 @@
   "stakingProtocols": [
     {
       "type": "hemi",
-      "name": "Hemi Staking",
+      "name": "hemi-staking",
       "contractAddress": "0x4f5e928763cbfaf5ffd8907ebbb0dabd5f78ba83",
       "chainId": 43111,
       "toBlock": 0,
@@ -106,7 +106,7 @@
     },
     {
       "type": "vusd-bridge",
-      "name": "VUSDBridge",
+      "name": "vusd-bridge",
       "contractAddress": "0x5eaa10F99e7e6D177eF9F74E519E319aa49f191e",
       "chainId": 1,
       "toBlock": 0,
@@ -120,15 +120,15 @@
       "factoryAddress": "0x1f98431c8ad98523631ae4a59f267346ea31f984",
       "factoryDeployedAt": 12369621,
       "positionsAddress": "0xc36442b4a4522e871399cd717abdd847ab11fe88",
-      "toBlock": 12505499,
+      "toBlock": 0,
       "poolDiscovery": true,
       "trackPositions": true,
       "trackSwaps": true,
       "pools": [
         {
-          "name": "pepe/weth 0.3% pool",
-          "contractAddress": "0x11950d141ecb863f01007add7d1a342041227b58",
-          "fromBlock": 13609065,
+          "name": "wbtc-usdc",
+          "contractAddress": "0x99ac8cA7087fA4A2A1FB6357269965A2014ABc35",
+          "fromBlock": 12376048,
           "feeTier": 3000,
           "pricingStrategy": "internal-twap",
           "token0": {
@@ -142,26 +142,10 @@
           "preferredTokenCoingeckoId": "token1"
         },
         {
-          "name": "wepe/weth 0.3% pool",
-          "contractAddress": "0xa3c2076eb97d573cc8842f1db1ecdf7b6f77ba27",
-          "fromBlock": 12376729,
-          "feeTier": 3000,
-          "pricingStrategy": "internal-twap",
-          "token0": {
-            "symbol": "WEPE",
-            "decimals": 18
-          },
-          "token1": {
-            "symbol": "WETH",
-            "decimals": 18
-          },
-          "preferredTokenCoingeckoId": "token1"
-        },
-        {
-          "name": "usdc/weth 0.3% pool",
+          "name": "usdc-weth",
           "contractAddress": "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640",
-          "fromBlock": 1620250931,
-          "feeTier": 3000,
+          "fromBlock": 12376729,
+          "feeTier": 5000,
           "pricingStrategy": "internal-twap",
           "token0": {
             "symbol": "USDC",
@@ -179,7 +163,7 @@
   "zebuProtocols": [
     {
       "type": "zebu",
-      "name": "Zebu-New",
+      "name": "zebu-new",
       "toBlock": 0,
       "clients": [
         {
@@ -228,7 +212,7 @@
     },
     {
       "type": "zebu",
-      "name": "Zebu-Legacy",
+      "name": "zebu-legacy",
       "toBlock": 0,
       "clients": [
         {
