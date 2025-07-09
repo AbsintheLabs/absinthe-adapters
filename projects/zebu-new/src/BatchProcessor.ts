@@ -44,26 +44,29 @@ export class ZebuNewProcessor {
   private readonly schemaName: string;
   private readonly apiClient: AbsintheApiClient;
   private readonly env: ValidatedEnvBase;
+  private readonly chainId: number;
 
   constructor(
     zebuNewProtocol: ZebuClientConfigWithChain[],
     apiClient: AbsintheApiClient,
     env: ValidatedEnvBase,
+    chainId: number,
   ) {
     this.zebuNewProtocol = zebuNewProtocol;
     this.schemaName = this.generateSchemaName();
     this.apiClient = apiClient;
     this.env = env;
+    this.chainId = chainId;
   }
 
   //not needed hence its like this
   private generateSchemaName(): string {
-    const uniquePoolCombination = this.zebuNewProtocol[0].contractAddress.concat(
-      this.zebuNewProtocol[0].chainId.toString(),
-    );
+    const uniquePoolCombination = this.zebuNewProtocol[0].contractAddress
+      .concat(this.chainId.toString())
+      .concat(this.zebuNewProtocol[0].name);
 
     const hash = createHash('md5').update(uniquePoolCombination).digest('hex').slice(0, 8);
-    return `voucher-${hash}`;
+    return `zebu-new-${this.chainId}-${hash}`;
   }
 
   async run(): Promise<void> {
