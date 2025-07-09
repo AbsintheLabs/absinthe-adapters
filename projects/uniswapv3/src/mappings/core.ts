@@ -120,7 +120,7 @@ async function processSwapData(
     token1,
     block,
     coingeckoApiKey,
-    ctx,
+    { ...ctx, block },
   );
 
   // Direct USD calculation - no need to convert through ETH
