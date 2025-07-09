@@ -21,7 +21,6 @@ import { EvmLog } from '@subsquid/evm-processor/src/interfaces/evm';
 import { Store } from '@subsquid/typeorm-store';
 import { PositionTracker } from '../services/PositionTracker';
 import { PositionStorageService } from '../services/PositionStorageService';
-import { fetchHistoricalUsd, HistoryWindow, Transaction } from '@absinthe/common';
 import { PositionData, ProtocolStateUniswapV3 } from '../utils/interfaces/univ3Types';
 import { processPairs } from './core';
 import { getOptimizedTokenPrices } from '../utils/pricing';
@@ -56,7 +55,6 @@ export async function processPositions(
     protocolStates,
     coingeckoApiKey,
   );
-
   for (const data of eventsData) {
     switch (data.type) {
       case 'Increase':
@@ -199,7 +197,7 @@ async function processIncreaseData(
     token1,
     block,
     coingeckoApiKey,
-    ctx,
+    { ...ctx, block },
   );
 
   const amount0 = BigDecimal(data.amount0, token0!.decimals).toNumber();
@@ -254,7 +252,7 @@ async function processDecreaseData(
     token1,
     block,
     coingeckoApiKey,
-    ctx,
+    { ...ctx, block },
   );
 
   const amount0 = BigDecimal(data.amount0, token0!.decimals).toNumber();

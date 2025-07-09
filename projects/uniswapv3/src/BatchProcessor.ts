@@ -102,7 +102,7 @@ export class UniswapV3Processor {
           );
         }
 
-        // await this.finalizeBatch(entitiesCtx, protocolStates);
+        await this.finalizeBatch(entitiesCtx, protocolStates);
       },
     );
   }
@@ -124,12 +124,12 @@ export class UniswapV3Processor {
     );
     // await processPairs(entitiesCtx, block, positionTracker, positionStorageService, protocolStates);
 
-    // await this.processPeriodicBalanceFlush(
-    //   entitiesCtx,
-    //   block,
-    //   protocolStates,
-    //   positionStorageService,
-    // );
+    await this.processPeriodicBalanceFlush(
+      entitiesCtx,
+      block,
+      protocolStates,
+      positionStorageService,
+    );
   }
 
   private async processPeriodicBalanceFlush(
