@@ -81,36 +81,33 @@
         ]
       }
     },
-    {
-      "name": "protocolMetadata",
-      "type": {
-        "type": "array",
-        "items": {
-          "type": "record",
-          "name": "ProtocolMetadataItem",
-          "fields": [
-            {
-              "name": "key",
-              "type": "string"
-            },
-            {
-              "name": "type",
-              "type": {
-                "type": "enum",
-                "name": "MetadataValueType",
-                "symbols": ["bigint", "number", "address", "string"]
-              }
-            },
-            {
-              "name": "value",
-              "type": "string",
-              "doc": "JSON string"
-            }
-          ]
+ {
+  "name": "protocolMetadata",
+  "type": {
+    "type": "map",
+    "values": {
+      "type": "record",
+      "name": "ProtocolMetadataValue",
+      "fields": [
+        {
+          "name": "value",
+          "type": "string",
+          "doc": "String-encoded value (even for numbers, addresses, bigints)"
+        },
+        {
+          "name": "type",
+          "type": {
+            "type": "enum",
+            "name": "MetadataValueType",
+            "symbols": ["bigint", "number", "address", "string"]
+          }
         }
-      },
-      "default": []
-    },
+      ]
+    }
+  },
+  "default": {}
+}
+
     {
       "name": "currency",
       "type": {

@@ -143,11 +143,12 @@ export class ZebuLegacyProcessor {
     const transactionSchema = {
       eventType: MessageType.TRANSACTION,
       eventName: 'Auction_BidPlaced',
-      tokens: JSON.stringify([
-        {
-          saleId: _auctionID.toString(),
+      tokens: {
+        saleId: {
+          value: _auctionID.toString(),
+          type: 'string',
         },
-      ]),
+      },
       rawAmount: _bidAmount.toString(),
       displayAmount: displayCost,
       unixTimestampMs: block.header.timestamp,

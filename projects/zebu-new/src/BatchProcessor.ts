@@ -204,13 +204,20 @@ export class ZebuNewProcessor {
     const transactionSchema = {
       eventType: MessageType.TRANSACTION,
       eventName: 'AuctionBid_Placed',
-      tokens: JSON.stringify([
-        {
-          saleId: saleID.toString(),
-          bidIndex: bidIndex.toString(),
-          winner: false,
+      tokens: {
+        saleId: {
+          value: saleID.toString(),
+          type: 'string',
         },
-      ]),
+        bidIndex: {
+          value: bidIndex.toString(),
+          type: 'string',
+        },
+        winner: {
+          value: false,
+          type: 'string',
+        },
+      },
       rawAmount: bidamount.toString(),
       displayAmount: displayCost,
       unixTimestampMs: block.header.timestamp,
@@ -254,13 +261,20 @@ export class ZebuNewProcessor {
     const transactionSchema = {
       eventType: MessageType.TRANSACTION,
       eventName: 'Auction_Claimed',
-      tokens: JSON.stringify([
-        {
-          saleId: null,
-          bidIndex: null,
-          winner: true,
+      tokens: {
+        saleId: {
+          value: saleID.toString(),
+          type: 'string',
         },
-      ]),
+        bidIndex: {
+          value: 'null',
+          type: 'string',
+        },
+        winner: {
+          value: true,
+          type: 'string',
+        },
+      },
       rawAmount: '0',
       displayAmount: 0,
       unixTimestampMs: block.header.timestamp,

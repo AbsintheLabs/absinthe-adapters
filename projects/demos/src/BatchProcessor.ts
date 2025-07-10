@@ -120,12 +120,16 @@ export class DemosProcessor {
       const transactionSchema = {
         eventType: MessageType.TRANSACTION,
         eventName: 'func_0xa4760a9e',
-        tokens: JSON.stringify([
-          {
-            amount: gasFee.toString(),
-            ethPriceUsd: ethPriceUsd.toString(),
+        tokens: {
+          gasFee: {
+            value: gasFee.toString(),
+            type: 'string',
           },
-        ]),
+          ethPriceUsd: {
+            value: ethPriceUsd.toString(),
+            type: 'number',
+          },
+        },
         rawAmount: '0',
         displayAmount: 0,
         valueUsd: gasFeeUsd,

@@ -52,13 +52,7 @@ function toTimeWeightedBalance(
         runnerId: 'uniswapv2_indexer_001', //todo: get the current PID/ docker-containerId
         apiKeyHash,
       },
-      protocolMetadata: [
-        {
-          key: 'data',
-          value: '',
-          type: 'string',
-        },
-      ],
+      protocolMetadata: {},
       currency: e.currency,
       valueUsd: e.valueUsd * (e.endTs - e.startTs),
     };
@@ -112,13 +106,7 @@ function toTransaction(
         runnerId: 'uniswapv2_indexer_001', //todo: get the current PID/ docker-containerId
         apiKeyHash,
       },
-      protocolMetadata: [
-        {
-          key: 'data',
-          value: e.tokens,
-          type: 'string',
-        },
-      ],
+      protocolMetadata: e.tokens,
       currency: e.currency,
       valueUsd: e.valueUsd ?? 0.0,
     };

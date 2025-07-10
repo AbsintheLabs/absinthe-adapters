@@ -227,16 +227,28 @@ export class PrintrProcessor {
     const transactionSchema = {
       eventType: MessageType.TRANSACTION,
       eventName: 'TokenTrade',
-      tokens: JSON.stringify([
-        {
-          token: token,
-          amount: amount.toString(),
-          effectivePrice: effectivePrice.toString(),
-          mintedSupply: mintedSupply.toString(),
-          reserve: reserve.toString(),
-          isBuy: isBuy,
+      tokens: {
+        token: {
+          value: token,
+          type: 'string',
         },
-      ]),
+        amount: {
+          value: amount.toString(),
+          type: 'number',
+        },
+        effectivePrice: {
+          value: effectivePrice.toString(),
+          type: 'number',
+        },
+        mintedSupply: {
+          value: mintedSupply.toString(),
+          type: 'number',
+        },
+        reserve: {
+          value: reserve.toString(),
+          type: 'number',
+        },
+      },
       rawAmount: cost.toString(), //todo: confirm on this - should be eth value
       displayAmount: displayCost,
       unixTimestampMs: block.header.timestamp,
@@ -273,16 +285,12 @@ export class PrintrProcessor {
     const transactionSchema = {
       eventType: MessageType.TRANSACTION,
       eventName: 'CurveCreated',
-      tokens: JSON.stringify([
-        {
-          token: token,
-          amount: gasFee.toString(),
-          effectivePrice: ethPriceUsd.toString(),
-          mintedSupply: 0,
-          reserve: 0,
-          isBuy: false,
+      tokens: {
+        token: {
+          value: token,
+          type: 'string',
         },
-      ]),
+      },
       rawAmount: '0',
       displayAmount: 0,
       valueUsd: gasFeeUsd,

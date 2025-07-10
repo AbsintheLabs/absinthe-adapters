@@ -146,11 +146,12 @@ export class VoucherProcessor {
     const transactionSchema = {
       eventType: MessageType.TRANSACTION,
       eventName: 'Transfer',
-      tokens: JSON.stringify([
-        {
-          token: this.bondingCurveProtocol.contractAddress,
+      tokens: {
+        token: {
+          value: this.bondingCurveProtocol.contractAddress,
+          type: 'string',
         },
-      ]),
+      },
       rawAmount: value.toString(),
       displayAmount: displayCost,
       unixTimestampMs: block.header.timestamp,

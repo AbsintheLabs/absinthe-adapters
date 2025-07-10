@@ -243,24 +243,56 @@ export class UniswapV2Processor {
     const transactionSchema = {
       eventType: MessageType.TRANSACTION,
       eventName: 'Swap',
-      tokens: JSON.stringify([
-        {
-          token0Decimals: protocolState.config.token0.decimals,
-          token0Address: protocolState.config.token0.address,
-          token0Symbol: ChainShortName.MAINNET,
-          token0PriceUsd: pricedSwapVolume,
-          token0Amount: token0Amount.toString(),
-          token0AmountIn: token0Amount.toString(),
-          token0AmountOut: token1Amount.toString(),
-          token1Decimals: protocolState.config.token1.decimals,
-          token1Address: protocolState.config.token1.address,
-          token1Symbol: ChainShortName.MAINNET,
-          token1PriceUsd: pricedSwapVolume,
-          token1Amount: token1Amount.toString(),
-          token1AmountIn: token1Amount.toString(),
-          token1AmountOut: token0Amount.toString(),
+      tokens: {
+        token0Decimals: {
+          value: protocolState.config.token0.decimals.toString(),
+          type: 'number',
         },
-      ]),
+        token0Address: {
+          value: protocolState.config.token0.address,
+          type: 'string',
+        },
+        token0Symbol: {
+          value: ChainShortName.MAINNET,
+          type: 'string',
+        },
+        token0PriceUsd: {
+          value: pricedSwapVolume.toString(),
+          type: 'number',
+        },
+        token0Amount: {
+          value: token0Amount.toString(),
+          type: 'number',
+        },
+        token0AmountIn: {
+          value: token0Amount.toString(),
+          type: 'number',
+        },
+        token0AmountOut: {
+          value: token0Amount.toString(),
+          type: 'number',
+        },
+        token1Decimals: {
+          value: protocolState.config.token1.decimals.toString(),
+          type: 'number',
+        },
+        token1Address: {
+          value: protocolState.config.token1.address,
+          type: 'string',
+        },
+        token1Amount: {
+          value: token1Amount.toString(),
+          type: 'number',
+        },
+        token1AmountIn: {
+          value: token1Amount.toString(),
+          type: 'number',
+        },
+        token1AmountOut: {
+          value: token1Amount.toString(),
+          type: 'number',
+        },
+      },
       rawAmount:
         protocol.preferredTokenCoingeckoId === 'token0'
           ? token0Amount.toString()
