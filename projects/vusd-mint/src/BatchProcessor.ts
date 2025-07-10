@@ -139,13 +139,20 @@ export class VusdMintProcessor {
     const transactionSchema = {
       eventType: MessageType.TRANSACTION,
       eventName: 'Mint',
-      tokens: JSON.stringify([
-        {
-          tokenIn: tokenIn,
-          amountIn: amountIn.toString(),
-          amountInAfterTransferFee: amountInAfterTransferFee.toString(),
+      tokens: {
+        tokenIn: {
+          value: tokenIn,
+          type: 'string',
         },
-      ]),
+        amountIn: {
+          value: amountIn.toString(),
+          type: 'number',
+        },
+        amountInAfterTransferFee: {
+          value: amountInAfterTransferFee.toString(),
+          type: 'number',
+        },
+      },
       rawAmount: mintage.toString(),
       displayAmount: mintageDisplay,
       unixTimestampMs: block.header.timestamp,

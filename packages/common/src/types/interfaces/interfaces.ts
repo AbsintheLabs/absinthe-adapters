@@ -24,7 +24,7 @@ interface BaseEventFields {
   protocolName: string;
   protocolType: string;
   runner: Runner;
-  protocolMetadata: ProtocolMetadataItem[];
+  protocolMetadata: { [key: string]: { value: string; type: string } };
   currency: Currency;
   valueUsd: number;
 }
@@ -55,12 +55,6 @@ interface ProcessValueChangeParams {
   tokenAddress?: string;
 }
 
-interface ProtocolMetadataItem {
-  key: string;
-  value: any;
-  type: string;
-}
-
 interface Runner {
   runnerId: string;
   apiKeyHash: string;
@@ -76,7 +70,7 @@ interface TokenDetails {
 interface Transaction {
   eventType: MessageType;
   eventName: string;
-  tokens: string;
+  tokens: { [key: string]: { value: string; type: string } };
   rawAmount: string;
   displayAmount: number;
   unixTimestampMs: number;

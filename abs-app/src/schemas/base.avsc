@@ -84,14 +84,15 @@
     {
       "name": "protocolMetadata",
       "type": {
-        "type": "array",
-        "items": {
+        "type": "map",
+        "values": {
           "type": "record",
-          "name": "ProtocolMetadataItem",
+          "name": "ProtocolMetadataValue",
           "fields": [
             {
-              "name": "key",
-              "type": "string"
+              "name": "value",
+              "type": "string",
+              "doc": "String-encoded value (even for numbers, addresses, bigints)"
             },
             {
               "name": "type",
@@ -100,17 +101,13 @@
                 "name": "MetadataValueType",
                 "symbols": ["bigint", "number", "address", "string"]
               }
-            },
-            {
-              "name": "value",
-              "type": "string",
-              "doc": "JSON string"
             }
           ]
         }
       },
-      "default": []
+      "default": {}
     },
+
     {
       "name": "currency",
       "type": {

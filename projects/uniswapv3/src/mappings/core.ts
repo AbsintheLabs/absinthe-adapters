@@ -129,19 +129,50 @@ async function processSwapData(
   const transactionSchema = {
     eventType: MessageType.TRANSACTION,
     eventName: 'Swap',
-    tokens: JSON.stringify([
-      {
-        token0Decimals: token0!.decimals,
-        token0Address: token0!.id,
-        token0Symbol: token0!.symbol,
-        token0PriceUsd: token0inUSD, // Direct USD price
-        token0Amount: amount0.toString(),
-        token1Decimals: token1!.decimals,
-        token1Address: token1!.id,
-        token1Symbol: token1!.symbol,
-        token1PriceUsd: token1inUSD,
+    // tokens: {
+    //   gasFee: {
+    //     value: gasFee.toString(),
+    //     type: 'string',
+    //   },
+    //   ethPriceUsd: {
+    //     value: ethPriceUsd.toString(),
+    //     type: 'string',
+    //   },
+    // },
+    tokens: {
+      token0Decimals: {
+        value: token0!.decimals.toString(),
+        type: 'number',
       },
-    ]),
+      token0Address: {
+        value: token0!.id,
+        type: 'string',
+      },
+      token0Symbol: {
+        value: token0!.symbol,
+        type: 'string',
+      },
+      token0PriceUsd: {
+        value: token0inUSD.toString(),
+        type: 'number',
+      },
+      token1Decimals: {
+        value: token1!.decimals.toString(),
+        type: 'number',
+      },
+      token1Address: {
+        value: token1!.id,
+        type: 'string',
+      },
+      token1Symbol: {
+        value: token1!.symbol,
+        type: 'string',
+      },
+      token1PriceUsd: {
+        value: token1inUSD.toString(),
+        type: 'number',
+      },
+    },
     rawAmount: (amount0Abs + amount1Abs).toString(),
     displayAmount: swappedAmountUSD,
     unixTimestampMs: block.timestamp,
