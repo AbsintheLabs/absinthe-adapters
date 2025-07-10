@@ -10,10 +10,12 @@ import {
 import { createHash } from 'crypto';
 import { TypeormDatabase } from '@subsquid/typeorm-store';
 import { processor } from './processor';
-import { BatchContext, ProtocolState } from '@absinthe/common';
+import { BatchContext } from '@absinthe/common';
 import * as printrAbi from './abi/printr';
 import * as erc20Abi from './abi/erc20';
 import { fetchHistoricalUsd, toTransaction } from '@absinthe/common';
+import { PrintrProtocolState } from './types';
+import * as poolAbi from './abi/pool';
 
 //todo: storage in database
 export class PrintrProcessor {
@@ -69,14 +71,14 @@ export class PrintrProcessor {
     await this.finalizeBatch(ctx, protocolStates);
   }
 
-  private async initializeProtocolStates(ctx: any): Promise<Map<string, ProtocolState>> {
-    const protocolStates = new Map<string, ProtocolState>();
+  private async initializeProtocolStates(ctx: any): Promise<Map<string, PrintrProtocolState>> {
+    const protocolStates = new Map<string, PrintrProtocolState>();
 
-    const contractAddress = this.bondingCurveProtocol.contractAddress;
-    //todo: move into a seperate function
+    const contractAddress = this.bondingCurveProtocol.contractAddress.toLowerCase();
     protocolStates.set(contractAddress, {
       balanceWindows: [],
       transactions: [],
+      activePools: [],
     });
 
     return protocolStates;
@@ -85,7 +87,7 @@ export class PrintrProcessor {
   private async processBlock(batchContext: BatchContext): Promise<void> {
     const { ctx, block, protocolStates } = batchContext;
 
-    const contractAddress = this.bondingCurveProtocol.contractAddress;
+    const contractAddress = this.bondingCurveProtocol.contractAddress.toLowerCase();
     const protocolState = protocolStates.get(contractAddress)!;
 
     await this.processLogsForProtocol(ctx, block, contractAddress, protocolState);
@@ -95,9 +97,9 @@ export class PrintrProcessor {
     ctx: any,
     block: any,
     contractAddress: string,
-    protocolState: ProtocolState,
+    protocolState: PrintrProtocolState,
   ): Promise<void> {
-    const poolLogs = block.logs.filter((log: any) => log.address === contractAddress);
+    const poolLogs = block.logs.filter((log: any) => log.address.toLowerCase() === contractAddress);
 
     for (const log of poolLogs) {
       await this.processLog(ctx, block, log, protocolState);
@@ -108,7 +110,7 @@ export class PrintrProcessor {
     ctx: any,
     block: any,
     log: any,
-    protocolState: ProtocolState,
+    protocolState: PrintrProtocolState,
   ): Promise<void> {
     if (log.topics[0] === printrAbi.events.TokenTrade.topic) {
       await this.processTokenTradeEvent(ctx, block, log, protocolState);
@@ -117,25 +119,77 @@ export class PrintrProcessor {
     if (log.topics[0] === printrAbi.events.CurveCreated.topic) {
       this.processCurveCreatedEvent(ctx, block, log, protocolState);
     }
+
+    // if (log.topics[0] === printrAbi.events.GraduatedPoolCreated.topic) {
+    //   await this.processGraduatedPoolCreatedEvent(ctx, block, log, protocolState);
+    // }
+
+    // if (log.topics[0] === poolAbi.events.Swap.topic) {
+    //   if (protocolState.activePools.includes(log.address.toLowerCase())) {
+    //     await this.processSwapEvent(ctx, block, log, protocolState);
+    //   }
+    // }
   }
 
-  /**
-   * @notice Emitted when tokens are traded through the bonding curve
-   * @param token Address of the token contract
-   * @param trader Address that performed the trade
-   * @param isBuy True if tokens were bought, false if sold
-   * @param amount Number of tokens traded
-   * @param cost Amount of base currency involved in the trade
-   * @param effectivePrice Price per token achieved in the trade
-   * @param mintedSupply New total supply after the trade
-   * @param reserve New reserve balance after the trade
-   */
+  // private async processSwapEvent(
+  //   ctx: any,
+  //   block: any,
+  //   log: any,
+  //   protocolState: PrintrProtocolState,
+  // ): Promise<void> {
+  //   const { sender, recipient, amount0, amount1, sqrtPriceX96, liquidity, tick } =
+  //     poolAbi.events.Swap.decode(log);
+  //   const { gasPrice, gasUsed, hash, from, to } = log.transaction;
+
+  //   const token0 = await positionStorageService.getToken(positionForReference.token0Id);
+  //   const token1 = await positionStorageService.getToken(positionForReference.token1Id);
+
+  //   const amount0Exact = BigDecimal(amount0, token0.decimals).toNumber();
+  //   const amount1Exact = BigDecimal(amount1, token1.decimals).toNumber();
+
+  //   // need absolute amounts for volume
+  //   const amount0Abs = Math.abs(amount0Exact);
+  //   const amount1Abs = Math.abs(amount1Exact);
+
+  //   // Use optimized pricing strategy - returns USD prices directly
+  //   const [token0inUSD, token1inUSD] = await getOptimizedTokenPrices(
+  //     log.address,
+  //     token0,
+  //     token1,
+  //     block,
+  //     this.env.coingeckoApiKey,
+  //     { ...ctx, block },
+  //   );
+
+  //   // Direct USD calculation - no need to convert through ETH
+  //   const swappedAmountUSD = amount0Abs * token0inUSD + amount1Abs * token1inUSD;
+
+  //   const transactionSchema = {
+  //     eventType: MessageType.TRANSACTION,
+  //     eventName: 'Swap',
+  //     tokens: JSON.stringify([]),
+  //     rawAmount: (amount0Abs + amount1Abs).toString(),
+  //     displayAmount: swappedAmountUSD,
+  //     unixTimestampMs: block.timestamp,
+  //     txHash: hash,
+  //     logIndex: log.logIndex,
+  //     blockNumber: block.height,
+  //     blockHash: block.hash,
+  //     userId: sender,
+  //     currency: Currency.USD,
+  //     valueUsd: swappedAmountUSD,
+  //     gasUsed: Number(gasUsed),
+  //     gasFeeUsd: Number(gasPrice) * Number(gasUsed),
+  //   };
+
+  //   protocolState.transactions.push(transactionSchema);
+  // }
 
   private async processTokenTradeEvent(
     ctx: any,
     block: any,
     log: any,
-    protocolState: ProtocolState,
+    protocolState: PrintrProtocolState,
   ): Promise<void> {
     const { token, trader, amount, isBuy, cost, effectivePrice, mintedSupply, reserve } =
       printrAbi.events.TokenTrade.decode(log);
@@ -204,7 +258,7 @@ export class PrintrProcessor {
     ctx: any,
     block: any,
     log: any,
-    protocolState: ProtocolState,
+    protocolState: PrintrProtocolState,
   ): Promise<void> {
     const { token, creator } = printrAbi.events.CurveCreated.decode(log);
     const { gasPrice, gasUsed } = log.transaction;
@@ -246,7 +300,21 @@ export class PrintrProcessor {
     protocolState.transactions.push(transactionSchema);
   }
 
-  private async finalizeBatch(ctx: any, protocolStates: Map<string, ProtocolState>): Promise<void> {
+  // private async processGraduatedPoolCreatedEvent(
+  //   ctx: any,
+  //   block: any,
+  //   log: any,
+  //   protocolState: PrintrProtocolState,
+  // ): Promise<void> {
+  //   const { pool } = printrAbi.events.GraduatedPoolCreated.decode(log);
+  // todo: initialize the respective tokens over here
+  //   protocolState.activePools.push(pool.toLocaleLowerCase());
+  // }
+
+  private async finalizeBatch(
+    ctx: any,
+    protocolStates: Map<string, PrintrProtocolState>,
+  ): Promise<void> {
     const contractAddress = this.bondingCurveProtocol.contractAddress;
     const protocolState = protocolStates.get(contractAddress)!;
     const transactions = toTransaction(

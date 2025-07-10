@@ -9,6 +9,7 @@ import {
   Transaction as _Transaction,
 } from '@subsquid/evm-processor';
 import * as printrAbi from './abi/printr';
+import * as poolAbi from './abi/pool';
 import { BondingCurveProtocol, validateEnv } from '@absinthe/common';
 
 const env = validateEnv();
@@ -34,6 +35,11 @@ export const processor = new EvmBatchProcessor()
   .addLog({
     address: [printrBondingCurveProtocol.contractAddress],
     topic0: [printrAbi.events.CurveCreated.topic, printrAbi.events.TokenTrade.topic],
+    transaction: true,
+  })
+
+  .addLog({
+    topic0: [poolAbi.events.Swap.topic],
     transaction: true,
   })
   .setFields({
