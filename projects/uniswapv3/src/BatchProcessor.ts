@@ -138,20 +138,11 @@ export class UniswapV3Processor {
     protocolStates: Map<string, ProtocolStateUniswapV3>,
     positionStorageService: PositionStorageService,
   ): Promise<void> {
-    console.log(
-      `🔄 Starting balance flush for block ${block.header.height} (${block.header.timestamp})`,
-    );
-    console.log(`📊 Protocol states count: ${protocolStates.size}`);
-
     for (const [contractAddress, protocolState] of protocolStates.entries()) {
-      console.log(`🏊 Processing pool: ${contractAddress}`);
-
       const positionsByPoolId =
         await positionStorageService.getAllPositionsByPoolId(contractAddress);
-      console.log(`📍 Found ${positionsByPoolId.length} positions for pool ${contractAddress}`);
 
       if (positionsByPoolId.length === 0) {
-        console.log(`⚠️ No positions found for pool ${contractAddress}, skipping`);
         continue;
       }
 
@@ -159,12 +150,6 @@ export class UniswapV3Processor {
       let exhaustedPositions = 0;
 
       for (const position of positionsByPoolId) {
-        console.log(`🎯 Processing position ${position.positionId} (owner: ${position.owner})`);
-        console.log(`   - Liquidity: ${position.liquidity}`);
-        console.log(`   - IsActive: ${position.isActive}`);
-        console.log(`   - LastUpdatedBlockTs: ${position.lastUpdatedBlockTs}`);
-        console.log(`   - LastUpdatedBlockHeight: ${position.lastUpdatedBlockHeight}`);
-
         const beforeBalanceWindows = protocolState.balanceWindows.length;
 
         await this.processPositionExhaustion(
@@ -179,22 +164,11 @@ export class UniswapV3Processor {
 
         if (windowsCreated > 0) {
           exhaustedPositions++;
-          console.log(
-            `✅ Position ${position.positionId} exhausted: ${windowsCreated} balance windows created`,
-          );
-        } else {
-          console.log(`⏭️ Position ${position.positionId} no exhaustion needed`);
         }
 
         processedPositions++;
       }
-
-      console.log(
-        `📈 Pool ${contractAddress} summary: ${processedPositions} processed, ${exhaustedPositions} exhausted`,
-      );
     }
-
-    console.log(`🎉 Balance flush completed for block ${block.header.height}`);
   }
 
   private async processPositionExhaustion(
