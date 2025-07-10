@@ -64,7 +64,6 @@ export class UniswapV3Processor {
     const poolAddresses = this.uniswapV3DexProtocol.pools.map((pool: any) =>
       pool.contractAddress.toLowerCase(),
     );
-    console.log('poolAddresses', poolAddresses);
     for (const poolAddress of poolAddresses) {
       protocolStates.set(poolAddress, {
         balanceWindows: [],
@@ -92,7 +91,6 @@ export class UniswapV3Processor {
         await processFactory(entitiesCtx, ctx.blocks, positionStorageService);
 
         for (const block of ctx.blocks) {
-          console.log('processing block', block.header.height);
           await this.processBlock(
             entitiesCtx,
             block,
@@ -180,26 +178,13 @@ export class UniswapV3Processor {
     const currentTs = block.header.timestamp;
     const currentBlockHeight = block.header.height;
 
-    console.log(`🔍 Exhaustion check for position ${position.positionId}:`);
-    console.log(`   - Current timestamp: ${currentTs}`);
-    console.log(`   - Current block height: ${currentBlockHeight}`);
-    console.log(`   - Last updated timestamp: ${position.lastUpdatedBlockTs}`);
-    console.log(`   - Refresh window: ${this.refreshWindow}ms`);
-
     if (!position.lastUpdatedBlockTs) {
-      console.log(
-        `⚠️ Position ${position.positionId} has no lastUpdatedBlockTs, skipping exhaustion`,
-      );
       return;
     }
 
     const timeSinceLastUpdate = Number(currentTs) - Number(position.lastUpdatedBlockTs);
-    console.log(`⏰ Time since last update: ${timeSinceLastUpdate}ms`);
 
     if (timeSinceLastUpdate < this.refreshWindow) {
-      console.log(
-        `⏭️ Position ${position.positionId} doesn't need exhaustion (${timeSinceLastUpdate}ms < ${this.refreshWindow}ms)`,
-      );
       return;
     }
 
@@ -214,16 +199,7 @@ export class UniswapV3Processor {
       );
       const nextBoundaryTs: number = (windowsSinceEpoch + 1) * this.refreshWindow;
 
-      console.log(
-        `🔄 Exhaustion iteration ${exhaustionCount + 1} for position ${position.positionId}:`,
-      );
-      console.log(`   - Windows since epoch: ${windowsSinceEpoch}`);
-      console.log(`   - Next boundary timestamp: ${nextBoundaryTs}`);
-      console.log(`   - Time window: ${position.lastUpdatedBlockTs} → ${nextBoundaryTs}`);
-
       if (position.isActive === 'true' && BigInt(position.liquidity) > 0n) {
-        console.log(`✅ Creating balance window for active position ${position.positionId}`);
-
         const balanceWindow = {
           userAddress: position.owner,
           deltaAmount: 0,
@@ -243,11 +219,6 @@ export class UniswapV3Processor {
         };
 
         protocolState.balanceWindows.push(balanceWindow);
-        console.log(`📊 Balance window created: ${JSON.stringify(balanceWindow, null, 2)}`);
-      } else {
-        console.log(
-          `⏭️ Skipping balance window for position ${position.positionId} (inactive or zero liquidity)`,
-        );
       }
 
       const oldTimestamp = position.lastUpdatedBlockTs;
@@ -256,22 +227,12 @@ export class UniswapV3Processor {
       position.lastUpdatedBlockTs = nextBoundaryTs;
       position.lastUpdatedBlockHeight = block.height;
 
-      console.log(`🔄 Updated position ${position.positionId}:`);
-      console.log(`   - Timestamp: ${oldTimestamp} → ${position.lastUpdatedBlockTs}`);
-      console.log(`   - Block height: ${oldBlockHeight} → ${position.lastUpdatedBlockHeight}`);
-
       await positionStorageService.updatePosition(position);
-      console.log(`💾 Position ${position.positionId} updated in storage`);
 
       exhaustionCount++;
     }
 
     if (exhaustionCount > 0) {
-      console.log(
-        `🎉 Position ${position.positionId} exhaustion completed: ${exhaustionCount} iterations`,
-      );
-    } else {
-      console.log(`⏭️ Position ${position.positionId} no exhaustion iterations needed`);
     }
   }
 
@@ -281,7 +242,6 @@ export class UniswapV3Processor {
   ): Promise<void> {
     for (const pool of this.uniswapV3DexProtocol.pools) {
       const protocolState = protocolStates.get(pool.contractAddress);
-      console.log(protocolState, 'protocolState');
       if (!protocolState) continue;
       const balances = toTimeWeightedBalance(
         protocolState.balanceWindows,
