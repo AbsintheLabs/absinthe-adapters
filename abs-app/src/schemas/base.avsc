@@ -81,32 +81,32 @@
         ]
       }
     },
- {
-  "name": "protocolMetadata",
-  "type": {
-    "type": "map",
-    "values": {
-      "type": "record",
-      "name": "ProtocolMetadataValue",
-      "fields": [
-        {
-          "name": "value",
-          "type": "string",
-          "doc": "String-encoded value (even for numbers, addresses, bigints)"
-        },
-        {
-          "name": "type",
-          "type": {
-            "type": "enum",
-            "name": "MetadataValueType",
-            "symbols": ["bigint", "number", "address", "string"]
-          }
+    {
+      "name": "protocolMetadata",
+      "type": {
+        "type": "map",
+        "values": {
+          "type": "record",
+          "name": "ProtocolMetadataValue",
+          "fields": [
+            {
+              "name": "value",
+              "type": "string",
+              "doc": "String-encoded value (even for numbers, addresses, bigints)"
+            },
+            {
+              "name": "type",
+              "type": {
+                "type": "enum",
+                "name": "MetadataValueType",
+                "symbols": ["bigint", "number", "address", "string"]
+              }
+            }
+          ]
         }
-      ]
-    }
-  },
-  "default": {}
-}
+      },
+      "default": {}
+    },
 
     {
       "name": "currency",
