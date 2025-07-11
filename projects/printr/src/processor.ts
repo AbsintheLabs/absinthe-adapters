@@ -34,7 +34,11 @@ export const processor = new EvmBatchProcessor()
   .setFinalityConfirmation(75)
   .addLog({
     address: [printrBondingCurveProtocol.contractAddress],
-    topic0: [printrAbi.events.CurveCreated.topic, printrAbi.events.TokenTrade.topic],
+    topic0: [
+      printrAbi.events.CurveCreated.topic,
+      printrAbi.events.TokenTrade.topic,
+      printrAbi.events.LiquidityDeployed.topic,
+    ],
     transaction: true,
   })
 

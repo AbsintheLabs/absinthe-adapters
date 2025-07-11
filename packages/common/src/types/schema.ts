@@ -44,6 +44,10 @@ const bondingCurveProtocolSchema = z.object({
   contractAddress: z
     .string()
     .regex(/^0x[a-fA-F0-9]{40}$/, 'Contract address must be a valid Ethereum address'),
+  factoryAddress: z
+    .string()
+    .regex(/^0x[a-fA-F0-9]{40}$/, 'Factory address must be a valid Ethereum address')
+    .optional(),
   chainId: z.number(),
   toBlock: z.number(),
   fromBlock: z.number(),

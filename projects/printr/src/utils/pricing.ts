@@ -1,15 +1,32 @@
+import { fetchHistoricalUsd, Multicall } from '@absinthe/common';
+import { Store } from '@subsquid/typeorm-store';
 import { BlockHeader } from '@subsquid/evm-processor';
 import {
   MULTICALL_ADDRESS,
   MULTICALL_PAGE_SIZE,
   WHITELIST_TOKENS,
   WHITELIST_TOKENS_WITH_COINGECKO_ID,
-} from './constants';
+} from '@absinthe/common';
 import * as poolAbi from '../abi/pool';
-import { Multicall } from './multicall';
-import { fetchHistoricalUsd } from '@absinthe/common';
-import { BlockHandlerContext } from './interfaces/interfaces';
-import { Store } from '@subsquid/typeorm-store';
+import { Logger } from '@subsquid/logger';
+
+import { Chain } from '@subsquid/evm-processor/src/interfaces/chain';
+export interface BlockHandlerContext<S> {
+  /**
+   * Not yet public description of chain metadata
+   * @internal
+   */
+  _chain: Chain;
+
+  /**
+   * A built-in logger to be used in mapping handlers. Supports trace, debug, warn, error, fatal
+   * levels.
+   */
+  log: Logger;
+
+  store: S;
+  block: BlockHeader;
+}
 
 export function sqrtPriceX96ToTokenPrices(
   sqrtPriceX96: bigint,
@@ -63,42 +80,6 @@ export function sqrtPriceX96ToTokenPrices(
 
     return [0, 0];
   }
-}
-
-/**
- * Accepts tokens and amounts, return tracked amount based on token whitelist
- * If one token on whitelist, return amount in that token converted to USD * 2.
- * If both are, return sum of two amounts
- * If neither is, return 0
- */
-export function getTrackedAmountUSD(
-  token0: string,
-  amount0USD: number,
-  token1: string,
-  amount1USD: number,
-): number {
-  // Convert addresses to lowercase for comparison
-  const t0 = token0.toLowerCase();
-  const t1 = token1.toLowerCase();
-  const whitelist = WHITELIST_TOKENS.map((t) => t.toLowerCase());
-
-  // both are whitelist tokens, return sum of both amounts
-  if (whitelist.includes(t0) && whitelist.includes(t1)) {
-    return (amount0USD + amount1USD) / 2;
-  }
-
-  // take value of the whitelisted token amount
-  if (whitelist.includes(t0) && !whitelist.includes(t1)) {
-    return amount0USD;
-  }
-
-  // take value of the whitelisted token amount
-  if (!whitelist.includes(t0) && whitelist.includes(t1)) {
-    return amount1USD;
-  }
-
-  // neither token is on white list, tracked amount is 0
-  return 0;
 }
 
 export async function getOptimizedTokenPrices(

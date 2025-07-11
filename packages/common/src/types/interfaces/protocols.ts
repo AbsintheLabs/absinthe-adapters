@@ -50,6 +50,7 @@ interface BondingCurveProtocolConfig {
   type: BondingCurveProtocol;
   name: string;
   contractAddress: string;
+  factoryAddress?: string;
   toBlock: number;
   fromBlock: number;
 }

@@ -1,4 +1,3 @@
-export const CHAIN_NODE = 'ws://node';
 export const WETH_ADDRESS = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2';
 export const USDC_WETH_03_POOL = '0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8';
 export const FACTORY_ADDRESS = '0x1f98431c8ad98523631ae4a59f267346ea31f984';

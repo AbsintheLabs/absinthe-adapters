@@ -1,6 +1,10 @@
 import { RateLimiterMemory } from 'rate-limiter-flexible';
 import { RateLimiters } from '../types';
-import { validApiKeys } from '../config';
+import { redisService } from './redis';
+import { logToFile } from '../utils/logger';
+
+const POINTS = 10;
+const DURATION = 1;
 
 /**
  * Rate limiter service class
@@ -15,11 +19,12 @@ export class RateLimiterService {
   /**
    * Initialize rate limiters for each API key
    */
-  private initializeRateLimiters(): void {
-    Object.entries(validApiKeys).forEach(([key, limit]) => {
-      this.rateLimiters[key] = new RateLimiterMemory({
-        points: limit.points,
-        duration: limit.duration,
+  private async initializeRateLimiters(): Promise<void> {
+    const keys = await redisService.getAllKeys();
+    keys.forEach((key: string) => {
+      this.rateLimiters[`api_key:${key}`] = new RateLimiterMemory({
+        points: POINTS,
+        duration: DURATION,
       });
     });
   }
@@ -27,36 +32,54 @@ export class RateLimiterService {
   /**
    * Check if API key is valid
    */
-  public isValidApiKey(apiKey: string): boolean {
-    // todo: add proper auth service
-    return apiKey in validApiKeys;
+  public async isValidApiKey(apiKey: string): Promise<boolean> {
+    const keys = await redisService.getAllKeys();
+    if (keys.includes(`api_key:${apiKey}`) && !this.rateLimiters[`api_key:${apiKey}`]) {
+      this.rateLimiters[`api_key:${apiKey}`] = new RateLimiterMemory({
+        points: POINTS,
+        duration: DURATION,
+      });
+      logToFile(`Added new rate limiter for API key: ${apiKey}`);
+      return true;
+    }
+    if (keys.includes(`api_key:${apiKey}`) && this.rateLimiters[`api_key:${apiKey}`]) {
+      logToFile(`API key valid and rate limiter exists: ${apiKey}`);
+      return true;
+    }
+    logToFile(`Invalid API key attempted: ${apiKey}`);
+    return false;
   }
 
   /**
    * Consume a point for the given API key
    */
   public async consumePoint(apiKey: string): Promise<void> {
-    if (!this.rateLimiters[apiKey]) {
+    if (!this.rateLimiters[`api_key:${apiKey}`]) {
+      logToFile(`Tried to consume point for invalid API key: ${apiKey}`);
       throw new Error('Invalid API key');
     }
-    await this.rateLimiters[apiKey].consume(apiKey);
+    await this.rateLimiters[`api_key:${apiKey}`].consume(apiKey);
+    logToFile(`Consumed point for API key: ${apiKey}`);
   }
 
   /**
    * Get remaining points for an API key
    */
   public async getRemainingPoints(apiKey: string): Promise<number | null> {
-    if (!this.rateLimiters[apiKey]) {
+    if (!this.rateLimiters[`api_key:${apiKey}`]) {
+      logToFile(`Tried to get remaining points for invalid API key: ${apiKey}`);
       return null;
     }
 
     try {
-      const result = await this.rateLimiters[apiKey].get(apiKey);
+      const result = await this.rateLimiters[`api_key:${apiKey}`].get(apiKey);
       if (result) {
-        return validApiKeys[apiKey].points - result.consumedPoints;
+        const remaining = this.rateLimiters[`api_key:${apiKey}`].points - result.consumedPoints;
+        logToFile(`Remaining points for API key ${apiKey}: ${remaining}`);
+        return remaining;
       }
     } catch (e) {
-      console.error('Error getting remaining points', e);
+      logToFile(`Error getting remaining points for API key ${apiKey}: ${e}`);
       // If get fails, ignore and return null
     }
     return null;

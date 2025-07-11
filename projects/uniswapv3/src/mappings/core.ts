@@ -129,16 +129,7 @@ async function processSwapData(
   const transactionSchema = {
     eventType: MessageType.TRANSACTION,
     eventName: 'Swap',
-    // tokens: {
-    //   gasFee: {
-    //     value: gasFee.toString(),
-    //     type: 'string',
-    //   },
-    //   ethPriceUsd: {
-    //     value: ethPriceUsd.toString(),
-    //     type: 'string',
-    //   },
-    // },
+
     tokens: {
       token0Decimals: {
         value: token0!.decimals.toString(),

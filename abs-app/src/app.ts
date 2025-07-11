@@ -1,6 +1,7 @@
 import express from 'express';
 import { apiKeyMiddleware } from './middleware/apiKey';
 import { logRequestHandler, healthCheckHandler } from './routes/api';
+import { redisService } from './services/redis';
 
 /**
  * Create and configure Express application
@@ -15,3 +16,13 @@ export const createApp = (): express.Application => {
 
   return app;
 };
+
+process.on('SIGINT', async () => {
+  await redisService.disconnect();
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  await redisService.disconnect();
+  process.exit(0);
+});

@@ -17,10 +17,3 @@ export const config = {
     twbSchema: process.env.KAFKA_TWB_SUBJECT as string,
   },
 };
-
-//todo: add proper auth service
-// API keys configuration (in a real app, store these securely)
-export const validApiKeys: ApiKeys = {
-  api_key_1: { points: 10, duration: 1 }, // 10 requests per second
-  api_key_2: { points: 10, duration: 10000000000000 }, // 10 requests per second
-};

@@ -7,6 +7,9 @@
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules"],
+  "paths": {
+    "@absinthe/common/*": ["./lib/*"]
+  },
   "references": [
     {
       "path": "../../packages/common"

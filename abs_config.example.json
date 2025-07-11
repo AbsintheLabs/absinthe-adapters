@@ -66,6 +66,7 @@
       "type": "printr",
       "name": "printr-base",
       "contractAddress": "0xbdc9a5b600e9a10609b0613b860b660342a6d4c0",
+      "factoryAddress": "0x33128a8fc17869897dce68ed026d694621f6fdfd",
       "chainId": 8453,
       "toBlock": 0,
       "fromBlock": 30000000
