@@ -214,8 +214,8 @@ export class ZebuNewProcessor {
           type: 'string',
         },
         winner: {
-          value: false,
-          type: 'string',
+          value: 'false',
+          type: 'boolean',
         },
       },
       rawAmount: bidamount.toString(),
@@ -271,8 +271,8 @@ export class ZebuNewProcessor {
           type: 'string',
         },
         winner: {
-          value: true,
-          type: 'string',
+          value: 'true',
+          type: 'boolean',
         },
       },
       rawAmount: '0',
