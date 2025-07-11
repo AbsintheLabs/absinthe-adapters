@@ -99,7 +99,7 @@
               "type": {
                 "type": "enum",
                 "name": "MetadataValueType",
-                "symbols": ["bigint", "number", "address", "string"]
+                "symbols": ["bigint", "number", "address", "string", "boolean"]
               }
             }
           ]
@@ -107,7 +107,6 @@
       },
       "default": {}
     },
-
     {
       "name": "currency",
       "type": {
