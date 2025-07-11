@@ -37,7 +37,7 @@ interface ProtocolState {
 interface BatchContext {
   ctx: any;
   block: any;
-  protocolStates: Map<string, any>; // todo: remove any
+  protocolStates: Map<string, any>;
 }
 
 interface ProcessValueChangeParams {

@@ -27,18 +27,6 @@ export class PositionStorageService {
     }
   }
 
-  // async storePoolMetadata(poolId: string, poolMetadata: PoolMetadata): Promise<void> {
-  //   const poolMetadataKey = `poolMetadata:${poolId}`;
-  //   await this.redis.set(poolMetadataKey, JSON.stringify(poolMetadata));
-  // }
-
-  // async getPoolMetadata(poolId: string): Promise<PoolMetadata | null> {
-  //   const poolMetadataKey = `poolMetadata:${poolId}`;
-  //   const data = await this.redis.get(poolMetadataKey);
-  //   if (!data) return null;
-  //   return JSON.parse(data);
-  // }
-
   async storeToken(token: Token): Promise<void> {
     const tokenKey = `token:${token.id}`;
     await this.redis.hSet(tokenKey, {

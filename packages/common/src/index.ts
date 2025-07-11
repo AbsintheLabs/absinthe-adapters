@@ -5,6 +5,7 @@ export * from './types/enums';
 export * from './utils/validateEnv';
 export * from './utils/consts';
 export * from './utils/helper/helper';
+export * from './utils/multicall';
 export { fetchWithRetry } from './utils/helper/fetchWithRetry';
 // Export services
 export { AbsintheApiClient } from './services/ApiClientService';

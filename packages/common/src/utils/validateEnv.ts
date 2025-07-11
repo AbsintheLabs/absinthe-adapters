@@ -122,6 +122,7 @@ export function validateEnv(): ValidatedEnv {
           fromBlock: bondingCurveProtocol.fromBlock,
           name: bondingCurveProtocol.name,
           contractAddress: bondingCurveProtocol.contractAddress,
+          factoryAddress: bondingCurveProtocol.factoryAddress,
           chainArch: chainArch,
           chainId: chainId,
           gatewayUrl: gatewayUrl,

@@ -1,0 +1,1635 @@
+{
+    "abi": [
+        {
+            "type": "function",
+            "name": "broadcastInterchainTransfer",
+            "inputs": [
+                {
+                    "name": "tokenId",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                },
+                {
+                    "name": "sourceAddress",
+                    "type": "address",
+                    "internalType": "address"
+                },
+                {
+                    "name": "destinationChain",
+                    "type": "string",
+                    "internalType": "string"
+                },
+                {
+                    "name": "destinationAddress",
+                    "type": "bytes",
+                    "internalType": "bytes"
+                },
+                {
+                    "name": "amount",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                }
+            ],
+            "outputs": [],
+            "stateMutability": "nonpayable"
+        },
+        {
+            "type": "function",
+            "name": "currentChainHash",
+            "inputs": [],
+            "outputs": [
+                {
+                    "name": "",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                }
+            ],
+            "stateMutability": "view"
+        },
+        {
+            "type": "function",
+            "name": "getCurve",
+            "inputs": [
+                {
+                    "name": "token",
+                    "type": "address",
+                    "internalType": "address"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "",
+                    "type": "tuple",
+                    "internalType": "struct IPrintrStorage.CurveInfo",
+                    "components": [
+                        {
+                            "name": "basePair",
+                            "type": "address",
+                            "internalType": "address"
+                        },
+                        {
+                            "name": "totalCurves",
+                            "type": "uint16",
+                            "internalType": "uint16"
+                        },
+                        {
+                            "name": "maxTokenSupply",
+                            "type": "uint256",
+                            "internalType": "uint256"
+                        },
+                        {
+                            "name": "virtualReserve",
+                            "type": "uint256",
+                            "internalType": "uint256"
+                        },
+                        {
+                            "name": "reserve",
+                            "type": "uint256",
+                            "internalType": "uint256"
+                        },
+                        {
+                            "name": "completionThreshold",
+                            "type": "uint256",
+                            "internalType": "uint256"
+                        }
+                    ]
+                }
+            ],
+            "stateMutability": "view"
+        },
+        {
+            "type": "function",
+            "name": "getInterchainTokenId",
+            "inputs": [
+                {
+                    "name": "tokenParams",
+                    "type": "tuple",
+                    "internalType": "struct IPrintrStorage.TokenParams",
+                    "components": [
+                        {
+                            "name": "salt",
+                            "type": "bytes32",
+                            "internalType": "bytes32"
+                        },
+                        {
+                            "name": "creatorAddresses",
+                            "type": "bytes",
+                            "internalType": "bytes"
+                        },
+                        {
+                            "name": "name",
+                            "type": "bytes32",
+                            "internalType": "bytes32"
+                        },
+                        {
+                            "name": "symbol",
+                            "type": "bytes32",
+                            "internalType": "bytes32"
+                        },
+                        {
+                            "name": "packedParams",
+                            "type": "bytes32",
+                            "internalType": "bytes32"
+                        },
+                        {
+                            "name": "chains",
+                            "type": "bytes32[]",
+                            "internalType": "bytes32[]"
+                        },
+                        {
+                            "name": "basePairs",
+                            "type": "bytes32[]",
+                            "internalType": "bytes32[]"
+                        },
+                        {
+                            "name": "basePrices",
+                            "type": "bytes",
+                            "internalType": "bytes"
+                        }
+                    ]
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "tokenId",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                }
+            ],
+            "stateMutability": "view"
+        },
+        {
+            "type": "function",
+            "name": "getLiquidityLocks",
+            "inputs": [
+                {
+                    "name": "token",
+                    "type": "address",
+                    "internalType": "address"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "",
+                    "type": "uint256[2]",
+                    "internalType": "uint256[2]"
+                }
+            ],
+            "stateMutability": "view"
+        },
+        {
+            "type": "function",
+            "name": "getProtocolFees",
+            "inputs": [
+                {
+                    "name": "token",
+                    "type": "address",
+                    "internalType": "address"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                }
+            ],
+            "stateMutability": "view"
+        },
+        {
+            "type": "function",
+            "name": "getTokenAddress",
+            "inputs": [
+                {
+                    "name": "tokenParams",
+                    "type": "tuple",
+                    "internalType": "struct IPrintrStorage.TokenParams",
+                    "components": [
+                        {
+                            "name": "salt",
+                            "type": "bytes32",
+                            "internalType": "bytes32"
+                        },
+                        {
+                            "name": "creatorAddresses",
+                            "type": "bytes",
+                            "internalType": "bytes"
+                        },
+                        {
+                            "name": "name",
+                            "type": "bytes32",
+                            "internalType": "bytes32"
+                        },
+                        {
+                            "name": "symbol",
+                            "type": "bytes32",
+                            "internalType": "bytes32"
+                        },
+                        {
+                            "name": "packedParams",
+                            "type": "bytes32",
+                            "internalType": "bytes32"
+                        },
+                        {
+                            "name": "chains",
+                            "type": "bytes32[]",
+                            "internalType": "bytes32[]"
+                        },
+                        {
+                            "name": "basePairs",
+                            "type": "bytes32[]",
+                            "internalType": "bytes32[]"
+                        },
+                        {
+                            "name": "basePrices",
+                            "type": "bytes",
+                            "internalType": "bytes"
+                        }
+                    ]
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "tokenAddress",
+                    "type": "address",
+                    "internalType": "address"
+                }
+            ],
+            "stateMutability": "view"
+        },
+        {
+            "type": "function",
+            "name": "getTradingFee",
+            "inputs": [],
+            "outputs": [
+                {
+                    "name": "",
+                    "type": "uint16",
+                    "internalType": "uint16"
+                }
+            ],
+            "stateMutability": "view"
+        },
+        {
+            "type": "function",
+            "name": "getTreasury",
+            "inputs": [],
+            "outputs": [
+                {
+                    "name": "",
+                    "type": "address",
+                    "internalType": "address"
+                }
+            ],
+            "stateMutability": "view"
+        },
+        {
+            "type": "function",
+            "name": "its",
+            "inputs": [],
+            "outputs": [
+                {
+                    "name": "",
+                    "type": "address",
+                    "internalType": "address"
+                }
+            ],
+            "stateMutability": "view"
+        },
+        {
+            "type": "function",
+            "name": "itsFactory",
+            "inputs": [],
+            "outputs": [
+                {
+                    "name": "",
+                    "type": "address",
+                    "internalType": "address"
+                }
+            ],
+            "stateMutability": "view"
+        },
+        {
+            "type": "function",
+            "name": "linkEvmInterchainToken",
+            "inputs": [
+                {
+                    "name": "tokenParams",
+                    "type": "tuple",
+                    "internalType": "struct IPrintrStorage.TokenParams",
+                    "components": [
+                        {
+                            "name": "salt",
+                            "type": "bytes32",
+                            "internalType": "bytes32"
+                        },
+                        {
+                            "name": "creatorAddresses",
+                            "type": "bytes",
+                            "internalType": "bytes"
+                        },
+                        {
+                            "name": "name",
+                            "type": "bytes32",
+                            "internalType": "bytes32"
+                        },
+                        {
+                            "name": "symbol",
+                            "type": "bytes32",
+                            "internalType": "bytes32"
+                        },
+                        {
+                            "name": "packedParams",
+                            "type": "bytes32",
+                            "internalType": "bytes32"
+                        },
+                        {
+                            "name": "chains",
+                            "type": "bytes32[]",
+                            "internalType": "bytes32[]"
+                        },
+                        {
+                            "name": "basePairs",
+                            "type": "bytes32[]",
+                            "internalType": "bytes32[]"
+                        },
+                        {
+                            "name": "basePrices",
+                            "type": "bytes",
+                            "internalType": "bytes"
+                        }
+                    ]
+                },
+                {
+                    "name": "destinationChain",
+                    "type": "string",
+                    "internalType": "string"
+                }
+            ],
+            "outputs": [],
+            "stateMutability": "payable"
+        },
+        {
+            "type": "function",
+            "name": "liquidityModule",
+            "inputs": [],
+            "outputs": [
+                {
+                    "name": "",
+                    "type": "address",
+                    "internalType": "address"
+                }
+            ],
+            "stateMutability": "view"
+        },
+        {
+            "type": "function",
+            "name": "locker",
+            "inputs": [],
+            "outputs": [
+                {
+                    "name": "",
+                    "type": "address",
+                    "internalType": "address"
+                }
+            ],
+            "stateMutability": "view"
+        },
+        {
+            "type": "function",
+            "name": "pause",
+            "inputs": [],
+            "outputs": [],
+            "stateMutability": "nonpayable"
+        },
+        {
+            "type": "function",
+            "name": "registerInterchainToken",
+            "inputs": [
+                {
+                    "name": "tokenParams",
+                    "type": "tuple",
+                    "internalType": "struct IPrintrStorage.TokenParams",
+                    "components": [
+                        {
+                            "name": "salt",
+                            "type": "bytes32",
+                            "internalType": "bytes32"
+                        },
+                        {
+                            "name": "creatorAddresses",
+                            "type": "bytes",
+                            "internalType": "bytes"
+                        },
+                        {
+                            "name": "name",
+                            "type": "bytes32",
+                            "internalType": "bytes32"
+                        },
+                        {
+                            "name": "symbol",
+                            "type": "bytes32",
+                            "internalType": "bytes32"
+                        },
+                        {
+                            "name": "packedParams",
+                            "type": "bytes32",
+                            "internalType": "bytes32"
+                        },
+                        {
+                            "name": "chains",
+                            "type": "bytes32[]",
+                            "internalType": "bytes32[]"
+                        },
+                        {
+                            "name": "basePairs",
+                            "type": "bytes32[]",
+                            "internalType": "bytes32[]"
+                        },
+                        {
+                            "name": "basePrices",
+                            "type": "bytes",
+                            "internalType": "bytes"
+                        }
+                    ]
+                }
+            ],
+            "outputs": [],
+            "stateMutability": "payable"
+        },
+        {
+            "type": "function",
+            "name": "setTradingFee",
+            "inputs": [
+                {
+                    "name": "fee",
+                    "type": "uint16",
+                    "internalType": "uint16"
+                }
+            ],
+            "outputs": [],
+            "stateMutability": "nonpayable"
+        },
+        {
+            "type": "function",
+            "name": "tokenFactory",
+            "inputs": [],
+            "outputs": [
+                {
+                    "name": "",
+                    "type": "address",
+                    "internalType": "address"
+                }
+            ],
+            "stateMutability": "view"
+        },
+        {
+            "type": "function",
+            "name": "unpause",
+            "inputs": [],
+            "outputs": [],
+            "stateMutability": "nonpayable"
+        },
+        {
+            "type": "function",
+            "name": "wrappedNativeToken",
+            "inputs": [],
+            "outputs": [
+                {
+                    "name": "",
+                    "type": "address",
+                    "internalType": "address"
+                }
+            ],
+            "stateMutability": "view"
+        },
+        {
+            "type": "event",
+            "name": "InterchainTransfer",
+            "inputs": [
+                {
+                    "name": "tokenId",
+                    "type": "bytes32",
+                    "indexed": true,
+                    "internalType": "bytes32"
+                },
+                {
+                    "name": "tokenAddress",
+                    "type": "address",
+                    "indexed": true,
+                    "internalType": "address"
+                },
+                {
+                    "name": "sourceAddress",
+                    "type": "address",
+                    "indexed": true,
+                    "internalType": "address"
+                },
+                {
+                    "name": "destinationChain",
+                    "type": "string",
+                    "indexed": false,
+                    "internalType": "string"
+                },
+                {
+                    "name": "destinationAddress",
+                    "type": "bytes",
+                    "indexed": false,
+                    "internalType": "bytes"
+                },
+                {
+                    "name": "amount",
+                    "type": "uint256",
+                    "indexed": false,
+                    "internalType": "uint256"
+                }
+            ],
+            "anonymous": false
+        },
+        {
+            "type": "event",
+            "name": "TradingFeeUpdated",
+            "inputs": [
+                {
+                    "name": "fee",
+                    "type": "uint16",
+                    "indexed": false,
+                    "internalType": "uint16"
+                }
+            ],
+            "anonymous": false
+        },
+        {
+            "type": "error",
+            "name": "CurveNotFound",
+            "inputs": []
+        },
+        {
+            "type": "error",
+            "name": "ExceedsMintedSupply",
+            "inputs": []
+        },
+        {
+            "type": "error",
+            "name": "FeeIsTooHigh",
+            "inputs": [
+                {
+                    "name": "fee",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                }
+            ]
+        },
+        {
+            "type": "error",
+            "name": "FeePercentagesMustSum",
+            "inputs": []
+        },
+        {
+            "type": "error",
+            "name": "InsufficientPayment",
+            "inputs": []
+        },
+        {
+            "type": "error",
+            "name": "InvalidBasePairs",
+            "inputs": []
+        },
+        {
+            "type": "error",
+            "name": "InvalidBasePrices",
+            "inputs": []
+        },
+        {
+            "type": "error",
+            "name": "InvalidCreatorAddress",
+            "inputs": []
+        },
+        {
+            "type": "error",
+            "name": "InvalidImplementation",
+            "inputs": []
+        },
+        {
+            "type": "error",
+            "name": "InvalidInitialPrice",
+            "inputs": []
+        },
+        {
+            "type": "error",
+            "name": "InvalidLength",
+            "inputs": []
+        },
+        {
+            "type": "error",
+            "name": "InvalidSignature",
+            "inputs": []
+        },
+        {
+            "type": "error",
+            "name": "LiquidityAlreadyDeployed",
+            "inputs": []
+        },
+        {
+            "type": "error",
+            "name": "LiquidityDeploymentFailed",
+            "inputs": []
+        },
+        {
+            "type": "error",
+            "name": "PoolCreationFailed",
+            "inputs": []
+        },
+        {
+            "type": "error",
+            "name": "PriceSlippage",
+            "inputs": []
+        },
+        {
+            "type": "error",
+            "name": "RefundFailed",
+            "inputs": []
+        },
+        {
+            "type": "error",
+            "name": "RenounceOwnershipDisabled",
+            "inputs": []
+        },
+        {
+            "type": "error",
+            "name": "SwapFailed",
+            "inputs": []
+        },
+        {
+            "type": "error",
+            "name": "TokenIdMismatch",
+            "inputs": []
+        },
+        {
+            "type": "error",
+            "name": "TokenNotFound",
+            "inputs": []
+        },
+        {
+            "type": "error",
+            "name": "TooHighThreshold",
+            "inputs": []
+        },
+        {
+            "type": "error",
+            "name": "UsedNonce",
+            "inputs": []
+        },
+        {
+            "type": "error",
+            "name": "WrongChainName",
+            "inputs": []
+        },
+        {
+            "type": "error",
+            "name": "ZeroThreshold",
+            "inputs": []
+        }
+    ],
+    "bytecode": {
+        "object": "0x",
+        "sourceMap": "",
+        "linkReferences": {}
+    },
+    "deployedBytecode": {
+        "object": "0x",
+        "sourceMap": "",
+        "linkReferences": {}
+    },
+    "methodIdentifiers": {
+        "broadcastInterchainTransfer(bytes32,address,string,bytes,uint256)": "5b9a77e4",
+        "currentChainHash()": "3efb10ea",
+        "getCurve(address)": "61f029fb",
+        "getInterchainTokenId((bytes32,bytes,bytes32,bytes32,bytes32,bytes32[],bytes32[],bytes))": "6a4a3d54",
+        "getLiquidityLocks(address)": "0479668b",
+        "getProtocolFees(address)": "f27dd8ab",
+        "getTokenAddress((bytes32,bytes,bytes32,bytes32,bytes32,bytes32[],bytes32[],bytes))": "d4074932",
+        "getTradingFee()": "1bd8db03",
+        "getTreasury()": "3b19e84a",
+        "its()": "2224a234",
+        "itsFactory()": "1508da30",
+        "linkEvmInterchainToken((bytes32,bytes,bytes32,bytes32,bytes32,bytes32[],bytes32[],bytes),string)": "71fc68b3",
+        "liquidityModule()": "400b6cdc",
+        "locker()": "d7b96d4e",
+        "pause()": "8456cb59",
+        "registerInterchainToken((bytes32,bytes,bytes32,bytes32,bytes32,bytes32[],bytes32[],bytes))": "76a64187",
+        "setTradingFee(uint16)": "60b778f5",
+        "tokenFactory()": "e77772fe",
+        "unpause()": "3f4ba83a",
+        "wrappedNativeToken()": "17fcb39b"
+    },
+    "rawMetadata": "{\"compiler\":{\"version\":\"0.8.27+commit.40a35a09\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[],\"name\":\"CurveNotFound\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ExceedsMintedSupply\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"fee\",\"type\":\"uint256\"}],\"name\":\"FeeIsTooHigh\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"FeePercentagesMustSum\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InsufficientPayment\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidBasePairs\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidBasePrices\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidCreatorAddress\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidImplementation\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidInitialPrice\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidLength\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidSignature\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"LiquidityAlreadyDeployed\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"LiquidityDeploymentFailed\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"PoolCreationFailed\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"PriceSlippage\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RefundFailed\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RenounceOwnershipDisabled\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"SwapFailed\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TokenIdMismatch\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TokenNotFound\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TooHighThreshold\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UsedNonce\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"WrongChainName\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ZeroThreshold\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"tokenId\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"tokenAddress\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"sourceAddress\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"string\",\"name\":\"destinationChain\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"destinationAddress\",\"type\":\"bytes\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"InterchainTransfer\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint16\",\"name\":\"fee\",\"type\":\"uint16\"}],\"name\":\"TradingFeeUpdated\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"tokenId\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"sourceAddress\",\"type\":\"address\"},{\"internalType\":\"string\",\"name\":\"destinationChain\",\"type\":\"string\"},{\"internalType\":\"bytes\",\"name\":\"destinationAddress\",\"type\":\"bytes\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"broadcastInterchainTransfer\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"currentChainHash\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"}],\"name\":\"getCurve\",\"outputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"basePair\",\"type\":\"address\"},{\"internalType\":\"uint16\",\"name\":\"totalCurves\",\"type\":\"uint16\"},{\"internalType\":\"uint256\",\"name\":\"maxTokenSupply\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"virtualReserve\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"reserve\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"completionThreshold\",\"type\":\"uint256\"}],\"internalType\":\"struct IPrintrStorage.CurveInfo\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"bytes32\",\"name\":\"salt\",\"type\":\"bytes32\"},{\"internalType\":\"bytes\",\"name\":\"creatorAddresses\",\"type\":\"bytes\"},{\"internalType\":\"bytes32\",\"name\":\"name\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"symbol\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"packedParams\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32[]\",\"name\":\"chains\",\"type\":\"bytes32[]\"},{\"internalType\":\"bytes32[]\",\"name\":\"basePairs\",\"type\":\"bytes32[]\"},{\"internalType\":\"bytes\",\"name\":\"basePrices\",\"type\":\"bytes\"}],\"internalType\":\"struct IPrintrStorage.TokenParams\",\"name\":\"tokenParams\",\"type\":\"tuple\"}],\"name\":\"getInterchainTokenId\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"tokenId\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"}],\"name\":\"getLiquidityLocks\",\"outputs\":[{\"internalType\":\"uint256[2]\",\"name\":\"\",\"type\":\"uint256[2]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"}],\"name\":\"getProtocolFees\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"bytes32\",\"name\":\"salt\",\"type\":\"bytes32\"},{\"internalType\":\"bytes\",\"name\":\"creatorAddresses\",\"type\":\"bytes\"},{\"internalType\":\"bytes32\",\"name\":\"name\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"symbol\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"packedParams\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32[]\",\"name\":\"chains\",\"type\":\"bytes32[]\"},{\"internalType\":\"bytes32[]\",\"name\":\"basePairs\",\"type\":\"bytes32[]\"},{\"internalType\":\"bytes\",\"name\":\"basePrices\",\"type\":\"bytes\"}],\"internalType\":\"struct IPrintrStorage.TokenParams\",\"name\":\"tokenParams\",\"type\":\"tuple\"}],\"name\":\"getTokenAddress\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"tokenAddress\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getTradingFee\",\"outputs\":[{\"internalType\":\"uint16\",\"name\":\"\",\"type\":\"uint16\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getTreasury\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"its\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"itsFactory\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"bytes32\",\"name\":\"salt\",\"type\":\"bytes32\"},{\"internalType\":\"bytes\",\"name\":\"creatorAddresses\",\"type\":\"bytes\"},{\"internalType\":\"bytes32\",\"name\":\"name\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"symbol\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"packedParams\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32[]\",\"name\":\"chains\",\"type\":\"bytes32[]\"},{\"internalType\":\"bytes32[]\",\"name\":\"basePairs\",\"type\":\"bytes32[]\"},{\"internalType\":\"bytes\",\"name\":\"basePrices\",\"type\":\"bytes\"}],\"internalType\":\"struct IPrintrStorage.TokenParams\",\"name\":\"tokenParams\",\"type\":\"tuple\"},{\"internalType\":\"string\",\"name\":\"destinationChain\",\"type\":\"string\"}],\"name\":\"linkEvmInterchainToken\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"liquidityModule\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"locker\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"pause\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"bytes32\",\"name\":\"salt\",\"type\":\"bytes32\"},{\"internalType\":\"bytes\",\"name\":\"creatorAddresses\",\"type\":\"bytes\"},{\"internalType\":\"bytes32\",\"name\":\"name\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"symbol\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"packedParams\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32[]\",\"name\":\"chains\",\"type\":\"bytes32[]\"},{\"internalType\":\"bytes32[]\",\"name\":\"basePairs\",\"type\":\"bytes32[]\"},{\"internalType\":\"bytes\",\"name\":\"basePrices\",\"type\":\"bytes\"}],\"internalType\":\"struct IPrintrStorage.TokenParams\",\"name\":\"tokenParams\",\"type\":\"tuple\"}],\"name\":\"registerInterchainToken\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint16\",\"name\":\"fee\",\"type\":\"uint16\"}],\"name\":\"setTradingFee\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"tokenFactory\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"unpause\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"wrappedNativeToken\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"details\":\"Aggregates specialized interfaces for storage, curves, trading, cross-chain, and admin features Components: - IPrintrStorage: Core storage and state management - IPrintrOwner: Owner functions and fee management - IPrintrInterchain: Cross-chain token deployment and linking\",\"events\":{\"InterchainTransfer(bytes32,address,address,string,bytes,uint256)\":{\"params\":{\"amount\":\"The amount of tokens being transferred\",\"destinationAddress\":\"The address on the destination chain\",\"destinationChain\":\"The target chain for the transfer\",\"sourceAddress\":\"The address initiating the transfer\",\"tokenAddress\":\"The address of the token contract\",\"tokenId\":\"The ID of the token being transferred\"}},\"TradingFeeUpdated(uint16)\":{\"params\":{\"fee\":\"The new trading fee value in basis points\"}}},\"kind\":\"dev\",\"methods\":{\"broadcastInterchainTransfer(bytes32,address,string,bytes,uint256)\":{\"details\":\"Emits an InterchainTransfer event with the provided parameters\",\"params\":{\"amount\":\"The amount of tokens being transferred\",\"destinationAddress\":\"The address on the destination chain\",\"destinationChain\":\"The target chain for the transfer\",\"sourceAddress\":\"The address initiating the transfer\",\"tokenId\":\"The ID of the token being transferred\"}},\"getCurve(address)\":{\"params\":{\"token\":\"Address of the token\"},\"returns\":{\"_0\":\"CurveInfo struct containing the token's configuration and state\"}},\"getInterchainTokenId((bytes32,bytes,bytes32,bytes32,bytes32,bytes32[],bytes32[],bytes))\":{\"details\":\"Uses creator address and deployment parameters to generate a deterministic ID\",\"params\":{\"tokenParams\":\"Parameters for the token deployment\"},\"returns\":{\"tokenId\":\"The calculated interchain token ID\"}},\"getLiquidityLocks(address)\":{\"params\":{\"token\":\"Address of the token to check\"},\"returns\":{\"_0\":\"Array containing lock information\"}},\"getProtocolFees(address)\":{\"params\":{\"token\":\"Address of the token to check\"},\"returns\":{\"_0\":\"Amount of protocol fees collected in base currency\"}},\"getTokenAddress((bytes32,bytes,bytes32,bytes32,bytes32,bytes32[],bytes32[],bytes))\":{\"details\":\"Uses creator address and deployment parameters to compute the deployment address\",\"params\":{\"tokenParams\":\"Parameters for the token deployment\"},\"returns\":{\"tokenAddress\":\"The calculated token deployment address\"}},\"getTradingFee()\":{\"returns\":{\"_0\":\"Trading fee percentage in basis points (1% = 100)\"}},\"linkEvmInterchainToken((bytes32,bytes,bytes32,bytes32,bytes32,bytes32[],bytes32[],bytes),string)\":{\"details\":\"Establishes cross-chain connection for an existing token\",\"params\":{\"destinationChain\":\"Name of the chain to link with\",\"tokenParams\":\"Parameters of the token to link\"}},\"registerInterchainToken((bytes32,bytes,bytes32,bytes32,bytes32,bytes32[],bytes32[],bytes))\":{\"details\":\"Deploys token and registers with ITS on initial chain\",\"params\":{\"tokenParams\":\"Parameters for cross-chain token deployment\"}},\"setTradingFee(uint16)\":{\"params\":{\"fee\":\"New trading fee percentage in basis points (1% = 100)\"}}},\"title\":\"Printr Admin Interface\",\"version\":1},\"userdoc\":{\"errors\":{\"FeeIsTooHigh(uint256)\":[{\"notice\":\"Custom errors for the Printr contract\"}]},\"events\":{\"InterchainTransfer(bytes32,address,address,string,bytes,uint256)\":{\"notice\":\"Emitted when an interchain transfer is initiated\"},\"TradingFeeUpdated(uint16)\":{\"notice\":\"Emitted when the trading fee is updated\"}},\"kind\":\"user\",\"methods\":{\"broadcastInterchainTransfer(bytes32,address,string,bytes,uint256)\":{\"notice\":\"Broadcasts an interchain transfer event\"},\"currentChainHash()\":{\"notice\":\"Returns the current chain's hash identifier\"},\"getCurve(address)\":{\"notice\":\"Retrieves information about a specific token\"},\"getInterchainTokenId((bytes32,bytes,bytes32,bytes32,bytes32,bytes32[],bytes32[],bytes))\":{\"notice\":\"Calculates the interchain token ID for a token deployment\"},\"getLiquidityLocks(address)\":{\"notice\":\"Gets the lock status for a token\"},\"getProtocolFees(address)\":{\"notice\":\"Gets the accumulated protocol fees for a specific token\"},\"getTokenAddress((bytes32,bytes,bytes32,bytes32,bytes32,bytes32[],bytes32[],bytes))\":{\"notice\":\"Calculates the deterministic address for a token deployment\"},\"getTradingFee()\":{\"notice\":\"Gets the current trading fee percentage in basis points\"},\"getTreasury()\":{\"notice\":\"Returns the treasury address\"},\"its()\":{\"notice\":\"Returns the ITS contract address\"},\"itsFactory()\":{\"notice\":\"Returns the ITS factory contract address\"},\"linkEvmInterchainToken((bytes32,bytes,bytes32,bytes32,bytes32,bytes32[],bytes32[],bytes),string)\":{\"notice\":\"Links an EVM token to its interchain counterpart on another chain\"},\"liquidityModule()\":{\"notice\":\"Returns the liquidity module contract address\"},\"locker()\":{\"notice\":\"Returns the locker contract address\"},\"pause()\":{\"notice\":\"Pauses the contract, preventing all trading and liquidity operations\"},\"registerInterchainToken((bytes32,bytes,bytes32,bytes32,bytes32,bytes32[],bytes32[],bytes))\":{\"notice\":\"Registers a token across multiple chains through the Interchain Token Service\"},\"setTradingFee(uint16)\":{\"notice\":\"Sets the trading fee percentage in basis points\"},\"tokenFactory()\":{\"notice\":\"Returns the token factory contract address\"},\"unpause()\":{\"notice\":\"Unpauses the contract, allowing trading and liquidity operations to resume\"},\"wrappedNativeToken()\":{\"notice\":\"Returns the wrapped native token address\"}},\"notice\":\"Comprehensive interface combining all Printr protocol functionality\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"src/interfaces/IPrintrAdmin.sol\":\"IPrintrAdmin\"},\"evmVersion\":\"cancun\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\"},\"optimizer\":{\"enabled\":true,\"runs\":25000},\"remappings\":[\":@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/\",\":@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/\",\":ds-test/=lib/openzeppelin-contracts-upgradeable/lib/forge-std/lib/ds-test/src/\",\":erc4626-tests/=lib/openzeppelin-contracts-upgradeable/lib/erc4626-tests/\",\":forge-std/=lib/forge-std/src/\",\":openzeppelin-contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/\",\":openzeppelin-contracts/=lib/openzeppelin-contracts/\"]},\"sources\":{\"src/interfaces/IPrintrAdmin.sol\":{\"keccak256\":\"0xf9837dbf26087cb8b015bfec4ec3d25bd3f6f5f6c0ed679643dfb8160fe064af\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://7e61b06beb61e5b285988dd378310dd8c3f93f379bd81b69196ed364c4e933eb\",\"dweb:/ipfs/QmT7BFKTJjLcLmPNTanmEbY19pTuhwgrG6XjGX3HUEDcqJ\"]},\"src/interfaces/printr/IPrintrGetters.sol\":{\"keccak256\":\"0xb96b5ec056ccbec89de770904b6c264536cb34eb370117cbe9bf94a7a5de0186\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://b4f99c61c62e49f1a720867fc467c8642e0aed2b6796461869c021357c1abd2d\",\"dweb:/ipfs/QmVoUBHfjeAbVjseYjAajD6kQAJRgQbdQAn4FoFfSdCxKx\"]},\"src/interfaces/printr/IPrintrInterchain.sol\":{\"keccak256\":\"0x1c405bccd727b1c2d85a15d96a4a8c25ae6cea25034717f573dc54b2b7085d0d\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://36ff988daa7a35af457d4a31b96a044083da95165bebefb819f2e184a1247f63\",\"dweb:/ipfs/QmduHq8dMPbjz97GaiqWkFKZQN6CxhaMiVwUwYxjXt4xWz\"]},\"src/interfaces/printr/IPrintrOwner.sol\":{\"keccak256\":\"0xef8f954fdad19ad93c9891c35f9732fa0bfcce757df85ff33e09951828445fdb\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://7bb6d9aa31d98c57a3cfab49d95ba9558e7a4da87b11fa8ecbd5da8ee3446d6a\",\"dweb:/ipfs/QmZDc9qcx14FLCtTGbLUBfHkbYtgizHNGekWxTsjpD5T2t\"]},\"src/interfaces/printr/IPrintrStorage.sol\":{\"keccak256\":\"0x5383559ad7f531123bf2536d1adb47bc76bbec3b0c2e58f6e9762f5c9c699901\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://50c6e7ad6bb300b382b009f61deab33d3086b121e3d027cd72f681fc0bb4e6dd\",\"dweb:/ipfs/QmaSU1kM3z3VWXvQKZKWtieTVg7Fp4ZGHFmzpRpSFkPEMM\"]}},\"version\":1}",
+    "metadata": {
+        "compiler": {
+            "version": "0.8.27+commit.40a35a09"
+        },
+        "language": "Solidity",
+        "output": {
+            "abi": [
+                {
+                    "inputs": [],
+                    "type": "error",
+                    "name": "CurveNotFound"
+                },
+                {
+                    "inputs": [],
+                    "type": "error",
+                    "name": "ExceedsMintedSupply"
+                },
+                {
+                    "inputs": [
+                        {
+                            "internalType": "uint256",
+                            "name": "fee",
+                            "type": "uint256"
+                        }
+                    ],
+                    "type": "error",
+                    "name": "FeeIsTooHigh"
+                },
+                {
+                    "inputs": [],
+                    "type": "error",
+                    "name": "FeePercentagesMustSum"
+                },
+                {
+                    "inputs": [],
+                    "type": "error",
+                    "name": "InsufficientPayment"
+                },
+                {
+                    "inputs": [],
+                    "type": "error",
+                    "name": "InvalidBasePairs"
+                },
+                {
+                    "inputs": [],
+                    "type": "error",
+                    "name": "InvalidBasePrices"
+                },
+                {
+                    "inputs": [],
+                    "type": "error",
+                    "name": "InvalidCreatorAddress"
+                },
+                {
+                    "inputs": [],
+                    "type": "error",
+                    "name": "InvalidImplementation"
+                },
+                {
+                    "inputs": [],
+                    "type": "error",
+                    "name": "InvalidInitialPrice"
+                },
+                {
+                    "inputs": [],
+                    "type": "error",
+                    "name": "InvalidLength"
+                },
+                {
+                    "inputs": [],
+                    "type": "error",
+                    "name": "InvalidSignature"
+                },
+                {
+                    "inputs": [],
+                    "type": "error",
+                    "name": "LiquidityAlreadyDeployed"
+                },
+                {
+                    "inputs": [],
+                    "type": "error",
+                    "name": "LiquidityDeploymentFailed"
+                },
+                {
+                    "inputs": [],
+                    "type": "error",
+                    "name": "PoolCreationFailed"
+                },
+                {
+                    "inputs": [],
+                    "type": "error",
+                    "name": "PriceSlippage"
+                },
+                {
+                    "inputs": [],
+                    "type": "error",
+                    "name": "RefundFailed"
+                },
+                {
+                    "inputs": [],
+                    "type": "error",
+                    "name": "RenounceOwnershipDisabled"
+                },
+                {
+                    "inputs": [],
+                    "type": "error",
+                    "name": "SwapFailed"
+                },
+                {
+                    "inputs": [],
+                    "type": "error",
+                    "name": "TokenIdMismatch"
+                },
+                {
+                    "inputs": [],
+                    "type": "error",
+                    "name": "TokenNotFound"
+                },
+                {
+                    "inputs": [],
+                    "type": "error",
+                    "name": "TooHighThreshold"
+                },
+                {
+                    "inputs": [],
+                    "type": "error",
+                    "name": "UsedNonce"
+                },
+                {
+                    "inputs": [],
+                    "type": "error",
+                    "name": "WrongChainName"
+                },
+                {
+                    "inputs": [],
+                    "type": "error",
+                    "name": "ZeroThreshold"
+                },
+                {
+                    "inputs": [
+                        {
+                            "internalType": "bytes32",
+                            "name": "tokenId",
+                            "type": "bytes32",
+                            "indexed": true
+                        },
+                        {
+                            "internalType": "address",
+                            "name": "tokenAddress",
+                            "type": "address",
+                            "indexed": true
+                        },
+                        {
+                            "internalType": "address",
+                            "name": "sourceAddress",
+                            "type": "address",
+                            "indexed": true
+                        },
+                        {
+                            "internalType": "string",
+                            "name": "destinationChain",
+                            "type": "string",
+                            "indexed": false
+                        },
+                        {
+                            "internalType": "bytes",
+                            "name": "destinationAddress",
+                            "type": "bytes",
+                            "indexed": false
+                        },
+                        {
+                            "internalType": "uint256",
+                            "name": "amount",
+                            "type": "uint256",
+                            "indexed": false
+                        }
+                    ],
+                    "type": "event",
+                    "name": "InterchainTransfer",
+                    "anonymous": false
+                },
+                {
+                    "inputs": [
+                        {
+                            "internalType": "uint16",
+                            "name": "fee",
+                            "type": "uint16",
+                            "indexed": false
+                        }
+                    ],
+                    "type": "event",
+                    "name": "TradingFeeUpdated",
+                    "anonymous": false
+                },
+                {
+                    "inputs": [
+                        {
+                            "internalType": "bytes32",
+                            "name": "tokenId",
+                            "type": "bytes32"
+                        },
+                        {
+                            "internalType": "address",
+                            "name": "sourceAddress",
+                            "type": "address"
+                        },
+                        {
+                            "internalType": "string",
+                            "name": "destinationChain",
+                            "type": "string"
+                        },
+                        {
+                            "internalType": "bytes",
+                            "name": "destinationAddress",
+                            "type": "bytes"
+                        },
+                        {
+                            "internalType": "uint256",
+                            "name": "amount",
+                            "type": "uint256"
+                        }
+                    ],
+                    "stateMutability": "nonpayable",
+                    "type": "function",
+                    "name": "broadcastInterchainTransfer"
+                },
+                {
+                    "inputs": [],
+                    "stateMutability": "view",
+                    "type": "function",
+                    "name": "currentChainHash",
+                    "outputs": [
+                        {
+                            "internalType": "bytes32",
+                            "name": "",
+                            "type": "bytes32"
+                        }
+                    ]
+                },
+                {
+                    "inputs": [
+                        {
+                            "internalType": "address",
+                            "name": "token",
+                            "type": "address"
+                        }
+                    ],
+                    "stateMutability": "view",
+                    "type": "function",
+                    "name": "getCurve",
+                    "outputs": [
+                        {
+                            "internalType": "struct IPrintrStorage.CurveInfo",
+                            "name": "",
+                            "type": "tuple",
+                            "components": [
+                                {
+                                    "internalType": "address",
+                                    "name": "basePair",
+                                    "type": "address"
+                                },
+                                {
+                                    "internalType": "uint16",
+                                    "name": "totalCurves",
+                                    "type": "uint16"
+                                },
+                                {
+                                    "internalType": "uint256",
+                                    "name": "maxTokenSupply",
+                                    "type": "uint256"
+                                },
+                                {
+                                    "internalType": "uint256",
+                                    "name": "virtualReserve",
+                                    "type": "uint256"
+                                },
+                                {
+                                    "internalType": "uint256",
+                                    "name": "reserve",
+                                    "type": "uint256"
+                                },
+                                {
+                                    "internalType": "uint256",
+                                    "name": "completionThreshold",
+                                    "type": "uint256"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "inputs": [
+                        {
+                            "internalType": "struct IPrintrStorage.TokenParams",
+                            "name": "tokenParams",
+                            "type": "tuple",
+                            "components": [
+                                {
+                                    "internalType": "bytes32",
+                                    "name": "salt",
+                                    "type": "bytes32"
+                                },
+                                {
+                                    "internalType": "bytes",
+                                    "name": "creatorAddresses",
+                                    "type": "bytes"
+                                },
+                                {
+                                    "internalType": "bytes32",
+                                    "name": "name",
+                                    "type": "bytes32"
+                                },
+                                {
+                                    "internalType": "bytes32",
+                                    "name": "symbol",
+                                    "type": "bytes32"
+                                },
+                                {
+                                    "internalType": "bytes32",
+                                    "name": "packedParams",
+                                    "type": "bytes32"
+                                },
+                                {
+                                    "internalType": "bytes32[]",
+                                    "name": "chains",
+                                    "type": "bytes32[]"
+                                },
+                                {
+                                    "internalType": "bytes32[]",
+                                    "name": "basePairs",
+                                    "type": "bytes32[]"
+                                },
+                                {
+                                    "internalType": "bytes",
+                                    "name": "basePrices",
+                                    "type": "bytes"
+                                }
+                            ]
+                        }
+                    ],
+                    "stateMutability": "view",
+                    "type": "function",
+                    "name": "getInterchainTokenId",
+                    "outputs": [
+                        {
+                            "internalType": "bytes32",
+                            "name": "tokenId",
+                            "type": "bytes32"
+                        }
+                    ]
+                },
+                {
+                    "inputs": [
+                        {
+                            "internalType": "address",
+                            "name": "token",
+                            "type": "address"
+                        }
+                    ],
+                    "stateMutability": "view",
+                    "type": "function",
+                    "name": "getLiquidityLocks",
+                    "outputs": [
+                        {
+                            "internalType": "uint256[2]",
+                            "name": "",
+                            "type": "uint256[2]"
+                        }
+                    ]
+                },
+                {
+                    "inputs": [
+                        {
+                            "internalType": "address",
+                            "name": "token",
+                            "type": "address"
+                        }
+                    ],
+                    "stateMutability": "view",
+                    "type": "function",
+                    "name": "getProtocolFees",
+                    "outputs": [
+                        {
+                            "internalType": "uint256",
+                            "name": "",
+                            "type": "uint256"
+                        }
+                    ]
+                },
+                {
+                    "inputs": [
+                        {
+                            "internalType": "struct IPrintrStorage.TokenParams",
+                            "name": "tokenParams",
+                            "type": "tuple",
+                            "components": [
+                                {
+                                    "internalType": "bytes32",
+                                    "name": "salt",
+                                    "type": "bytes32"
+                                },
+                                {
+                                    "internalType": "bytes",
+                                    "name": "creatorAddresses",
+                                    "type": "bytes"
+                                },
+                                {
+                                    "internalType": "bytes32",
+                                    "name": "name",
+                                    "type": "bytes32"
+                                },
+                                {
+                                    "internalType": "bytes32",
+                                    "name": "symbol",
+                                    "type": "bytes32"
+                                },
+                                {
+                                    "internalType": "bytes32",
+                                    "name": "packedParams",
+                                    "type": "bytes32"
+                                },
+                                {
+                                    "internalType": "bytes32[]",
+                                    "name": "chains",
+                                    "type": "bytes32[]"
+                                },
+                                {
+                                    "internalType": "bytes32[]",
+                                    "name": "basePairs",
+                                    "type": "bytes32[]"
+                                },
+                                {
+                                    "internalType": "bytes",
+                                    "name": "basePrices",
+                                    "type": "bytes"
+                                }
+                            ]
+                        }
+                    ],
+                    "stateMutability": "view",
+                    "type": "function",
+                    "name": "getTokenAddress",
+                    "outputs": [
+                        {
+                            "internalType": "address",
+                            "name": "tokenAddress",
+                            "type": "address"
+                        }
+                    ]
+                },
+                {
+                    "inputs": [],
+                    "stateMutability": "view",
+                    "type": "function",
+                    "name": "getTradingFee",
+                    "outputs": [
+                        {
+                            "internalType": "uint16",
+                            "name": "",
+                            "type": "uint16"
+                        }
+                    ]
+                },
+                {
+                    "inputs": [],
+                    "stateMutability": "view",
+                    "type": "function",
+                    "name": "getTreasury",
+                    "outputs": [
+                        {
+                            "internalType": "address",
+                            "name": "",
+                            "type": "address"
+                        }
+                    ]
+                },
+                {
+                    "inputs": [],
+                    "stateMutability": "view",
+                    "type": "function",
+                    "name": "its",
+                    "outputs": [
+                        {
+                            "internalType": "address",
+                            "name": "",
+                            "type": "address"
+                        }
+                    ]
+                },
+                {
+                    "inputs": [],
+                    "stateMutability": "view",
+                    "type": "function",
+                    "name": "itsFactory",
+                    "outputs": [
+                        {
+                            "internalType": "address",
+                            "name": "",
+                            "type": "address"
+                        }
+                    ]
+                },
+                {
+                    "inputs": [
+                        {
+                            "internalType": "struct IPrintrStorage.TokenParams",
+                            "name": "tokenParams",
+                            "type": "tuple",
+                            "components": [
+                                {
+                                    "internalType": "bytes32",
+                                    "name": "salt",
+                                    "type": "bytes32"
+                                },
+                                {
+                                    "internalType": "bytes",
+                                    "name": "creatorAddresses",
+                                    "type": "bytes"
+                                },
+                                {
+                                    "internalType": "bytes32",
+                                    "name": "name",
+                                    "type": "bytes32"
+                                },
+                                {
+                                    "internalType": "bytes32",
+                                    "name": "symbol",
+                                    "type": "bytes32"
+                                },
+                                {
+                                    "internalType": "bytes32",
+                                    "name": "packedParams",
+                                    "type": "bytes32"
+                                },
+                                {
+                                    "internalType": "bytes32[]",
+                                    "name": "chains",
+                                    "type": "bytes32[]"
+                                },
+                                {
+                                    "internalType": "bytes32[]",
+                                    "name": "basePairs",
+                                    "type": "bytes32[]"
+                                },
+                                {
+                                    "internalType": "bytes",
+                                    "name": "basePrices",
+                                    "type": "bytes"
+                                }
+                            ]
+                        },
+                        {
+                            "internalType": "string",
+                            "name": "destinationChain",
+                            "type": "string"
+                        }
+                    ],
+                    "stateMutability": "payable",
+                    "type": "function",
+                    "name": "linkEvmInterchainToken"
+                },
+                {
+                    "inputs": [],
+                    "stateMutability": "view",
+                    "type": "function",
+                    "name": "liquidityModule",
+                    "outputs": [
+                        {
+                            "internalType": "address",
+                            "name": "",
+                            "type": "address"
+                        }
+                    ]
+                },
+                {
+                    "inputs": [],
+                    "stateMutability": "view",
+                    "type": "function",
+                    "name": "locker",
+                    "outputs": [
+                        {
+                            "internalType": "address",
+                            "name": "",
+                            "type": "address"
+                        }
+                    ]
+                },
+                {
+                    "inputs": [],
+                    "stateMutability": "nonpayable",
+                    "type": "function",
+                    "name": "pause"
+                },
+                {
+                    "inputs": [
+                        {
+                            "internalType": "struct IPrintrStorage.TokenParams",
+                            "name": "tokenParams",
+                            "type": "tuple",
+                            "components": [
+                                {
+                                    "internalType": "bytes32",
+                                    "name": "salt",
+                                    "type": "bytes32"
+                                },
+                                {
+                                    "internalType": "bytes",
+                                    "name": "creatorAddresses",
+                                    "type": "bytes"
+                                },
+                                {
+                                    "internalType": "bytes32",
+                                    "name": "name",
+                                    "type": "bytes32"
+                                },
+                                {
+                                    "internalType": "bytes32",
+                                    "name": "symbol",
+                                    "type": "bytes32"
+                                },
+                                {
+                                    "internalType": "bytes32",
+                                    "name": "packedParams",
+                                    "type": "bytes32"
+                                },
+                                {
+                                    "internalType": "bytes32[]",
+                                    "name": "chains",
+                                    "type": "bytes32[]"
+                                },
+                                {
+                                    "internalType": "bytes32[]",
+                                    "name": "basePairs",
+                                    "type": "bytes32[]"
+                                },
+                                {
+                                    "internalType": "bytes",
+                                    "name": "basePrices",
+                                    "type": "bytes"
+                                }
+                            ]
+                        }
+                    ],
+                    "stateMutability": "payable",
+                    "type": "function",
+                    "name": "registerInterchainToken"
+                },
+                {
+                    "inputs": [
+                        {
+                            "internalType": "uint16",
+                            "name": "fee",
+                            "type": "uint16"
+                        }
+                    ],
+                    "stateMutability": "nonpayable",
+                    "type": "function",
+                    "name": "setTradingFee"
+                },
+                {
+                    "inputs": [],
+                    "stateMutability": "view",
+                    "type": "function",
+                    "name": "tokenFactory",
+                    "outputs": [
+                        {
+                            "internalType": "address",
+                            "name": "",
+                            "type": "address"
+                        }
+                    ]
+                },
+                {
+                    "inputs": [],
+                    "stateMutability": "nonpayable",
+                    "type": "function",
+                    "name": "unpause"
+                },
+                {
+                    "inputs": [],
+                    "stateMutability": "view",
+                    "type": "function",
+                    "name": "wrappedNativeToken",
+                    "outputs": [
+                        {
+                            "internalType": "address",
+                            "name": "",
+                            "type": "address"
+                        }
+                    ]
+                }
+            ],
+            "devdoc": {
+                "kind": "dev",
+                "methods": {
+                    "broadcastInterchainTransfer(bytes32,address,string,bytes,uint256)": {
+                        "details": "Emits an InterchainTransfer event with the provided parameters",
+                        "params": {
+                            "amount": "The amount of tokens being transferred",
+                            "destinationAddress": "The address on the destination chain",
+                            "destinationChain": "The target chain for the transfer",
+                            "sourceAddress": "The address initiating the transfer",
+                            "tokenId": "The ID of the token being transferred"
+                        }
+                    },
+                    "getCurve(address)": {
+                        "params": {
+                            "token": "Address of the token"
+                        },
+                        "returns": {
+                            "_0": "CurveInfo struct containing the token's configuration and state"
+                        }
+                    },
+                    "getInterchainTokenId((bytes32,bytes,bytes32,bytes32,bytes32,bytes32[],bytes32[],bytes))": {
+                        "details": "Uses creator address and deployment parameters to generate a deterministic ID",
+                        "params": {
+                            "tokenParams": "Parameters for the token deployment"
+                        },
+                        "returns": {
+                            "tokenId": "The calculated interchain token ID"
+                        }
+                    },
+                    "getLiquidityLocks(address)": {
+                        "params": {
+                            "token": "Address of the token to check"
+                        },
+                        "returns": {
+                            "_0": "Array containing lock information"
+                        }
+                    },
+                    "getProtocolFees(address)": {
+                        "params": {
+                            "token": "Address of the token to check"
+                        },
+                        "returns": {
+                            "_0": "Amount of protocol fees collected in base currency"
+                        }
+                    },
+                    "getTokenAddress((bytes32,bytes,bytes32,bytes32,bytes32,bytes32[],bytes32[],bytes))": {
+                        "details": "Uses creator address and deployment parameters to compute the deployment address",
+                        "params": {
+                            "tokenParams": "Parameters for the token deployment"
+                        },
+                        "returns": {
+                            "tokenAddress": "The calculated token deployment address"
+                        }
+                    },
+                    "getTradingFee()": {
+                        "returns": {
+                            "_0": "Trading fee percentage in basis points (1% = 100)"
+                        }
+                    },
+                    "linkEvmInterchainToken((bytes32,bytes,bytes32,bytes32,bytes32,bytes32[],bytes32[],bytes),string)": {
+                        "details": "Establishes cross-chain connection for an existing token",
+                        "params": {
+                            "destinationChain": "Name of the chain to link with",
+                            "tokenParams": "Parameters of the token to link"
+                        }
+                    },
+                    "registerInterchainToken((bytes32,bytes,bytes32,bytes32,bytes32,bytes32[],bytes32[],bytes))": {
+                        "details": "Deploys token and registers with ITS on initial chain",
+                        "params": {
+                            "tokenParams": "Parameters for cross-chain token deployment"
+                        }
+                    },
+                    "setTradingFee(uint16)": {
+                        "params": {
+                            "fee": "New trading fee percentage in basis points (1% = 100)"
+                        }
+                    }
+                },
+                "version": 1
+            },
+            "userdoc": {
+                "kind": "user",
+                "methods": {
+                    "broadcastInterchainTransfer(bytes32,address,string,bytes,uint256)": {
+                        "notice": "Broadcasts an interchain transfer event"
+                    },
+                    "currentChainHash()": {
+                        "notice": "Returns the current chain's hash identifier"
+                    },
+                    "getCurve(address)": {
+                        "notice": "Retrieves information about a specific token"
+                    },
+                    "getInterchainTokenId((bytes32,bytes,bytes32,bytes32,bytes32,bytes32[],bytes32[],bytes))": {
+                        "notice": "Calculates the interchain token ID for a token deployment"
+                    },
+                    "getLiquidityLocks(address)": {
+                        "notice": "Gets the lock status for a token"
+                    },
+                    "getProtocolFees(address)": {
+                        "notice": "Gets the accumulated protocol fees for a specific token"
+                    },
+                    "getTokenAddress((bytes32,bytes,bytes32,bytes32,bytes32,bytes32[],bytes32[],bytes))": {
+                        "notice": "Calculates the deterministic address for a token deployment"
+                    },
+                    "getTradingFee()": {
+                        "notice": "Gets the current trading fee percentage in basis points"
+                    },
+                    "getTreasury()": {
+                        "notice": "Returns the treasury address"
+                    },
+                    "its()": {
+                        "notice": "Returns the ITS contract address"
+                    },
+                    "itsFactory()": {
+                        "notice": "Returns the ITS factory contract address"
+                    },
+                    "linkEvmInterchainToken((bytes32,bytes,bytes32,bytes32,bytes32,bytes32[],bytes32[],bytes),string)": {
+                        "notice": "Links an EVM token to its interchain counterpart on another chain"
+                    },
+                    "liquidityModule()": {
+                        "notice": "Returns the liquidity module contract address"
+                    },
+                    "locker()": {
+                        "notice": "Returns the locker contract address"
+                    },
+                    "pause()": {
+                        "notice": "Pauses the contract, preventing all trading and liquidity operations"
+                    },
+                    "registerInterchainToken((bytes32,bytes,bytes32,bytes32,bytes32,bytes32[],bytes32[],bytes))": {
+                        "notice": "Registers a token across multiple chains through the Interchain Token Service"
+                    },
+                    "setTradingFee(uint16)": {
+                        "notice": "Sets the trading fee percentage in basis points"
+                    },
+                    "tokenFactory()": {
+                        "notice": "Returns the token factory contract address"
+                    },
+                    "unpause()": {
+                        "notice": "Unpauses the contract, allowing trading and liquidity operations to resume"
+                    },
+                    "wrappedNativeToken()": {
+                        "notice": "Returns the wrapped native token address"
+                    }
+                },
+                "version": 1
+            }
+        },
+        "settings": {
+            "remappings": [
+                "@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/",
+                "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+                "ds-test/=lib/openzeppelin-contracts-upgradeable/lib/forge-std/lib/ds-test/src/",
+                "erc4626-tests/=lib/openzeppelin-contracts-upgradeable/lib/erc4626-tests/",
+                "forge-std/=lib/forge-std/src/",
+                "openzeppelin-contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/",
+                "openzeppelin-contracts/=lib/openzeppelin-contracts/"
+            ],
+            "optimizer": {
+                "enabled": true,
+                "runs": 25000
+            },
+            "metadata": {
+                "bytecodeHash": "ipfs"
+            },
+            "compilationTarget": {
+                "src/interfaces/IPrintrAdmin.sol": "IPrintrAdmin"
+            },
+            "evmVersion": "cancun",
+            "libraries": {}
+        },
+        "sources": {
+            "src/interfaces/IPrintrAdmin.sol": {
+                "keccak256": "0xf9837dbf26087cb8b015bfec4ec3d25bd3f6f5f6c0ed679643dfb8160fe064af",
+                "urls": [
+                    "bzz-raw://7e61b06beb61e5b285988dd378310dd8c3f93f379bd81b69196ed364c4e933eb",
+                    "dweb:/ipfs/QmT7BFKTJjLcLmPNTanmEbY19pTuhwgrG6XjGX3HUEDcqJ"
+                ],
+                "license": "MIT"
+            },
+            "src/interfaces/printr/IPrintrGetters.sol": {
+                "keccak256": "0xb96b5ec056ccbec89de770904b6c264536cb34eb370117cbe9bf94a7a5de0186",
+                "urls": [
+                    "bzz-raw://b4f99c61c62e49f1a720867fc467c8642e0aed2b6796461869c021357c1abd2d",
+                    "dweb:/ipfs/QmVoUBHfjeAbVjseYjAajD6kQAJRgQbdQAn4FoFfSdCxKx"
+                ],
+                "license": "MIT"
+            },
+            "src/interfaces/printr/IPrintrInterchain.sol": {
+                "keccak256": "0x1c405bccd727b1c2d85a15d96a4a8c25ae6cea25034717f573dc54b2b7085d0d",
+                "urls": [
+                    "bzz-raw://36ff988daa7a35af457d4a31b96a044083da95165bebefb819f2e184a1247f63",
+                    "dweb:/ipfs/QmduHq8dMPbjz97GaiqWkFKZQN6CxhaMiVwUwYxjXt4xWz"
+                ],
+                "license": "MIT"
+            },
+            "src/interfaces/printr/IPrintrOwner.sol": {
+                "keccak256": "0xef8f954fdad19ad93c9891c35f9732fa0bfcce757df85ff33e09951828445fdb",
+                "urls": [
+                    "bzz-raw://7bb6d9aa31d98c57a3cfab49d95ba9558e7a4da87b11fa8ecbd5da8ee3446d6a",
+                    "dweb:/ipfs/QmZDc9qcx14FLCtTGbLUBfHkbYtgizHNGekWxTsjpD5T2t"
+                ],
+                "license": "MIT"
+            },
+            "src/interfaces/printr/IPrintrStorage.sol": {
+                "keccak256": "0x5383559ad7f531123bf2536d1adb47bc76bbec3b0c2e58f6e9762f5c9c699901",
+                "urls": [
+                    "bzz-raw://50c6e7ad6bb300b382b009f61deab33d3086b121e3d027cd72f681fc0bb4e6dd",
+                    "dweb:/ipfs/QmaSU1kM3z3VWXvQKZKWtieTVg7Fp4ZGHFmzpRpSFkPEMM"
+                ],
+                "license": "MIT"
+            }
+        },
+        "version": 1
+    },
+    "id": 75
+}

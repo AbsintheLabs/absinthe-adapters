@@ -15,7 +15,9 @@
     "migration": "pnpm build && pnpm migration:clean && pnpm migration:generate && pnpm migration:apply"
   },
   "dependencies": {
-    "@absinthe/common": "workspace:*"
+    "@absinthe/common": "workspace:*",
+    "@subsquid/big-decimal": "^1.0.0",
+    "@subsquid/logger": "^1.4.0"
   },
   "keywords": [],
   "author": "",

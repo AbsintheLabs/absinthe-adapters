@@ -156,7 +156,7 @@ export class DemosProcessor {
       this.env,
       this.chainConfig,
     );
-    console.log(transactions, 'transactions');
+    console.log(JSON.stringify(transactions, null, 2), 'transactions');
     await this.apiClient.send(transactions);
   }
 }

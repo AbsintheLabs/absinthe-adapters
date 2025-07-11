@@ -1,0 +1,3 @@
+const LIQUIDITY_FEE = 1000;
+
+export { LIQUIDITY_FEE };
