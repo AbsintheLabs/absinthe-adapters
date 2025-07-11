@@ -53,13 +53,12 @@ export class ZebuNewProcessor {
     chainId: number,
   ) {
     this.zebuNewProtocol = zebuNewProtocol;
-    this.schemaName = this.generateSchemaName();
     this.apiClient = apiClient;
     this.env = env;
     this.chainId = chainId;
+    this.schemaName = this.generateSchemaName();
   }
 
-  //not needed hence its like this
   private generateSchemaName(): string {
     const uniquePoolCombination = this.zebuNewProtocol[0].contractAddress
       .concat(this.chainId.toString())

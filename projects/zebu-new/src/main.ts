@@ -38,7 +38,5 @@ if (!zebuNew) {
 }
 const zebuNewClients = zebuNew.clients.filter((client) => client.chainId === chainId);
 
-console.log(zebuNewClients, 'zebuNewClients');
-
 const zebuNewProcessor = new ZebuNewProcessor(zebuNewClients, apiClient, env.baseConfig, chainId);
 zebuNewProcessor.run();
