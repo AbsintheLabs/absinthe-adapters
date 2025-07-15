@@ -17,8 +17,7 @@ services:
       - .env
     networks:
       - app-network
-    volumes:
-      - ./abs-app:/app
+
     command: npm start
   abs-app-main:
     image: ghcr.io/absinthelabs/absinthe-abs-app:abs-app
@@ -30,8 +29,7 @@ services:
       - .env.main
     networks:
       - app-network
-    volumes:
-      - ./abs-app:/app-main
+
     command: npm start
   redis:
     image: redis:latest

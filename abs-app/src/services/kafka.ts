@@ -30,8 +30,8 @@ export class KafkaService {
 
     this.kafka = new Kafka({
       clientId: config.kafka.clientId,
+      ssl: true,
       brokers: config.kafka.brokers.split(','),
-      // Optional: Add retry and timeout configurations
       retry: {
         initialRetryTime: 100,
         retries: 8,
