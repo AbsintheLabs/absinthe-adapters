@@ -2,9 +2,9 @@
 set -e
 
 ENV_PATH="/home/admin/ops/absinthe-api/.env.main"
-NETWORK_NAME="absinthe-net"
-APP_NAME="abs-app-main"
-REDIS_CONTAINER_NAME="redis"
+NETWORK_NAME="absinthe-api_absinthe-net"
+APP_NAME="absinthe-api_abs-app-main_1"
+REDIS_CONTAINER_NAME="absinthe-api_redis_1"
 
 echo "[ABS] 🌐 Ensuring $NETWORK_NAME network exists..."
 if ! podman network exists "$NETWORK_NAME"; then
@@ -12,7 +12,7 @@ if ! podman network exists "$NETWORK_NAME"; then
   echo "[ABS] ✅ Created network $NETWORK_NAME"
 fi
 
-echo "[ABS] 🔁 Redeploying $APP_NAME..."
+echo "[ABS] 🔁 Redeploying   $APP_NAME..."
 
 # Stop and remove existing app container if it exists
 if podman ps -a --format '{{.Names}}' | grep -q "^$APP_NAME$"; then

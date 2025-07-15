@@ -16,7 +16,7 @@ services:
     env_file:
       - .env
     networks:
-      - app-network
+      - absinthe-net
 
     command: npm start
   abs-app-main:
@@ -28,7 +28,7 @@ services:
     env_file:
       - .env.main
     networks:
-      - app-network
+      - absinthe-net
 
     command: npm start
   redis:
@@ -36,12 +36,12 @@ services:
     ports:
       - 6379:6379
     networks:
-      - app-network
+      - absinthe-net
     volumes:
       - redis_data:/data
 
 networks:
-  app-network:
+  absinthe-net:
     driver: bridge
 
 volumes:
