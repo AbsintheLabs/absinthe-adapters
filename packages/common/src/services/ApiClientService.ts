@@ -100,7 +100,7 @@ export class AbsintheApiClient {
       );
 
     // Use the fetchWithRetry utility
-    return fetchWithRetry(apiCall, this.maxRetries, this.initialBackoffMs);
+    return fetchWithRetry(apiCall, this.initialBackoffMs);
   }
 
   /**
