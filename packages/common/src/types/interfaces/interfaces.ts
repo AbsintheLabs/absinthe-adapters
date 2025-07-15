@@ -1,219 +1,162 @@
-import { ProtocolConfig } from "./protocols";
-import { ChainType, Currency, EventType, PriceFeed } from "../enums";
+import {
+  ChainId,
+  ChainName,
+  ChainShortName,
+  ChainType,
+  Currency,
+  MessageType,
+  TimeWindowTrigger,
+} from '../enums';
+import { Token } from './protocols';
 
-// NOTE: for the time being until we figure out a better more static version for chain information
 interface Chain {
-    networkId: number;
-    name: string;
-    chainType: ChainType.EVM;
+  chainArch: ChainType;
+  networkId: ChainId;
+  chainShortName: ChainShortName;
+  chainName: ChainName;
+}
+interface BaseEventFields {
+  version: string;
+  eventId: string;
+  userId: string;
+  chain: Chain;
+  contractAddress: string;
+  protocolName: string;
+  protocolType: string;
+  runner: Runner;
+  protocolMetadata: { [key: string]: { value: string; type: string } };
+  currency: Currency;
+  valueUsd: number;
 }
 
-interface Price {
-    currency: Currency;
-    tokenPrice: number;
-    updatedAtMs: number;
+interface ProtocolState {
+  balanceWindows: HistoryWindow[];
+  transactions: Transaction[];
 }
 
-interface Erc20Token {
-    tokenType: 'erc20';
-    tokenAddress: string;
-    tokenName: string;
-    tokenSymbol: string;
-    decimals: number;
-    price?: Price;
+interface BatchContext {
+  ctx: any;
+  block: any;
+  protocolStates: Map<string, any>;
 }
 
-/**
- - Describes a unique data source (a protocol pool on a chain), 
-   including adapter versioning and optional runtime metadata.
-*/
-interface DataSource<M = unknown> {
-    /**
-     - Deterministic key for deduplication.
-     - e.g. SHA-256(networkId:protocolName:poolAddress:adapterVersion)
-    */
-    sourceId: string
-
-    /** The EVM network ID (e.g. 1 for mainnet, 137 for Polygon) */
-    chainId: number
-
-    /** Protocol identifier (e.g. 'uniswapv2', 'velodrome') (lowercased) */
-    protocolName: string
-
-    /** Contract address of the pool or token (lower-cased hex) */
-    poolAddress: string
-
-    /** Adapter version string (semver or git SHA) */
-    adapterVersion: string
-
-    /** Optional ID for the specific runner instance (for provenance/troubleshooting) */
-    runnerId?: string
-
-    /** Any additional per-source metadata (client info, tags, etc) */
-    metadata?: M
+interface ProcessValueChangeParams {
+  from: string;
+  to: string;
+  amount: bigint;
+  usdValue: number;
+  blockTimestamp: number;
+  blockHeight: number;
+  txHash: string;
+  activeBalances: any; // todo: remove any
+  windowDurationMs: number;
+  tokenPrice: number;
+  tokenDecimals: number;
+  tokenAddress?: string;
 }
 
-interface BaseTimeWindow {
-    startTs: number; // unix timestamp
-    endTs: number; // unix timestamp
-    windowDurationMs: number;
-    windowId: number; // floor(startTs / window_duration)
+interface Runner {
+  runnerId: string;
+  apiKeyHash: string;
 }
 
-interface TransferTimeWindow extends BaseTimeWindow {
-    trigger: EventType.TRANSFER;
-    startBlocknumber: bigint;
-    endBlocknumber: bigint;
-    txHash: string; // todo: make it clear that it's the end boundary tx hash?
+interface TokenDetails {
+  token: Token;
+  amount: string;
+  amountIn: string;
+  amountOut: string;
 }
 
-interface ExhaustedTimeWindow extends BaseTimeWindow {
-    trigger: 'exhausted';
+interface Transaction {
+  eventType: MessageType;
+  eventName: string;
+  tokens: { [key: string]: { value: string; type: string } };
+  rawAmount: string;
+  displayAmount: number;
+  unixTimestampMs: number;
+  txHash: string;
+  logIndex: number;
+  blockNumber: number;
+  blockHash: string;
+  userId: string;
+  gasUsed: number;
+  gasFeeUsd: number;
+  currency: Currency;
+  valueUsd: number;
 }
 
-type TimeWindow = TransferTimeWindow | ExhaustedTimeWindow;
+interface TransactionEvent {
+  base: BaseEventFields;
+  eventType: MessageType;
+  rawAmount: string;
+  displayAmount: number;
+  unixTimestampMs: number;
+  txHash: string;
+  logIndex: number;
+  gasUsed: number;
+  gasFeeUsd: number;
+  blockNumber: number;
+  blockHash: string;
+}
 
-interface Provenance {
-    runnerId: string;             // e.g. machine fingerprint
-    adapterVersion: string;       // git SHA or semver
-    indexedAt: number;            // unix epoch
-    sourceCodeHash?: string;      // optional docker / nix hash
+interface HistoryWindow {
+  userAddress: string;
+  deltaAmount: number;
+  trigger: TimeWindowTrigger;
+  startTs: number; // startUnixTimestampMs
+  endTs: number; // endUnixTimestampMs
+  startBlockNumber: number;
+  endBlockNumber: number;
+  txHash: string | null;
+  currency: Currency;
+  windowDurationMs: number;
+  tokenPrice: number;
+  tokenDecimals: number;
+  valueUsd: number;
+  balanceBefore: string; // raw balance before the transfer
+  balanceAfter: string; // raw balance after the transfer
+}
+
+interface TimeWeightedBalanceEvent {
+  base: BaseEventFields;
+  eventType: MessageType;
+  tokenPrice: number;
+  tokenDecimals: number;
+  balanceBefore: string;
+  balanceAfter: string;
+  timeWindowTrigger: TimeWindowTrigger;
+  startUnixTimestampMs: number;
+  endUnixTimestampMs: number;
+  windowDurationMs: number;
+  startBlockNumber: number;
+  endBlockNumber: number;
+  txHash: string | null;
 }
 
 type ActiveBalance = {
-    balance: bigint,
-    updated_at_block_ts: number,
-    updated_at_block_height: number
-}
+  balance: bigint;
+  updatedBlockTs: number;
+  updatedBlockHeight: number;
+};
 
-// export type SimpleHistoryWindow = {
-//     userAddress: string,
-//     assetAddress: string,
-//     balance: bigint,
-//     usdValue: number,
-//     ts_start: number,
-//     ts_end: number,
-//     block_start?: number,
-//     block_end?: number,
-//     trigger: 'transfer' | 'exhausted',
-//     txHash?: string
-// }
-
-// export type SimpleTransaction = {
-//     userAddress: string,
-//     assetAddress: string,
-//     usdValue: number,
-//     timestampMs: number,
-//     blockNumber: bigint,
-//     txHash: string,
-//     logIndex: number,
-// }
-
-// TODO: we need a pool address or token address or something to identify the topic partition
-// amount + type of asset + declaration of currency (mark that it's usd)
-// 1 eth or 1000 usdc
-// how to constrain the body of the data? + schema consistency
-// can use a schema registry for the structure of that metadata + consistency
-// should filter out metadata object that is larger than a certain size
-
-// a timeweightedbalance just needs a: value to operate on
-
-// 1) who 2) for how long 3) how much
-interface TimeWeightedBalance<M = unknown, N = unknown> {
-    version: 1;
-    dataType: 'time_weighted_balance';
-    user: string;
-    chain: Chain;
-    amount: number;
-    amountType: N;
-    timeWindow: TimeWindow;
-    protocolMetadata?: M;
-    source?: DataSource;  // Reference to the data source that provided this balance. Do this later...
-    // api key and timestamp and hash(api_key, timestsamp, required_values). its like _dbt_surrogate_key
-}
-
-// in a swap, we also care only about the value
-interface Transaction<M = unknown, N = unknown> {
-    version: 1;
-    dataType: 'transaction';
-    user: string;
-    chain: Chain;
-    amount: number;
-    amountType: N;
-    timestampMs: number; // unix timestamp
-    blockNumber: bigint;
-    txHash: string;
-    logIndex: number; // should we have an index to identify if there were multiple in a transaction
-    source?: DataSource;  // Reference to the data source that provided this transaction
-    protocolMetadata?: M;
-}
-
-// Usd Amount Metadata
-type UsdAmountType = {
-    amountType: Currency.USD;
-    priceFeed: PriceFeed;
-}
-
-type SimpleTimeWeightedBalance = Pick<TimeWeightedBalance<Partial<UniswapV2TWBMetadata>, UsdAmountType>, 'user' | 'amount' | 'timeWindow' | 'protocolMetadata'>;
-type SimpleTransaction = Pick<Transaction<Partial<UniswapV2SwapMetadata>, UsdAmountType>, 'user' | 'amount' | 'timestampMs' | 'blockNumber' | 'txHash' | 'logIndex' | 'protocolMetadata'>;
-
-interface ValueChangeArgs {
-    assetAddress: string      
-    from: string             
-    to: string               
-    amount: bigint            
-    usdValue: number          
-    blockTimestamp: number      
-    txHash: string
-    blockHeight: number
-    windowDurationMs: number
-    activeBalances: Map<string, ActiveBalance>
-}
-
-// Uniswap Protocol Metadata
-interface UniswapV2TWBMetadata {
-    poolAddress: string;
-    lpTokenAmount: bigint;
-}
-
-interface UniswapV2SwapMetadata {
-    poolAddress: string;
-    token0: Erc20Token;
-    token1: Erc20Token;
-    token0Amount: bigint;
-    token1Amount: bigint;
-}
-
-interface ValidatedEnv {
-    dbName: string;
-    dbPort?: number;
-    dbUrl?: string;
-    gatewayUrl: string;
-    chainId: number;
-    chainName: string;
-    chainShortName: string;
-    rpcUrl: string;
-    toBlock?: number;
-    balanceFlushIntervalHours: number;
-    protocols: ProtocolConfig[];
-    absintheApiUrl: string;
-    absintheApiKey: string;
-    coingeckoApiKey: string;
+interface ValidatedEnvBase {
+  balanceFlushIntervalHours: number;
+  absintheApiUrl: string;
+  absintheApiKey: string;
+  coingeckoApiKey: string;
+  sendToApiFromTimestamp?: number; // Unix timestamp in milliseconds
 }
 
 export {
-    Chain,
-    Price,
-    Erc20Token,
-    DataSource,
-    TimeWeightedBalance,
-    Transaction,
-    UsdAmountType,
-    SimpleTimeWeightedBalance,
-    SimpleTransaction,
-    ValidatedEnv,
-    ActiveBalance,
-    UniswapV2TWBMetadata,
-    UniswapV2SwapMetadata,
-    ValueChangeArgs
-}
+  Chain,
+  TokenDetails,
+  TransactionEvent,
+  ActiveBalance,
+  TimeWeightedBalanceEvent,
+  HistoryWindow,
+  Transaction,
+  ValidatedEnvBase,
+  ProtocolState,
+  BatchContext,
+  ProcessValueChangeParams,
+};

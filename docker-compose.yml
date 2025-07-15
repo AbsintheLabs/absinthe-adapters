@@ -8,54 +8,21 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: squid
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./logs/postgres:/var/log/postgresql
     networks:
       - app-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-
-  # redis:
-  #   image: redis:latest
-  #   container_name: redis
-  #   ports:
-  #     - "6379:6379"
-  #   networks:
-  #     - app-network
-
-  # compoundv2:
-  #   build:
-  #     context: .
-  #     dockerfile: ops/dockerfiles/Dockerfile.compoundv2
-  #   container_name: compoundv2-service
-  #   networks:
-  #     - app-network
-  #   environment:
-  #     - NODE_ENV=production
-  #     - ABSINTHE_API_URL=http://abs-app:3000
-  #   depends_on:
-  #     - abs-app
-  #     - postgres
-  #   volumes:
-  #     - ./.env:/app/.env
-
-  uniswapv2:
-    build:
-      context: .
-      dockerfile: ops/dockerfiles/Dockerfile.uniswapv2
-    container_name: uniswapv2-service
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - '6379:6379'
     networks:
       - app-network
-    depends_on:
-      postgres:
-        condition: service_healthy
-    env_file:
-      - .env
-    volumes:
-      - ./logs/uniswapv2:/app/logs
-    restart: unless-stopped
 
 networks:
   app-network:

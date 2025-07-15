@@ -1,6 +1,7 @@
 # API Refactoring Guide
 
 ## Overview
+
 The API has been refactored from a single monolithic file into a modular, maintainable structure. This improves code organization, testability, and maintainability.
 
 ## New Project Structure
@@ -27,6 +28,7 @@ src/
 ## Key Improvements
 
 ### 1. **Separation of Concerns**
+
 - **Configuration**: All environment variables and app config in `config/`
 - **Types**: TypeScript interfaces centralized in `types/`
 - **Utilities**: Helper functions organized by purpose
@@ -35,6 +37,7 @@ src/
 - **Routes**: Route handlers separated from app configuration
 
 ### 2. **Better Maintainability**
+
 - Each module has a single responsibility
 - Easy to locate and modify specific functionality
 - Clear dependencies between modules
@@ -42,12 +45,14 @@ src/
 - Direct imports make dependencies explicit
 
 ### 3. **Improved Testability**
+
 - Services can be easily unit tested
 - Middleware can be tested in isolation
 - Utilities have pure functions that are easy to test
 - Dependency injection is possible with the service pattern
 
 ### 4. **Enhanced Readability**
+
 - Main entry point (`index.ts`) is now just 12 lines
 - Each file focuses on one specific aspect
 - Clear naming conventions
@@ -57,43 +62,51 @@ src/
 ## Module Descriptions
 
 ### `config/index.ts`
+
 - Centralizes all configuration
 - Handles environment variables
 - Exports API key configurations
 
 ### `types/index.ts`
+
 - Defines TypeScript interfaces
 - Ensures type safety across modules
 - Easy to extend with new types
 
 ### `utils/bigint.ts`
+
 - Handles BigInt serialization
 - JSON reviver function for parsing
 - Pure utility functions
 
 ### `utils/logger.ts`
+
 - File and console logging utilities
 - Directory creation handling
 - Centralized logging logic
 
 ### `services/rateLimiter.ts`
+
 - Encapsulates rate limiting logic
 - Service class pattern
 - Singleton instance export
 - Clean API for rate limit operations
 
 ### `middleware/apiKey.ts`
+
 - API key validation
 - Rate limiting enforcement
 - Express middleware pattern
 - Proper error handling
 
 ### `routes/api.ts`
+
 - Route handler functions
 - Separated from Express app setup
 - Clean request/response handling
 
 ### `app.ts`
+
 - Express application configuration
 - Middleware setup
 - Route registration
@@ -112,7 +125,8 @@ src/
 ## Migration Notes
 
 The refactored code maintains the same API endpoints and functionality:
+
 - `POST /api/log` - Still requires API key and logs requests
 - `GET /health` - Health check endpoint (no authentication required)
 
-All existing functionality is preserved while improving the codebase structure. 
+All existing functionality is preserved while improving the codebase structure.

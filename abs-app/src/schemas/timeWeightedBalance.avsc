@@ -1,0 +1,89 @@
+{
+  "type": "record",
+  "namespace": "network.absinthe.adapters",
+  "name": "TimeWeightedBalanceEvent",
+  "doc": "Exposure metric (value × duration) for a wallet over a holding window.",
+  "fields": [
+    {
+      "name": "base",
+      "type": "network.absinthe.adapters.Base"
+    },
+    {
+      "name": "eventType",
+      "type": {
+        "type": "enum",
+        "name": "TWBEventType",
+        "symbols": ["timeWeightedBalance"]
+      }
+    },
+    {
+      "name": "indexedTimeMs",
+      "type": "long",
+      "doc": "Timestamp of the event"
+    },
+    {
+      "name": "tokenPrice",
+      "type": "double",
+      "doc": "Total USD value of LP held at start of this window."
+    },
+    {
+      "name": "tokenDecimals",
+      "type": "double",
+      "doc": "Total USD value of LP held at end of this window."
+    },
+    {
+      "name": "balanceBefore",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Raw LP tokens held at start of window (null if not needed)."
+    },
+    {
+      "name": "balanceAfter",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Raw LP tokens held at end of window (null if not needed)."
+    },
+    {
+      "name": "timeWindowTrigger",
+      "type": {
+        "type": "enum",
+        "name": "TimeWindowTrigger",
+        "symbols": ["transfer", "exhausted"]
+      },
+      "doc": "\"transfer\" if a transfer caused the window to end; \"exhausted\" if timed out."
+    },
+    {
+      "name": "startUnixTimestampMs",
+      "type": "long",
+      "doc": "Window start, in epoch ms."
+    },
+    {
+      "name": "endUnixTimestampMs",
+      "type": "long",
+      "doc": "Window end, in epoch ms."
+    },
+    {
+      "name": "windowDurationMs",
+      "type": "long",
+      "doc": "Target bucket size (e.g. 60000ms)."
+    },
+    {
+      "name": "startBlockNumber",
+      "type": ["null", "long"],
+      "default": null,
+      "doc": "Block height at window start (null if not known)."
+    },
+    {
+      "name": "endBlockNumber",
+      "type": ["null", "long"],
+      "default": null,
+      "doc": "Block height at window end (null if not known)."
+    },
+    {
+      "name": "txHash",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "The transaction hash, if timeWindowTrigger==\"transfer\"."
+    }
+  ]
+}

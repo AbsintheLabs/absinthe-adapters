@@ -1,0 +1,124 @@
+{
+  "type": "record",
+  "namespace": "network.absinthe.adapters",
+  "name": "Base",
+  "doc": "Shared fields for transaction and time-weighted-balance schemas.",
+  "fields": [
+    {
+      "name": "version",
+      "type": "string",
+      "doc": "Semantic version of the adapter"
+    },
+    {
+      "name": "eventId",
+      "type": "string"
+    },
+    {
+      "name": "userId",
+      "type": "string",
+      "doc": "EVM address that triggered the event"
+    },
+    {
+      "name": "chain",
+      "type": {
+        "type": "record",
+        "name": "Chain",
+        "fields": [
+          {
+            "name": "chainArch",
+            "type": {
+              "type": "enum",
+              "name": "ChainArchEnum",
+              "symbols": ["evm"]
+            }
+          },
+          {
+            "name": "networkId",
+            "type": "int"
+          },
+          {
+            "name": "chainShortName",
+            "type": "string"
+          },
+          {
+            "name": "chainName",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "name": "contractAddress",
+      "type": "string",
+      "doc": "Contract address of the protocol"
+    },
+    {
+      "name": "protocolName",
+      "type": "string",
+      "doc": "Name of the protocol"
+    },
+    {
+      "name": "protocolType",
+      "type": "string",
+      "doc": "Type of the protocol"
+    },
+    {
+      "name": "runner",
+      "type": {
+        "type": "record",
+        "name": "Runner",
+        "fields": [
+          {
+            "name": "runnerId",
+            "type": "string",
+            "doc": "Container-ID of the indexer that produced this event"
+          },
+          {
+            "name": "apiKeyHash",
+            "type": "string",
+            "doc": "Hash of the API key used to produce this event (only 8 chars)"
+          }
+        ]
+      }
+    },
+    {
+      "name": "protocolMetadata",
+      "type": {
+        "type": "map",
+        "values": {
+          "type": "record",
+          "name": "ProtocolMetadataValue",
+          "fields": [
+            {
+              "name": "value",
+              "type": "string",
+              "doc": "String-encoded value (even for numbers, addresses, bigints)"
+            },
+            {
+              "name": "type",
+              "type": {
+                "type": "enum",
+                "name": "MetadataValueType",
+                "symbols": ["bigint", "number", "address", "string", "boolean"]
+              }
+            }
+          ]
+        }
+      },
+      "default": {}
+    },
+    {
+      "name": "currency",
+      "type": {
+        "type": "enum",
+        "name": "CurrencyEnum",
+        "symbols": ["usd"]
+      }
+    },
+    {
+      "name": "valueUsd",
+      "type": "double",
+      "doc": "USD value of the event"
+    }
+  ]
+}

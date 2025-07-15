@@ -1,100 +1,290 @@
 import { z } from 'zod';
-import { CHAINS } from './chains';
 import fs from 'fs';
-import { ValidatedEnv } from '../types/interfaces/interfaces';
+import { ValidatedEnvBase } from '../types/interfaces/interfaces';
 import { configSchema } from '../types/schema';
 import { findConfigFile } from './helper/findConfigFile';
 import { EXAMPLE_FILE_NAME } from './consts';
 import { FILE_NAME } from './consts';
-import { ProtocolConfig } from '../types/interfaces/protocols';
+import {
+  BondingCurveProtocol,
+  ChainId,
+  ChainName,
+  ChainShortName,
+  ChainType,
+  GatewayUrl,
+  StakingProtocol,
+} from '../types/enums';
+import { getChainEnumKey } from './helper/getChainEnumKey';
+import {
+  ProtocolConfig,
+  Univ3PoolConfig,
+  ValidatedBondingCurveProtocolConfig,
+  ValidatedDexProtocolConfig,
+  ValidatedEnv,
+  ValidatedStakingProtocolConfig,
+  ValidatedUniv3ProtocolConfig,
+  ValidatedZebuProtocolConfig,
+  ZebuClientConfigWithChain,
+} from '../types/interfaces/protocols';
 
 export function validateEnv(): ValidatedEnv {
-    try {
-        // Define the env schema for environment variables
-        const envSchema = z.object({
-            DB_NAME: z.string().min(1, 'DB_NAME is required'),
-            DB_PORT: z.string().transform(val => parseInt(val, 10)).refine(val => !isNaN(val), 'DB_PORT must be a valid number').optional(),
-            DB_URL: z.string().regex(/^postgresql?:\/\/.+/, 'DB_URL must be a valid postgres URL').optional(),
-            RPC_URL: z.string().url('RPC_URL must be a valid URL').refine(val => val.startsWith('https://'), 'RPC_URL must be https:// not wss://'),
-            ABSINTHE_API_URL: z.string().url('ABSINTHE_API_URL must be a valid URL'),
-            ABSINTHE_API_KEY: z.string().min(1, 'ABSINTHE_API_KEY is required'),
-            COINGECKO_API_KEY: z.string().min(1, 'COINGECKO_API_KEY is required'),
-        }).refine(
-            data => data.DB_PORT !== undefined || data.DB_URL !== undefined,
-            {
-                message: "Either DB_PORT or DB_URL must be provided",
-                path: ["DB_PORT", "DB_URL"],
-            }
-        );
+  try {
+    const envSchema = z.object({
+      DB_URL: z.string().min(1, 'DB_URL is required'),
+      RPC_URL_MAINNET: z
+        .string()
+        .url('RPC_URL_MAINNET must be a valid URL')
+        .refine((val) => val.startsWith('https://'), 'RPC_URL_MAINNET must be https:// not wss://')
+        .optional(),
+      RPC_URL_BASE: z
+        .string()
+        .url('RPC_URL_BASE must be a valid URL')
+        .refine((val) => val.startsWith('https://'), 'RPC_URL_BASE must be https:// not wss://')
+        .optional(),
+      RPC_URL_HEMI: z
+        .string()
+        .url('RPC_URL_HEMI must be a valid URL')
+        .refine((val) => val.startsWith('https://'), 'RPC_URL_HEMI must be https:// not wss://')
+        .optional(),
+      ABS_CONFIG: z.string(),
+      RPC_URL_POLYGON: z.string().url('RPC_URL_POLYGON must be a valid URL').optional(),
+      RPC_URL_ARBITRUM: z.string().url('RPC_URL_ARBITRUM must be a valid URL').optional(),
+      RPC_URL_OPTIMISM: z.string().url('RPC_URL_OPTIMISM must be a valid URL').optional(),
+      ABSINTHE_API_URL: z.string().url('ABSINTHE_API_URL must be a valid URL'),
+      ABSINTHE_API_KEY: z.string().min(1, 'ABSINTHE_API_KEY is required'),
+      COINGECKO_API_KEY: z.string().min(1, 'COINGECKO_API_KEY is required'),
+    });
 
-        // Validate environment variables
-        const envResult = envSchema.safeParse(process.env);
+    const envResult = envSchema.safeParse(process.env);
 
-        if (!envResult.success) {
-            const errorMessages = envResult.error.errors.map(err =>
-                `${err.path.join('.')}: ${err.message}`
-            ).join('\n');
+    if (!envResult.success) {
+      const errorMessages = envResult.error.errors
+        .map((err) => `${err.path.join('.')}: ${err.message}`)
+        .join('\n');
 
-            throw new Error(`Environment validation failed:\n${errorMessages}`);
-        }
-
-        // Find and load the config file
-        let configFilePath: string;
-        try {
-            configFilePath = findConfigFile(FILE_NAME);
-        } catch (error) {
-            // If abs_config.json is not found, try abs_config.example.json
-            try {
-                configFilePath = findConfigFile(EXAMPLE_FILE_NAME);
-            } catch (exampleError) {
-                throw new Error(`Neither ${FILE_NAME} nor ${EXAMPLE_FILE_NAME} could be found`);
-            }
-        }
-        
-        const configData = JSON.parse(fs.readFileSync(configFilePath, 'utf8'));
-
-        // Validate the config file
-        const configResult = configSchema.safeParse(configData);
-
-        if (!configResult.success) {
-            const errorMessages = configResult.error.errors.map(err =>
-                `${err.path.join('.')}: ${err.message}`
-            ).join('\n');
-
-            throw new Error(`Config file validation failed:\n${errorMessages}`);
-        }
-
-        // Chain Validation
-        const chainId = configResult.data.chainId;
-        const chain = CHAINS.find(c => c.chainId === chainId);
-        if (!chain) {
-            throw new Error(`${chainId} is not a supported chainId.`);
-        }
-
-        // Create validated environment object combining both sources
-        const validatedEnv: ValidatedEnv = {
-            dbName: envResult.data.DB_NAME,
-            dbPort: envResult.data.DB_PORT,
-            dbUrl: envResult.data.DB_URL,
-            gatewayUrl: configResult.data.gatewayUrl,
-            chainId: chainId,
-            chainName: chain.name,
-            chainShortName: chain.shortName,
-            rpcUrl: envResult.data.RPC_URL,
-            toBlock: configResult.data.toBlock,
-            balanceFlushIntervalHours: configResult.data.balanceFlushIntervalHours,
-            protocols: configResult.data.protocols as ProtocolConfig[],
-            absintheApiUrl: envResult.data.ABSINTHE_API_URL,
-            absintheApiKey: envResult.data.ABSINTHE_API_KEY,
-            coingeckoApiKey: envResult.data.COINGECKO_API_KEY,
-        };
-
-        return validatedEnv;
-    } catch (error) {
-        if (error instanceof Error) {
-            throw error;
-        }
-        throw new Error(`Environment validation failed: ${String(error)}`);
+      throw new Error(`Environment validation failed:\n${errorMessages}`);
     }
-}
 
+    let configData: any;
+
+    if (envResult.data.ABS_CONFIG) {
+      try {
+        configData = JSON.parse(envResult.data.ABS_CONFIG);
+      } catch (error) {
+        throw new Error(`Failed to parse ABS_CONFIG JSON: ${error}`);
+      }
+    } else {
+      let configFilePath: string;
+      try {
+        configFilePath = findConfigFile(FILE_NAME);
+      } catch (error) {
+        console.error('Error finding config file', error);
+        // If abs_config.json is not found, try abs_config.example.json
+        try {
+          configFilePath = findConfigFile(EXAMPLE_FILE_NAME);
+        } catch (exampleError) {
+          console.error('Error finding example config file', exampleError);
+          throw new Error(
+            `Neither ${FILE_NAME} nor ${EXAMPLE_FILE_NAME} could be found, and ABS_CONFIG is not provided`,
+          );
+        }
+      }
+
+      configData = JSON.parse(fs.readFileSync(configFilePath, 'utf8'));
+      console.log(`Using configuration from file: ${configFilePath}`);
+    }
+
+    // Validate the configuration using the same Zod schema
+    const configResult = configSchema.safeParse(configData);
+
+    if (!configResult.success) {
+      const errorMessages = configResult.error.errors
+        .map((err) => `${err.path.join('.')}: ${err.message}`)
+        .join('\n');
+
+      throw new Error(`Config validation failed:\n${errorMessages}`);
+    }
+
+    const bondingCurveProtocols: ValidatedBondingCurveProtocolConfig[] =
+      configResult.data.bondingCurveProtocols.map((bondingCurveProtocol) => {
+        const chainId = bondingCurveProtocol.chainId;
+        const chainKey = getChainEnumKey(chainId);
+        if (!chainKey) {
+          throw new Error(`${chainId} is not a supported chainId.`);
+        }
+        const chainName = ChainName[chainKey];
+        const chainShortName = ChainShortName[chainKey];
+        const chainArch = ChainType.EVM;
+        const gatewayUrl = GatewayUrl[chainKey];
+        return {
+          type: bondingCurveProtocol.type as BondingCurveProtocol,
+          toBlock: bondingCurveProtocol.toBlock,
+          fromBlock: bondingCurveProtocol.fromBlock,
+          name: bondingCurveProtocol.name,
+          contractAddress: bondingCurveProtocol.contractAddress,
+          factoryAddress: bondingCurveProtocol.factoryAddress,
+          chainArch: chainArch,
+          chainId: chainId,
+          gatewayUrl: gatewayUrl,
+          chainShortName: chainShortName,
+          chainName: chainName,
+          rpcUrl:
+            bondingCurveProtocol.chainId === ChainId.HEMI
+              ? (envResult.data.RPC_URL_HEMI as string)
+              : bondingCurveProtocol.chainId === ChainId.BASE
+                ? (envResult.data.RPC_URL_BASE as string)
+                : ChainId.MAINNET === bondingCurveProtocol.chainId
+                  ? (envResult.data.RPC_URL_MAINNET as string)
+                  : (envResult.data.RPC_URL_POLYGON as string),
+        };
+      });
+
+    const dexProtocols: ValidatedDexProtocolConfig[] = configResult.data.dexProtocols.map(
+      (dexProtocol) => {
+        const chainId = dexProtocol.chainId;
+        const chainKey = getChainEnumKey(chainId);
+        if (!chainKey) {
+          throw new Error(`${chainId} is not a supported chainId.`);
+        }
+        const chainName = ChainName[chainKey];
+        const chainShortName = ChainShortName[chainKey];
+        const chainArch = ChainType.EVM;
+        const gatewayUrl = GatewayUrl[chainKey];
+
+        return {
+          type: dexProtocol.type,
+          gatewayUrl: gatewayUrl,
+          toBlock: dexProtocol.toBlock,
+          protocols: dexProtocol.protocols as ProtocolConfig[],
+          chainArch: chainArch,
+          chainId: chainId,
+          chainShortName: chainShortName,
+          chainName: chainName,
+          rpcUrl:
+            dexProtocol.chainId === ChainId.MAINNET
+              ? (envResult.data.RPC_URL_MAINNET as string)
+              : (envResult.data.RPC_URL_BASE as string),
+        };
+      },
+    );
+
+    const univ3Protocols: ValidatedUniv3ProtocolConfig[] = configResult.data.univ3Protocols.map(
+      (univ3Protocol) => {
+        const chainId = univ3Protocol.chainId;
+        const chainKey = getChainEnumKey(chainId);
+        if (!chainKey) {
+          throw new Error(`${chainId} is not a supported chainId.`);
+        }
+        const chainName = ChainName[chainKey];
+        const chainShortName = ChainShortName[chainKey];
+        const chainArch = ChainType.EVM;
+        const gatewayUrl = GatewayUrl[chainKey];
+        return {
+          type: univ3Protocol.type,
+          chainId: chainId,
+          chainArch: chainArch,
+          chainShortName: chainShortName,
+          chainName: chainName,
+          gatewayUrl: gatewayUrl,
+          rpcUrl:
+            univ3Protocol.chainId === ChainId.MAINNET
+              ? (envResult.data.RPC_URL_MAINNET as string)
+              : (envResult.data.RPC_URL_BASE as string),
+          factoryAddress: univ3Protocol.factoryAddress,
+          factoryDeployedAt: univ3Protocol.factoryDeployedAt,
+          positionsAddress: univ3Protocol.positionsAddress,
+          toBlock: univ3Protocol.toBlock,
+          poolDiscovery: univ3Protocol.poolDiscovery,
+          trackPositions: univ3Protocol.trackPositions,
+          trackSwaps: univ3Protocol.trackSwaps,
+          pools: univ3Protocol.pools as Univ3PoolConfig[],
+        };
+      },
+    );
+
+    const stakingProtocols: ValidatedStakingProtocolConfig[] =
+      configResult.data.stakingProtocols.map((stakingProtocol) => {
+        const chainId = stakingProtocol.chainId;
+        const chainKey = getChainEnumKey(chainId);
+        if (!chainKey) {
+          throw new Error(`${chainId} is not a supported chainId.`);
+        }
+        const chainName = ChainName[chainKey];
+        const chainShortName = ChainShortName[chainKey];
+        const chainArch = ChainType.EVM;
+        const gatewayUrl = GatewayUrl[chainKey];
+        return {
+          type: stakingProtocol.type as StakingProtocol,
+          gatewayUrl: gatewayUrl,
+          toBlock: stakingProtocol.toBlock,
+          fromBlock: stakingProtocol.fromBlock,
+          name: stakingProtocol.name,
+          contractAddress: stakingProtocol.contractAddress,
+          chainArch: chainArch,
+          chainId: chainId,
+          chainShortName: chainShortName,
+          chainName: chainName,
+          rpcUrl:
+            stakingProtocol.chainId === ChainId.HEMI
+              ? (envResult.data.RPC_URL_HEMI as string)
+              : (envResult.data.RPC_URL_MAINNET as string),
+        };
+      });
+
+    const zebuProtocols: ValidatedZebuProtocolConfig[] = configResult.data.zebuProtocols.map(
+      (zebuProtocol) => {
+        const enhancedClients: ZebuClientConfigWithChain[] = zebuProtocol.clients.map((client) => {
+          const clientChainKey = getChainEnumKey(client.chainId);
+          if (!clientChainKey) {
+            throw new Error(
+              `${client.chainId} is not a supported chainId for client ${client.name}`,
+            );
+          }
+
+          return {
+            name: client.name,
+            contractAddress: client.contractAddress,
+            chainId: client.chainId,
+            fromBlock: client.fromBlock,
+            chainArch: ChainType.EVM,
+            chainShortName: ChainShortName[clientChainKey],
+            chainName: ChainName[clientChainKey],
+            rpcUrl:
+              client.chainId === ChainId.BASE
+                ? (envResult.data.RPC_URL_BASE as string)
+                : (envResult.data.RPC_URL_POLYGON as string),
+            gatewayUrl: GatewayUrl[clientChainKey],
+          };
+        });
+
+        return {
+          type: zebuProtocol.type,
+          name: zebuProtocol.name,
+          toBlock: zebuProtocol.toBlock,
+          clients: enhancedClients,
+        };
+      },
+    );
+
+    const baseConfig: ValidatedEnvBase = {
+      balanceFlushIntervalHours: configResult.data.balanceFlushIntervalHours,
+      absintheApiUrl: envResult.data.ABSINTHE_API_URL,
+      absintheApiKey: envResult.data.ABSINTHE_API_KEY,
+      coingeckoApiKey: envResult.data.COINGECKO_API_KEY,
+    };
+
+    return {
+      baseConfig,
+      dexProtocols,
+      bondingCurveProtocols,
+      stakingProtocols,
+      univ3Protocols,
+      zebuProtocols,
+    };
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error(`Environment validation failed: ${String(error)}`);
+  }
+}

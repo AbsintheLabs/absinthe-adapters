@@ -1,82 +1,114 @@
-import z from "zod";
-
-// Protocol configuration schemas
-const baseProtocolSchema = z.object({
-    contractAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Contract address must be a valid Ethereum address'),
-    fromBlock: z.number(),
-    name: z.string().optional(),
-});
+import z from 'zod';
+import { ProtocolType, PriceFeed } from './enums';
 
 const tokenSchema = z.object({
-    coingeckoId: z.string(),
-    decimals: z.number()
+  coingeckoId: z.string(),
+  decimals: z.number(),
 });
 
-// Updated schema to support multiple protocol types
-const protocolConfigSchema = z.discriminatedUnion('type', [
-    // Uniswap V2
-    z.object({
-        type: z.literal('uniswap-v2'),
-        ...baseProtocolSchema.shape,
-        pricingStrategy: z.string(),
-        token0: tokenSchema,
-        token1: tokenSchema,
-        preferredTokenCoingeckoId: z.enum(['token0', 'token1'])
-    }),
-    
-    // Uniswap V3
-    z.object({
-        type: z.literal('uniswap-v3'),
-        ...baseProtocolSchema.shape,
-        fee: z.number(),
-        token0: tokenSchema,
-        token1: tokenSchema,
-        preferredTokenCoingeckoId: z.enum(['token0', 'token1'])
-    }),
-    
-    // Compound
-    z.object({
-        type: z.literal('compound'),
-        ...baseProtocolSchema.shape,
-        version: z.enum(['v2', 'v3']),
-        underlyingToken: tokenSchema,
-        cToken: tokenSchema
-    }),
-    
-    // Aave
-    z.object({
-        type: z.literal('aave'),
-        ...baseProtocolSchema.shape,
-        version: z.enum(['v2', 'v3']),
-        underlyingToken: tokenSchema,
-        aToken: tokenSchema
-    }),
-    
-    // Curve
-    z.object({
-        type: z.literal('curve'),
-        ...baseProtocolSchema.shape,
-        tokens: z.array(tokenSchema),
-        poolType: z.enum(['stable', 'crypto'])
-    }),
-    
-    // Balancer
-    z.object({
-        type: z.literal('balancer'),
-        ...baseProtocolSchema.shape,
-        tokens: z.array(tokenSchema),
-        poolType: z.enum(['weighted', 'stable']),
-        weights: z.array(z.number()).optional()
-    })
-]);
+const simpleTokenSchema = z.object({
+  symbol: z.string(),
+  decimals: z.number(),
+});
+
+const protocolConfigSchema = z.object({
+  name: z.string(),
+  contractAddress: z
+    .string()
+    .regex(/^0x[a-fA-F0-9]{40}$/, 'Contract address must be a valid Ethereum address'),
+  fromBlock: z.number(),
+  pricingStrategy: z.enum([PriceFeed.COINGECKO, PriceFeed.CODEX]),
+  token0: tokenSchema,
+  token1: tokenSchema,
+  preferredTokenCoingeckoId: z.string(),
+});
+
+const dexProtocolSchema = z.object({
+  type: z.enum([
+    ProtocolType.UNISWAP_V2,
+    ProtocolType.UNISWAP_V3,
+    ProtocolType.COMPOUND,
+    ProtocolType.AAVE,
+    ProtocolType.CURVE,
+    ProtocolType.BALANCER,
+    ProtocolType.IZUMI,
+  ]),
+  chainId: z.number(),
+  toBlock: z.number(),
+  protocols: z.array(protocolConfigSchema),
+});
+
+const bondingCurveProtocolSchema = z.object({
+  type: z.string(),
+  name: z.string(),
+  contractAddress: z
+    .string()
+    .regex(/^0x[a-fA-F0-9]{40}$/, 'Contract address must be a valid Ethereum address'),
+  factoryAddress: z
+    .string()
+    .regex(/^0x[a-fA-F0-9]{40}$/, 'Factory address must be a valid Ethereum address')
+    .optional(),
+  chainId: z.number(),
+  toBlock: z.number(),
+  fromBlock: z.number(),
+});
+
+const stakingProtocolSchema = z.object({
+  type: z.string(),
+  name: z.string(),
+  contractAddress: z
+    .string()
+    .regex(/^0x[a-fA-F0-9]{40}$/, 'Contract address must be a valid Ethereum address'),
+  chainId: z.number(),
+  toBlock: z.number(),
+  fromBlock: z.number(),
+});
+
+const univ3PoolSchema = z.object({
+  name: z.string(),
+  contractAddress: z.string(),
+  fromBlock: z.number(),
+  feeTier: z.number(),
+  pricingStrategy: z.enum([PriceFeed.COINGECKO, PriceFeed.CODEX, PriceFeed.INTERNAL_TWAP]),
+  token0: simpleTokenSchema,
+  token1: simpleTokenSchema,
+  preferredTokenCoingeckoId: z.string(),
+});
+
+const univ3ProtocolSchema = z.object({
+  type: z.enum([ProtocolType.UNISWAP_V3]),
+  chainId: z.number(),
+  factoryAddress: z.string(),
+  factoryDeployedAt: z.number(),
+  positionsAddress: z.string(),
+  toBlock: z.number(),
+  poolDiscovery: z.boolean(),
+  trackPositions: z.boolean(),
+  trackSwaps: z.boolean(),
+  pools: z.array(univ3PoolSchema),
+});
+
+const zebuClientSchema = z.object({
+  name: z.string(),
+  contractAddress: z.string(),
+  chainId: z.number(),
+  fromBlock: z.number(),
+});
+
+const zebuProtocolSchema = z.object({
+  type: z.enum([ProtocolType.ZEBU]),
+  name: z.string(),
+  toBlock: z.number(),
+  clients: z.array(zebuClientSchema),
+});
 
 const configSchema = z.object({
-    chainId: z.number(),
-    gatewayUrl: z.string().url('Gateway URL must be a valid URL'),
-    toBlock: z.number().optional(),
-    balanceFlushIntervalHours: z.number(),
-    protocols: z.array(protocolConfigSchema)
+  balanceFlushIntervalHours: z.number(),
+  dexProtocols: z.array(dexProtocolSchema),
+  bondingCurveProtocols: z.array(bondingCurveProtocolSchema),
+  stakingProtocols: z.array(stakingProtocolSchema),
+  univ3Protocols: z.array(univ3ProtocolSchema),
+  zebuProtocols: z.array(zebuProtocolSchema),
 });
 
-
-export { configSchema };
+export { configSchema, dexProtocolSchema, protocolConfigSchema };

@@ -1,124 +1,230 @@
 import { Kafka, Producer, CompressionTypes } from 'kafkajs';
-import { handleBigIntSerialization } from '../utils/bigint';
+import { readFileSync } from 'fs';
+import { SchemaRegistry, SchemaType } from '@kafkajs/confluent-schema-registry';
 import { config } from '../config';
+import snappy from 'kafkajs-snappy';
+import { CompressionCodecs } from 'kafkajs';
+import { TimeWeightedBalanceEvent, TransactionEvent } from '../types';
+import { MessageType } from '../types/enums';
+
+interface KafkaSubjectConfig {
+  name: string;
+  subject: string;
+  version: number;
+}
 
 /**
- * Kafka service for handling message production
+ * Kafka service for handling message production with Schema Registry
  */
 export class KafkaService {
-    private kafka: Kafka;
-    private producer: Producer;
-    private isConnected: boolean = false;
+  private kafka: Kafka;
+  private producer: Producer;
+  private registry: SchemaRegistry;
+  private isConnected: boolean = false;
 
-    constructor() {
-        if (!config.kafka.brokers) {
-            throw new Error('KAFKA_BROKERS must be set in your .env');
-        }
+  constructor() {
+    if (!config.kafka.brokers) {
+      throw new Error('KAFKA_BROKERS must be set in your .env');
+    }
+    CompressionCodecs[CompressionTypes.Snappy] = snappy;
 
-        this.kafka = new Kafka({
-            clientId: config.kafka.clientId,
-            brokers: config.kafka.brokers.split(','),
-            // Optional: Add retry and timeout configurations
-            retry: {
-                initialRetryTime: 100,
-                retries: 8
-            }
-        });
+    this.kafka = new Kafka({
+      clientId: config.kafka.clientId,
+      brokers: config.kafka.brokers.split(','),
+      // Optional: Add retry and timeout configurations
+      retry: {
+        initialRetryTime: 100,
+        retries: 8,
+      },
+    });
 
-        this.producer = this.kafka.producer({
-            maxInFlightRequests: 5,    // Default - allows pipelining for better throughput
-            idempotent: true,          // Prevents duplicates with minimal perf impact
-        });
+    this.producer = this.kafka.producer({
+      maxInFlightRequests: 5, // Default - allows pipelining for better throughput
+      idempotent: true, // Prevents duplicates with minimal perf impact
+    });
+    // Initialize Schema Registry
+    this.registry = new SchemaRegistry({
+      host: config.kafka.schemaRegistryUrl,
+    });
+  }
+
+  /**
+   * Ensure schema is registered and return schema ID
+   */
+  public async ensureSchema(subject: string, avscPath: string): Promise<number> {
+    const schemaString = readFileSync(avscPath, 'utf8');
+
+    try {
+      const { id } = await this.registry.register(
+        {
+          type: SchemaType.AVRO,
+          schema: schemaString,
+        },
+        { subject },
+      );
+      console.log(`Registered new schema with ID ${id} for subject ${subject}`);
+      return id;
+    } catch (e) {
+      console.error('Error registering schema:', e);
+      throw e;
+    }
+  }
+
+  /**
+   * Initialize schemas for all subjects
+   */
+  public async initializeSchemas(): Promise<void> {
+    try {
+      // Register Base schema first and get actual version
+      await this.ensureSchema(config.kafka.baseSchema, './src/schemas/base.avsc');
+      const baseVersion = await this.getRegisteredVersion(config.kafka.baseSchema);
+
+      // Register dependent schemas with correct base version
+      await this.ensureSchemaWithReference(
+        // todo: devx add in config
+        config.kafka.transactionSchema,
+        './src/schemas/transaction.avsc',
+        [
+          {
+            name: 'network.absinthe.adapters.Base',
+            subject: config.kafka.baseSchema,
+            version: baseVersion,
+          },
+        ],
+      );
+
+      await this.ensureSchemaWithReference(
+        config.kafka.twbSchema,
+        './src/schemas/timeWeightedBalance.avsc',
+        [
+          {
+            name: 'network.absinthe.adapters.Base',
+            subject: config.kafka.baseSchema,
+            version: baseVersion,
+          },
+        ],
+      );
+    } catch (error) {
+      console.error('Error initializing schemas:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get the registered version by making direct API call
+   */
+  private async getRegisteredVersion(subject: string): Promise<number> {
+    try {
+      const response = await fetch(
+        `${config.kafka.schemaRegistryUrl}/subjects/${subject}/versions/latest`,
+      );
+      const data = await response.json();
+      return data.version;
+    } catch (error) {
+      console.warn(`Could not get version for ${subject}, defaulting to 1`, error);
+      return 1;
+    }
+  }
+
+  /**
+   * Register schema with references
+   */
+  private async ensureSchemaWithReference(
+    subject: string,
+    avscPath: string,
+    references: KafkaSubjectConfig[],
+  ): Promise<number> {
+    const schemaString = readFileSync(avscPath, 'utf8');
+
+    try {
+      const { id } = await this.registry.register(
+        {
+          type: SchemaType.AVRO,
+          schema: schemaString,
+          references: references,
+        },
+        { subject },
+      );
+      console.log(`Registered schema with references, ID ${id} for subject ${subject}`);
+      return id;
+    } catch (e) {
+      console.error('Error registering schema with references:', e);
+      throw e;
+    }
+  }
+
+  /**
+   * Connect to Kafka
+   */
+  public async connect(): Promise<void> {
+    if (!this.isConnected) {
+      await this.producer.connect();
+      await this.initializeSchemas(); // Initialize schemas on connect
+      this.isConnected = true;
+    }
+  }
+
+  /**
+   * Disconnect from Kafka
+   */
+  public async disconnect(): Promise<void> {
+    if (this.isConnected) {
+      await this.producer.disconnect();
+      this.isConnected = false;
+    }
+  }
+  /**
+   * Send multiple messages to a Kafka topic
+   */
+  public async sendMessages(
+    topic: string,
+    data: (TransactionEvent | TimeWeightedBalanceEvent)[],
+    key: string,
+  ): Promise<void> {
+    if (!data || data.length === 0) {
+      throw new Error('No data provided to send messages');
     }
 
-    /**
-     * Connect to Kafka
-     */
-    public async connect(): Promise<void> {
-        if (!this.isConnected) {
-            await this.producer.connect();
-            this.isConnected = true;
-            console.log('Kafka producer connected');
-        }
+    try {
+      await this.connect();
+      const schemaId = await this.getSchemaIdForData(data[0]);
+      const kafkaMessages = await Promise.all(
+        data.map(async (event) => ({
+          key: key,
+          value: await this.registry.encode(schemaId, event),
+        })),
+      );
+
+      await this.producer.send({
+        topic,
+        messages: kafkaMessages,
+        compression: CompressionTypes.Snappy,
+      });
+
+      console.log(`${data.length} Avro-encoded message(s) sent to topic '${topic}'`);
+    } catch (error) {
+      console.error('Error sending messages to Kafka:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get schema ID based on data type
+   */
+  private async getSchemaIdForData(
+    data: TransactionEvent | TimeWeightedBalanceEvent,
+  ): Promise<number> {
+    const eventType = data.eventType;
+
+    if (eventType === MessageType.TRANSACTION) {
+      return this.registry.getLatestSchemaId(config.kafka.transactionSchema);
+    } else if (eventType === MessageType.TIME_WEIGHTED_BALANCE) {
+      return this.registry.getLatestSchemaId(config.kafka.twbSchema);
     }
 
-    /**
-     * Disconnect from Kafka
-     */
-    public async disconnect(): Promise<void> {
-        if (this.isConnected) {
-            await this.producer.disconnect();
-            this.isConnected = false;
-            console.log('Kafka producer disconnected');
-        }
-    }
-
-    /**
-     * Send a message to a Kafka topic
-     */
-    public async sendMessage(topic: string, data: any, key?: string): Promise<void> {
-        try {
-            // Ensure producer is connected
-            await this.connect();
-
-            // Process data to handle BigInt serialization
-            // warn: we probably don't need this since we assume we won't have bigints later (all will be strings)
-            const processedData = handleBigIntSerialization(data);
-
-            // Create message
-            const message = {
-                // todo: later figure out if we need a separate key (for partitioning) and how this would work.
-                key: key || null,
-                value: JSON.stringify({
-                    timestamp: new Date().toISOString(),
-                    data: processedData
-                }),
-                timestamp: Date.now().toString()
-            };
-
-            // Send message
-            await this.producer.send({
-                topic,
-                messages: [message],
-                compression: CompressionTypes.ZSTD,
-            });
-
-            console.log(`Message sent to topic '${topic}':`, processedData);
-        } catch (error) {
-            console.error('Error sending message to Kafka:', error);
-            throw error;
-        }
-    }
-
-    // fixme: I don't like that we have separate implementations for single and multiple messages.
-    /**
-     * Send multiple messages to a Kafka topic
-     */
-    public async sendMessages(topic: string, messages: Array<{ data: any; key?: string }>): Promise<void> {
-        try {
-            await this.connect();
-
-            const kafkaMessages = messages.map(({ data, key }) => ({
-                key: key || null,
-                value: JSON.stringify({
-                    timestamp: new Date().toISOString(),
-                    data: handleBigIntSerialization(data)
-                }),
-                timestamp: Date.now().toString()
-            }));
-
-            await this.producer.send({
-                topic,
-                messages: kafkaMessages
-            });
-
-            console.log(`${messages.length} messages sent to topic '${topic}'`);
-        } catch (error) {
-            console.error('Error sending messages to Kafka:', error);
-            throw error;
-        }
-    }
+    throw new Error(`Unknown event type: ${eventType}`);
+  }
 }
 
 // Export singleton instance
-export const kafkaService = new KafkaService(); 
+export const kafkaService = new KafkaService();

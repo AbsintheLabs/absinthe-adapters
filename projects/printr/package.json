@@ -1,0 +1,26 @@
+{
+  "name": "@absinthe/printr",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc -p .",
+    "start": "node --env-file=../../.env lib/main.js",
+    "dev": "pnpm --filter @absinthe/common build && pnpm build && node --env-file=../../.env lib/main.js",
+    "migration:clean": "npx rimraf ./db/migrations",
+    "migration:generate": "squid-typeorm-migration-generate",
+    "migration:apply": "squid-typeorm-migration apply",
+    "typegen": "squid-evm-typegen ./src/abi/ abi/*.json",
+    "codegen": "squid-typeorm-codegen",
+    "migration": "pnpm build && pnpm migration:clean && pnpm migration:generate && pnpm migration:apply"
+  },
+  "dependencies": {
+    "@absinthe/common": "workspace:*",
+    "@subsquid/big-decimal": "^1.0.0",
+    "@subsquid/logger": "^1.4.0"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.10.0"
+}

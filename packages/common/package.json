@@ -1,20 +1,22 @@
 {
-    "name": "@absinthe/common",
-    "version": "0.0.0",
-    "private": true,
-    "main": "lib/index.js",
-    "types": "lib/index.d.ts",
-    "files": [
-        "lib"
-    ],
-    "scripts": {
-        "build": "tsc -p .",
-        "typegen": "squid-evm-typegen ./src/abi/ abi/*.json"
-    },
-    "dependencies": {
-        "@subsquid/evm-abi": "^0.3.0",
-        "@subsquid/evm-codec": "^0.3.0",
-        "bottleneck": "^2.19.5",
-        "zod": "^3.24.3"
-    }
+  "name": "@absinthe/common",
+  "version": "0.0.0",
+  "private": true,
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "files": [
+    "lib"
+  ],
+  "scripts": {
+    "build": "tsc -p .",
+    "typegen": "squid-evm-typegen ./src/abi/ abi/*.json"
+  },
+  "dependencies": {
+    "@subsquid/evm-abi": "^0.3.0",
+    "@subsquid/evm-codec": "^0.3.0",
+    "@subsquid/logger": "^1.4.0",
+    "bottleneck": "^2.19.5",
+    "winston": "^3.17.0",
+    "zod": "^3.24.3"
+  }
 }
