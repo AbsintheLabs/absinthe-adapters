@@ -1,10 +1,8 @@
 // Fetch with retries and exponential backoff
 export async function fetchWithRetry(
   apiCall: () => Promise<Response>,
-  maxRetries = 5,
   initialBackoffMs = 1000,
 ): Promise<Response> {
-  let retries = 0;
   let backoffMs = initialBackoffMs;
 
   while (true) {
@@ -13,18 +11,13 @@ export async function fetchWithRetry(
       if (response.ok) {
         return response;
       }
-      if (retries >= maxRetries) {
-        return response;
-      }
+      // Continue retrying for non-ok responses
     } catch (error) {
-      if (retries >= maxRetries) {
-        throw error;
-      }
+      // Continue retrying for errors
     }
     const jitter = Math.random() * 0.3 + 0.85;
     const waitTime = Math.floor(backoffMs * jitter);
     await new Promise((r) => setTimeout(r, waitTime));
     backoffMs *= 2;
-    retries++;
   }
 }
