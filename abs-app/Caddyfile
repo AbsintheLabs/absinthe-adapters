@@ -3,13 +3,56 @@
     debug
 }
 
-# Redirect HTTP to HTTPS
+# Redirect HTTP to HTTPS for production
 adapters.absinthe.network:80 {
     redir https://{host}{uri} permanent
 }
 
-# HTTPS server
+# HTTPS server for production
 adapters.absinthe.network:443 {
+    handle /api/* {
+        # Set request body size limit for this path
+        request_body {
+            max_size 200KB
+        }
+        
+        reverse_proxy abs-app:3005 {
+            header_up Host {http.request.host}
+            header_up X-Api-Key {http.request.header.x-api-key}
+            transport http {
+                dial_timeout 30s
+                response_header_timeout 30s
+            }
+        }
+    }
+
+    # Health check endpoint
+    handle /health {
+        reverse_proxy abs-app:3005
+    }
+
+    # Respond with 404 for undefined routes
+    handle {
+        respond "Not Found" 404
+    }
+
+    # Enable compression
+    encode gzip
+
+    # Log requests
+    log {
+        output file /var/log/caddy/access-main.log
+        format json
+    }
+}
+
+# Redirect HTTP to HTTPS for development
+adapters-dev.absinthe.network:80 {
+    redir https://{host}{uri} permanent
+}
+
+# HTTPS server for development
+adapters-dev.absinthe.network:443 {
     handle /api/* {
         # Set request body size limit for this path
         request_body {
@@ -41,7 +84,7 @@ adapters.absinthe.network:443 {
 
     # Log requests
     log {
-        output file /var/log/caddy/access.log
+        output file /var/log/caddy/dev-access.log
         format json
     }
 }
