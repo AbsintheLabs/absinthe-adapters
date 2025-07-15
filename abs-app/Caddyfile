@@ -16,7 +16,7 @@ adapters.absinthe.network:443 {
             max_size 200KB
         }
         
-        reverse_proxy abs-app-main:3005 {
+        reverse_proxy absinthe-api_abs-app-main_1:3005 {
             header_up Host {http.request.host}
             header_up X-Api-Key {http.request.header.x-api-key}
             transport http {
@@ -28,7 +28,7 @@ adapters.absinthe.network:443 {
 
     # Health check endpoint
     handle /health {
-        reverse_proxy abs-app-main:3005
+        reverse_proxy absinthe-api_abs-app-main_1:3005
     }
 
     # Respond with 404 for undefined routes
@@ -59,7 +59,7 @@ adapters-dev.absinthe.network:443 {
             max_size 200KB
         }
         
-        reverse_proxy abs-app:3000 {
+        reverse_proxy absinthe-api_abs-app_1:3000 {
             header_up Host {http.request.host}
             header_up X-Api-Key {http.request.header.x-api-key}
             transport http {
@@ -71,7 +71,7 @@ adapters-dev.absinthe.network:443 {
 
     # Health check endpoint
     handle /health {
-        reverse_proxy abs-app:3000
+        reverse_proxy absinthe-api_abs-app_1:3000
     }
 
     # Respond with 404 for undefined routes

@@ -2,9 +2,9 @@
 set -e
 
 ENV_PATH="/home/admin/ops/absinthe-api/.env"
-NETWORK_NAME="absinthe-net"
-APP_NAME="abs-app"
-REDIS_CONTAINER_NAME="redis"
+NETWORK_NAME="absinthe-api_absinthe-net"
+APP_NAME="absinthe-api_abs-app_1"
+REDIS_CONTAINER_NAME="absinthe-api_redis_1"
 
 echo "[ABS] 🌐 Ensuring $NETWORK_NAME network exists..."
 if ! podman network exists "$NETWORK_NAME"; then

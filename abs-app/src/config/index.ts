@@ -1,5 +1,4 @@
 import dotenv from 'dotenv';
-import { ApiKeys } from '../types';
 
 dotenv.config();
 
