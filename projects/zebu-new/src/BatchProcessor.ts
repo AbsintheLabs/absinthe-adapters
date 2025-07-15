@@ -24,7 +24,17 @@ const currencies = [
   },
   {
     name: 'MANA',
-    symbol: 'aave-mana',
+    symbol: 'decentraland',
+    decimals: 18,
+  },
+  {
+    name: 'SAND',
+    symbol: 'the-sandbox',
+    decimals: 18,
+  },
+  {
+    name: 'GHST',
+    symbol: 'aavegotchi',
     decimals: 18,
   },
   {
