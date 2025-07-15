@@ -90,4 +90,3 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             bash /home/admin/ops/absinthe-api/deploy-absinthe.sh
-
