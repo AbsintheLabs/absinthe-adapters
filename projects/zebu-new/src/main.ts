@@ -39,18 +39,4 @@ if (!zebuNew) {
 const zebuNewClients = zebuNew.clients.filter((client) => client.chainId === chainId);
 
 const zebuNewProcessor = new ZebuNewProcessor(zebuNewClients, apiClient, env.baseConfig, chainId);
-async function runForever() {
-  while (true) {
-    try {
-      console.log(`[Zebu] Processor starting for chainId: ${chainId}`);
-      await zebuNewProcessor.run();
-      console.log('[Zebu] Processor finished run. Sleeping for 10s before next check...');
-    } catch (err) {
-      console.error('[Zebu] Processor crashed:', err);
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, 10000));
-  }
-}
-
-runForever();
+zebuNewProcessor.run();
