@@ -326,7 +326,7 @@ export class ZebuNewProcessor {
         this.env,
         chainConfig,
       );
-      // await this.apiClient.send(transactions);
+      await this.apiClient.send(transactions);
     }
   }
 }
