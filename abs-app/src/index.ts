@@ -1,6 +1,7 @@
 import { createApp } from './app';
-import { config } from './config';
+import { Config, config, loadSecrets } from './config';
 import { kafkaService } from './services/kafka';
+import { redisService } from './services/redis';
 
 /**
  * Start the server
@@ -23,6 +24,7 @@ const startServer = (): void => {
       try {
         // Disconnect Kafka producer
         await kafkaService.disconnect();
+        await redisService.disconnect();
         console.log('Kafka producer disconnected');
         process.exit(0);
       } catch (error) {
@@ -38,4 +40,7 @@ const startServer = (): void => {
 };
 
 // Start the application
+(async () => {
+  await loadSecrets();
+})();
 startServer();
