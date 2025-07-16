@@ -2,11 +2,7 @@ import { Request, Response } from 'express';
 import { kafkaService } from '../services/kafka';
 import { config } from '../config';
 import { MessageType } from '../types/enums';
-// import { validationService } from '../services/validation';
 
-/**
- * POST /api/log - Logs the request body and sends to Kafka
- */
 export const logRequestHandler = async (req: Request, res: Response): Promise<void> => {
   try {
     const events = Array.isArray(req.body) ? req.body : [req.body];

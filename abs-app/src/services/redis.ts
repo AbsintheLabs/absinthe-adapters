@@ -1,4 +1,5 @@
 import { createClient, RedisClientType } from 'redis';
+import { config } from '../config';
 
 interface ApiKeyValidationResult {
   isValid: boolean;
@@ -15,7 +16,7 @@ export class RedisService {
 
   constructor() {
     this.redis = createClient({
-      url: process.env.REDIS_URL,
+      url: config.redisUrl,
       socket: {
         reconnectStrategy: (retries) => Math.min(retries * 50, 500),
       },

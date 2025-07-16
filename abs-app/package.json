@@ -15,6 +15,7 @@
     "test:validation": "npx ts-node src/test-runner.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-ssm": "^3.846.0",
     "@kafkajs/confluent-schema-registry": "^3.9.0",
     "@types/kafkajs-snappy": "^1.0.0",
     "ajv": "^8.17.1",
