@@ -12,6 +12,18 @@ import { ZebuClientConfigWithChain } from '@absinthe/common';
 export function createProcessor(clients: ZebuClientConfigWithChain[]) {
   const contractAddresses = clients.map((client) => client.contractAddress);
   const fromBlock = Math.min(...clients.map((client) => client.fromBlock));
+  const chainId = clients[0].chainId;
+
+  const finalityConfirmations = (() => {
+    switch (chainId) {
+      case 137: // Polygon
+        return 100;
+
+      default:
+        return 75;
+    }
+  })();
+  console.log(`[Zebu] Setting finality confirmations to ${finalityConfirmations}`);
 
   return new EvmBatchProcessor()
     .setGateway(clients[0].gatewayUrl)
@@ -19,7 +31,7 @@ export function createProcessor(clients: ZebuClientConfigWithChain[]) {
     .setBlockRange({
       from: fromBlock,
     })
-    .setFinalityConfirmation(75)
+    .setFinalityConfirmation(finalityConfirmations)
     .addLog({
       address: contractAddresses,
       topic0: [mainAbi.events.AuctionBid_Placed.topic, mainAbi.events.Auction_Claimed.topic],
