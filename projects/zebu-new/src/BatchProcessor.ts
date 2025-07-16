@@ -5,6 +5,7 @@ import {
   ProtocolType,
   ValidatedEnvBase,
   ZebuClientConfigWithChain,
+  ZERO_ADDRESS,
 } from '@absinthe/common';
 
 import { createHash } from 'crypto';
@@ -98,6 +99,7 @@ export class ZebuNewProcessor {
     for (const block of ctx.blocks) {
       await this.processBlock({ ctx, block, protocolStates });
     }
+    // throw new Error('Intentional test error');
 
     await this.finalizeBatch(ctx, protocolStates);
   }
@@ -252,6 +254,11 @@ export class ZebuNewProcessor {
     contractAddress: string,
   ): Promise<void> {
     const { winner, saleID } = mainAbi.events.Auction_Claimed.decode(log);
+    if (winner.toLowerCase() === ZERO_ADDRESS.toLowerCase()) {
+      console.warn('Auction_Claimed event with winner ZERO_ADDRESS');
+      return;
+    }
+
     const { gasPrice, gasUsed } = log.transaction;
     const gasFee = Number(gasUsed) * Number(gasPrice);
     const displayGasFee = gasFee / 10 ** 18;
@@ -319,7 +326,7 @@ export class ZebuNewProcessor {
         this.env,
         chainConfig,
       );
-      await this.apiClient.send(transactions);
+      // await this.apiClient.send(transactions);
     }
   }
 }
