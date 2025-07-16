@@ -19,6 +19,7 @@ export async function loadSecrets() {
 
   const response = await ssm.send(command);
   const adminSecret = response.Parameter?.Value;
+  console.log(adminSecret, 'adminSecret');
   process.env.ADMIN_SECRET = adminSecret;
 
   console.log('adminSecret', process.env.ADMIN_SECRET);
