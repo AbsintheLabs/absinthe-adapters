@@ -7,14 +7,26 @@ services:
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
-  abs-app-main:
+  abs-app-dev:
     image: ghcr.io/absinthelabs/absinthe-abs-app:abs-app
     ports:
-      - 3005:3005
+      - 3000:3000
     depends_on:
       - caddy
     env_file:
-      - .env.main
+      - .env
+    networks:
+      - absinthe-net
+
+    command: npm start
+  abs-app-stg:
+    image: ghcr.io/absinthelabs/absinthe-abs-app:abs-app
+    ports:
+      - 3003:3003
+    depends_on:
+      - caddy
+    env_file:
+      - .env.stg
     networks:
       - absinthe-net
 

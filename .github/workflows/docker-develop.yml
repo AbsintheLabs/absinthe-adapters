@@ -85,8 +85,8 @@ jobs:
       - name: Trigger deployment on EC2
         uses: appleboy/ssh-action@v0.1.6
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
+          host: ${{ secrets.EC2_STG_DEV_HOST }}
+          username: ${{ secrets.EC2_STG_DEV_USER }}
+          key: ${{ secrets.EC2_STG_DEV_SSH_KEY }}
           script: |
             bash /home/admin/ops/absinthe-api/deploy-absinthe.sh

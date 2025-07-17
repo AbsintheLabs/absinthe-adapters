@@ -1,9 +1,9 @@
 #!/bin/bash
 set -e
 
-ENV_PATH="/home/admin/ops/absinthe-api/.env"
+ENV_PATH="/home/admin/ops/absinthe-api/.env.stg"
 NETWORK_NAME="absinthe-api_absinthe-net"
-APP_NAME="absinthe-api_abs-app-dev_1"
+APP_NAME="absinthe-api_abs-app-stg_1"
 REDIS_CONTAINER_NAME="absinthe-api_redis_1"
 
 echo "[ABS] 🌐 Ensuring $NETWORK_NAME network exists..."
@@ -30,13 +30,13 @@ podman run -d \
   --name "$APP_NAME" \
   --network "$NETWORK_NAME" \
   --env-file "$ENV_PATH" \
-  -p 3000:3000 \
+  -p 3003:3003 \
   ghcr.io/absinthelabs/absinthe-abs-app:latest
 
 # Health check
 echo "[ABS] 🔍 Waiting for health check..."
 for i in {1..10}; do
-  if curl -sf http://localhost:3000/health; then
+  if curl -sf http://localhost:3003/health; then
     echo "[ABS] ✅ $APP_NAME is healthy!"
     exit 0
   fi
