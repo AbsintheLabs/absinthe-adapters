@@ -12,8 +12,9 @@ const awsConfig = {
 const ssm = new SSMClient({ region: awsConfig.region });
 
 export async function loadSecrets() {
+  console.log(awsConfig, 'awsConfig');
   const command = new GetParameterCommand({
-    Name: `${awsConfig.ssmName}/${awsConfig.ssmEnv}/${awsConfig.ssmPathAdminSecret}`,
+    Name: `/${awsConfig.ssmName}/${awsConfig.ssmEnv}/${awsConfig.ssmPathAdminSecret}`,
     WithDecryption: true,
   });
 
@@ -22,8 +23,7 @@ export async function loadSecrets() {
   console.log(adminSecret, 'adminSecret');
   process.env.ADMIN_SECRET = adminSecret;
 
-  console.log('adminSecret', process.env.ADMIN_SECRET);
-  return process.env.ADMIN_SECRET;
+  console.log('envsecret', process.env.ADMIN_SECRET);
 }
 
 export const config = {
