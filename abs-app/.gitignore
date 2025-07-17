@@ -2,5 +2,8 @@ node_modules/
 dist/
 .env
 .env.main
+.env.stg
+.env.dev
+.env.prod
 *.log 
 lib/
