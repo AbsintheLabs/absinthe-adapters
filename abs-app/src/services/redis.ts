@@ -42,7 +42,7 @@ export class RedisService {
     }
 
     try {
-      const cached = await this.redis.get(`api_key:${apiKey}`);
+      const cached = await this.redis.get(`api_key_${config.environment}:${apiKey}`);
       if (cached) {
         return JSON.parse(cached);
       }
@@ -58,7 +58,7 @@ export class RedisService {
       console.warn('Redis not connected, skipping cache lookup');
       return [];
     }
-    return await this.redis.keys('api_key:*');
+    return await this.redis.keys(`api_key_${config.environment}:*`);
   }
 
   async setApiKeyValidation(apiKey: string, validation: ApiKeyValidationResult): Promise<void> {
@@ -68,7 +68,11 @@ export class RedisService {
     }
 
     try {
-      await this.redis.setEx(`api_key:${apiKey}`, this.CACHE_TTL, JSON.stringify(validation));
+      await this.redis.setEx(
+        `api_key_${config.environment}:${apiKey}`,
+        this.CACHE_TTL,
+        JSON.stringify(validation),
+      );
       console.debug(`Cached API key validation for ${apiKey}`);
     } catch (error) {
       console.error('Error setting API key in cache:', error);
