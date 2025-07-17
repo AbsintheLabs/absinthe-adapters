@@ -9,6 +9,8 @@ import { redisService } from './services/redis';
 const startServer = (): void => {
   const app = createApp();
 
+  console.log(config, 'config');
+
   const server = app.listen(config.port, () => {
     console.log(`Server running on port ${config.port}`);
   });
