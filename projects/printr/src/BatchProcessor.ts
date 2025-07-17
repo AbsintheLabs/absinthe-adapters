@@ -410,8 +410,6 @@ export class PrintrProcessor {
       this.env,
       this.chainConfig,
     );
-    console.log(transactions);
-    // await this.apiClient.send(transactions);
-    // Save to database
+    await this.apiClient.send(transactions);
   }
 }
