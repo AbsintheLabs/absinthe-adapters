@@ -38,7 +38,7 @@ export class ApiKeyValidationService {
       const response = await fetch(validationUrl, {
         method: 'GET',
         headers: {
-          'x-hasura-admin-secret': process.env.ADMIN_SECRET as string,
+          'x-hasura-admin-secret': this.config.adminSecret as string,
           'Content-Type': 'application/json',
         },
       });
