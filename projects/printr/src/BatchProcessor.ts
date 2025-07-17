@@ -5,6 +5,7 @@ import {
   MessageType,
   ValidatedBondingCurveProtocolConfig,
   ValidatedEnvBase,
+  ZERO_ADDRESS,
 } from '@absinthe/common';
 import { BigDecimal } from '@subsquid/big-decimal';
 import { createHash } from 'crypto';
@@ -17,7 +18,7 @@ import { PrintrProtocolState } from './types';
 import * as factoryAbi from './abi/factory';
 import * as printr2Abi from './abi/printr2';
 import * as poolAbi from './abi/pool';
-import { LIQUIDITY_FEE } from './consts';
+import { LIQUIDITY_FEE, LIQUIDITY_FEE_OLD } from './consts';
 import { getOptimizedTokenPrices } from './utils/pricing';
 //todo: storage in database
 export class PrintrProcessor {
@@ -129,8 +130,6 @@ export class PrintrProcessor {
         await this.processSwapEvent(ctx, block, log, protocolState);
       }
     }
-
-    console.log(protocolState);
   }
 
   private async processSwapEvent(
@@ -141,6 +140,20 @@ export class PrintrProcessor {
   ): Promise<void> {
     const { sender, amount0, amount1 } = poolAbi.events.Swap.decode(log);
     const { gasPrice, gasUsed, hash } = log.transaction;
+    const gasUsedInEth = Number(gasUsed) / 10 ** 18;
+    const gasFee = Number(gasUsed) * Number(gasPrice);
+    const displayGasFee = gasFee / 10 ** 18;
+    let ethPriceUsd = 0;
+    try {
+      ethPriceUsd = await fetchHistoricalUsd(
+        'ethereum',
+        block.header.timestamp,
+        this.env.coingeckoApiKey,
+      );
+    } catch (error) {
+      console.warn('Could not fetch historical USD price, using 0:', error);
+    }
+    const gasFeeUsd = displayGasFee * ethPriceUsd;
 
     const token0 = protocolState.tokens[log.address].token0;
     const token1 = protocolState.tokens[log.address].token1;
@@ -205,8 +218,8 @@ export class PrintrProcessor {
       userId: sender,
       currency: Currency.USD,
       valueUsd: swappedAmountUSD,
-      gasUsed: Number(gasUsed),
-      gasFeeUsd: Number(gasPrice) * Number(gasUsed),
+      gasUsed: gasUsedInEth,
+      gasFeeUsd: gasFeeUsd,
     };
 
     protocolState.transactions.push(transactionSchema);
@@ -222,6 +235,7 @@ export class PrintrProcessor {
       printrAbi.events.TokenTrade.decode(log);
     const { gasPrice, gasUsed } = log.transaction;
     const gasFee = Number(gasUsed) * Number(gasPrice);
+    const gasUsedInEth = Number(gasUsed) / 10 ** 18;
     const displayGasFee = gasFee / 10 ** 18;
     let ethPriceUsd = 0;
     try {
@@ -286,7 +300,7 @@ export class PrintrProcessor {
       userId: trader,
       currency: Currency.USD,
       valueUsd: valueInUsd,
-      gasUsed: Number(gasUsed),
+      gasUsed: gasUsedInEth,
       gasFeeUsd: gasFeeUsd,
     };
     console.log(transactionSchema);
@@ -302,6 +316,7 @@ export class PrintrProcessor {
   ): Promise<void> {
     const { token, creator } = printrAbi.events.CurveCreated.decode(log);
     const { gasPrice, gasUsed } = log.transaction;
+    const gasUsedInEth = Number(gasUsed) / 10 ** 18;
     const gasFee = Number(gasUsed) * Number(gasPrice);
     const displayGasFee = gasFee / 10 ** 18;
     const ethPriceUsd = await fetchHistoricalUsd(
@@ -322,7 +337,7 @@ export class PrintrProcessor {
       rawAmount: '0',
       displayAmount: 0,
       valueUsd: gasFeeUsd,
-      gasUsed: Number(gasUsed),
+      gasUsed: gasUsedInEth,
       gasFeeUsd: gasFeeUsd,
       unixTimestampMs: block.header.timestamp,
       txHash: log.transactionHash,
@@ -364,9 +379,15 @@ export class PrintrProcessor {
     const token1Erc20 = new erc20Abi.Contract(ctx, block.header, baseToken.basePair);
     const token0Decimals = await token0Erc20.decimals();
     const token1Decimals = await token1Erc20.decimals();
-    const poolAddress = await univ3Factory.getPool(token, baseToken.basePair, LIQUIDITY_FEE);
-    console.log(poolAddress);
-    protocolState.tokens[poolAddress] = {
+
+    let poolAddress = await univ3Factory.getPool(token, baseToken.basePair, LIQUIDITY_FEE_OLD);
+    console.log(`Pool with fee ${LIQUIDITY_FEE_OLD}:`, poolAddress);
+
+    if (poolAddress.toLowerCase() === ZERO_ADDRESS.toLowerCase()) {
+      poolAddress = await univ3Factory.getPool(token, baseToken.basePair, LIQUIDITY_FEE);
+      console.log(`Pool with fee ${LIQUIDITY_FEE}:`, poolAddress);
+    }
+    protocolState.tokens[poolAddress.toLowerCase()] = {
       token0: {
         id: token,
         decimals: token0Decimals,
@@ -390,12 +411,5 @@ export class PrintrProcessor {
       this.chainConfig,
     );
     await this.apiClient.send(transactions);
-    // Save to database
-    // await ctx.store.upsert(protocolState.config.token0); //saves to Token table
-    // await ctx.store.upsert(protocolState.config.token1);
-    // await ctx.store.upsert(protocolState.config.lpToken);
-    // await ctx.store.upsert(protocolState.config);
-    // await ctx.store.upsert(protocolState.state);
-    // await ctx.store.upsert(protocolState.processState);
   }
 }

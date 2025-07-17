@@ -30,7 +30,7 @@ export class KafkaService {
 
     this.kafka = new Kafka({
       clientId: config.kafka.clientId,
-      ssl: process.env.ENVIRONMENT === 'prod' ? true : false,
+      ssl: config.environment === 'prod' ? true : false,
       brokers: config.kafka.brokers.split(','),
       retry: {
         initialRetryTime: 100,

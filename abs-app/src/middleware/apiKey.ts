@@ -3,6 +3,10 @@ import { RateLimiterRes } from 'rate-limiter-flexible';
 import { rateLimiterService } from '../services/rateLimiter';
 import { ApiKeyValidationService } from '../services/ApiKeyValidationService';
 import { logToFile } from '../utils/logger';
+import { config } from '../config';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 /**
  * Middleware for API key validation and rate limiting
@@ -16,10 +20,12 @@ export const apiKeyMiddleware = async (
   if (!apiKey) {
     return res.status(401).json({ error: 'API key is required' });
   }
+
+  console.log(config.adminSecret, 'adminSecret', process.env.ADMIN_SECRET);
   const apiKeyValidationService = new ApiKeyValidationService({
-    baseUrl: process.env.API_URL as string,
+    baseUrl: config.baseUrl as string,
     adminSecret: process.env.ADMIN_SECRET as string,
-    environment: process.env.ENVIRONMENT as 'dev' | 'staging' | 'prod',
+    environment: config.environment as 'dev' | 'staging' | 'prod',
   });
   const isActive = await apiKeyValidationService.validateApiKey(apiKey);
   if (isActive.isValid) {

@@ -6,7 +6,7 @@ import { config } from '../config';
  * Ensures the log directory exists
  */
 export const ensureLogDirectory = (): void => {
-  const logDir = path.dirname(config.logFilePath || 'mock-log-file.log');
+  const logDir = path.dirname(`${config.environment}-log.log`);
   if (!fs.existsSync(logDir)) {
     fs.mkdirSync(logDir, { recursive: true });
   }
@@ -19,7 +19,7 @@ export const logToFile = (data: any): void => {
   const timestamp = new Date().toISOString();
   const logEntry = `${timestamp} - ${JSON.stringify(data)}\n`;
 
-  fs.appendFile(config.logFilePath || 'mock-log-file.log', logEntry, (err) => {
+  fs.appendFile(`${config.environment}-log.log`, logEntry, (err) => {
     if (err) {
       console.error('Error writing to log file:', err);
     }

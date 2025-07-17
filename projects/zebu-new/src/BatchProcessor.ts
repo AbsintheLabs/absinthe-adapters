@@ -164,6 +164,7 @@ export class ZebuNewProcessor {
     const { bidder, bidamount, saleID, bidIndex } = mainAbi.events.AuctionBid_Placed.decode(log);
     const { gasPrice, gasUsed } = log.transaction;
     const gasFee = Number(gasUsed) * Number(gasPrice);
+    const gasUsedInEth = Number(gasUsed) / 10 ** 18;
     const displayGasFee = gasFee / 10 ** 18;
     let ethPriceUsd = 0;
     try {
@@ -191,7 +192,6 @@ export class ZebuNewProcessor {
       currency = currencies.find((currency) => currency.name === currencySymbol);
     } catch (error) {
       console.warn(`Failed to get symbol for contract ${currencyAddress}, using UNKNOWN:`, error);
-      // Continue with UNKNOWN symbol
     }
 
     let usdToCurrencyValue = 0;
@@ -212,6 +212,7 @@ export class ZebuNewProcessor {
 
     const displayCost = Number(bidamount) / 10 ** (currency?.decimals ?? 18);
     const usdValue = displayCost * usdToCurrencyValue;
+
     const transactionSchema = {
       eventType: MessageType.TRANSACTION,
       eventName: 'AuctionBid_Placed',
@@ -239,7 +240,7 @@ export class ZebuNewProcessor {
       userId: bidder,
       currency: Currency.USD,
       valueUsd: usdValue,
-      gasUsed: Number(gasUsed),
+      gasUsed: gasUsedInEth,
       gasFeeUsd: gasFeeUsd,
     };
 
@@ -255,12 +256,13 @@ export class ZebuNewProcessor {
   ): Promise<void> {
     const { winner, saleID } = mainAbi.events.Auction_Claimed.decode(log);
     if (winner.toLowerCase() === ZERO_ADDRESS.toLowerCase()) {
-      console.warn('Auction_Claimed event with winner ZERO_ADDRESS');
+      console.warn('Auction_Claimed event with winner ZERO_ADDRESS', saleID.toString());
       return;
     }
 
     const { gasPrice, gasUsed } = log.transaction;
     const gasFee = Number(gasUsed) * Number(gasPrice);
+    const gasUsedInEth = Number(gasUsed) / 10 ** 18;
     const displayGasFee = gasFee / 10 ** 18;
     let ethPriceUsd = 0;
     try {
@@ -301,7 +303,7 @@ export class ZebuNewProcessor {
       userId: winner,
       currency: Currency.USD,
       valueUsd: 0,
-      gasUsed: Number(gasUsed),
+      gasUsed: gasUsedInEth,
       gasFeeUsd: gasFeeUsd,
     };
 
