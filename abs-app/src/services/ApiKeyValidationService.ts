@@ -16,6 +16,7 @@ export class ApiKeyValidationService {
 
   constructor(config: ValidationConfig) {
     this.config = config;
+    console.log(this.config, 'config');
   }
 
   private getValidationUrl(apiKey: string): string {
@@ -37,7 +38,7 @@ export class ApiKeyValidationService {
       const response = await fetch(validationUrl, {
         method: 'GET',
         headers: {
-          'x-hasura-admin-secret': this.config.adminSecret,
+          'x-hasura-admin-secret': this.config.adminSecret as string,
           'Content-Type': 'application/json',
         },
       });

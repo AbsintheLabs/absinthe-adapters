@@ -21,7 +21,6 @@ export const apiKeyMiddleware = async (
     return res.status(401).json({ error: 'API key is required' });
   }
 
-  console.log(config.adminSecret, 'adminSecret', process.env.ADMIN_SECRET);
   const apiKeyValidationService = new ApiKeyValidationService({
     baseUrl: config.baseUrl as string,
     adminSecret: process.env.ADMIN_SECRET as string,
