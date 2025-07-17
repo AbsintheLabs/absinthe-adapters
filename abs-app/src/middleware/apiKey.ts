@@ -24,7 +24,7 @@ export const apiKeyMiddleware = async (
   console.log(config.adminSecret, 'adminSecret', process.env.ADMIN_SECRET);
   const apiKeyValidationService = new ApiKeyValidationService({
     baseUrl: config.baseUrl as string,
-    adminSecret: config.adminSecret as string,
+    adminSecret: process.env.ADMIN_SECRET as string,
     environment: config.environment as 'dev' | 'staging' | 'prod',
   });
   const isActive = await apiKeyValidationService.validateApiKey(apiKey);

@@ -20,7 +20,6 @@ export class ApiKeyValidationService {
 
   private getValidationUrl(apiKey: string): string {
     const baseUrl = this.config.baseUrl;
-    console.log('baseUrl', baseUrl);
     return `${baseUrl}/api/rest/absinthe-indexer/api-keys/validate/${apiKey}`;
   }
 
