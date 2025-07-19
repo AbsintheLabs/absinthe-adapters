@@ -1,0 +1,272 @@
+name: Build & Push Docker Images to GHCR
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [closed]
+    branches: [develop]
+
+jobs:
+  ##############################################################################
+  # 1)  Detect what changed
+  ##############################################################################
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      common: ${{ steps.filter.outputs.common }}
+      deploy-ghcr: ${{ steps.filter.outputs.deploy-ghcr }}
+      compoundv2: ${{ steps.filter.outputs.compoundv2 }}
+      demos: ${{ steps.filter.outputs.demos }}
+      hemistaking: ${{ steps.filter.outputs.hemistaking }}
+      izumi: ${{ steps.filter.outputs.izumi }}
+      printr: ${{ steps.filter.outputs.printr }}
+      uniswapv2: ${{ steps.filter.outputs.uniswapv2 }}
+      uniswapv3: ${{ steps.filter.outputs.uniswapv3 }}
+      voucher: ${{ steps.filter.outputs.voucher }}
+      vusd-bridge: ${{ steps.filter.outputs.vusd-bridge }}
+      vusd-mint: ${{ steps.filter.outputs.vusd-mint }}
+      zebu-legacy: ${{ steps.filter.outputs.zebu-legacy }}
+      zebu-new: ${{ steps.filter.outputs.zebu-new }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          base: ${{ github.ref }}
+          filters: |
+            compoundv2:
+              - 'projects/compoundv2/**'
+            demos:
+              - 'projects/demos/**'
+            hemistaking:
+              - 'projects/hemistaking/**'
+            izumi:
+              - 'projects/izumi/**'
+            printr:
+              - 'projects/printr/**'
+            uniswapv2:
+              - 'projects/uniswapv2/**'
+            uniswapv3:
+              - 'projects/uniswapv3/**'
+            voucher:
+              - 'projects/voucher/**'
+            vusd-bridge:
+              - 'projects/vusd-bridge/**'
+            vusd-mint:
+              - 'projects/vusd-mint/**'
+            zebu-legacy:
+              - 'projects/zebu-legacy/**'
+            zebu-new:
+              - 'projects/zebu-new/**'
+            common:
+              - 'packages/common/**'
+            deploy-ghcr:
+              - '.github/workflows/deploy-ghcr.yml'
+
+  ##############################################################################
+  # 2)  Build and push Docker images
+  ##############################################################################
+  build-and-push:
+    needs: changes
+    if: github.event_name == 'workflow_dispatch' ||
+      needs.changes.outputs.common == 'true' ||
+      needs.changes.outputs.deploy-ghcr == 'true' ||
+      needs.changes.outputs.compoundv2 == 'true' ||
+      needs.changes.outputs.demos == 'true' ||
+      needs.changes.outputs.hemistaking == 'true' ||
+      needs.changes.outputs.izumi == 'true' ||
+      needs.changes.outputs.printr == 'true' ||
+      needs.changes.outputs.uniswapv2 == 'true' ||
+      needs.changes.outputs.uniswapv3 == 'true' ||
+      needs.changes.outputs.voucher == 'true' ||
+      needs.changes.outputs.vusd-bridge == 'true' ||
+      needs.changes.outputs.vusd-mint == 'true' ||
+      needs.changes.outputs.zebu-legacy == 'true' ||
+      needs.changes.outputs.zebu-new == 'true'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine SemVer
+        id: semver
+        run: |
+          VERSION="$(git tag --points-at HEAD | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' || true)"
+          if [ -z "$VERSION" ]; then
+            echo "No exact semver tag on this commit, skipping versioned push."
+          else
+            echo "SemVer detected: $VERSION"
+            echo "VERSION=$VERSION" >> $GITHUB_ENV
+          fi
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GH_TOKEN }}
+
+      - name: Build and push Docker images
+        run: |
+          # Determine which images to build based on changes
+          build_all=false
+          images_to_build=()
+
+          # If common package changed, build all images
+          if [[ "${{ needs.changes.outputs.common }}" == "true" ]]; then
+            echo "Common package changed - building all images"
+            build_all=true
+          fi
+
+          # If workflow file changed, build all images
+          if [[ "${{ needs.changes.outputs.deploy-ghcr }}" == "true" ]]; then
+            echo "Workflow file changed - building all images"
+            build_all=true
+          fi
+
+          # If specific project changed, build only that image
+          if [[ "${{ needs.changes.outputs.compoundv2 }}" == "true" ]]; then
+            images_to_build+=("compoundv2")
+          fi
+          if [[ "${{ needs.changes.outputs.demos }}" == "true" ]]; then
+            images_to_build+=("demos")
+          fi
+          if [[ "${{ needs.changes.outputs.hemistaking }}" == "true" ]]; then
+            images_to_build+=("hemistaking")
+          fi
+          if [[ "${{ needs.changes.outputs.izumi }}" == "true" ]]; then
+            images_to_build+=("izumi")
+          fi
+          if [[ "${{ needs.changes.outputs.printr }}" == "true" ]]; then
+            images_to_build+=("printr")
+          fi
+          if [[ "${{ needs.changes.outputs.uniswapv2 }}" == "true" ]]; then
+            images_to_build+=("uniswapv2")
+          fi
+          if [[ "${{ needs.changes.outputs.uniswapv3 }}" == "true" ]]; then
+            images_to_build+=("uniswapv3")
+          fi
+          if [[ "${{ needs.changes.outputs.voucher }}" == "true" ]]; then
+            images_to_build+=("voucher")
+          fi
+          if [[ "${{ needs.changes.outputs.vusd-bridge }}" == "true" ]]; then
+            images_to_build+=("vusd-bridge")
+          fi
+          if [[ "${{ needs.changes.outputs.vusd-mint }}" == "true" ]]; then
+            images_to_build+=("vusd-mint")
+          fi
+          if [[ "${{ needs.changes.outputs.zebu-legacy }}" == "true" ]]; then
+            images_to_build+=("zebu-legacy")
+          fi
+          if [[ "${{ needs.changes.outputs.zebu-new }}" == "true" ]]; then
+            images_to_build+=("zebu-new-base" "zebu-new-polygon")
+          fi
+
+          # Find all Dockerfiles
+          dockerfiles=$(find ops/dockerfiles -name "Dockerfile*" -type f)
+
+          if [ -z "$dockerfiles" ]; then
+            echo "No Dockerfiles found in ops/dockerfiles"
+            exit 0
+          fi
+
+          # Build and push each image sequentially
+          for dockerfile_path in $dockerfiles; do
+            dockerfile=$(basename "$dockerfile_path")
+            echo "Processing $dockerfile..."
+            
+            # Extract image name
+            if [[ "$dockerfile" == "Dockerfile" ]]; then
+              image_name="main"
+            else
+              image_name=$(echo "$dockerfile" | sed 's/Dockerfile[.-]*//' | tr '[:upper:]' '[:lower:]')
+            fi
+            
+            # Check if we should build this image
+            should_build=false
+            if [[ "$build_all" == "true" ]]; then
+              should_build=true
+            else
+              for img in "${images_to_build[@]}"; do
+                if [[ "$image_name" == "$img" ]]; then
+                  should_build=true
+                  break
+                fi
+              done
+            fi
+            
+            if [[ "$should_build" == "true" ]]; then
+              echo "Building $dockerfile (${image_name})..."
+              
+              tags="ghcr.io/absinthelabs/absinthe-${image_name}:latest"
+              
+              # if VERSION is set, add the semver tag
+              if [ -n "${VERSION:-}" ]; then
+                tags="$tags ghcr.io/absinthelabs/absinthe-${image_name}:$VERSION"
+              fi
+
+              echo "Building + pushing ${image_name} → tags: $tags"
+              docker buildx build \
+                --platform linux/amd64,linux/arm64 \
+                --file "$dockerfile_path" \
+                --push \
+                $(printf -- "--tag %s " $tags) \
+                .
+            else
+              echo "Skipping $dockerfile (${image_name}) - no changes detected"
+            fi
+          done
+
+      #   - name: Notify Slack on Success
+      #       if: success()
+      #       uses: slackapi/slack-github-action@v1.27.0
+      #       with:
+      #         payload: |
+      #           {
+      #             "text": "✅ Production deployment succeeded for ${{ github.repository }}",
+      #             "blocks": [
+      #               {
+      #                 "type": "section",
+      #                 "text": {
+      #                   "type": "mrkdwn",
+      #                   "text": "✅ Production deployment *succeeded* for ${{ github.repository }}\n*Branch:* ${{ github.ref_name }}"
+      #                 }
+      #               }
+      #             ]
+      #           }
+      #       env:
+      #         SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      #         SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+
+      # -     name: Notify Slack on Failure
+      #       if: failure()
+      #       uses: slackapi/slack-github-action@v1.27.0
+      #       with:
+      #         payload: |
+      #           {
+      #             "text": "❌ Production deployment failed for ${{ github.repository }}",
+      #             "blocks": [
+      #               {
+      #                 "type": "section",
+      #                 "text": {
+      #                   "type": "mrkdwn",
+      #                   "text": "❌ Production deployment *failed* for ${{ github.repository }}\n*Branch:* ${{ github.ref_name }}\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View build details>"
+      #                 }
+      #               }
+      #             ]
+      #           }
+      #       env:
+      #         SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      #         SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
