@@ -1,11 +1,9 @@
 name: Build & Push Docker Images to GHCR
 
 on:
-  pull_request:
-    types: [closed]
-    branches: [main]
+  workflow_dispatch:
   push:
-    branches: [kushagra/improvements, staging]
+    branches: [kushagra/improvements]
 
 jobs:
   ##############################################################################
