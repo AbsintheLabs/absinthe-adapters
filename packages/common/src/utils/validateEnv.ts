@@ -14,7 +14,7 @@ import {
   GatewayUrl,
   StakingProtocol,
 } from '../types/enums';
-import { getChainEnumKey } from './helper/getChainEnumKey';
+import { getChainEnumKey } from './helper/helper';
 import {
   ProtocolConfig,
   Univ3PoolConfig,

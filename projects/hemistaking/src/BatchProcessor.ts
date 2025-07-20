@@ -20,90 +20,10 @@ import { TypeormDatabase } from '@subsquid/typeorm-store';
 import { loadActiveBalancesFromDb, loadPoolProcessStateFromDb } from './utils/pool';
 import { ProtocolStateHemi } from './utils/types';
 import * as hemiAbi from './abi/hemi';
-import { fetchHistoricalUsd } from './utils/pricing';
+import { fetchHistoricalUsd } from '@absinthe/common';
 import { mapToJson, toTimeWeightedBalance, pricePosition } from '@absinthe/common';
 import { PoolProcessState } from './model';
-
-//todo: cleanup
-function flattenNestedMap(
-  nestedMap: Map<string, Map<string, ActiveBalance>>,
-): Map<string, ActiveBalance> {
-  const flatMap = new Map<string, ActiveBalance>();
-  for (const [tokenAddress, userBalances] of nestedMap.entries()) {
-    for (const [userAddress, balance] of userBalances.entries()) {
-      flatMap.set(`${tokenAddress}-${userAddress}`, balance);
-    }
-  }
-  return flatMap;
-}
-
-const TOKEN_METADATA = [
-  // {
-  //   address: '0xb4818bb69478730ef4e33cc068dd94278e2766cb',
-  //   symbol: 'USDT',
-  //   decimals: 18,
-  //   coingeckoId: 'tether',
-  // },
-  {
-    address: '0xaa40c0c7644e0b2b224509571e10ad20d9c4ef28',
-    symbol: 'hemiBTC',
-    decimals: 8,
-    coingeckoId: 'bitcoin',
-  },
-  {
-    address: '0xbb0d083fb1be0a9f6157ec484b6c79e0a4e31c2e',
-    symbol: 'USDT',
-    decimals: 18,
-    coingeckoId: 'tether',
-  },
-  {
-    address: '0x4200000000000000000000000000000000000006',
-    symbol: 'WETH',
-    decimals: 18,
-    coingeckoId: 'ethereum',
-  },
-  {
-    address: '0x7a06c4aef988e7925575c50261297a946ad204a8',
-    symbol: 'VUSD',
-    decimals: 18,
-    coingeckoId: 'vesper-vdollar',
-  },
-  // {
-  //   address: '0x93919784c523f39cacaa98ee0a9d96c3f32b593e',
-  //   symbol: 'BTC',
-  //   decimals: 8,
-  //   coingeckoId: 'bitcoin',
-  // },
-  // {
-  //   address: '0xe85411c030fb32a9d8b14bbbc6cb19417391f711',
-  //   symbol: 'BTC',
-  //   decimals: 18,
-  //   coingeckoId: 'bitcoin',
-  // },
-  // {
-  //   address: '0xf9775085d726e782e83585033b58606f7731ab18',
-  //   symbol: 'BTC',
-  //   decimals: 8,
-  //   coingeckoId: 'bitcoin',
-  // },
-];
-
-interface TokenMetadata {
-  address: string;
-  symbol: string;
-  decimals: number;
-  coingeckoId: string;
-}
-
-function checkToken(token: string): TokenMetadata | null {
-  let tokenMetadata = TOKEN_METADATA.find((t) => t.address.toLowerCase() === token.toLowerCase());
-  if (!tokenMetadata) {
-    console.warn(`Ignoring deposit for unsupported token: ${token}`);
-    return null;
-  }
-
-  return tokenMetadata;
-}
+import { checkToken, flattenNestedMap } from './utils/helper';
 
 export class HemiStakingProcessor {
   private readonly stakingProtocol: ValidatedStakingProtocolConfig;
@@ -228,12 +148,11 @@ export class HemiStakingProcessor {
       console.warn(`Ignoring deposit for unsupported token: ${token}`);
       return;
     }
-
-    // const baseCurrencyContract = new erc20Abi.Contract(ctx, block.header, token);
-    // const baseCurrencySymbol = await baseCurrencyContract.symbol();
-    // const baseCurrencyDecimals = await baseCurrencyContract.decimals();
-
-    const tokenPrice = await fetchHistoricalUsd(tokenMetadata.coingeckoId, block.header.timestamp);
+    const tokenPrice = await fetchHistoricalUsd(
+      tokenMetadata.coingeckoId,
+      block.header.timestamp,
+      this.env.coingeckoApiKey,
+    );
     const usdValue = pricePosition(tokenPrice, amount, tokenMetadata.decimals);
 
     const newHistoryWindows = processValueChangeBalances({
@@ -267,11 +186,11 @@ export class HemiStakingProcessor {
       console.warn(`Ignoring withdraw for unsupported token: ${token}`);
       return;
     }
-    // const baseCurrencyContract = new erc20Abi.Contract(ctx, block.header, token);
-    // const baseCurrencySymbol = await baseCurrencyContract.symbol();
-    // const baseCurrencyDecimals = await baseCurrencyContract.decimals();
-
-    const tokenPrice = await fetchHistoricalUsd(tokenMetadata.coingeckoId, block.header.timestamp);
+    const tokenPrice = await fetchHistoricalUsd(
+      tokenMetadata.coingeckoId,
+      block.header.timestamp,
+      this.env.coingeckoApiKey,
+    );
     const usdValue = pricePosition(tokenPrice, amount, tokenMetadata.decimals);
 
     const newHistoryWindows = processValueChangeBalances({
@@ -321,7 +240,11 @@ export class HemiStakingProcessor {
               console.warn(`Ignoring withdraw for unsupported token: ${tokenAddress}`);
               return;
             }
-            const tokenPrice = await fetchHistoricalUsd(tokenMetadata.coingeckoId, currentTs);
+            const tokenPrice = await fetchHistoricalUsd(
+              tokenMetadata.coingeckoId,
+              currentTs,
+              this.env.coingeckoApiKey,
+            );
             const balanceUsd = pricePosition(tokenPrice, data.balance, tokenMetadata.decimals);
 
             // calculate the usd value of the lp token before and after the transfer
@@ -361,7 +284,6 @@ export class HemiStakingProcessor {
   ): Promise<void> {
     const contractAddress = this.stakingProtocol.contractAddress;
     const protocolState = protocolStates.get(contractAddress)!;
-    // Send data to Absinthe API
     const balances = toTimeWeightedBalance(
       protocolState.balanceWindows,
       this.stakingProtocol,
