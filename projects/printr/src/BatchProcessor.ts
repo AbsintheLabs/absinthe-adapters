@@ -14,11 +14,11 @@ import { processor } from './processor';
 import * as printrAbi from './abi/printr';
 import * as erc20Abi from './abi/erc20';
 import { fetchHistoricalUsd, toTransaction } from '@absinthe/common';
-import { PrintrProtocolState } from './types';
+import { PrintrProtocolState } from './utils/types';
 import * as factoryAbi from './abi/factory';
 import * as printr2Abi from './abi/printr2';
 import * as poolAbi from './abi/pool';
-import { LIQUIDITY_FEE, LIQUIDITY_FEE_OLD } from './consts';
+import { LIQUIDITY_FEE, LIQUIDITY_FEE_OLD } from './utils/consts';
 import { getOptimizedTokenPrices } from './utils/pricing';
 //todo: storage in database
 export class PrintrProcessor {

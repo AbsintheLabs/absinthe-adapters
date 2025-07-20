@@ -17,7 +17,7 @@ import { TypeormDatabase } from '@subsquid/typeorm-store';
 import { loadActiveBalancesFromDb, loadPoolProcessStateFromDb } from './utils/pool';
 import { ProtocolStateHemi } from './utils/types';
 import * as vusdAbi from './abi/vusd';
-import { fetchHistoricalUsd } from './utils/pricing';
+import { fetchHistoricalUsd } from '@absinthe/common';
 import { mapToJson, toTimeWeightedBalance, pricePosition } from '@absinthe/common';
 import { ActiveBalances, PoolProcessState } from './model/index';
 import * as erc20Abi from './abi/erc20';
@@ -192,7 +192,11 @@ export class VUSDBridgeProcessor {
     const remoteTokenSymbol = await remoteTokenContract.symbol();
     const remoteTokenDecimals = await remoteTokenContract.decimals();
 
-    const tokenPrice = await fetchHistoricalUsd(tokenMetadata.coingeckoId, block.header.timestamp);
+    const tokenPrice = await fetchHistoricalUsd(
+      tokenMetadata.coingeckoId,
+      block.header.timestamp,
+      this.env.coingeckoApiKey,
+    );
     const usdValue = pricePosition(tokenPrice, amount, tokenMetadata.decimals);
 
     const newHistoryWindows = processValueChangeBalances({
@@ -242,7 +246,11 @@ export class VUSDBridgeProcessor {
               console.warn(`Ignoring withdraw for unsupported token: ${tokenAddress}`);
               return;
             }
-            const tokenPrice = await fetchHistoricalUsd(tokenMetadata.coingeckoId, currentTs);
+            const tokenPrice = await fetchHistoricalUsd(
+              tokenMetadata.coingeckoId,
+              currentTs,
+              this.env.coingeckoApiKey,
+            );
             const balanceUsd = pricePosition(tokenPrice, data.balance, tokenMetadata.decimals);
 
             // calculate the usd value of the lp token before and after the transfer

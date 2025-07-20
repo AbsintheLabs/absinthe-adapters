@@ -1,5 +1,5 @@
 import { AbsintheApiClient, validateEnv, HOURS_TO_MS, StakingProtocol } from '@absinthe/common';
-import { HemiStakingProcessor } from './HemiProcessor';
+import { HemiStakingProcessor } from './BatchProcessor';
 const env = validateEnv();
 
 const apiClient = new AbsintheApiClient({

@@ -15,7 +15,6 @@ import * as erc20Abi from './abi/erc20';
 import { fetchHistoricalUsd, toTransaction } from '@absinthe/common';
 import { ProtocolStateVoucher } from './utils/types';
 
-//todo: storage in database
 export class VoucherProcessor {
   private readonly bondingCurveProtocol: ValidatedBondingCurveProtocolConfig;
   private readonly schemaName: string;
@@ -73,7 +72,6 @@ export class VoucherProcessor {
     const protocolStates = new Map<string, ProtocolStateVoucher>();
 
     const contractAddress = this.bondingCurveProtocol.contractAddress;
-    //todo: move into a seperate function
     protocolStates.set(contractAddress, {
       transactions: [],
     });
