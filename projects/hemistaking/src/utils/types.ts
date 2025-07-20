@@ -8,4 +8,11 @@ interface ProtocolStateHemi extends ProtocolState {
   activeBalances: ActiveBalancesHemi;
 }
 
-export { ProtocolStateHemi, ActiveBalancesHemi };
+interface TokenMetadata {
+  address: string;
+  symbol: string;
+  decimals: number;
+  coingeckoId: string;
+}
+
+export { ProtocolStateHemi, ActiveBalancesHemi, TokenMetadata };

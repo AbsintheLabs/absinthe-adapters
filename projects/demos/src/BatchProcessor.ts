@@ -13,7 +13,6 @@ import { processor } from './processor';
 import { BatchContext, ProtocolState } from '@absinthe/common';
 import { fetchHistoricalUsd, toTransaction } from '@absinthe/common';
 
-//todo: storage in database
 export class DemosProcessor {
   private readonly bondingCurveProtocol: ValidatedBondingCurveProtocolConfig;
   private readonly schemaName: string;
@@ -71,7 +70,6 @@ export class DemosProcessor {
     const protocolStates = new Map<string, ProtocolState>();
 
     const contractAddress = this.bondingCurveProtocol.contractAddress.toLowerCase();
-    //todo: move into a seperate function
     protocolStates.set(contractAddress, {
       balanceWindows: [],
       transactions: [],
@@ -156,7 +154,6 @@ export class DemosProcessor {
       this.env,
       this.chainConfig,
     );
-    console.log(JSON.stringify(transactions, null, 2), 'transactions');
     await this.apiClient.send(transactions);
   }
 }

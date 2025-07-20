@@ -9,9 +9,6 @@ export function findConfigFile(fileName: string): string {
     '../' + fileName,
     '../../' + fileName,
     '../../../' + fileName,
-    './projects/uniswapv2/' + fileName,
-    '../projects/uniswapv2/' + fileName,
-    '../../projects/uniswapv2/' + fileName,
   ];
 
   for (const location of possibleLocations) {
