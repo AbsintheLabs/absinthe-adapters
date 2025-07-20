@@ -1,6 +1,7 @@
 # Absinthe Adapter API - Comprehensive Documentation
 
 ## Table of Contents
+
 1. [Project Overview](#project-overview)
 2. [Architecture & Design](#architecture--design)
 3. [Supported Protocols](#supported-protocols)
@@ -51,7 +52,7 @@
                                 │
                                 ▼
                        ┌─────────────────┐
-                       │   PostgreSQL    │   
+                       │   PostgreSQL    │
                        │       OR
                             Redis        │
                        └─────────────────┘
@@ -83,12 +84,14 @@
 ### 1. DEX Protocols (Decentralized Exchanges)
 
 #### Uniswap V2
+
 - **Purpose**: Track LP token transfers, swaps, and liquidity events
 - **Events Monitored**: `Transfer`, `Sync`, `Swap`
 - **Features**: Time-weighted balance tracking, price calculations
 - **Supported Chains**: Ethereum, Base
 
 #### Uniswap V3
+
 - **Purpose**: Advanced position tracking with NFT positions
 - **Events Monitored**: `PoolCreated`, `Swap`, `IncreaseLiquidity`, `DecreaseLiquidity`, `Collect`, `Transfer`
 - **Features**: Position management, fee tier tracking, concentrated liquidity
@@ -97,12 +100,14 @@
 ### 2. Staking Protocols
 
 #### Hemi Staking
+
 - **Purpose**: Track staking deposits and withdrawals
 - **Events Monitored**: `Deposit`, `Withdraw`
 - **Features**: Time-weighted balance tracking, reward calculations
 - **Supported Chains**: Hemi (43111)
 
 #### VUSD Bridge
+
 - **Purpose**: Cross-chain staking bridge tracking
 - **Events Monitored**: Bridge events, staking activities
 - **Supported Chains**: Ethereum
@@ -110,22 +115,26 @@
 ### 3. Bonding Curve Protocols
 
 #### Printr
+
 - **Purpose**: Track bonding curve token trades
 - **Events Monitored**: `CurveCreated`, `TokenTrade`, `LiquidityDeployed`, `Swap`
 - **Features**: Curve parameter tracking, trade volume analysis
 - **Supported Chains**: Base
 
 #### VUSD Mint
+
 - **Purpose**: Stablecoin minting protocol tracking
 - **Events Monitored**: Minting events, price stabilization
 - **Supported Chains**: Ethereum
 
 #### Demos
+
 - **Purpose**: Demo bonding curve implementation
 - **Events Monitored**: Custom demo events
 - **Supported Chains**: Hemi
 
 #### Voucher
+
 - **Purpose**: Voucher token system tracking
 - **Events Monitored**: Voucher creation, redemption
 - **Supported Chains**: Ethereum
@@ -133,6 +142,7 @@
 ### 5. Specialized Protocols
 
 #### Zebu (New & Legacy)
+
 - **Purpose**: Auction and bidding platform tracking
 - **Events Monitored**: `Auction_BidPlaced`, bidding events
 - **Features**: Auction tracking, bid analysis
@@ -145,6 +155,7 @@
 ### 1. Processor Layer
 
 Each protocol has its own processor that:
+
 - **Configures Event Listening**: Sets up blockchain event subscriptions
 - **Handles Data Extraction**: Decodes blockchain events into structured data
 - **Manages State**: Maintains protocol-specific state and balances
@@ -153,6 +164,7 @@ Each protocol has its own processor that:
 ### 2. Data Model Layer
 
 #### Common Models
+
 ```typescript
 interface ProtocolState {
   activeBalances: Map<string, Map<string, ActiveBalance>>;
@@ -179,7 +191,9 @@ interface TimeWeightedBalanceEvent {
 ```
 
 #### Protocol-Specific Models
+
 Each protocol extends the base models with protocol-specific fields:
+
 - **DEX Models**: Pool states, swap events, liquidity positions
 - **Staking Models**: Staking positions, reward tracking
 - **Bonding Curve Models**: Curve parameters, trade history
@@ -187,28 +201,32 @@ Each protocol extends the base models with protocol-specific fields:
 ### 3. Price Engine
 
 #### Price Sources
+
 - **CoinGecko API**: Primary price data source
 - **Codex**: Alternative price feed
 - **Internal TWAP**: Time-weighted average price calculations
 
 #### Price Calculation Logic
+
 ```typescript
 // LP Token Price Calculation
 const lpTokenPrice = (reserve0 * price0 + reserve1 * price1) / totalSupply;
 
 // Time-Weighted Balance Calculation
-const timeWeightedBalance = balance * (endTime - startTime) / windowDuration;
+const timeWeightedBalance = (balance * (endTime - startTime)) / windowDuration;
 ```
 
 ### 4. API Client
 
 #### Features
+
 - **Rate Limiting**: Bottleneck-based rate limiting
 - **Retry Logic**: Exponential backoff for failed requests
 - **Batch Processing**: Efficient batch data transmission
 - **Error Handling**: Comprehensive error handling and logging
 
 #### Data Transmission
+
 ```typescript
 interface TransactionEvent {
   eventType: MessageType.TRANSACTION;
@@ -245,28 +263,31 @@ Blockchain Event → Subsquid Processor → Event Decoder → State Manager → 
 ### 2. Time-Weighted Balance Tracking
 
 #### Window-Based Processing
+
 - **Configurable Windows**: Balance snapshots taken at configurable intervals
 - **Trigger Events**: Balance updates triggered by transfers or time windows
 - **Accurate Tracking**: Maintains historical balance records with timestamps
 
 #### Balance Calculation Example
+
 ```typescript
 // For a user holding 1000 LP tokens for 24 hours
 const balanceWindow = {
-  userAddress: "0x...",
+  userAddress: '0x...',
   deltaAmount: 0, // No change in balance
   startTs: 1640995200, // Start of day
-  endTs: 1641081600,   // End of day
+  endTs: 1641081600, // End of day
   windowDurationMs: 86400000, // 24 hours
-  balanceBefore: "1000",
-  balanceAfter: "1000",
-  valueUsd: 5000 // Calculated USD value
+  balanceBefore: '1000',
+  balanceAfter: '1000',
+  valueUsd: 5000, // Calculated USD value
 };
 ```
 
 ### 3. Batch Processing
 
 #### Optimization Features
+
 - **Batch Size Control**: Configurable batch sizes for optimal performance
 - **Parallel Processing**: Multiple protocols processed in parallel
 - **Memory Management**: Efficient memory usage with streaming processing
@@ -307,13 +328,13 @@ LOG_FILE_PATH=./logs/indexer.log
 
 #### Environment Variable Sources
 
-| Variable | Purpose | How to Obtain |
-|----------|---------|---------------|
-| RPC_URL_* | Blockchain connectivity | Alchemy, Infura, or other RPC providers |
-| ABSINTHE_API_* | Data transmission | Contact Absinthe team |
-| COINGECKO_API_KEY | Price data | Sign up at coingecko.com/en/api |
-| DB_URL/REDIS_URL | Database connection | PostgreSQL setup (local or cloud) | Redis Server
-| ABS_CONFIG | env config | Make sure to paste it as a string
+| Variable          | Purpose                 | How to Obtain                           |
+| ----------------- | ----------------------- | --------------------------------------- | ------------ |
+| RPC*URL*\*        | Blockchain connectivity | Alchemy, Infura, or other RPC providers |
+| ABSINTHE*API*\*   | Data transmission       | Contact Absinthe team                   |
+| COINGECKO_API_KEY | Price data              | Sign up at coingecko.com/en/api         |
+| DB_URL/REDIS_URL  | Database connection     | PostgreSQL setup (local or cloud)       | Redis Server |
+| ABS_CONFIG        | env config              | Make sure to paste it as a string       |
 
 ### 2. Protocol Configuration
 
@@ -333,6 +354,7 @@ LOG_FILE_PATH=./logs/indexer.log
 #### Protocol Configuration Examples
 
 **Uniswap V2 Configuration**
+
 ```json
 {
   "type": "uniswap-v2",
@@ -359,6 +381,7 @@ LOG_FILE_PATH=./logs/indexer.log
 ```
 
 **Staking Protocol Configuration**
+
 ```json
 {
   "type": "hemi",
@@ -373,6 +396,7 @@ LOG_FILE_PATH=./logs/indexer.log
 ### 3. Setup Instructions
 
 #### Prerequisites
+
 - Node.js (v20+)
 - pnpm package manager
 - PostgreSQL database
@@ -381,6 +405,7 @@ LOG_FILE_PATH=./logs/indexer.log
 #### Installation Steps
 
 1. **Clone and Install**
+
 ```bash
 git clone https://github.com/AbsintheLabs/absinthe-adapters.git
 cd absinthe-adapters
@@ -388,12 +413,14 @@ pnpm install
 ```
 
 2. **Environment Setup**
+
 ```bash
 cp .env.example .env
 # Edit .env with your configuration
 ```
 
 3. **Configuration Setup**
+
 ```bash
 ABS_CONFIG='{"balanceFlushIntervalHours":6,"dexProtocols":[{"type":"uniswap-v2","chainId":1,"toBlock":0,"protocols":[{"name":"pepe-weth","contractAddress":"0xa43fe16908251ee70ef74718545e4fe6c5ccec9f","fromBlock":17046833,"pricingStrategy":"coingecko","token0":{"coingeckoId":"pepe","decimals":18},"token1":{"coingeckoId":"weth","decimals":18},"preferredTokenCoingeckoId":"token1"}]},{"type":"izumi","chainId":42161,"toBlock":0,"protocols":[{"name":"weth-hemitbtc","contractAddress":"0xa43fe16908251ee70ef74718545e4fe6c5ccec9f","fromBlock":1276815,"pricingStrategy":"coingecko","token0":{"coingeckoId":"weth","decimals":18},"token1":{"coingeckoId":"btc","decimals":8},"preferredTokenCoingeckoId":"token1"},{"name":"vusd-weth","contractAddress":"0xa43fe16908251ee70ef74718545e4fe6c5ccec9f","fromBlock":1274620,"pricingStrategy":"coingecko","token0":{"coingeckoId":"vesper-vdollar","decimals":18},"token1":{"coingeckoId":"weth","decimals":18},"preferredTokenCoingeckoId":"token1"}]}],"bondingCurveProtocols":[{"type":"printr","name":"printr-base","contractAddress":"0xbdc9a5b600e9a10609b0613b860b660342a6d4c0","factoryAddress":"0x33128a8fc17869897dce68ed026d694621f6fdfd","chainId":8453,"toBlock":0,"fromBlock":30000000},{"type":"vusd-mint","name":"vusd-mint","contractAddress":"0xFd22Bcf90d63748288913336Cd38BBC0e681e298","chainId":1,"toBlock":0,"fromBlock":22017054},{"type":"demos","name":"demos","contractAddress":"0x70468f06cf32b776130e2da4c0d7dd08983282ec","chainId":43111,"toBlock":0,"fromBlock":1993447},{"type":"voucher","name":"voucher","contractAddress":"0xa26b04b41162b0d7c2e1e2f9a33b752e28304a49","chainId":1,"toBlock":0,"fromBlock":21557766}],"stakingProtocols":[{"type":"hemi","name":"hemi-staking","contractAddress":"0x4f5e928763cbfaf5ffd8907ebbb0dabd5f78ba83","chainId":43111,"toBlock":0,"fromBlock":2025621},{"type":"vusd-bridge","name":"vusd-bridge","contractAddress":"0x5eaa10F99e7e6D177eF9F74E519E319aa49f191e","chainId":1,"toBlock":0,"fromBlock":22695105}],"univ3Protocols":[{"type":"uniswap-v3","chainId":1,"factoryAddress":"0x1f98431c8ad98523631ae4a59f267346ea31f984","factoryDeployedAt":12369621,"positionsAddress":"0xc36442b4a4522e871399cd717abdd847ab11fe88","toBlock":0,"poolDiscovery":true,"trackPositions":true,"trackSwaps":true,"pools":[{"name":"pepe-weth-0.3","contractAddress":"0x11950d141ecb863f01007add7d1a342041227b58","fromBlock":13609065,"feeTier":3000,"pricingStrategy":"internal-twap","token0":{"symbol":"PEPE","decimals":18},"token1":{"symbol":"WETH","decimals":18},"preferredTokenCoingeckoId":"token1"},{"name":"wepe-weth-0.3","contractAddress":"0xa3c2076eb97d573cc8842f1db1ecdf7b6f77ba27","fromBlock":12376729,"feeTier":3000,"pricingStrategy":"internal-twap","token0":{"symbol":"WEPE","decimals":18},"token1":{"symbol":"WETH","decimals":18},"preferredTokenCoingeckoId":"token1"},{"name":"usdc-weth-0.3","contractAddress":"0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640","fromBlock":1620250931,"feeTier":3000,"pricingStrategy":"internal-twap","token0":{"symbol":"USDC","decimals":6},"token1":{"symbol":"WETH","decimals":18},"preferredTokenCoingeckoId":"token1"}]}],"zebuProtocols":[{"type":"zebu","name":"zebu-new","toBlock":0,"clients":[{"name":"xyz-1","contractAddress":"0xD71954165a026924cA771C53164FB0a781c54C83","chainId":137,"fromBlock":61059459},{"name":"xyz-2","contractAddress":"0x3e4768dB375094b753929B7A540121d970fcb24e","chainId":137,"fromBlock":61059459},{"name":"xyz-3","contractAddress":"0x5859Ff44A3BDCD00c7047E68B94e93d34aF0fd71","chainId":8453,"fromBlock":15286409},{"name":"xyz-4","contractAddress":"0xE3EB2347bAE4E2C6905D7B832847E7848Ff6938c","chainId":137,"fromBlock":61695150},{"name":"xyz-5","contractAddress":"0x19633c8006236f6c016a34B9ca48e98AD10418B4","chainId":137,"fromBlock":64199277},{"name":"xyz-6","contractAddress":"0x0c18F35EcfF53b7c587bD754fc070b683cB9063B","chainId":8453,"fromBlock":20328800},{"name":"xyz-7","contractAddress":"0xDD4d9ae148b7c821b8157828806c78BD0FeCE8C4","chainId":137,"fromBlock":73490308}]},{"type":"zebu","name":"zebu-legacy","toBlock":0,"clients":[{"name":"xyz-1","contractAddress":"0xd7829F0EFC16086a91Cf211CFbb0E4Ef29D16BEE","chainId":8453,"fromBlock":27296063}]}]}'
 
@@ -402,6 +429,7 @@ ABS_CONFIG='{"balanceFlushIntervalHours":6,"dexProtocols":[{"type":"uniswap-v2",
 you can edit it
 
 4. **Database/Redis Setup**
+
 ```bash
 # For local development
 docker-compose up -d postgres
@@ -410,6 +438,7 @@ docker-compose up -d postgres
 ```
 
 5. **Code Generation**
+
 ```bash
 cd projects/uniswapv2
 pnpm typegen
@@ -418,6 +447,7 @@ pnpm migration
 ```
 
 6. **Run Development**
+
 ```bash
 pnpm dev
 ```
@@ -429,6 +459,7 @@ pnpm dev
 ### 1. Absinthe API Client
 
 #### Client Configuration
+
 ```typescript
 const apiClient = new AbsintheApiClient({
   baseUrl: env.baseConfig.absintheApiUrl,
@@ -438,6 +469,7 @@ const apiClient = new AbsintheApiClient({
 ```
 
 #### Data Transmission
+
 ```typescript
 // Send transaction events
 await apiClient.send(transactions);
@@ -449,11 +481,13 @@ await apiClient.send(balances);
 ### 2. Rate Limiting & Retry Logic
 
 #### Bottleneck Configuration
+
 - **Rate Limiting**: 90ms minimum between requests
 - **Queue Management**: Automatic request queuing
 - **Retry Logic**: Exponential backoff for failed requests
 
 #### Error Handling
+
 ```typescript
 try {
   await apiClient.send(data);
@@ -486,7 +520,7 @@ Edit the `.env` file with your specific values. See the [Environment Configurati
 
 The indexer uses a JSON configuration file to define which protocols and pools to track.
 
-you would need to pass the json as a string in 
+you would need to pass the json as a string in
 and you can dynamically change the things in this schema, which would be dynamically picked
 something like this please add
 

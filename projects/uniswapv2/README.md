@@ -40,7 +40,7 @@ The indexer processes blockchain events in real-time, maintains historical balan
 ## Environment Configuration
 
 Please refer to the main setup.
-You can consider - 
+You can consider -
 
 ```
  "dexProtocols": [
