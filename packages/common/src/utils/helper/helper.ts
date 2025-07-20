@@ -16,12 +16,10 @@ import {
   ValidatedBondingCurveProtocolConfig,
   ProtocolConfig,
   ValidatedStakingProtocolConfig,
-  ValidatedUniv3ProtocolConfig,
-  Univ3PoolConfig,
   HelperProtocolConfig,
   ZebuClientConfigWithChain,
 } from '../../types/interfaces/protocols';
-import { Currency, MessageType, ProtocolType, TimeWindowTrigger } from '../../types/enums';
+import { ChainId, Currency, MessageType, ProtocolType, TimeWindowTrigger } from '../../types/enums';
 import { VERSION, ZERO_ADDRESS } from '../consts';
 
 function toTimeWeightedBalance(
@@ -361,6 +359,12 @@ async function fetchHistoricalUsd(
   }
 }
 
+function getChainEnumKey(chainId: number): keyof typeof ChainId | null {
+  const chainIdEntries = Object.entries(ChainId) as [keyof typeof ChainId, number][];
+  const found = chainIdEntries.find(([, value]) => value === chainId);
+  return found ? found[0] : null;
+}
+
 export {
   mapToJson,
   jsonToMap,
@@ -370,4 +374,5 @@ export {
   processValueChangeBalances,
   pricePosition,
   fetchHistoricalUsd,
+  getChainEnumKey,
 };

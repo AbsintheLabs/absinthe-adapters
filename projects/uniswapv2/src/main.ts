@@ -1,5 +1,5 @@
 import { AbsintheApiClient, validateEnv, HOURS_TO_MS, ProtocolType } from '@absinthe/common';
-import { UniswapV2Processor } from './Univ2Processor';
+import { UniswapV2Processor } from './BatchProcessor';
 const env = validateEnv();
 
 const apiClient = new AbsintheApiClient({

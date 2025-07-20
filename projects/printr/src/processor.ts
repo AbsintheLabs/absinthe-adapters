@@ -1,5 +1,3 @@
-// https://github.com/subsquid-labs/showcase05-dex-pair-creation-and-swaps/blob/master/src/processor.ts
-
 import {
   BlockHeader,
   DataHandlerContext,
