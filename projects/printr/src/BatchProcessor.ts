@@ -136,16 +136,16 @@ export class PrintrProcessor {
     log: any,
     protocolState: ProtocolState,
   ): Promise<void> {
-    // if (log.topics[0] === printrAbi.events.TokenTrade.topic) {
-    //   await this.processTokenTradeEvent(ctx, block, log, protocolState);
-    // }
+    if (log.topics[0] === printrAbi.events.TokenTrade.topic) {
+      await this.processTokenTradeEvent(ctx, block, log, protocolState);
+    }
 
-    // if (log.topics[0] === printrAbi.events.CurveCreated.topic) {
-    //   this.processCurveCreatedEvent(ctx, block, log, protocolState);
-    // }
-    // if (log.topics[0] === printrAbi.events.LiquidityDeployed.topic) {
-    //   await this.processGraduatedPoolCreatedEvent(ctx, block, log, protocolState);
-    // }
+    if (log.topics[0] === printrAbi.events.CurveCreated.topic) {
+      this.processCurveCreatedEvent(ctx, block, log, protocolState);
+    }
+    if (log.topics[0] === printrAbi.events.LiquidityDeployed.topic) {
+      await this.processGraduatedPoolCreatedEvent(ctx, block, log, protocolState);
+    }
     console.log(log.topics[0]);
 
     if (log.topics[0] === poolAbi.events.Swap.topic) {
@@ -524,7 +524,7 @@ export class PrintrProcessor {
 
     // console.log(Array.from(this.tokenState.keys()));
     // console.log(Array.from(this.poolState.keys()));
-    // await this.apiClient.send(transactions);
+    await this.apiClient.send(transactions);
     await saveTokensToDb(ctx, this.tokenState);
     await savePoolsToDb(ctx, this.poolState);
   }
