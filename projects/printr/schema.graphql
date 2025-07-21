@@ -3,8 +3,11 @@ type Token @entity {
   decimals: Int!
 }
 
-type ProtocolState @entity {
+type Pool @entity {
   id: ID!
-  token0: Token!
-  token1: Token!
+  address: String! @index
+  token0Address: String!
+  token1Address: String!
+  fee: Int!
+  isActive: Boolean!
 }

@@ -1,4 +1,4 @@
-// import { Token } from './generated/token.model';
-// import { ProtocolState } from './generated/protocolState.model';
+import { Token } from './generated/index';
+import { Pool } from './generated/index';
 
-// export { Token, ProtocolState };
+export { Token, Pool };
