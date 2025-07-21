@@ -96,6 +96,10 @@ export async function getOptimizedTokenPrices(
   const whitelist = WHITELIST_TOKENS.map((t) => t.toLowerCase());
   const whitelistWithIds = WHITELIST_TOKENS_WITH_COINGECKO_ID;
 
+  if (token0.id === null || token1.id === null) {
+    return [0, 0];
+  }
+
   const token0Addr = token0.id.toLowerCase();
   const token1Addr = token1.id.toLowerCase();
 
@@ -196,4 +200,38 @@ export async function getOptimizedTokenPrices(
     fetchHistoricalUsd(token0.id, block.timestamp, coingeckoApiKey),
     fetchHistoricalUsd(token1.id, block.timestamp, coingeckoApiKey),
   ]);
+}
+
+export async function getCoingeckoIdFromAddress(
+  chainPlatform: string, // e.g., "ethereum"
+  tokenAddress: string,
+  coingeckoApiKey: string,
+): Promise<string | null> {
+  try {
+    const url = `https://api.coingecko.com/api/v3/coins/${chainPlatform}/contract/${tokenAddress}`;
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    if (coingeckoApiKey) {
+      headers['X-CG-API-KEY'] = coingeckoApiKey;
+    }
+
+    const response = await fetch(url, { headers });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        console.warn(`Token ${tokenAddress} not found in CoinGecko`);
+        return null;
+      }
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.id || null;
+  } catch (error) {
+    console.warn(`Failed to get CoinGecko ID for token ${tokenAddress}:`, error);
+    return null;
+  }
 }
