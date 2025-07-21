@@ -1,11 +1,12 @@
-import { ProtocolState } from '@absinthe/common';
+export interface TokenInfo {
+  id: string;
+  decimals: number;
+}
 
-export interface PrintrProtocolState extends ProtocolState {
-  activePools: string[];
-  tokens: {
-    [key: string]: {
-      token0: { id: string; decimals: number };
-      token1: { id: string; decimals: number };
-    };
-  };
+export interface PoolInfo {
+  address: string;
+  token0Address: string;
+  token1Address: string;
+  fee: number;
+  isActive: boolean;
 }

@@ -35,6 +35,7 @@ RUN pnpm squid-evm-typegen ./src/abi/ abi/*.json
 
 WORKDIR /app/projects/printr
 RUN pnpm squid-evm-typegen ./src/abi/ abi/*.json
+RUN pnpm squid-typeorm-codegen
 
 # Build the common package first, then printr
 WORKDIR /app
@@ -58,9 +59,10 @@ COPY --from=build /app/projects/printr/package.json ./projects/printr/
 
 # Copy source files needed for migrations
 COPY --from=build /app/projects/printr/src ./projects/printr/src
+COPY --from=build /app/projects/printr/schema.graphql ./projects/printr/
 COPY --from=build /app/projects/printr/tsconfig.json ./projects/printr/
 
 WORKDIR /app/projects/printr
 
 # Use exec form and proper exit handling
-CMD ["node", "lib/main.js"]
+CMD ["sh", "-c", "set -e; (pnpm migration:generate || echo 'No migration changes found'); pnpm migration:apply; exec node lib/main.js"]
