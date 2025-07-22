@@ -200,10 +200,6 @@ export class PositionTracker {
     position.lastUpdatedBlockHeight = blockHeight;
     await this.positionStorageService.updatePosition(position);
 
-    console.log(
-      `Flushed liquidity change for position ${position.positionId}: ${oldLiquidity} -> ${position.liquidity}`,
-      block.height,
-    );
     return historyWindow;
   }
 }

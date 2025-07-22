@@ -166,6 +166,22 @@ async function processSwapData(
         value: token1inUSD.toString(),
         type: 'number',
       },
+      amount0: {
+        value: amount0.toString(),
+        type: 'number',
+      },
+      amount1: {
+        value: amount1.toString(),
+        type: 'number',
+      },
+      amount0Abs: {
+        value: amount0Abs.toString(),
+        type: 'number',
+      },
+      amount1Abs: {
+        value: amount1Abs.toString(),
+        type: 'number',
+      },
     },
     rawAmount: (amount0Abs + amount1Abs).toString(),
     displayAmount: swappedAmountUSD,
