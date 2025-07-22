@@ -200,6 +200,9 @@ export class PrintrProcessor {
     const amount0Abs = Math.abs(amount0Exact);
     const amount1Abs = Math.abs(amount1Exact);
 
+    let price0String = '0';
+    let price1String = '0';
+
     let totalWethEquivalent = 0;
 
     console.log(token0Address, token1Address, wethAddressLower);
@@ -237,6 +240,8 @@ export class PrintrProcessor {
           // price1 = token0 per 1 token1 = WETH per 1 token1
           const wethFromToken1 = amount1Abs * price1;
           totalWethEquivalent = wethFromToken0 + wethFromToken1;
+          price0String = price0.toString();
+          price1String = price1.toString();
         } else {
           console.warn('Could not get pool price for token1 to WETH conversion');
           totalWethEquivalent = wethFromToken0; // fallback to just WETH amount
@@ -277,6 +282,8 @@ export class PrintrProcessor {
           // price0 = token1 per 1 token0 = WETH per 1 token0
           const wethFromToken0 = amount0Abs * price0;
           totalWethEquivalent = wethFromToken1 + wethFromToken0;
+          price0String = price0.toString();
+          price1String = price1.toString();
         } else {
           console.warn('Could not get pool price for token0 to WETH conversion');
           totalWethEquivalent = wethFromToken1; // fallback to just WETH amount
@@ -325,9 +332,33 @@ export class PrintrProcessor {
           value: ethPriceUsd.toString(),
           type: 'number',
         },
+        amount0Abs: {
+          value: amount0Abs.toString(),
+          type: 'number',
+        },
+        amount1Abs: {
+          value: amount1Abs.toString(),
+          type: 'number',
+        },
+        amount0: {
+          value: amount0.toString(),
+          type: 'number',
+        },
+        amount1: {
+          value: amount1.toString(),
+          type: 'number',
+        },
+        price0: {
+          value: price0String,
+          type: 'number',
+        },
+        price1: {
+          value: price1String,
+          type: 'number',
+        },
       },
-      rawAmount: (amount0Abs + amount1Abs).toString(),
-      displayAmount: swappedAmountUSD,
+      rawAmount: totalWethEquivalent.toString(),
+      displayAmount: totalWethEquivalent,
       unixTimestampMs: block.header.timestamp,
       txHash: hash,
       logIndex: log.logIndex,
