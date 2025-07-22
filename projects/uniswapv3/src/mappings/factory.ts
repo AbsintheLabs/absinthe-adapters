@@ -1,8 +1,6 @@
 import { BlockData, DataHandlerContext, assertNotNull } from '@subsquid/evm-processor';
 import * as factoryAbi from '../abi/factory';
 import { BlockMap } from '../utils/blockMap';
-import { FACTORY_ADDRESS, WHITELIST_TOKENS } from '../utils/constants';
-import { EntityManager } from '../utils/entityManager';
 import {
   fetchTokensDecimals,
   fetchTokensName,
@@ -18,11 +16,11 @@ import { ContextWithEntityManager, Token, PairCreatedData } from '../utils/inter
 export async function processFactory(
   ctx: ContextWithEntityManager,
   blocks: BlockData[],
+  factoryAddress: string,
   positionStorageService: PositionStorageService,
 ): Promise<void> {
-  const newPairsData = await processItems(blocks);
+  const newPairsData = await processItems(blocks, factoryAddress);
   const tokens: Token[] = [];
-  console.log('PoolCreated_event_data_for_all_blocks', newPairsData.size);
   if (newPairsData.size == 0) return;
 
   for (const [, blockEventsData] of newPairsData) {
@@ -37,14 +35,14 @@ export async function processFactory(
   await positionStorageService.storeMultipleTokens(tokens);
 }
 
-async function processItems(blocks: BlockData[]) {
+async function processItems(blocks: BlockData[], factoryAddress: string) {
   let newPairsData = new BlockMap<PairCreatedData>();
 
   for (let block of blocks) {
     for (let log of block.logs) {
       if (
         log.topics[0] == factoryAbi.events.PoolCreated.topic &&
-        log.address.toLowerCase() == FACTORY_ADDRESS.toLowerCase()
+        log.address.toLowerCase() == factoryAddress.toLowerCase()
       ) {
         const { pool, token0, token1, fee } = factoryAbi.events.PoolCreated.decode(log);
         newPairsData.push(block.header, {

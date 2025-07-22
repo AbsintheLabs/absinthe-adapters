@@ -253,7 +253,7 @@ export class UniswapV2Processor {
           type: 'string',
         },
         token0Symbol: {
-          value: ChainShortName.MAINNET,
+          value: ChainShortName.ETHEREUM,
           type: 'string',
         },
         token0PriceUsd: {

@@ -63,7 +63,7 @@ export class PositionTracker {
           position.positionId,
           oldLiquidity,
           data.liquidity.toString(),
-          TimeWindowTrigger.INCREASE,
+          TimeWindowTrigger.TRANSFER, //.INCREASE
           block,
           data.transactionHash,
           amountMintedUSD,
@@ -97,7 +97,7 @@ export class PositionTracker {
         position.positionId,
         oldLiquidity,
         data.liquidity.toString(),
-        TimeWindowTrigger.DECREASE,
+        TimeWindowTrigger.TRANSFER, //.DECREASE
         block,
         data.transactionHash,
         amountBurnedUSD,

@@ -133,7 +133,7 @@ export function validateEnv(): ValidatedEnv {
               ? (envResult.data.RPC_URL_HEMI as string)
               : bondingCurveProtocol.chainId === ChainId.BASE
                 ? (envResult.data.RPC_URL_BASE as string)
-                : ChainId.MAINNET === bondingCurveProtocol.chainId
+                : ChainId.ETHEREUM === bondingCurveProtocol.chainId
                   ? (envResult.data.RPC_URL_MAINNET as string)
                   : (envResult.data.RPC_URL_POLYGON as string),
         };
@@ -161,7 +161,7 @@ export function validateEnv(): ValidatedEnv {
           chainShortName: chainShortName,
           chainName: chainName,
           rpcUrl:
-            dexProtocol.chainId === ChainId.MAINNET
+            dexProtocol.chainId === ChainId.ETHEREUM
               ? (envResult.data.RPC_URL_MAINNET as string)
               : (envResult.data.RPC_URL_BASE as string),
         };
@@ -187,16 +187,13 @@ export function validateEnv(): ValidatedEnv {
           chainName: chainName,
           gatewayUrl: gatewayUrl,
           rpcUrl:
-            univ3Protocol.chainId === ChainId.MAINNET
+            univ3Protocol.chainId === ChainId.ETHEREUM
               ? (envResult.data.RPC_URL_MAINNET as string)
-              : (envResult.data.RPC_URL_BASE as string),
+              : (envResult.data.RPC_URL_HEMI as string),
           factoryAddress: univ3Protocol.factoryAddress,
           factoryDeployedAt: univ3Protocol.factoryDeployedAt,
           positionsAddress: univ3Protocol.positionsAddress,
           toBlock: univ3Protocol.toBlock,
-          poolDiscovery: univ3Protocol.poolDiscovery,
-          trackPositions: univ3Protocol.trackPositions,
-          trackSwaps: univ3Protocol.trackSwaps,
           pools: univ3Protocol.pools as Univ3PoolConfig[],
         };
       },

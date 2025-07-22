@@ -2,10 +2,10 @@ import { fetchHistoricalUsd, Multicall } from '@absinthe/common';
 import { Store } from '@subsquid/typeorm-store';
 import { BlockHeader } from '@subsquid/evm-processor';
 import {
-  MULTICALL_ADDRESS,
   MULTICALL_PAGE_SIZE,
   WHITELIST_TOKENS,
   WHITELIST_TOKENS_WITH_COINGECKO_ID,
+  MULTICALL_ADDRESS_BASE,
 } from '@absinthe/common';
 import * as poolAbi from '../abi/pool';
 import { Logger } from '@subsquid/logger';
@@ -128,7 +128,7 @@ export async function getOptimizedTokenPrices(
   const needPool = isTok0WL || isTok1WL; // we’ll always hit this in “both WL” too
   if (needPool) {
     try {
-      const multicall = new Multicall(ctx, MULTICALL_ADDRESS);
+      const multicall = new Multicall(ctx, MULTICALL_ADDRESS_BASE);
       const res = await multicall.tryAggregate(
         poolAbi.functions.slot0,
         poolId,
@@ -200,38 +200,4 @@ export async function getOptimizedTokenPrices(
     fetchHistoricalUsd(token0.id, block.timestamp, coingeckoApiKey),
     fetchHistoricalUsd(token1.id, block.timestamp, coingeckoApiKey),
   ]);
-}
-
-export async function getCoingeckoIdFromAddress(
-  chainPlatform: string, // e.g., "ethereum"
-  tokenAddress: string,
-  coingeckoApiKey: string,
-): Promise<string | null> {
-  try {
-    const url = `https://api.coingecko.com/api/v3/coins/${chainPlatform}/contract/${tokenAddress}`;
-
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-
-    if (coingeckoApiKey) {
-      headers['X-CG-API-KEY'] = coingeckoApiKey;
-    }
-
-    const response = await fetch(url, { headers });
-
-    if (!response.ok) {
-      if (response.status === 404) {
-        console.warn(`Token ${tokenAddress} not found in CoinGecko`);
-        return null;
-      }
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    return data.id || null;
-  } catch (error) {
-    console.warn(`Failed to get CoinGecko ID for token ${tokenAddress}:`, error);
-    return null;
-  }
 }

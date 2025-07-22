@@ -2,7 +2,6 @@ import { TypeormDatabase } from '@subsquid/typeorm-store';
 import { processor } from './processor';
 import { EntityManager } from './utils/entityManager';
 import { processFactory } from './mappings/factory';
-import { processPairs } from './mappings/core';
 import { processPositions } from './mappings/positionManager';
 
 import { createHash } from 'crypto';
@@ -11,6 +10,7 @@ import {
   Chain,
   Currency,
   HistoryWindow,
+  MULTICALL_ADDRESS_HEMI,
   TimeWindowTrigger,
   toTimeWeightedBalance,
   toTransaction,
@@ -20,7 +20,8 @@ import {
 import { PositionStorageService } from './services/PositionStorageService';
 import { PositionTracker } from './services/PositionTracker';
 import { ContextWithEntityManager, PositionData } from './utils/interfaces/univ3Types';
-import { BlockData } from '@subsquid/evm-processor';
+import { BlockData, BlockHeader } from '@subsquid/evm-processor';
+import { logger } from '@absinthe/common';
 
 interface ProtocolStateUniswapV3 {
   balanceWindows: HistoryWindow[];
@@ -34,6 +35,9 @@ export class UniswapV3Processor {
   private readonly apiClient: AbsintheApiClient;
   private readonly env: ValidatedEnvBase;
   private readonly chainConfig: Chain;
+  private readonly factoryAddress: string;
+  private readonly positionsAddress: string;
+  private readonly multicallAddress: string;
 
   constructor(
     uniswapV3DexProtocol: any,
@@ -48,6 +52,9 @@ export class UniswapV3Processor {
     this.chainConfig = chainConfig;
     this.uniswapV3DexProtocol = uniswapV3DexProtocol;
     this.schemaName = this.generateSchemaName();
+    this.factoryAddress = uniswapV3DexProtocol.factoryAddress;
+    this.positionsAddress = uniswapV3DexProtocol.positionsAddress;
+    this.multicallAddress = MULTICALL_ADDRESS_HEMI;
   }
 
   private generateSchemaName(): string {
@@ -88,7 +95,7 @@ export class UniswapV3Processor {
         const protocolStates = await this.initializeProtocolStates();
 
         //process all blocks for factory in one go
-        await processFactory(entitiesCtx, ctx.blocks, positionStorageService);
+        await processFactory(entitiesCtx, ctx.blocks, this.factoryAddress, positionStorageService);
 
         for (const block of ctx.blocks) {
           await this.processBlock(
@@ -110,6 +117,7 @@ export class UniswapV3Processor {
     block: BlockData,
     positionStorageService: PositionStorageService,
     positionTracker: PositionTracker,
+
     protocolStates: Map<string, ProtocolStateUniswapV3>,
   ): Promise<void> {
     await processPositions(
@@ -117,10 +125,22 @@ export class UniswapV3Processor {
       block,
       positionTracker,
       positionStorageService,
+      this.chainConfig.chainName.toLowerCase(),
       this.env.coingeckoApiKey,
+      this.positionsAddress,
+      this.factoryAddress,
+      this.multicallAddress,
       protocolStates,
     );
-    // await processPairs(entitiesCtx, block, positionTracker, positionStorageService, protocolStates);
+    // await processPairs(
+    //   entitiesCtx,
+    //   block,
+    //   positionTracker,
+    //   positionStorageService,
+    //   protocolStates,
+    //   this.chainConfig.chainName.toLowerCase(),
+    //   this.env.coingeckoApiKey,
+    // );
 
     await this.processPeriodicBalanceFlush(
       entitiesCtx,
@@ -152,7 +172,7 @@ export class UniswapV3Processor {
 
         await this.processPositionExhaustion(
           position,
-          block,
+          block.header,
           protocolState,
           positionStorageService,
         );
@@ -171,12 +191,11 @@ export class UniswapV3Processor {
 
   private async processPositionExhaustion(
     position: PositionData,
-    block: any,
+    block: BlockHeader,
     protocolState: ProtocolStateUniswapV3,
     positionStorageService: PositionStorageService,
   ): Promise<void> {
-    const currentTs = block.header.timestamp;
-    const currentBlockHeight = block.header.height;
+    const currentTs = block.timestamp;
 
     if (!position.lastUpdatedBlockTs) {
       return;
@@ -220,10 +239,6 @@ export class UniswapV3Processor {
 
         protocolState.balanceWindows.push(balanceWindow);
       }
-
-      const oldTimestamp = position.lastUpdatedBlockTs;
-      const oldBlockHeight = position.lastUpdatedBlockHeight;
-
       position.lastUpdatedBlockTs = nextBoundaryTs;
       position.lastUpdatedBlockHeight = block.height;
 
@@ -255,6 +270,9 @@ export class UniswapV3Processor {
         this.env,
         this.chainConfig,
       );
+
+      logger.info(JSON.stringify(balances));
+      logger.info(JSON.stringify(transactions));
       await this.apiClient.send(balances);
       await this.apiClient.send(transactions);
     }

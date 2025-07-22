@@ -248,7 +248,7 @@ export class IzumiProcessor {
           type: 'string',
         },
         token0Symbol: {
-          value: ChainShortName.MAINNET,
+          value: ChainShortName.ETHEREUM,
           type: 'string',
         },
         token0PriceUsd: {
