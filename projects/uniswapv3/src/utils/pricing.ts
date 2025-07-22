@@ -5,6 +5,9 @@ import { Multicall } from './multicall';
 import {
   fetchHistoricalUsd,
   getCoingeckoIdFromAddress,
+  HEMI_WHITELIST_TOKENS,
+  HEMI_WHITELIST_TOKENS_WITH_COINGECKO_ID,
+  logger,
   MULTICALL_ADDRESS_HEMI,
   MULTICALL_PAGE_SIZE,
 } from '@absinthe/common';
@@ -65,42 +68,6 @@ export function sqrtPriceX96ToTokenPrices(
   }
 }
 
-/**
- * Accepts tokens and amounts, return tracked amount based on token whitelist
- * If one token on whitelist, return amount in that token converted to USD * 2.
- * If both are, return sum of two amounts
- * If neither is, return 0
- */
-export function getTrackedAmountUSD(
-  token0: string,
-  amount0USD: number,
-  token1: string,
-  amount1USD: number,
-): number {
-  // Convert addresses to lowercase for comparison
-  const t0 = token0.toLowerCase();
-  const t1 = token1.toLowerCase();
-  const whitelist = WHITELIST_TOKENS.map((t) => t.toLowerCase());
-
-  // both are whitelist tokens, return sum of both amounts
-  if (whitelist.includes(t0) && whitelist.includes(t1)) {
-    return (amount0USD + amount1USD) / 2;
-  }
-
-  // take value of the whitelisted token amount
-  if (whitelist.includes(t0) && !whitelist.includes(t1)) {
-    return amount0USD;
-  }
-
-  // take value of the whitelisted token amount
-  if (!whitelist.includes(t0) && whitelist.includes(t1)) {
-    return amount1USD;
-  }
-
-  // neither token is on white list, tracked amount is 0
-  return 0;
-}
-
 export async function getOptimizedTokenPrices(
   poolId: string,
   token0: { id: string; decimals: number },
@@ -113,8 +80,8 @@ export async function getOptimizedTokenPrices(
   /* ------------------------------------------------------------ */
   /* Helpers & prelims                                            */
   /* ------------------------------------------------------------ */
-  const whitelist = WHITELIST_TOKENS.map((t) => t.toLowerCase());
-  const whitelistWithIds = WHITELIST_TOKENS_WITH_COINGECKO_ID;
+  const whitelist = HEMI_WHITELIST_TOKENS.map((t) => t.toLowerCase());
+  const whitelistWithIds = HEMI_WHITELIST_TOKENS_WITH_COINGECKO_ID;
 
   const token0Addr = token0.id.toLowerCase();
   const token1Addr = token1.id.toLowerCase();
@@ -129,6 +96,11 @@ export async function getOptimizedTokenPrices(
   /* 1. Neither token whitelisted → straight Coingecko            */
   /* ------------------------------------------------------------ */
   if (!isTok0WL && !isTok1WL) {
+    logger.info('both of the tokens not in whitelist address', {
+      chainPlatform: chainPlatform,
+      token0Addr: token0Addr,
+      token1Addr: token1Addr,
+    });
     const [token0Id, token1Id] = await Promise.all([
       getCoingeckoIdFromAddress(chainPlatform, token0Addr, coingeckoApiKey),
       getCoingeckoIdFromAddress(chainPlatform, token1Addr, coingeckoApiKey),

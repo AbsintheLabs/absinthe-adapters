@@ -38,6 +38,8 @@ export class UniswapV3Processor {
   private readonly factoryAddress: string;
   private readonly positionsAddress: string;
   private readonly multicallAddress: string;
+  private positionStorageService: PositionStorageService;
+  private positionTracker: PositionTracker;
 
   constructor(
     uniswapV3DexProtocol: any,
@@ -55,6 +57,8 @@ export class UniswapV3Processor {
     this.factoryAddress = uniswapV3DexProtocol.factoryAddress;
     this.positionsAddress = uniswapV3DexProtocol.positionsAddress;
     this.multicallAddress = MULTICALL_ADDRESS_HEMI;
+    this.positionStorageService = new PositionStorageService();
+    this.positionTracker = new PositionTracker(this.positionStorageService, this.refreshWindow);
   }
 
   private generateSchemaName(): string {
@@ -90,19 +94,22 @@ export class UniswapV3Processor {
       async (ctx) => {
         const entities = new EntityManager(ctx.store);
         const entitiesCtx = { ...ctx, entities };
-        const positionStorageService = new PositionStorageService();
-        const positionTracker = new PositionTracker(positionStorageService, this.refreshWindow);
         const protocolStates = await this.initializeProtocolStates();
 
         //process all blocks for factory in one go
-        await processFactory(entitiesCtx, ctx.blocks, this.factoryAddress, positionStorageService);
+        await processFactory(
+          entitiesCtx,
+          ctx.blocks,
+          this.factoryAddress,
+          this.positionStorageService,
+        );
 
         for (const block of ctx.blocks) {
           await this.processBlock(
             entitiesCtx,
             block,
-            positionStorageService,
-            positionTracker,
+            this.positionStorageService,
+            this.positionTracker,
             protocolStates,
           );
         }
