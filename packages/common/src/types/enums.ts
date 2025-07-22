@@ -10,7 +10,7 @@ enum Currency {
 }
 
 enum ChainId {
-  MAINNET = 1,
+  ETHEREUM = 1,
   POLYGON = 137,
   ARBITRUM = 42161,
   BASE = 8453,
@@ -18,8 +18,9 @@ enum ChainId {
   HEMI = 43111,
 }
 
+// coingecko chain platform
 enum ChainName {
-  MAINNET = 'mainnet',
+  ETHEREUM = 'ethereum',
   POLYGON = 'polygon',
   ARBITRUM = 'arbitrum',
   BASE = 'base',
@@ -28,7 +29,7 @@ enum ChainName {
 }
 
 enum ChainShortName {
-  MAINNET = 'eth',
+  ETHEREUM = 'eth',
   POLYGON = 'polygon',
   ARBITRUM = 'arbitrum',
   BASE = 'base',
@@ -55,13 +56,14 @@ enum StakingProtocol {
 }
 
 enum GatewayUrl {
-  MAINNET = 'https://v2.archive.subsquid.io/network/ethereum-mainnet',
+  ETHEREUM = 'https://v2.archive.subsquid.io/network/ethereum-mainnet',
   POLYGON = 'https://v2.archive.subsquid.io/network/polygon-mainnet',
   ARBITRUM = 'https://v2.archive.subsquid.io/network/arbitrum-mainnet',
   BASE = 'https://v2.archive.subsquid.io/network/base-mainnet',
   OPTIMISM = 'https://v2.archive.subsquid.io/network/optimism-mainnet',
   HEMI = 'https://v2.archive.subsquid.io/network/hemi-mainnet',
 }
+
 enum ProtocolType {
   UNISWAP_V2 = 'uniswap-v2',
   UNISWAP_V3 = 'uniswap-v3',

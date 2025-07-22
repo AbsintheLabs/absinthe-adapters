@@ -359,6 +359,34 @@ async function fetchHistoricalUsd(
   }
 }
 
+export async function getCoingeckoIdFromAddress(
+  chainPlatform: string,
+  tokenAddress: string,
+  coingeckoApiKey: string,
+): Promise<string | null> {
+  try {
+    const url = `https://pro-api.coingecko.com/api/v3/coins/${chainPlatform}/contract/${tokenAddress}`;
+
+    const response = await fetch(url, {
+      headers: { accept: 'application/json', 'x-cg-pro-api-key': coingeckoApiKey },
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        console.warn(`Token ${tokenAddress} not found in CoinGecko`);
+        return null;
+      }
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.id || null;
+  } catch (error) {
+    console.warn(`Failed to get CoinGecko ID for token ${tokenAddress}:`, error);
+    return null;
+  }
+}
+
 function getChainEnumKey(chainId: number): keyof typeof ChainId | null {
   const chainIdEntries = Object.entries(ChainId) as [keyof typeof ChainId, number][];
   const found = chainIdEntries.find(([, value]) => value === chainId);
