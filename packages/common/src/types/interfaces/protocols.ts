@@ -81,11 +81,6 @@ interface Univ3PoolConfig {
   name: string;
   contractAddress: string;
   fromBlock: number;
-  feeTier: number;
-  pricingStrategy: PriceFeed;
-  token0: SimpleToken;
-  token1: SimpleToken;
-  preferredTokenCoingeckoId: TokenPreference;
 }
 
 interface Univ3ProtocolConfig {
@@ -95,9 +90,6 @@ interface Univ3ProtocolConfig {
   factoryDeployedAt: number;
   positionsAddress: string;
   toBlock: number;
-  poolDiscovery: boolean;
-  trackPositions: boolean;
-  trackSwaps: boolean;
   pools: Univ3PoolConfig[];
 }
 

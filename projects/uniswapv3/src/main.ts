@@ -22,8 +22,6 @@ const chainConfig = {
   chainName: uniswapV3DexProtocol.chainName,
 };
 
-// todo: make the contract address lowercase throughout the codebase
-
 const WINDOW_DURATION_MS = env.baseConfig.balanceFlushIntervalHours * HOURS_TO_MS;
 const uniswapProcessor = new UniswapV3Processor(
   uniswapV3DexProtocol,

@@ -8,7 +8,7 @@ import {
   ValidatedEnvBase,
   ZERO_ADDRESS,
   Multicall,
-  MULTICALL_ADDRESS,
+  MULTICALL_ADDRESS_BASE,
   MULTICALL_PAGE_SIZE,
 } from '@absinthe/common';
 import { BigDecimal } from '@subsquid/big-decimal';
@@ -202,6 +202,7 @@ export class PrintrProcessor {
 
     let totalWethEquivalent = 0;
 
+    console.log(token0Address, token1Address, wethAddressLower);
     if (token0Address.toLowerCase() === wethAddressLower) {
       // token0 is WETH, token1 is the other token
       // WETH amount is already in WETH
@@ -210,7 +211,10 @@ export class PrintrProcessor {
       // Convert token1 amount to WETH equivalent using pool price
       // We need the pool price to convert token1 to WETH
       try {
-        const multicall = new Multicall(ctx, MULTICALL_ADDRESS);
+        console.log('Trying multicall, ', { ...ctx, block: block.header }, MULTICALL_ADDRESS_BASE);
+        const multicall = new Multicall({ ...ctx, block: block.header }, MULTICALL_ADDRESS_BASE);
+        console.log('passed, here');
+
         const res = await multicall.tryAggregate(
           poolAbi.functions.slot0,
           poolAddress,
@@ -242,7 +246,7 @@ export class PrintrProcessor {
 
       // Convert token0 amount to WETH equivalent using pool price
       try {
-        const multicall = new Multicall(ctx, MULTICALL_ADDRESS);
+        const multicall = new Multicall(block.header, MULTICALL_ADDRESS_BASE);
         const res = await multicall.tryAggregate(
           poolAbi.functions.slot0,
           poolAddress,

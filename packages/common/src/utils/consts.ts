@@ -8,9 +8,13 @@ const FILE_NAME = 'abs_config.json';
 const EXAMPLE_FILE_NAME = 'abs_config.example.json';
 const LOG_FILE_PATH = 'logs/absinthe.log';
 
+//CHANGE THESE ADDRESSES
 const WETH_ADDRESS = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2';
-const POSITIONS_ADDRESS = '0xc36442b4a4522e871399cd717abdd847ab11fe88';
-const MULTICALL_ADDRESS = '0x5ba1e12693dc8f9c48aad8770482f4739beed696';
+const HEMI_WETH_ADDRESS = '0x4200000000000000000000000000000000000006';
+const MULTICALL_ADDRESS_ETH = '0x5ba1e12693dc8f9c48aad8770482f4739beed696';
+const MULTICALL_ADDRESS_HEMI = '0xcA11bde05977b3631167028862bE2a173976CA11';
+const MULTICALL_ADDRESS_BASE = '0xcA11bde05977b3631167028862bE2a173976CA11';
+
 const MULTICALL_PAGE_SIZE = 100;
 
 // token where amounts should contribute to tracked volume and liquidity
@@ -38,6 +42,52 @@ const WHITELIST_TOKENS: string[] = [
   '0x7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9', // AAVE
   '0xfe2e637202056d30016725477c5da089ab0a043a', // sETH2
   '0x1f9840a85d5af5bf1d1762f925bdaddc4201f984', // UNI
+];
+
+const HEMI_WHITELIST_TOKENS: string[] = [
+  HEMI_WETH_ADDRESS, // WETH
+  '0xbb0d083fb1be0a9f6157ec484b6c79e0a4e31c2e', // USDT
+  '0xad11a8beb98bbf61dbb1aa0f6d6f2ecd87b35afa', // USDC.e
+  '0xaa40c0c7644e0b2b224509571e10ad20d9c4ef28', // hemiBTC
+  '0x7a06c4aef988e7925575c50261297a946ad204a8', // VUSD
+  '0x03c7054bcb39f7b2e5b2c7acb37583e32d70cfa3', //WBTC
+];
+
+const HEMI_WHITELIST_TOKENS_WITH_COINGECKO_ID: {
+  symbol: string;
+  address: string;
+  coingeckoId: string;
+}[] = [
+  {
+    symbol: 'WETH',
+    address: HEMI_WETH_ADDRESS,
+    coingeckoId: 'weth',
+  },
+  {
+    symbol: 'USDT',
+    address: '0xbb0d083fb1be0a9f6157ec484b6c79e0a4e31c2e',
+    coingeckoId: 'tether',
+  },
+  {
+    symbol: 'USDC.e',
+    address: '0xad11a8beb98bbf61dbb1aa0f6d6f2ecd87b35afa',
+    coingeckoId: 'usd-coin',
+  },
+  {
+    symbol: 'hemiBTC',
+    address: '0xaa40c0c7644e0b2b224509571e10ad20d9c4ef28',
+    coingeckoId: 'bitcoin',
+  },
+  {
+    symbol: 'VUSD',
+    address: '0x7a06c4aef988e7925575c50261297a946ad204a8',
+    coingeckoId: 'vesper-vdollar',
+  },
+  {
+    symbol: 'WBTC',
+    address: '0x03c7054bcb39f7b2e5b2c7acb37583e32d70cfa3',
+    coingeckoId: 'wrapped-bitcoin',
+  },
 ];
 
 const WHITELIST_TOKENS_WITH_COINGECKO_ID: {
@@ -167,9 +217,12 @@ export {
   LOG_FILE_PATH,
   ZERO_ADDRESS,
   VERSION,
-  POSITIONS_ADDRESS,
   WHITELIST_TOKENS,
   WHITELIST_TOKENS_WITH_COINGECKO_ID,
-  MULTICALL_ADDRESS,
   MULTICALL_PAGE_SIZE,
+  MULTICALL_ADDRESS_ETH,
+  MULTICALL_ADDRESS_HEMI,
+  MULTICALL_ADDRESS_BASE,
+  HEMI_WHITELIST_TOKENS,
+  HEMI_WHITELIST_TOKENS_WITH_COINGECKO_ID,
 };

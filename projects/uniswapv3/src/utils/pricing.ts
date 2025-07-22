@@ -1,13 +1,13 @@
 import { BlockHeader } from '@subsquid/evm-processor';
-import {
-  MULTICALL_ADDRESS,
-  MULTICALL_PAGE_SIZE,
-  WHITELIST_TOKENS,
-  WHITELIST_TOKENS_WITH_COINGECKO_ID,
-} from './constants';
+import { WHITELIST_TOKENS, WHITELIST_TOKENS_WITH_COINGECKO_ID } from './constants';
 import * as poolAbi from '../abi/pool';
 import { Multicall } from './multicall';
-import { fetchHistoricalUsd } from '@absinthe/common';
+import {
+  fetchHistoricalUsd,
+  getCoingeckoIdFromAddress,
+  MULTICALL_ADDRESS_HEMI,
+  MULTICALL_PAGE_SIZE,
+} from '@absinthe/common';
 import { BlockHandlerContext } from './interfaces/interfaces';
 import { Store } from '@subsquid/typeorm-store';
 
@@ -107,6 +107,7 @@ export async function getOptimizedTokenPrices(
   token1: { id: string; decimals: number },
   block: BlockHeader,
   coingeckoApiKey: string,
+  chainPlatform: string,
   ctx: BlockHandlerContext<Store>,
 ): Promise<[number, number]> {
   /* ------------------------------------------------------------ */
@@ -128,10 +129,19 @@ export async function getOptimizedTokenPrices(
   /* 1. Neither token whitelisted → straight Coingecko            */
   /* ------------------------------------------------------------ */
   if (!isTok0WL && !isTok1WL) {
-    return Promise.all([
-      fetchHistoricalUsd(token0.id, block.timestamp, coingeckoApiKey),
-      fetchHistoricalUsd(token1.id, block.timestamp, coingeckoApiKey),
+    const [token0Id, token1Id] = await Promise.all([
+      getCoingeckoIdFromAddress(chainPlatform, token0Addr, coingeckoApiKey),
+      getCoingeckoIdFromAddress(chainPlatform, token1Addr, coingeckoApiKey),
     ]);
+
+    if (token0Id && token1Id) {
+      return Promise.all([
+        fetchHistoricalUsd(token0Id, block.timestamp, coingeckoApiKey),
+        fetchHistoricalUsd(token1Id, block.timestamp, coingeckoApiKey),
+      ]);
+    }
+
+    return [0, 0];
   }
 
   /* ------------------------------------------------------------ */
@@ -143,7 +153,7 @@ export async function getOptimizedTokenPrices(
   const needPool = isTok0WL || isTok1WL; // we’ll always hit this in “both WL” too
   if (needPool) {
     try {
-      const multicall = new Multicall(ctx, MULTICALL_ADDRESS);
+      const multicall = new Multicall(ctx, MULTICALL_ADDRESS_HEMI);
       const res = await multicall.tryAggregate(
         poolAbi.functions.slot0,
         poolId,

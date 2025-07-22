@@ -7,12 +7,7 @@ import {
 } from '../utils/interfaces/interfaces';
 import * as factoryAbi from './../abi/factory';
 import { Multicall } from '../utils/multicall';
-import {
-  FACTORY_ADDRESS,
-  MULTICALL_ADDRESS,
-  MULTICALL_PAGE_SIZE,
-  POSITIONS_ADDRESS,
-} from '../utils/constants';
+import { MULTICALL_PAGE_SIZE } from '@absinthe/common';
 import { EntityManager } from '../utils/entityManager';
 import * as poolAbi from './../abi/pool';
 import * as positionsAbi from './../abi/NonfungiblePositionManager';
@@ -39,13 +34,26 @@ export async function processPositions(
   block: BlockData,
   positionTracker: PositionTracker,
   positionStorageService: PositionStorageService,
+  chainPlatform: string,
   coingeckoApiKey: string,
+  positionsAddress: string,
+  factoryAddress: string,
+  multicallAddress: string,
   protocolStates: Map<string, ProtocolStateUniswapV3>,
 ): Promise<void> {
   const eventsData = processItems(ctx, block, protocolStates);
   if (!eventsData || eventsData.length == 0) return;
 
-  await prefetch(ctx, eventsData, block.header, positionStorageService, protocolStates);
+  await prefetch(
+    ctx,
+    eventsData,
+    block.header,
+    positionStorageService,
+    protocolStates,
+    positionsAddress,
+    factoryAddress,
+    multicallAddress,
+  );
 
   await processPairs(
     ctx,
@@ -53,6 +61,7 @@ export async function processPositions(
     positionTracker,
     positionStorageService,
     protocolStates,
+    chainPlatform,
     coingeckoApiKey,
   );
   for (const data of eventsData) {
@@ -66,6 +75,7 @@ export async function processPositions(
           positionTracker,
           positionStorageService,
           coingeckoApiKey,
+          chainPlatform,
         );
         break;
       case 'Decrease':
@@ -77,6 +87,7 @@ export async function processPositions(
           positionTracker,
           positionStorageService,
           coingeckoApiKey,
+          chainPlatform,
         );
         break;
       case 'Transfer':
@@ -101,6 +112,9 @@ async function prefetch(
   block: BlockHeader,
   positionStorageService: PositionStorageService,
   protocolStates: Map<string, ProtocolStateUniswapV3>,
+  positionsAddress: string,
+  factoryAddress: string,
+  multicallAddress: string,
 ) {
   const positionIds = new Set<string>();
   for (const data of eventsData) {
@@ -113,6 +127,9 @@ async function prefetch(
     { ...ctx, block },
     Array.from(positionIds),
     Array.from(protocolStates.keys()),
+    positionsAddress,
+    factoryAddress,
+    multicallAddress,
   );
   if (positions && positions.length > 0) {
     await positionStorageService.storeBatchPositions(positions);
@@ -139,7 +156,6 @@ function processItems(
     switch (log.topics[0]) {
       case positionsAbi.events.IncreaseLiquidity.topic: {
         const data = processInreaseLiquidity(evmLog);
-        console.log('IncreaseLiquidity_event_data_for_current_block');
         eventsData.push({
           type: 'Increase',
           ...data,
@@ -148,7 +164,6 @@ function processItems(
       }
       case positionsAbi.events.DecreaseLiquidity.topic: {
         const data = processDecreaseLiquidity(evmLog);
-        console.log('DecreaseLiquidity_event_data_for_current_block');
 
         eventsData.push({
           type: 'Decrease',
@@ -158,7 +173,6 @@ function processItems(
       }
       case positionsAbi.events.Transfer.topic: {
         const data = processTransfer(evmLog);
-        console.log('Transfer_event_data_for_current_block');
         eventsData.push({
           type: 'Transfer',
           ...data,
@@ -179,6 +193,7 @@ async function processIncreaseData(
   positionTracker: PositionTracker,
   positionStorageService: PositionStorageService,
   coingeckoApiKey: string,
+  chainPlatform: string,
 ) {
   const position = await positionStorageService.getPosition(data.tokenId);
   if (!position) return;
@@ -197,6 +212,7 @@ async function processIncreaseData(
     token1,
     block,
     coingeckoApiKey,
+    chainPlatform,
     { ...ctx, block },
   );
 
@@ -226,6 +242,7 @@ async function processDecreaseData(
   positionTracker: PositionTracker,
   positionStorageService: PositionStorageService,
   coingeckoApiKey: string,
+  chainPlatform: string,
 ) {
   const position = await positionStorageService.getPosition(data.tokenId);
   if (!position) return;
@@ -252,6 +269,7 @@ async function processDecreaseData(
     token1,
     block,
     coingeckoApiKey,
+    chainPlatform,
     { ...ctx, block },
   );
 
@@ -292,7 +310,6 @@ async function processTransferData(
     if (poolState) {
       poolState.balanceWindows.push(trackerData);
     } else {
-      console.log('Setting pool state for position', position.poolId);
       protocolStates.set(position.poolId, {
         balanceWindows: [trackerData],
         transactions: [],
@@ -305,11 +322,11 @@ async function initPositions(
   ctx: BlockHandlerContext<Store>,
   ids: string[],
   poolAddresses: string[],
+  positionsAddress: string,
+  factoryAddress: string,
+  multicallAddress: string,
 ) {
-  console.log('🚀 Starting initPositions', { totalIds: ids.length });
-
   if (!ids || ids.length === 0) {
-    console.log('⚠️ No IDs provided');
     return [];
   }
 
@@ -317,20 +334,17 @@ async function initPositions(
   const positionsByPool = new Map<string, PositionData[]>();
   const tickPoolIds: Set<string> = new Set();
   const poolTicks = new Map<string, number>();
-  const multicall = new Multicall(ctx, MULTICALL_ADDRESS);
+  const multicall = new Multicall(ctx, multicallAddress);
   const batchSize = 3000;
 
   for (let i = 0; i < ids.length; i += batchSize) {
     const batch = ids.slice(i, i + batchSize);
-    console.log(
-      `📦 Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(ids.length / batchSize)} (IDs ${i + 1}-${i + batch.length})`,
-    );
 
     try {
       // Get position data
       const positionResults = await multicall.tryAggregate(
         positionsAbi.functions.positions,
-        POSITIONS_ADDRESS,
+        positionsAddress,
         batch.map((id) => ({ tokenId: BigInt(id) })),
         MULTICALL_PAGE_SIZE,
       );
@@ -338,7 +352,7 @@ async function initPositions(
       // Get owner data
       const ownerResults = await multicall.tryAggregate(
         positionsAbi.functions.ownerOf,
-        POSITIONS_ADDRESS,
+        positionsAddress,
         batch.map((id) => ({ tokenId: BigInt(id) })),
         MULTICALL_PAGE_SIZE,
       );
@@ -381,8 +395,6 @@ async function initPositions(
           poolId: '',
         });
       }
-
-      console.log(`✅ Batch completed. Total positions: ${positions.length}`);
     } catch (error) {
       console.error(`❌ Batch failed:`, error);
       continue; // Continue with next batch
@@ -391,12 +403,10 @@ async function initPositions(
 
   // Get pool IDs for valid positions
   if (positions.length > 0) {
-    console.log(`🏊 Getting pool IDs for ${positions.length} positions...`);
-
     try {
       const poolIds = await multicall.aggregate(
         factoryAbi.functions.getPool,
-        FACTORY_ADDRESS,
+        factoryAddress,
         positions.map((p) => ({
           tokenA: p.token0Id,
           tokenB: p.token1Id,
@@ -414,7 +424,6 @@ async function initPositions(
         }
         positionsByPool.get(poolId)!.push(position);
       });
-      console.log(`🎯 Getting current ticks for ${tickPoolIds.size} pools...`);
 
       for (const poolId of Array.from(tickPoolIds)) {
         if (poolId) {
@@ -444,10 +453,6 @@ async function initPositions(
             const isInRange =
               position.tickLower <= currentTick && currentTick <= position.tickUpper;
             position.isActive = isInRange ? 'true' : 'false';
-
-            console.log(
-              `Position ${position.positionId}: tickLower=${position.tickLower}, tickUpper=${position.tickUpper}, currentTick=${currentTick}, isActive=${position.isActive}`,
-            );
           });
         } else {
           positions.forEach((position) => {
@@ -468,11 +473,6 @@ async function initPositions(
   }
 
   const filteredPositions = positions.filter((pos) => poolAddresses.includes(pos.poolId));
-
-  console.log('🎉 initPositions completed:', {
-    totalPositions: filteredPositions.length,
-    successRate: `${((filteredPositions.length / ids.length) * 100).toFixed(1)}%`,
-  });
 
   //todo: improve redis saving op by sending the map later on
   return filteredPositions;
