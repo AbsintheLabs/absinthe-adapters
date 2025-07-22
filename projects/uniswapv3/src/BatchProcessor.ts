@@ -95,7 +95,7 @@ export class UniswapV3Processor {
         const entities = new EntityManager(ctx.store);
         const entitiesCtx = { ...ctx, entities };
         const protocolStates = await this.initializeProtocolStates();
-
+        console.log('blocks length', ctx.blocks.length);
         //process all blocks for factory in one go
         await processFactory(
           entitiesCtx,

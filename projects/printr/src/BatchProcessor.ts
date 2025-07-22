@@ -212,8 +212,14 @@ export class PrintrProcessor {
       // We need the pool price to convert token1 to WETH
       try {
         console.log('Trying multicall, ', block.header, MULTICALL_ADDRESS_BASE);
-        const multicall = new Multicall(block.header, MULTICALL_ADDRESS_BASE);
-        console.log('passed, here');
+        const blockContext = {
+          _chain: ctx._chain,
+          block: {
+            height: block.header.height,
+          },
+        };
+
+        const multicall = new Multicall(blockContext, MULTICALL_ADDRESS_BASE);
 
         const res = await multicall.tryAggregate(
           poolAbi.functions.slot0,
@@ -247,7 +253,14 @@ export class PrintrProcessor {
       // Convert token0 amount to WETH equivalent using pool price
       try {
         console.log('Trying multicall, ', block.header, MULTICALL_ADDRESS_BASE);
-        const multicall = new Multicall(block.header, MULTICALL_ADDRESS_BASE);
+        const blockContext = {
+          _chain: ctx._chain,
+          block: {
+            height: block.header.height,
+          },
+        };
+
+        const multicall = new Multicall(blockContext, MULTICALL_ADDRESS_BASE);
         const res = await multicall.tryAggregate(
           poolAbi.functions.slot0,
           poolAddress,
