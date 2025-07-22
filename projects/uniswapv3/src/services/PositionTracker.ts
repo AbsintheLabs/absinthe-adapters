@@ -63,7 +63,7 @@ export class PositionTracker {
           position.positionId,
           oldLiquidity,
           data.liquidity.toString(),
-          TimeWindowTrigger.INCREASE,
+          TimeWindowTrigger.TRANSFER, //.INCREASE
           block,
           data.transactionHash,
           amountMintedUSD,
@@ -97,7 +97,7 @@ export class PositionTracker {
         position.positionId,
         oldLiquidity,
         data.liquidity.toString(),
-        TimeWindowTrigger.DECREASE,
+        TimeWindowTrigger.TRANSFER, //.DECREASE
         block,
         data.transactionHash,
         amountBurnedUSD,
@@ -200,10 +200,6 @@ export class PositionTracker {
     position.lastUpdatedBlockHeight = blockHeight;
     await this.positionStorageService.updatePosition(position);
 
-    console.log(
-      `Flushed liquidity change for position ${position.positionId}: ${oldLiquidity} -> ${position.liquidity}`,
-      block.height,
-    );
     return historyWindow;
   }
 }

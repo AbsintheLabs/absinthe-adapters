@@ -3,7 +3,7 @@ import { EvmLog } from '@subsquid/evm-processor/lib/interfaces/evm';
 import { BlockHeader, SwapData } from '../utils/interfaces/interfaces';
 import * as poolAbi from '../abi/pool';
 import { BlockData } from '@subsquid/evm-processor/src/interfaces/data';
-import { Currency, fetchHistoricalUsd, MessageType } from '@absinthe/common';
+import { Currency, MessageType } from '@absinthe/common';
 import { PositionStorageService } from '../services/PositionStorageService';
 import { PositionTracker } from '../services/PositionTracker';
 import { ContextWithEntityManager, ProtocolStateUniswapV3 } from '../utils/interfaces/univ3Types';
@@ -16,10 +16,10 @@ export async function processPairs(
   positionTracker: PositionTracker,
   positionStorageService: PositionStorageService,
   protocolStates: Map<string, ProtocolStateUniswapV3>,
+  chainPlatform: string,
   coingeckoApiKey: string,
 ): Promise<void> {
   let eventsData = await processItems(ctx, block);
-  console.log('Swap_event_data_for_current_block', eventsData.length);
   if (!eventsData || eventsData.length == 0) return;
 
   for (let data of eventsData) {
@@ -32,6 +32,7 @@ export async function processPairs(
         positionStorageService,
         protocolStates,
         coingeckoApiKey,
+        chainPlatform,
       );
     }
     // if (data.type === 'Initialize') {
@@ -90,6 +91,7 @@ async function processSwapData(
   positionStorageService: PositionStorageService,
   protocolStates: Map<string, ProtocolStateUniswapV3>,
   coingeckoApiKey: string,
+  chainPlatform: string,
 ): Promise<void> {
   const positions = await positionStorageService.getAllPositionsByPoolId(data.poolId);
   if (positions.length === 0) return;
@@ -120,6 +122,7 @@ async function processSwapData(
     token1,
     block,
     coingeckoApiKey,
+    chainPlatform,
     { ...ctx, block },
   );
 
@@ -161,6 +164,22 @@ async function processSwapData(
       },
       token1PriceUsd: {
         value: token1inUSD.toString(),
+        type: 'number',
+      },
+      amount0: {
+        value: amount0.toString(),
+        type: 'number',
+      },
+      amount1: {
+        value: amount1.toString(),
+        type: 'number',
+      },
+      amount0Abs: {
+        value: amount0Abs.toString(),
+        type: 'number',
+      },
+      amount1Abs: {
+        value: amount1Abs.toString(),
         type: 'number',
       },
     },

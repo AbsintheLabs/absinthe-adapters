@@ -68,11 +68,6 @@ const univ3PoolSchema = z.object({
   name: z.string(),
   contractAddress: z.string(),
   fromBlock: z.number(),
-  feeTier: z.number(),
-  pricingStrategy: z.enum([PriceFeed.COINGECKO, PriceFeed.CODEX, PriceFeed.INTERNAL_TWAP]),
-  token0: simpleTokenSchema,
-  token1: simpleTokenSchema,
-  preferredTokenCoingeckoId: z.string(),
 });
 
 const univ3ProtocolSchema = z.object({
@@ -82,9 +77,6 @@ const univ3ProtocolSchema = z.object({
   factoryDeployedAt: z.number(),
   positionsAddress: z.string(),
   toBlock: z.number(),
-  poolDiscovery: z.boolean(),
-  trackPositions: z.boolean(),
-  trackSwaps: z.boolean(),
   pools: z.array(univ3PoolSchema),
 });
 
