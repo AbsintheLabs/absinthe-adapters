@@ -141,7 +141,7 @@
         {
           "name": "weth-hemibtc-3000",
           "contractAddress": "0x51109fa53e904c17daeb320d56166900e23707d3",
-          "fromBlock": 1271574 
+          "fromBlock": 1271574
         },
         {
           "name": "weth-usdc.e-10000",
@@ -176,7 +176,7 @@
         {
           "name": "vusd-usdc.e-500",
           "contractAddress": "0x3ecabba99bef583b58b8f0af6dd853cd9ed75ce3",
-          "fromBlock": 1271042 
+          "fromBlock": 1271042
         },
         {
           "name": "vusd-usdc.e-3000",
