@@ -97,20 +97,22 @@ export class UniswapV3Processor {
         const entities = new EntityManager(ctx.store);
         const entitiesCtx = { ...ctx, entities };
         const protocolStates = await this.initializeProtocolStates();
-        console.log('blocks length', ctx.blocks.length);
+        logger.info(`blocks length: ${ctx.blocks.length}`);
         if (ctx.blocks.length > 0) {
           const firstBlock = ctx.blocks[0].header.height;
           const lastBlock = ctx.blocks[ctx.blocks.length - 1].header.height;
 
-          console.log(
+          logger.info(
             `📦 BATCH RANGE: Block ${firstBlock} → ${lastBlock} (${ctx.blocks.length} blocks)`,
           );
-          console.log(
+          logger.info(
             `📅 TIME RANGE: ${new Date(ctx.blocks[0].header.timestamp).toISOString()} → ${new Date(ctx.blocks[ctx.blocks.length - 1].header.timestamp).toISOString()}`,
           );
 
           // Optional: Log each block for detailed debugging
-          console.log('📋 BLOCK DETAILS:', ctx.blocks.map((b) => `#${b.header.height}`).join(', '));
+          logger.info(
+            `📋 BLOCK DETAILS: ${ctx.blocks.map((b) => `#${b.header.height}`).join(', ')}`,
+          );
         }
         //process all blocks for factory in one go
         logger.info('🏭 Starting factory processing for all blocks');
