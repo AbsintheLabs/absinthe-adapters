@@ -10,7 +10,6 @@ interface ProtocolStateHemi extends ProtocolState {
 
 interface TokenMetadata {
   address: string;
-  symbol: string;
   decimals: number;
   coingeckoId: string;
 }

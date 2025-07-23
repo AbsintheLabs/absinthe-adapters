@@ -7,9 +7,6 @@ import {
   ValidatedBondingCurveProtocolConfig,
   ValidatedEnvBase,
   ZERO_ADDRESS,
-  Multicall,
-  MULTICALL_ADDRESS_BASE,
-  MULTICALL_PAGE_SIZE,
 } from '@absinthe/common';
 import { BigDecimal } from '@subsquid/big-decimal';
 import { createHash } from 'crypto';
@@ -24,8 +21,6 @@ import * as printr2Abi from './abi/printr2';
 import * as poolAbi from './abi/pool';
 import { LIQUIDITY_FEE_OLD, WETH_BASE_ADDRESS } from './utils/consts';
 import { loadTokensFromDb, loadPoolsFromDb, saveTokensToDb, savePoolsToDb } from './utils/database';
-import { sqrtPriceX96ToTokenPrices } from './utils/pricing';
-//todo: storage in database
 export class PrintrProcessor {
   private readonly bondingCurveProtocol: ValidatedBondingCurveProtocolConfig;
   private readonly schemaName: string;
@@ -342,7 +337,7 @@ export class PrintrProcessor {
           type: 'number',
         },
       },
-      rawAmount: cost.toString(), //todo: confirm on this - should be eth value
+      rawAmount: cost.toString(),
       displayAmount: displayCost,
       unixTimestampMs: block.header.timestamp,
       txHash: log.transactionHash,

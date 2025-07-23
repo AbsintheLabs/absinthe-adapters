@@ -3,7 +3,7 @@ import { EvmLog } from '@subsquid/evm-processor/lib/interfaces/evm';
 import { BlockHeader, SwapData } from '../utils/interfaces/interfaces';
 import * as poolAbi from '../abi/pool';
 import { BlockData } from '@subsquid/evm-processor/src/interfaces/data';
-import { Currency, MessageType } from '@absinthe/common';
+import { Currency, logger, MessageType } from '@absinthe/common';
 import { PositionStorageService } from '../services/PositionStorageService';
 import { PositionTracker } from '../services/PositionTracker';
 import { ContextWithEntityManager, ProtocolStateUniswapV3 } from '../utils/interfaces/univ3Types';
@@ -19,11 +19,36 @@ export async function processPairs(
   chainPlatform: string,
   coingeckoApiKey: string,
 ): Promise<void> {
-  let eventsData = await processItems(ctx, block);
-  if (!eventsData || eventsData.length == 0) return;
+  const startTime = Date.now();
+  logger.info(`🔄 Starting processPairs for block #${block.header.height}`, {
+    blockHeight: block.header.height,
+    timestamp: block.header.timestamp,
+    timestampISO: new Date(block.header.timestamp).toISOString(),
+    logCount: block.logs.length,
+    chainPlatform,
+  });
 
-  for (let data of eventsData) {
+  let eventsData = await processItems(ctx, block);
+
+  if (!eventsData || eventsData.length == 0) {
+    logger.info(`⚪ No events found in block #${block.header.height}, skipping processPairs`);
+    return;
+  }
+
+  logger.info(`📊 Found ${eventsData.length} events to process in block #${block.header.height}:`, {
+    swapEvents: eventsData.filter((e) => e.type === 'Swap').length,
+  });
+
+  for (let i = 0; i < eventsData.length; i++) {
+    const data = eventsData[i];
+    logger.info(`🔄 Processing event ${i + 1}/${eventsData.length}:`, {
+      type: data.type,
+      poolId: data.poolId,
+      logIndex: data.logIndex,
+    });
+
     if (data.type === 'Swap') {
+      const swapStartTime = Date.now();
       await processSwapData(
         ctx,
         block.header,
@@ -34,11 +59,16 @@ export async function processPairs(
         coingeckoApiKey,
         chainPlatform,
       );
+      logger.info(`✅ Swap event processed in ${Date.now() - swapStartTime}ms`);
     }
     // if (data.type === 'Initialize') {
     //   await processInitializeData(ctx, block, data, positionStorageService);
     // }
   }
+
+  logger.info(
+    `🎯 processPairs completed for block #${block.header.height} in ${Date.now() - startTime}ms`,
+  );
 }
 
 //todo: research
@@ -48,9 +78,23 @@ export async function processPairs(
 // ]);
 
 async function processItems(ctx: ContextWithEntityManager, block: BlockData) {
-  let eventsData: EventData[] = [];
+  const startTime = Date.now();
+  logger.info(`🔍 Starting processItems for block #${block.header.height}`, {
+    totalLogs: block.logs.length,
+  });
 
-  for (let log of block.logs) {
+  let eventsData: EventData[] = [];
+  let swapCount = 0;
+
+  for (let i = 0; i < block.logs.length; i++) {
+    const log = block.logs[i];
+    logger.info(`📋 Processing log ${i + 1}/${block.logs.length}:`, {
+      address: log.address,
+      topics: log.topics,
+      logIndex: log.logIndex,
+      transactionHash: log.transaction?.hash,
+    });
+
     let evmLog = {
       logIndex: log.logIndex,
       transactionIndex: log.transactionIndex,
@@ -59,14 +103,45 @@ async function processItems(ctx: ContextWithEntityManager, block: BlockData) {
       data: log.data,
       topics: log.topics,
     };
+
     if (log.topics[0] === poolAbi.events.Swap.topic) {
-      let data = processSwap(evmLog, log.transaction);
-      eventsData.push({
-        type: 'Swap',
-        ...data,
+      logger.info(`🔄 Found Swap event in log ${i + 1}`, {
+        poolAddress: log.address,
+        transactionHash: log.transaction?.hash,
+        logIndex: log.logIndex,
       });
+
+      try {
+        let data = processSwap(evmLog, log.transaction);
+        eventsData.push({
+          type: 'Swap',
+          ...data,
+        });
+        swapCount++;
+        logger.info(`✅ Swap event decoded successfully:`, {
+          poolId: data.poolId,
+          amount0: data.amount0.toString(),
+          amount1: data.amount1.toString(),
+          tick: data.tick,
+          sender: data.sender,
+          recipient: data.recipient,
+        });
+      } catch (error) {
+        logger.error(`❌ Failed to decode Swap event:`, {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          logIndex: log.logIndex,
+          address: log.address,
+        });
+      }
     }
   }
+
+  logger.info(`🎯 processItems completed in ${Date.now() - startTime}ms:`, {
+    totalLogs: block.logs.length,
+    swapEvents: swapCount,
+    totalEvents: eventsData.length,
+  });
+
   return eventsData;
 }
 
@@ -93,29 +168,81 @@ async function processSwapData(
   coingeckoApiKey: string,
   chainPlatform: string,
 ): Promise<void> {
+  const startTime = Date.now();
+  logger.info(`🔄 Starting processSwapData:`, {
+    poolId: data.poolId,
+    amount0: data.amount0.toString(),
+    amount1: data.amount1.toString(),
+    tick: data.tick,
+    sender: data.sender,
+    recipient: data.recipient,
+    blockHeight: block.height,
+  });
+
+  const positionsStartTime = Date.now();
   const positions = await positionStorageService.getAllPositionsByPoolId(data.poolId);
-  if (positions.length === 0) return;
+  logger.info(`📊 Retrieved positions for pool in ${Date.now() - positionsStartTime}ms:`, {
+    poolId: data.poolId,
+    positionCount: positions.length,
+  });
+
+  if (positions.length === 0) {
+    logger.info(`⚪ No positions found for pool ${data.poolId}, skipping swap processing`);
+    return;
+  }
 
   const positionForReference = positions[0];
+  logger.info(`🔍 Using reference position:`, {
+    positionId: positionForReference.positionId,
+    token0Id: positionForReference.token0Id,
+    token1Id: positionForReference.token1Id,
+  });
 
+  const tokenStartTime = Date.now();
   const token0 = await positionStorageService.getToken(positionForReference.token0Id);
   const token1 = await positionStorageService.getToken(positionForReference.token1Id);
+  logger.info(`🔍 Retrieved token data in ${Date.now() - tokenStartTime}ms:`, {
+    token0: token0 ? { id: token0.id, symbol: token0.symbol, decimals: token0.decimals } : null,
+    token1: token1 ? { id: token1.id, symbol: token1.symbol, decimals: token1.decimals } : null,
+  });
 
   if (!token0 || !token1) {
-    console.warn(
-      `Skipping swap for pool ${data.poolId} - missing token data: token0=${!!token0}, token1=${!!token1}, token0Id=${positionForReference.token0Id}, token1Id=${positionForReference.token1Id}`,
-    );
+    logger.warn(`❌ Skipping swap for pool ${data.poolId} - missing token data:`, {
+      token0Exists: !!token0,
+      token1Exists: !!token1,
+      token0Id: positionForReference.token0Id,
+      token1Id: positionForReference.token1Id,
+    });
     return;
   }
 
   const amount0 = BigDecimal(data.amount0, token0.decimals).toNumber();
   const amount1 = BigDecimal(data.amount1, token1.decimals).toNumber();
 
+  logger.info(`🧮 Calculated amounts:`, {
+    poolId: data.poolId,
+    rawAmount0: data.amount0.toString(),
+    rawAmount1: data.amount1.toString(),
+    amount0: amount0,
+    amount1: amount1,
+    token0Decimals: token0.decimals,
+    token1Decimals: token1.decimals,
+  });
+
   // need absolute amounts for volume
   const amount0Abs = Math.abs(amount0);
   const amount1Abs = Math.abs(amount1);
 
+  logger.info(`📊 Absolute amounts:`, {
+    amount0Abs,
+    amount1Abs,
+    totalAbsoluteAmount: amount0Abs + amount1Abs,
+  });
+
   // Use optimized pricing strategy - returns USD prices directly
+  const pricingStartTime = Date.now();
+  logger.info(`💰 Starting price calculation for tokens`);
+
   const [token0inUSD, token1inUSD] = await getOptimizedTokenPrices(
     data.poolId,
     token0,
@@ -126,8 +253,22 @@ async function processSwapData(
     { ...ctx, block },
   );
 
+  logger.info(`💰 Price calculation completed in ${Date.now() - pricingStartTime}ms:`, {
+    token0inUSD,
+    token1inUSD,
+    token0Symbol: token0.symbol,
+    token1Symbol: token1.symbol,
+  });
+
   // Direct USD calculation - no need to convert through ETH
   const swappedAmountUSD = amount0Abs * token0inUSD + amount1Abs * token1inUSD;
+
+  logger.info(`💵 USD value calculation:`, {
+    calculation: `${amount0Abs} * ${token0inUSD} + ${amount1Abs} * ${token1inUSD} = ${swappedAmountUSD}`,
+    amount0USD: amount0Abs * token0inUSD,
+    amount1USD: amount1Abs * token1inUSD,
+    totalSwappedAmountUSD: swappedAmountUSD,
+  });
 
   const transactionSchema = {
     eventType: MessageType.TRANSACTION,
@@ -197,51 +338,90 @@ async function processSwapData(
     gasFeeUsd: Number(data.transaction.gasPrice) * Number(data.transaction.gas),
   };
 
+  logger.info(`📋 Created transaction schema:`, {
+    txHash: data.transaction.hash,
+    userId: data.sender,
+    valueUsd: swappedAmountUSD,
+    gasUsed: Number(data.transaction.gas),
+    gasFeeUsd: Number(data.transaction.gasPrice) * Number(data.transaction.gas),
+  });
+
   const protocolState = protocolStates.get(data.poolId);
   if (protocolState) {
     protocolState.transactions.push(transactionSchema);
+    logger.info(`✅ Added transaction to existing protocol state for pool ${data.poolId}:`, {
+      totalTransactions: protocolState.transactions.length,
+    });
   } else {
     protocolStates.set(data.poolId, {
       balanceWindows: [],
       transactions: [transactionSchema],
     });
+    logger.info(`🆕 Created new protocol state for pool ${data.poolId} with first transaction`);
   }
-  await positionTracker.handleSwap(block, data, positions);
-}
-// interface InitializeData {
-//   poolId: string;
-//   tick: number;
-//   sqrtPrice: bigint;
-// }
 
-// function processInitialize(log: EvmLog): InitializeData {
-//   let { tick, sqrtPriceX96 } = poolAbi.events.Initialize.decode(log);
-//   return {
-//     poolId: log.address,
-//     tick: tick,
-//     sqrtPrice: sqrtPriceX96,
-//   };
-// }
+  const swapHandlingStartTime = Date.now();
+  logger.info(`🔄 Starting position tracker handleSwap`);
+
+  await positionTracker.handleSwap(block, data, positions, protocolStates);
+
+  logger.info(
+    `✅ Position tracker handleSwap completed in ${Date.now() - swapHandlingStartTime}ms`,
+  );
+  logger.info(
+    `🎯 processSwapData completed in ${Date.now() - startTime}ms for pool ${data.poolId}`,
+  );
+}
 
 function processSwap(log: EvmLog, transaction: any): SwapData {
-  let event = poolAbi.events.Swap.decode(log);
-  return {
-    transaction: {
-      hash: transaction.hash,
-      gasPrice: transaction.gasPrice,
-      from: transaction.from,
-      gas: BigInt(transaction.gasUsed || 0),
-    },
-    poolId: log.address,
-    amount0: event.amount0,
-    amount1: event.amount1,
-    tick: event.tick,
-    sqrtPrice: event.sqrtPriceX96,
-    sender: event.sender,
-    recipient: event.recipient,
+  const startTime = Date.now();
+  logger.info(`🔄 Starting processSwap for log:`, {
+    address: log.address,
     logIndex: log.logIndex,
-    liquidity: event.liquidity,
-  };
+    transactionHash: log.transactionHash,
+  });
+
+  try {
+    let event = poolAbi.events.Swap.decode(log);
+
+    const swapData = {
+      transaction: {
+        hash: transaction.hash,
+        gasPrice: transaction.gasPrice,
+        from: transaction.from,
+        gas: BigInt(transaction.gasUsed || 0),
+      },
+      poolId: log.address,
+      amount0: event.amount0,
+      amount1: event.amount1,
+      tick: event.tick,
+      sqrtPrice: event.sqrtPriceX96,
+      sender: event.sender,
+      recipient: event.recipient,
+      logIndex: log.logIndex,
+      liquidity: event.liquidity,
+    };
+
+    logger.info(`✅ processSwap completed in ${Date.now() - startTime}ms:`, {
+      poolId: swapData.poolId,
+      amount0: swapData.amount0.toString(),
+      amount1: swapData.amount1.toString(),
+      tick: swapData.tick,
+      sender: swapData.sender,
+      recipient: swapData.recipient,
+      liquidity: swapData.liquidity.toString(),
+      sqrtPrice: swapData.sqrtPrice.toString(),
+    });
+
+    return swapData;
+  } catch (error) {
+    logger.error(`❌ Failed to decode swap event in ${Date.now() - startTime}ms:`, {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      logAddress: log.address,
+      logIndex: log.logIndex,
+    });
+    throw error;
+  }
 }
 
 //todo: read this

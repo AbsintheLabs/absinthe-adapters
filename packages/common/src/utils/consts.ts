@@ -6,7 +6,7 @@ const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 const VERSION = '1.0';
 const FILE_NAME = 'abs_config.json';
 const EXAMPLE_FILE_NAME = 'abs_config.example.json';
-const LOG_FILE_PATH = 'logs/absinthe.log';
+const LOG_FILE_PATH = 'logs/absinthe22.log';
 
 //CHANGE THESE ADDRESSES
 const WETH_ADDRESS = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2';
