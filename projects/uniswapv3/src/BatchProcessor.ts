@@ -225,9 +225,11 @@ export class UniswapV3Processor {
     let totalExhaustedPositions = 0;
 
     for (const [contractAddress, protocolState] of protocolStates.entries()) {
+      logger.info(`🔍 Processing pool: ${contractAddress}`, JSON.stringify(protocolState, null, 2));
       const positionsByPoolId =
         await positionStorageService.getAllPositionsByPoolId(contractAddress);
 
+      logger.info(`🔍 Positions by pool id: ${JSON.stringify(positionsByPoolId, null, 2)}`);
       if (positionsByPoolId.length === 0) {
         logger.info(`⚪ No positions found for pool: ${contractAddress}`);
 
@@ -409,19 +411,23 @@ export class UniswapV3Processor {
       logger.info('📋 Transaction data:', JSON.stringify(transactions, null, 2));
 
       try {
-        await this.apiClient.send(balances);
-        logger.info(
-          `✅ Successfully sent ${balances.length} balance records for pool ${pool.contractAddress}`,
-        );
+        if (balances.length > 0) {
+          await this.apiClient.send(balances);
+          logger.info(
+            `✅ Successfully sent ${balances.length} balance records for pool ${pool.contractAddress}`,
+          );
+        }
       } catch (error) {
         logger.error(`❌ Failed to send balance records for pool ${pool.contractAddress}:`, error);
       }
 
       try {
-        await this.apiClient.send(transactions);
-        logger.info(
-          `✅ Successfully sent ${transactions.length} transaction records for pool ${pool.contractAddress}`,
-        );
+        if (transactions.length > 0) {
+          await this.apiClient.send(transactions);
+          logger.info(
+            `✅ Successfully sent ${transactions.length} transaction records for pool ${pool.contractAddress}`,
+          );
+        }
       } catch (error) {
         logger.error(
           `❌ Failed to send transaction records for pool ${pool.contractAddress}:`,

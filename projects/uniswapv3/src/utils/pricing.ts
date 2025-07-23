@@ -54,7 +54,7 @@ export function sqrtPriceX96ToTokenPrices(
     logger.info('🧮 Calculating price with decimal adjustment');
     // Calculate square of price with decimal adjustment
     const price =
-      (sqrtPriceFloat * sqrtPriceFloat * Math.pow(10, decimals0 - decimals1)) / Number(1n << 192n);
+      (sqrtPriceFloat * sqrtPriceFloat * Math.pow(10, decimals1 - decimals0)) / Number(1n << 192n);
 
     logger.info('📈 Calculated raw price:', price);
 
@@ -131,6 +131,7 @@ export async function getOptimizedTokenPrices(
   const getCGId = (addr: string) =>
     whitelistWithIds.find((t) => t.address.toLowerCase() === addr)?.coingeckoId ?? null;
 
+  //todo: remove this extra call from here
   logger.info('🔍 Token whitelist analysis:', {
     poolId: poolId,
     token0Addr: token0Addr,

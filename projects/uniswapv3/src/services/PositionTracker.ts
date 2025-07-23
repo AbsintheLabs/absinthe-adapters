@@ -120,7 +120,8 @@ export class PositionTracker {
     if (!position) return;
 
     const oldLiquidity = position.liquidity;
-    const newLiquidity = (BigInt(position.liquidity) - data.liquidity).toString();
+    //todo: watch the sign if its correct or not
+    const newLiquidity = (BigInt(oldLiquidity) - data.liquidity).toString();
     position.liquidity = newLiquidity;
 
     if (BigInt(newLiquidity) === 0n) {
@@ -164,6 +165,7 @@ export class PositionTracker {
         data.transactionHash,
         0,
       );
+      //todo: in this case also update the owner to be 0xaddress
       return historyWindow;
     } else {
       position.lastUpdatedBlockTs = block.timestamp;
@@ -172,6 +174,8 @@ export class PositionTracker {
       await this.positionStorageService.updatePosition(position);
       return null;
     }
+
+    //todo: maybe we should just delete the position here
   }
 
   async handleSwap(
@@ -218,7 +222,7 @@ export class PositionTracker {
 
     if (!position) return null;
     //todo: uncomment this later on for sure 100%
-    // if (oldLiquidity === '0') return null;
+    if (oldLiquidity === '0') return null;
 
     const historyWindow = {
       userAddress: position.owner,
