@@ -875,6 +875,7 @@ Yes, if the indexer crashes and restarts, some data may be sent more than once. 
 ### Who controls the speed at which the indexer pushes data to the adapters-api?
 
 The indexer pushes data as fast as possible, but several factors can slow it down:
+
 - Subsquid data fetching speed
 - RPC call latency
 - Internal processing logic
@@ -887,9 +888,7 @@ The indexer will backfill as fast as it can, then switch to real-time indexing o
 
 ### What if the incoming data rate exceeds the rate limit?
 
-If, for example, the rate limit is 100 requests/second but data is coming in at 1000 requests/second, the indexer will not be able to catch up.  
-**However, in practice:** The blockchain’s data generation speed is always slower than our rate limit, so this edge case does not occur.
-
+The blockchain’s data generation speed is always slower than our rate limit, so this edge case does not occur.
 
 ### What delivery guarantees are provided?
 
