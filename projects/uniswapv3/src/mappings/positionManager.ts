@@ -1,4 +1,5 @@
 import { BigDecimal } from '@subsquid/big-decimal';
+import { logger } from '@absinthe/common';
 
 import {
   BlockHandlerContext,
@@ -41,8 +42,32 @@ export async function processPositions(
   multicallAddress: string,
   protocolStates: Map<string, ProtocolStateUniswapV3>,
 ): Promise<void> {
+  logger.info(
+    `🔄 [PositionManager] Processing block ${block.header.height} with ${block.logs.length} logs`,
+  );
+  const startTime = Date.now();
+
   const eventsData = processItems(ctx, block, protocolStates);
-  if (!eventsData || eventsData.length == 0) return;
+  if (!eventsData || eventsData.length == 0) {
+    logger.info(`🔄 [PositionManager] No position events found in block ${block.header.height}`);
+    return;
+  }
+
+  logger.info(
+    `🔄 [PositionManager] Found ${eventsData.length} position events in block ${block.header.height}`,
+  );
+  const eventCounts = eventsData.reduce(
+    (acc, event) => {
+      acc[event.type] = (acc[event.type] || 0) + 1;
+      return acc;
+    },
+    {} as Record<string, number>,
+  );
+  logger.info(
+    `🔄 [PositionManager] Event breakdown: ${Object.entries(eventCounts)
+      .map(([type, count]) => `${type}: ${count}`)
+      .join(', ')}`,
+  );
 
   await prefetch(
     ctx,
@@ -55,55 +80,71 @@ export async function processPositions(
     multicallAddress,
   );
 
-  await processPairs(
-    ctx,
-    block,
-    positionTracker,
-    positionStorageService,
-    protocolStates,
-    chainPlatform,
-    coingeckoApiKey,
-  );
+  // await processPairs(
+  //   ctx,
+  //   block,
+  //   positionTracker,
+  //   positionStorageService,
+  //   protocolStates,
+  //   chainPlatform,
+  //   coingeckoApiKey,
+  // );
+
+  let processedCount = 0;
+  let errorCount = 0;
+
   for (const data of eventsData) {
-    switch (data.type) {
-      case 'Increase':
-        await processIncreaseData(
-          ctx,
-          block.header,
-          data,
-          protocolStates,
-          positionTracker,
-          positionStorageService,
-          coingeckoApiKey,
-          chainPlatform,
-        );
-        break;
-      case 'Decrease':
-        await processDecreaseData(
-          ctx,
-          block.header,
-          data,
-          protocolStates,
-          positionTracker,
-          positionStorageService,
-          coingeckoApiKey,
-          chainPlatform,
-        );
-        break;
-      case 'Transfer':
-        await processTransferData(
-          ctx,
-          block.header,
-          data,
-          protocolStates,
-          positionTracker,
-          positionStorageService,
-        );
-        break;
+    try {
+      switch (data.type) {
+        case 'Increase':
+          await processIncreaseData(
+            ctx,
+            block.header,
+            data,
+            protocolStates,
+            positionTracker,
+            positionStorageService,
+            coingeckoApiKey,
+            chainPlatform,
+          );
+          break;
+        case 'Decrease':
+          await processDecreaseData(
+            ctx,
+            block.header,
+            data,
+            protocolStates,
+            positionTracker,
+            positionStorageService,
+            coingeckoApiKey,
+            chainPlatform,
+          );
+          break;
+        case 'Transfer':
+          await processTransferData(
+            ctx,
+            block.header,
+            data,
+            protocolStates,
+            positionTracker,
+            positionStorageService,
+          );
+          break;
+      }
+      processedCount++;
+    } catch (error) {
+      errorCount++;
+      logger.error(
+        `❌ [PositionManager] Failed to process ${data.type} event for token ${data.tokenId}:`,
+        error,
+      );
     }
   }
 
-  // await updateFeeVars(createContext(last(blocks).header), ctx.entities.values(Position))
+  const duration = Date.now() - startTime;
+  logger.info(
+    `🔄 [PositionManager] Block ${block.header.height} processing complete: ${processedCount} successful, ${errorCount} failed in ${duration}ms`,
+  );
 }
 
 async function prefetch(
@@ -116,6 +157,9 @@ async function prefetch(
   factoryAddress: string,
   multicallAddress: string,
 ) {
+  logger.info(`🔍 [PositionManager] Prefetching position data for ${eventsData.length} events...`);
+  const startTime = Date.now();
+
   const positionIds = new Set<string>();
   for (const data of eventsData) {
     const checkIfPositionExists = await positionStorageService.checkIfPositionExists(data.tokenId);
@@ -123,6 +167,14 @@ async function prefetch(
       positionIds.add(data.tokenId);
     }
   }
+
+  logger.info(`🔍 [PositionManager] Found ${positionIds.size} new positions to initialize`);
+
+  if (positionIds.size === 0) {
+    logger.info(`🔍 [PositionManager] All positions already exist, skipping initialization`);
+    return;
+  }
+
   const positions = await initPositions(
     { ...ctx, block },
     Array.from(positionIds),
@@ -131,9 +183,17 @@ async function prefetch(
     factoryAddress,
     multicallAddress,
   );
+
   if (positions && positions.length > 0) {
+    logger.info(`🔍 [PositionManager] Storing ${positions.length} new positions...`);
     await positionStorageService.storeBatchPositions(positions);
+    logger.info(`🔍 [PositionManager] Successfully stored ${positions.length} positions`);
+  } else {
+    logger.info(`🔍 [PositionManager] No valid positions to store`);
   }
+
+  const duration = Date.now() - startTime;
+  logger.info(`🔍 [PositionManager] Prefetch completed in ${duration}ms`);
 }
 
 function processItems(
@@ -141,9 +201,12 @@ function processItems(
   block: BlockData,
   protocolStates: Map<string, ProtocolStateUniswapV3>,
 ) {
+  logger.info(`📋 [PositionManager] Processing ${block.logs.length} logs for position events...`);
   let eventsData: EventData[] = [];
+  let totalLogs = 0;
 
   for (let log of block.logs) {
+    totalLogs++;
     let evmLog = {
       logIndex: log.logIndex,
       transactionIndex: log.transactionIndex,
@@ -156,6 +219,9 @@ function processItems(
     switch (log.topics[0]) {
       case positionsAbi.events.IncreaseLiquidity.topic: {
         const data = processInreaseLiquidity(evmLog);
+        logger.info(
+          `📈 [PositionManager] IncreaseLiquidity: token ${data.tokenId}, liquidity +${data.liquidity}, amounts: ${data.amount0}/${data.amount1}`,
+        );
         eventsData.push({
           type: 'Increase',
           ...data,
@@ -164,7 +230,9 @@ function processItems(
       }
       case positionsAbi.events.DecreaseLiquidity.topic: {
         const data = processDecreaseLiquidity(evmLog);
-
+        logger.info(
+          `📉 [PositionManager] DecreaseLiquidity: token ${data.tokenId}, liquidity -${data.liquidity}, amounts: ${data.amount0}/${data.amount1}`,
+        );
         eventsData.push({
           type: 'Decrease',
           ...data,
@@ -173,6 +241,7 @@ function processItems(
       }
       case positionsAbi.events.Transfer.topic: {
         const data = processTransfer(evmLog);
+        logger.info(`🔄 [PositionManager] Transfer: token ${data.tokenId} to ${data.to}`);
         eventsData.push({
           type: 'Transfer',
           ...data,
@@ -182,6 +251,9 @@ function processItems(
     }
   }
 
+  logger.info(
+    `📋 [PositionManager] Found ${eventsData.length} position events out of ${totalLogs} total logs`,
+  );
   return eventsData;
 }
 
@@ -195,17 +267,26 @@ async function processIncreaseData(
   coingeckoApiKey: string,
   chainPlatform: string,
 ) {
+  logger.info(`📈 [PositionManager] Processing IncreaseLiquidity for position ${data.tokenId}...`);
+
   const position = await positionStorageService.getPosition(data.tokenId);
-  if (!position) return;
+  if (!position) {
+    logger.warn(`⚠️ [PositionManager] Position ${data.tokenId} not found in storage`);
+    return;
+  }
 
   const token0 = await positionStorageService.getToken(position.token0Id);
   const token1 = await positionStorageService.getToken(position.token1Id);
   if (!token0 || !token1) {
-    console.warn(
-      `Skipping position ${data.tokenId} - missing token data: token0=${!!token0}, token1=${!!token1}`,
+    logger.warn(
+      `⚠️ [PositionManager] Skipping position ${data.tokenId} - missing token data: token0=${!!token0}, token1=${!!token1}`,
     );
     return;
   }
+
+  logger.info(
+    `💰 [PositionManager] Fetching prices for tokens ${token0.symbol}/${token1.symbol}...`,
+  );
   const [token0inUSD, token1inUSD] = await getOptimizedTokenPrices(
     position.poolId,
     token0,
@@ -219,6 +300,11 @@ async function processIncreaseData(
   const amount0 = BigDecimal(data.amount0, token0!.decimals).toNumber();
   const amount1 = BigDecimal(data.amount1, token1!.decimals).toNumber();
   const amountMintedUSD = amount0 * token0inUSD + amount1 * token1inUSD;
+
+  logger.info(
+    `💰 [PositionManager] Position ${data.tokenId}: +$${amountMintedUSD.toFixed(2)} USD (${amount0.toFixed(4)} ${token0.symbol} @ $${token0inUSD.toFixed(4)} + ${amount1.toFixed(4)} ${token1.symbol} @ $${token1inUSD.toFixed(4)})`,
+  );
+
   const trackerData = await positionTracker.handleIncreaseLiquidity(block, data, amountMintedUSD);
 
   if (trackerData) {
@@ -231,6 +317,7 @@ async function processIncreaseData(
         transactions: [],
       });
     }
+    logger.info(`📊 [PositionManager] Added balance window for pool ${position.poolId}`);
   }
 }
 
@@ -244,25 +331,26 @@ async function processDecreaseData(
   coingeckoApiKey: string,
   chainPlatform: string,
 ) {
+  logger.info(`📉 [PositionManager] Processing DecreaseLiquidity for position ${data.tokenId}...`);
+
   const position = await positionStorageService.getPosition(data.tokenId);
-  if (!position) return;
+  if (!position) {
+    logger.warn(`⚠️ [PositionManager] Position ${data.tokenId} not found in storage`);
+    return;
+  }
 
   const token0 = await positionStorageService.getToken(position.token0Id);
   const token1 = await positionStorageService.getToken(position.token1Id);
   if (!token0 || !token1) {
-    console.warn(
-      `Skipping position ${data.tokenId} - missing token data: token0=${!!token0}, token1=${!!token1}`,
+    logger.warn(
+      `⚠️ [PositionManager] Skipping position ${data.tokenId} - missing token data: token0=${!!token0}, token1=${!!token1}`,
     );
     return;
   }
-  // let prices = sqrtPriceX96ToTokenPrices(
-  //   BigInt(priceMetadata?.sqrtPriceX96 || '0'),
-  //   token0!.decimals,
-  //   token1!.decimals,
-  // );
-  // const token0Price = prices[0];
-  // const token1Price = prices[1];
 
+  logger.info(
+    `💰 [PositionManager] Fetching prices for tokens ${token0.symbol}/${token1.symbol}...`,
+  );
   const [token0inUSD, token1inUSD] = await getOptimizedTokenPrices(
     position.poolId,
     token0,
@@ -275,7 +363,11 @@ async function processDecreaseData(
 
   const amount0 = BigDecimal(data.amount0, token0!.decimals).toNumber();
   const amount1 = BigDecimal(data.amount1, token1!.decimals).toNumber();
-  const amountBurnedUSD = amount0 * token0inUSD + amount1 * token1inUSD; // Direct USD calculation
+  const amountBurnedUSD = amount0 * token0inUSD + amount1 * token1inUSD;
+
+  logger.info(
+    `💰 [PositionManager] Position ${data.tokenId}: -$${amountBurnedUSD.toFixed(2)} USD (${amount0.toFixed(4)} ${token0.symbol} @ $${token0inUSD.toFixed(4)} + ${amount1.toFixed(4)} ${token1.symbol} @ $${token1inUSD.toFixed(4)})`,
+  );
 
   const trackerData = await positionTracker.handleDecreaseLiquidity(block, data, amountBurnedUSD);
 
@@ -289,6 +381,7 @@ async function processDecreaseData(
         transactions: [],
       });
     }
+    logger.info(`📊 [PositionManager] Added balance window for pool ${position.poolId}`);
   }
 }
 
@@ -300,8 +393,15 @@ async function processTransferData(
   positionTracker: PositionTracker,
   positionStorageService: PositionStorageService,
 ) {
+  logger.info(
+    `🔄 [PositionManager] Processing Transfer for position ${data.tokenId} to ${data.to}...`,
+  );
+
   const position = await positionStorageService.getPosition(data.tokenId);
-  if (!position) return;
+  if (!position) {
+    logger.warn(`⚠️ [PositionManager] Position ${data.tokenId} not found in storage`);
+    return;
+  }
 
   const trackerData = await positionTracker.handleTransfer(block, data);
   if (trackerData) {
@@ -315,6 +415,9 @@ async function processTransferData(
         transactions: [],
       });
     }
+    logger.info(
+      `📊 [PositionManager] Added balance window for pool ${position.poolId} after transfer`,
+    );
   }
 }
 
@@ -327,8 +430,12 @@ async function initPositions(
   multicallAddress: string,
 ) {
   if (!ids || ids.length === 0) {
+    logger.info(`🏗️ [PositionManager] No positions to initialize`);
     return [];
   }
+
+  logger.info(`🏗️ [PositionManager] Initializing ${ids.length} positions...`);
+  const startTime = Date.now();
 
   const positions: PositionData[] = [];
   const positionsByPool = new Map<string, PositionData[]>();
@@ -337,8 +444,14 @@ async function initPositions(
   const multicall = new Multicall(ctx, multicallAddress);
   const batchSize = 3000;
 
+  let totalProcessed = 0;
+  let totalSkipped = 0;
+
   for (let i = 0; i < ids.length; i += batchSize) {
     const batch = ids.slice(i, i + batchSize);
+    logger.info(
+      `🏗️ [PositionManager] Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(ids.length / batchSize)} (${batch.length} positions)...`,
+    );
 
     try {
       // Get position data
@@ -365,15 +478,17 @@ async function initPositions(
 
         // Skip if either call failed
         if (!positionResult.success || !ownerResult.success) {
-          console.warn(
-            `⚠️ Skipping ${positionId} - position: ${positionResult.success}, owner: ${ownerResult.success}`,
+          logger.warn(
+            `⚠️ [PositionManager] Skipping ${positionId} - position: ${positionResult.success}, owner: ${ownerResult.success}`,
           );
+          totalSkipped++;
           continue;
         }
 
         // Skip if owner is zero address (burned position)
         if (ownerResult.value === '0x0000000000000000000000000000000000000000') {
-          console.warn(`⚠️ Skipping ${positionId} - burned position (zero owner)`);
+          logger.warn(`⚠️ [PositionManager] Skipping ${positionId} - burned position (zero owner)`);
+          totalSkipped++;
           continue;
         }
 
@@ -394,15 +509,22 @@ async function initPositions(
           lastUpdatedBlockHeight: 0,
           poolId: '',
         });
+        totalProcessed++;
       }
     } catch (error) {
-      console.error(`❌ Batch failed:`, error);
-      continue; // Continue with next batch
+      logger.error(`❌ [PositionManager] Batch ${Math.floor(i / batchSize) + 1} failed:`, error);
+      totalSkipped += batch.length;
+      continue;
     }
   }
 
+  logger.info(
+    `🏗️ [PositionManager] Position data fetched: ${totalProcessed} valid, ${totalSkipped} skipped`,
+  );
+
   // Get pool IDs for valid positions
   if (positions.length > 0) {
+    logger.info(`🏗️ [PositionManager] Fetching pool IDs for ${positions.length} positions...`);
     try {
       const poolIds = await multicall.aggregate(
         factoryAbi.functions.getPool,
@@ -425,13 +547,13 @@ async function initPositions(
         positionsByPool.get(poolId)!.push(position);
       });
 
+      logger.info(`🏗️ [PositionManager] Fetching current ticks for ${tickPoolIds.size} pools...`);
       for (const poolId of Array.from(tickPoolIds)) {
         if (poolId) {
           try {
-            //todo: think of reducing the rpc calls over here
             const result = await multicall.tryAggregate(
               poolAbi.functions.slot0,
-              poolId, // Call on the actual pool address
+              poolId,
               [{}],
               MULTICALL_PAGE_SIZE,
             );
@@ -439,32 +561,37 @@ async function initPositions(
               poolTicks.set(poolId, result[0].value!.tick);
             }
           } catch (error) {
-            console.warn(`Failed to get slot0 for pool ${poolId}:`, error);
+            logger.warn(`⚠️ [PositionManager] Failed to get slot0 for pool ${poolId}:`, error);
           }
         }
       }
 
+      let activePositions = 0;
       positionsByPool.forEach((positions, poolId) => {
         const currentTick = poolTicks.get(poolId);
 
         if (currentTick !== undefined) {
-          // Update all positions in this pool
           positions.forEach((position) => {
             const isInRange =
               position.tickLower <= currentTick && currentTick <= position.tickUpper;
             position.isActive = isInRange ? 'true' : 'false';
+            if (isInRange) activePositions++;
           });
         } else {
           positions.forEach((position) => {
             position.isActive = 'false';
-            console.warn(
-              `Failed to get tick for position ${position.positionId} (pool: ${poolId})`,
+            logger.warn(
+              `⚠️ [PositionManager] Failed to get tick for position ${position.positionId} (pool: ${poolId})`,
             );
           });
         }
       });
+
+      logger.info(
+        `🏗️ [PositionManager] Position status: ${activePositions} active, ${positions.length - activePositions} inactive`,
+      );
     } catch (error) {
-      console.error('❌ Failed to get pool IDs or slot0 data:', error);
+      logger.error('❌ [PositionManager] Failed to get pool IDs or slot0 data:', error);
       positions.forEach((p) => {
         p.poolId = '';
         p.isActive = 'false';
@@ -473,8 +600,13 @@ async function initPositions(
   }
 
   const filteredPositions = positions.filter((pos) => poolAddresses.includes(pos.poolId));
+  logger.info(
+    `🏗️ [PositionManager] Filtered to ${filteredPositions.length} positions in target pools`,
+  );
 
-  //todo: improve redis saving op by sending the map later on
+  const duration = Date.now() - startTime;
+  logger.info(`🏗️ [PositionManager] Position initialization completed in ${duration}ms`);
+
   return filteredPositions;
 }
 

@@ -7,9 +7,6 @@ import {
   ValidatedBondingCurveProtocolConfig,
   ValidatedEnvBase,
   ZERO_ADDRESS,
-  Multicall,
-  MULTICALL_ADDRESS_BASE,
-  MULTICALL_PAGE_SIZE,
 } from '@absinthe/common';
 import { BigDecimal } from '@subsquid/big-decimal';
 import { createHash } from 'crypto';
@@ -24,8 +21,6 @@ import * as printr2Abi from './abi/printr2';
 import * as poolAbi from './abi/pool';
 import { LIQUIDITY_FEE_OLD, WETH_BASE_ADDRESS } from './utils/consts';
 import { loadTokensFromDb, loadPoolsFromDb, saveTokensToDb, savePoolsToDb } from './utils/database';
-import { sqrtPriceX96ToTokenPrices } from './utils/pricing';
-//todo: storage in database
 export class PrintrProcessor {
   private readonly bondingCurveProtocol: ValidatedBondingCurveProtocolConfig;
   private readonly schemaName: string;
@@ -146,7 +141,6 @@ export class PrintrProcessor {
     if (log.topics[0] === printrAbi.events.LiquidityDeployed.topic) {
       await this.processGraduatedPoolCreatedEvent(ctx, block, log, protocolState);
     }
-    console.log(log.topics[0]);
 
     if (log.topics[0] === poolAbi.events.Swap.topic) {
       if (this.poolState.has(log.address.toLowerCase())) {
@@ -200,109 +194,25 @@ export class PrintrProcessor {
     const amount0Abs = Math.abs(amount0Exact);
     const amount1Abs = Math.abs(amount1Exact);
 
-    let price0String = '0';
-    let price1String = '0';
-
-    let totalWethEquivalent = 0;
+    let swapValueUsd = 0;
+    let finalAmount = 0;
+    let finalAmountDecAdjusted = 0;
 
     console.log(token0Address, token1Address, wethAddressLower);
     if (token0Address.toLowerCase() === wethAddressLower) {
-      // token0 is WETH, token1 is the other token
-      // WETH amount is already in WETH
-      const wethFromToken0 = amount0Abs;
-
-      // Convert token1 amount to WETH equivalent using pool price
-      // We need the pool price to convert token1 to WETH
-      try {
-        console.log('Trying multicall, ', block.header, MULTICALL_ADDRESS_BASE);
-        const blockContext = {
-          _chain: ctx._chain,
-          block: {
-            height: block.header.height,
-          },
-        };
-
-        const multicall = new Multicall(blockContext, MULTICALL_ADDRESS_BASE);
-
-        const res = await multicall.tryAggregate(
-          poolAbi.functions.slot0,
-          poolAddress,
-          [{}],
-          MULTICALL_PAGE_SIZE,
-        );
-
-        if (res[0]?.success && res[0].value?.sqrtPriceX96) {
-          const [price0, price1] = sqrtPriceX96ToTokenPrices(
-            res[0].value.sqrtPriceX96,
-            token0!.decimals,
-            token1!.decimals,
-          );
-          // price1 = token0 per 1 token1 = WETH per 1 token1
-          const wethFromToken1 = amount1Abs * price1;
-          totalWethEquivalent = wethFromToken0 + wethFromToken1;
-          price0String = price0.toString();
-          price1String = price1.toString();
-        } else {
-          console.warn('Could not get pool price for token1 to WETH conversion');
-          totalWethEquivalent = wethFromToken0; // fallback to just WETH amount
-        }
-      } catch (error) {
-        console.warn('Error getting pool price:', error);
-        totalWethEquivalent = wethFromToken0; // fallback to just WETH amount
-      }
+      swapValueUsd = amount0Abs * ethPriceUsd;
+      finalAmountDecAdjusted = amount0Abs;
+      finalAmount = Math.abs(amount0Exact);
     } else if (token1Address.toLowerCase() === wethAddressLower) {
-      // token1 is WETH, token0 is the other token
-      // WETH amount is already in WETH
-      const wethFromToken1 = amount1Abs;
-
-      // Convert token0 amount to WETH equivalent using pool price
-      try {
-        console.log('Trying multicall, ', block.header, MULTICALL_ADDRESS_BASE);
-        const blockContext = {
-          _chain: ctx._chain,
-          block: {
-            height: block.header.height,
-          },
-        };
-
-        const multicall = new Multicall(blockContext, MULTICALL_ADDRESS_BASE);
-        const res = await multicall.tryAggregate(
-          poolAbi.functions.slot0,
-          poolAddress,
-          [{}],
-          MULTICALL_PAGE_SIZE,
-        );
-
-        if (res[0]?.success && res[0].value?.sqrtPriceX96) {
-          const [price0, price1] = sqrtPriceX96ToTokenPrices(
-            res[0].value.sqrtPriceX96,
-            token0!.decimals,
-            token1!.decimals,
-          );
-          // price0 = token1 per 1 token0 = WETH per 1 token0
-          const wethFromToken0 = amount0Abs * price0;
-          totalWethEquivalent = wethFromToken1 + wethFromToken0;
-          price0String = price0.toString();
-          price1String = price1.toString();
-        } else {
-          console.warn('Could not get pool price for token0 to WETH conversion');
-          totalWethEquivalent = wethFromToken1; // fallback to just WETH amount
-        }
-      } catch (error) {
-        console.warn('Error getting pool price:', error);
-        totalWethEquivalent = wethFromToken1; // fallback to just WETH amount
-      }
+      swapValueUsd = amount1Abs * ethPriceUsd;
+      finalAmountDecAdjusted = amount1Abs;
+      finalAmount = Math.abs(amount1Exact);
     } else {
       console.warn('Neither token in the pool is WETH, cannot convert to WETH equivalent');
       return;
     }
 
-    // Calculate USD value using WETH equivalent and ETH price
-    const swappedAmountUSD = totalWethEquivalent * ethPriceUsd;
-
-    console.log(
-      `WETH equivalent: ${totalWethEquivalent}, ETH Price USD: ${ethPriceUsd}, Total USD: ${swappedAmountUSD}`,
-    );
+    console.log(`Swap value USD: ${swapValueUsd}`, amount0Abs, amount1Abs, ethPriceUsd);
 
     const transactionSchema = {
       eventType: MessageType.TRANSACTION,
@@ -324,10 +234,6 @@ export class PrintrProcessor {
           value: token1!.id,
           type: 'string',
         },
-        wethEquivalent: {
-          value: totalWethEquivalent.toString(),
-          type: 'number',
-        },
         ethPriceUsd: {
           value: ethPriceUsd.toString(),
           type: 'number',
@@ -348,17 +254,9 @@ export class PrintrProcessor {
           value: amount1.toString(),
           type: 'number',
         },
-        price0: {
-          value: price0String,
-          type: 'number',
-        },
-        price1: {
-          value: price1String,
-          type: 'number',
-        },
       },
-      rawAmount: totalWethEquivalent.toString(),
-      displayAmount: totalWethEquivalent,
+      rawAmount: finalAmount.toString(),
+      displayAmount: finalAmountDecAdjusted,
       unixTimestampMs: block.header.timestamp,
       txHash: hash,
       logIndex: log.logIndex,
@@ -366,7 +264,7 @@ export class PrintrProcessor {
       blockHash: block.header.hash,
       userId: sender,
       currency: Currency.USD,
-      valueUsd: swappedAmountUSD,
+      valueUsd: swapValueUsd,
       gasUsed: gasUsedInEth,
       gasFeeUsd: gasFeeUsd,
     };
@@ -439,7 +337,7 @@ export class PrintrProcessor {
           type: 'number',
         },
       },
-      rawAmount: cost.toString(), //todo: confirm on this - should be eth value
+      rawAmount: cost.toString(),
       displayAmount: displayCost,
       unixTimestampMs: block.header.timestamp,
       txHash: log.transactionHash,
@@ -519,8 +417,15 @@ export class PrintrProcessor {
       this.bondingCurveProtocol.factoryAddress as string,
     );
     console.log(token, baseToken.basePair);
-    const token0Erc20 = new erc20Abi.Contract(ctx, block.header, token);
-    const token1Erc20 = new erc20Abi.Contract(ctx, block.header, baseToken.basePair);
+
+    const [token0, token1] =
+      token.toLowerCase() < baseToken.basePair.toLowerCase()
+        ? [token, baseToken.basePair]
+        : [baseToken.basePair, token];
+
+    console.log(token0, token1, 'Second stage');
+    const token0Erc20 = new erc20Abi.Contract(ctx, block.header, token0);
+    const token1Erc20 = new erc20Abi.Contract(ctx, block.header, token1);
     const token0Decimals = await token0Erc20.decimals();
     const token1Decimals = await token1Erc20.decimals();
 
@@ -533,26 +438,26 @@ export class PrintrProcessor {
       return;
     }
 
-    if (!this.tokenState.has(token)) {
-      this.tokenState.set(token, {
-        id: token,
+    if (!this.tokenState.has(token0)) {
+      this.tokenState.set(token0, {
+        id: token0,
         decimals: token0Decimals,
       });
-      console.log(`Added new token0: ${token} with decimals: ${token0Decimals}`);
+      console.log(`Added new token0: ${token0} with decimals: ${token0Decimals}`);
     }
 
-    if (!this.tokenState.has(baseToken.basePair)) {
-      this.tokenState.set(baseToken.basePair, {
-        id: baseToken.basePair,
+    if (!this.tokenState.has(token1)) {
+      this.tokenState.set(token1, {
+        id: token1,
         decimals: token1Decimals,
       });
-      console.log(`Added new token1: ${baseToken.basePair} with decimals: ${token1Decimals}`);
+      console.log(`Added new token1: ${token1} with decimals: ${token1Decimals}`);
     }
 
     const poolInfo: PoolInfo = {
       address: poolAddress.toLowerCase(),
-      token0Address: token,
-      token1Address: baseToken.basePair,
+      token0Address: token0,
+      token1Address: token1,
       fee: LIQUIDITY_FEE_OLD,
       isActive: true,
     };

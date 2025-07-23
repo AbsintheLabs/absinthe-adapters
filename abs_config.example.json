@@ -139,27 +139,27 @@
           "fromBlock": 1328544
         },
         {
-          "name": "weth-hemibtc",
-          "contractAddress": "0x51109FA53e904C17dAeB320d56166900e23707D3",
+          "name": "weth-hemibtc-3000",
+          "contractAddress": "0x51109fa53e904c17daeb320d56166900e23707d3",
           "fromBlock": 1271574
         },
         {
-          "name": "weth-usdc.e",
+          "name": "weth-usdc.e-10000",
           "contractAddress": "0xb46335caccccb3fdc2a3f40d9fd253f5f76919a0",
           "fromBlock": 1171886
         },
         {
-          "name": "weth-usdc.e",
+          "name": "weth-usdc.e-500",
           "contractAddress": "0x62a567bab98e96968e29b3815ea9b8c7bee56d6e",
           "fromBlock": 1164129
         },
         {
-          "name": "weth-usdc.e",
+          "name": "weth-usdc.e-100",
           "contractAddress": "0xc863ddd8ac2157f3a6fe85c9c383b98812cf1986",
           "fromBlock": 1283712
         },
         {
-          "name": "weth-usdc.e",
+          "name": "weth-usdc.e-3000",
           "contractAddress": "0x9580d4519c9f27642e21085e763e761a74ef3735",
           "fromBlock": 865336
         },
@@ -174,8 +174,8 @@
           "fromBlock": 1335361
         },
         {
-          "name": "vusd-usdc.e",
-          "contractAddress": "0x3EcabBa99bEF583B58b8f0af6dD853CD9ED75ce3",
+          "name": "vusd-usdc.e-500",
+          "contractAddress": "0x3ecabba99bef583b58b8f0af6dd853cd9ed75ce3",
           "fromBlock": 1271042
         },
         {
