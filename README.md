@@ -852,6 +852,51 @@ If you need help while contributing:
 - **Documentation**: Reference this README and inline code documentation
 - **Community**: Reach out to maintainers for guidance
 
+## FAQ: Rate Limiting and Data Flow in `adapters-api`
+
+### What happens to data that is dropped with a 429 (rate-limited) response?
+
+If an adapter receives a 429 response, it will keep retrying to send the data indefinitely. This ensures that no data is dropped due to rate limiting.
+
+---
+
+### Does the indexer know it needs to re-push dropped requests?
+
+Yes. The indexer maintains a "position" (like a file pointer) and can resume from the last saved place after a crash or restart. This ensures all data is eventually pushed, even if some requests are rate-limited or interrupted.
+
+---
+
+### Is there a risk of data duplication?
+
+Yes, if the indexer crashes and restarts, some data may be sent more than once. However, any potential duplication is handled by primary keys on the database tables, ensuring at-least-once delivery semantics.
+
+---
+
+### Who controls the speed at which the indexer pushes data to the adapters-api?
+
+The indexer pushes data as fast as possible, but several factors can slow it down:
+- Subsquid data fetching speed
+- RPC call latency
+- Internal processing logic
+- External API call speed (if not batched)
+- The adapters-api rate limiting (the main intentional slowdown)
+
+The indexer will backfill as fast as it can, then switch to real-time indexing once caught up.
+
+---
+
+### What if the incoming data rate exceeds the rate limit?
+
+If, for example, the rate limit is 100 requests/second but data is coming in at 1000 requests/second, the indexer will not be able to catch up.  
+**However, in practice:** The blockchain’s data generation speed is always slower than our rate limit, so this edge case does not occur.
+
+
+### What delivery guarantees are provided?
+
+- No data is dropped due to rate limiting; retries ensure eventual delivery.
+- At-least-once delivery is guaranteed, and deduplication is handled by primary keys.
+- The indexer is designed to recover from crashes and resume from the last processed position.
+
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.

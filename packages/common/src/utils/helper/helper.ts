@@ -52,7 +52,7 @@ function toTimeWeightedBalance(
       },
       protocolMetadata: {},
       currency: e.currency,
-      valueUsd: e.valueUsd * (e.endTs - e.startTs),
+      valueUsd: e.valueUsd,
     };
 
     const currentTime = Date.now();

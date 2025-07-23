@@ -92,11 +92,30 @@ export class UniswapV3Processor {
     processor.run(
       new TypeormDatabase({ supportHotBlocks: false, stateSchema: this.schemaName }),
       async (ctx) => {
+        const batchStartTime = Date.now();
+
         const entities = new EntityManager(ctx.store);
         const entitiesCtx = { ...ctx, entities };
         const protocolStates = await this.initializeProtocolStates();
         console.log('blocks length', ctx.blocks.length);
+        if (ctx.blocks.length > 0) {
+          const firstBlock = ctx.blocks[0].header.height;
+          const lastBlock = ctx.blocks[ctx.blocks.length - 1].header.height;
+
+          console.log(
+            `📦 BATCH RANGE: Block ${firstBlock} → ${lastBlock} (${ctx.blocks.length} blocks)`,
+          );
+          console.log(
+            `📅 TIME RANGE: ${new Date(ctx.blocks[0].header.timestamp).toISOString()} → ${new Date(ctx.blocks[ctx.blocks.length - 1].header.timestamp).toISOString()}`,
+          );
+
+          // Optional: Log each block for detailed debugging
+          console.log('📋 BLOCK DETAILS:', ctx.blocks.map((b) => `#${b.header.height}`).join(', '));
+        }
         //process all blocks for factory in one go
+        logger.info('🏭 Starting factory processing for all blocks');
+        const factoryStartTime = Date.now();
+
         await processFactory(
           entitiesCtx,
           ctx.blocks,
@@ -104,7 +123,16 @@ export class UniswapV3Processor {
           this.positionStorageService,
         );
 
+        logger.info(`🏭 Factory processing completed in ${Date.now() - factoryStartTime}ms`);
+
+        logger.info('🔄 Starting individual block processing');
+
         for (const block of ctx.blocks) {
+          const blockStartTime = Date.now();
+          logger.info(
+            `📋 Processing block #${block.header.height} (${new Date(block.header.timestamp).toISOString()})`,
+          );
+
           await this.processBlock(
             entitiesCtx,
             block,
@@ -112,9 +140,18 @@ export class UniswapV3Processor {
             this.positionTracker,
             protocolStates,
           );
+
+          logger.info(
+            `✅ Block #${block.header.height} processed in ${Date.now() - blockStartTime}ms`,
+          );
         }
 
+        logger.info('🎯 Starting batch finalization');
+        const finalizeStartTime = Date.now();
         await this.finalizeBatch(entitiesCtx, protocolStates);
+        logger.info(`🎯 Batch finalization completed in ${Date.now() - finalizeStartTime}ms`);
+
+        logger.info(`🏁 Batch processing completed in ${Date.now() - batchStartTime}ms`);
       },
     );
   }
@@ -127,6 +164,14 @@ export class UniswapV3Processor {
 
     protocolStates: Map<string, ProtocolStateUniswapV3>,
   ): Promise<void> {
+    logger.info(`🎯 Starting processBlock for #${block.header.height}`);
+
+    // Count events in this block
+    const eventCount = block.logs.length;
+    logger.info(`📊 Block #${block.header.height} contains ${eventCount} events`);
+
+    const positionsStartTime = Date.now();
+
     await processPositions(
       entitiesCtx,
       block,
@@ -139,6 +184,11 @@ export class UniswapV3Processor {
       this.multicallAddress,
       protocolStates,
     );
+
+    logger.info(
+      `🎯 Position processing for block #${block.header.height} completed in ${Date.now() - positionsStartTime}ms`,
+    );
+
     // await processPairs(
     //   entitiesCtx,
     //   block,
@@ -149,11 +199,15 @@ export class UniswapV3Processor {
     //   this.env.coingeckoApiKey,
     // );
 
+    const flushStartTime = Date.now();
     await this.processPeriodicBalanceFlush(
       entitiesCtx,
       block,
       protocolStates,
       positionStorageService,
+    );
+    logger.info(
+      `🔄 Periodic balance flush for block #${block.header.height} completed in ${Date.now() - flushStartTime}ms`,
     );
   }
 
@@ -163,11 +217,18 @@ export class UniswapV3Processor {
     protocolStates: Map<string, ProtocolStateUniswapV3>,
     positionStorageService: PositionStorageService,
   ): Promise<void> {
+    logger.info(`🔄 Starting periodic balance flush for block #${block.header.height}`);
+
+    let totalProcessedPositions = 0;
+    let totalExhaustedPositions = 0;
+
     for (const [contractAddress, protocolState] of protocolStates.entries()) {
       const positionsByPoolId =
         await positionStorageService.getAllPositionsByPoolId(contractAddress);
 
       if (positionsByPoolId.length === 0) {
+        logger.info(`⚪ No positions found for pool: ${contractAddress}`);
+
         continue;
       }
 
@@ -176,6 +237,9 @@ export class UniswapV3Processor {
 
       for (const position of positionsByPoolId) {
         const beforeBalanceWindows = protocolState.balanceWindows.length;
+        logger.info(
+          `🔍 Checking position ${position.positionId} for exhaustion (active: ${position.isActive}, liquidity: ${position.liquidity})`,
+        );
 
         await this.processPositionExhaustion(
           position,
@@ -189,11 +253,23 @@ export class UniswapV3Processor {
 
         if (windowsCreated > 0) {
           exhaustedPositions++;
+          logger.info(
+            `⚡ Position ${position.positionId} created ${windowsCreated} exhaustion windows`,
+          );
         }
 
         processedPositions++;
       }
+      logger.info(
+        `📊 Pool ${contractAddress}: ${processedPositions} positions processed, ${exhaustedPositions} exhausted`,
+      );
+      totalProcessedPositions += processedPositions;
+      totalExhaustedPositions += exhaustedPositions;
     }
+
+    logger.info(
+      `🎯 Periodic balance flush completed: ${totalProcessedPositions} positions processed, ${totalExhaustedPositions} exhausted`,
+    );
   }
 
   private async processPositionExhaustion(
@@ -202,19 +278,31 @@ export class UniswapV3Processor {
     protocolState: ProtocolStateUniswapV3,
     positionStorageService: PositionStorageService,
   ): Promise<void> {
+    logger.info(
+      `Processing position exhaustion for position ${position.positionId} at block ${block.height}`,
+    );
     const currentTs = block.timestamp;
+    logger.info(`⏰ Current timestamp: ${currentTs} (${new Date(currentTs).toISOString()})`);
 
     if (!position.lastUpdatedBlockTs) {
+      logger.info(`⚪ Position ${position.positionId} has no lastUpdatedBlockTs, skipping`);
       return;
     }
 
     const timeSinceLastUpdate = Number(currentTs) - Number(position.lastUpdatedBlockTs);
+    logger.info(
+      `⏱️ Time since last update: ${timeSinceLastUpdate}ms (refresh window: ${this.refreshWindow}ms)`,
+    );
 
     if (timeSinceLastUpdate < this.refreshWindow) {
+      logger.info(
+        `⏱️ Position ${position.positionId} not ready for exhaustion (${timeSinceLastUpdate} < ${this.refreshWindow})`,
+      );
       return;
     }
 
     let exhaustionCount = 0;
+    logger.info(`🔄 Starting exhaustion loop for position ${position.positionId}`);
 
     while (
       position.lastUpdatedBlockTs &&
@@ -224,6 +312,9 @@ export class UniswapV3Processor {
         Number(position.lastUpdatedBlockTs) / this.refreshWindow,
       );
       const nextBoundaryTs: number = (windowsSinceEpoch + 1) * this.refreshWindow;
+      logger.info(
+        `⏰ Creating exhaustion window: ${position.lastUpdatedBlockTs} → ${nextBoundaryTs} (${new Date(nextBoundaryTs).toISOString()})`,
+      );
 
       if (position.isActive === 'true' && BigInt(position.liquidity) > 0n) {
         const balanceWindow = {
@@ -245,16 +336,31 @@ export class UniswapV3Processor {
         };
 
         protocolState.balanceWindows.push(balanceWindow);
+        logger.info(
+          `✅ Created balance window for position ${position.positionId}: ${JSON.stringify(balanceWindow)}`,
+        );
+      } else {
+        logger.info(
+          `⚪ Skipping balance window creation for position ${position.positionId} (active: ${position.isActive}, liquidity: ${position.liquidity})`,
+        );
       }
       position.lastUpdatedBlockTs = nextBoundaryTs;
       position.lastUpdatedBlockHeight = block.height;
 
       await positionStorageService.updatePosition(position);
+      logger.info(
+        `📝 Updated position ${position.positionId} with new timestamp: ${nextBoundaryTs}`,
+      );
 
       exhaustionCount++;
     }
 
     if (exhaustionCount > 0) {
+      logger.info(
+        `⚡ Processed ${exhaustionCount} exhaustion windows for position ${position.positionId} at block ${block.height}`,
+      );
+    } else {
+      logger.info(`⚪ No exhaustion windows created for position ${position.positionId}`);
     }
   }
 
@@ -262,15 +368,31 @@ export class UniswapV3Processor {
     ctx: ContextWithEntityManager,
     protocolStates: Map<string, ProtocolStateUniswapV3>,
   ): Promise<void> {
+    logger.info('🎯 Starting batch finalization');
+
+    let totalBalanceWindows = 0;
+    let totalTransactions = 0;
+
     for (const pool of this.uniswapV3DexProtocol.pools) {
+      logger.info(`🔍 Finalizing pool: ${pool.contractAddress}`);
+
       const protocolState = protocolStates.get(pool.contractAddress);
-      if (!protocolState) continue;
+      if (!protocolState) {
+        logger.info(`⚪ No protocol state found for pool: ${pool.contractAddress}`);
+        continue;
+      }
+
+      logger.info(
+        `📊 Pool ${pool.contractAddress}: ${protocolState.balanceWindows.length} balance windows, ${protocolState.transactions.length} transactions`,
+      );
+
       const balances = toTimeWeightedBalance(
         protocolState.balanceWindows,
         { ...pool, type: this.uniswapV3DexProtocol.type },
         this.env,
         this.chainConfig,
       );
+
       const transactions = toTransaction(
         protocolState.transactions,
         { ...pool, type: this.uniswapV3DexProtocol.type },
@@ -278,10 +400,39 @@ export class UniswapV3Processor {
         this.chainConfig,
       );
 
-      logger.info(JSON.stringify(balances));
-      logger.info(JSON.stringify(transactions));
-      await this.apiClient.send(balances);
-      await this.apiClient.send(transactions);
+      logger.info(
+        `📤 Sending ${balances.length} balance records and ${transactions.length} transaction records for pool ${pool.contractAddress}`,
+      );
+      logger.info('📋 Balance data:', JSON.stringify(balances, null, 2));
+      logger.info('📋 Transaction data:', JSON.stringify(transactions, null, 2));
+
+      try {
+        await this.apiClient.send(balances);
+        logger.info(
+          `✅ Successfully sent ${balances.length} balance records for pool ${pool.contractAddress}`,
+        );
+      } catch (error) {
+        logger.error(`❌ Failed to send balance records for pool ${pool.contractAddress}:`, error);
+      }
+
+      try {
+        await this.apiClient.send(transactions);
+        logger.info(
+          `✅ Successfully sent ${transactions.length} transaction records for pool ${pool.contractAddress}`,
+        );
+      } catch (error) {
+        logger.error(
+          `❌ Failed to send transaction records for pool ${pool.contractAddress}:`,
+          error,
+        );
+      }
+
+      totalBalanceWindows += balances.length;
+      totalTransactions += transactions.length;
     }
+
+    logger.info(
+      `🎉 Batch finalization completed: ${totalBalanceWindows} total balance windows, ${totalTransactions} total transactions sent`,
+    );
   }
 }
