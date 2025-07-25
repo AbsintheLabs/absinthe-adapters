@@ -103,7 +103,7 @@
       "contractAddress": "0x4f5e928763cbfaf5ffd8907ebbb0dabd5f78ba83",
       "chainId": 43111,
       "toBlock": 0,
-      "fromBlock": 2025621
+      "fromBlock": 1226394
     },
     {
       "type": "vusd-bridge",
