@@ -136,7 +136,7 @@ export class VUSDBridgeProcessor {
   private async processBlock(batchContext: BatchContext): Promise<void> {
     const { ctx, block, protocolStates } = batchContext;
 
-    const contractAddress = this.stakingProtocol.contractAddress;
+    const contractAddress = this.stakingProtocol.contractAddress.toLowerCase();
     const protocolState = protocolStates.get(contractAddress)!;
     await this.processLogsForProtocol(ctx, block, contractAddress, protocolState);
     await this.processPeriodicBalanceFlush(ctx, block, protocolState);
