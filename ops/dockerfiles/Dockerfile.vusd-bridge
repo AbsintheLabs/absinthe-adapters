@@ -1,0 +1,69 @@
+FROM node:20-slim AS base
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
+
+# Copy workspace files needed for dependency resolution
+FROM base AS deps
+WORKDIR /app
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY tsconfig.base.json ./
+COPY packages/common/package.json ./packages/common/
+COPY packages/common/tsconfig.json ./packages/common/
+COPY projects/vusd-bridge/package.json ./projects/vusd-bridge/
+COPY projects/vusd-bridge/tsconfig.json ./projects/vusd-bridge/
+
+# Install all dependencies (including workspace deps)
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --no-frozen-lockfile
+
+# Build stage - build common package and current project
+FROM base AS build
+WORKDIR /app
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY tsconfig.base.json ./
+COPY packages/ ./packages/
+COPY projects/vusd-bridge/ ./projects/vusd-bridge/
+
+# Copy node_modules from deps stage
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/packages/common/node_modules ./packages/common/node_modules
+COPY --from=deps /app/projects/vusd-bridge/node_modules ./projects/vusd-bridge/node_modules
+
+# Generate TypeScript clients for common package ABIs
+WORKDIR /app/packages/common
+RUN pnpm squid-evm-typegen ./src/abi/ abi/*.json
+
+# Generate TypeScript clients for vusd-bridge project ABIs and codegen
+WORKDIR /app/projects/vusd-bridge
+RUN pnpm squid-evm-typegen ./src/abi/ abi/*.json
+RUN pnpm squid-typeorm-codegen
+
+# Build the common package first, then vusd-bridge
+WORKDIR /app
+RUN pnpm --filter @absinthe/common build
+RUN pnpm --filter @absinthe/vusd-bridge build
+
+# Production stage
+FROM base AS production
+WORKDIR /app
+
+# Copy only production dependencies
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/packages/common/node_modules ./packages/common/node_modules
+COPY --from=deps /app/projects/vusd-bridge/node_modules ./projects/vusd-bridge/node_modules
+
+# Copy built artifacts
+COPY --from=build /app/packages/common/lib ./packages/common/lib
+COPY --from=build /app/packages/common/package.json ./packages/common/
+COPY --from=build /app/projects/vusd-bridge/lib ./projects/vusd-bridge/lib
+COPY --from=build /app/projects/vusd-bridge/package.json ./projects/vusd-bridge/
+
+# Copy source files needed for migrations
+COPY --from=build /app/projects/vusd-bridge/src ./projects/vusd-bridge/src
+COPY --from=build /app/projects/vusd-bridge/schema.graphql ./projects/vusd-bridge/
+COPY --from=build /app/projects/vusd-bridge/tsconfig.json ./projects/vusd-bridge/
+
+WORKDIR /app/projects/vusd-bridge
+
+# Use exec form and proper exit handling
+CMD ["sh", "-c", "set -e; (pnpm migration:generate || echo 'No migration changes found'); pnpm migration:apply; exec node lib/main.js"]
