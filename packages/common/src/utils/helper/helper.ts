@@ -50,7 +50,7 @@ function toTimeWeightedBalance(
         runnerId: 'uniswapv2_indexer_001', //todo: get the current PID/ docker-containerId
         apiKeyHash,
       },
-      protocolMetadata: {},
+      protocolMetadata: e.tokens,
       currency: e.currency,
       valueUsd: e.valueUsd,
     };
@@ -176,6 +176,7 @@ function processValueChange({
         balanceBefore: activeUserBalance.balance.toString(),
         balanceAfter: (activeUserBalance.balance + updatedAmount).toString(),
         currency: Currency.USD,
+        tokens: {},
       });
     }
 
@@ -256,6 +257,7 @@ function processValueChangeBalances({
         balanceBefore: activeUserBalance.balance.toString(),
         balanceAfter: (activeUserBalance.balance + updatedAmount).toString(),
         currency: Currency.USD,
+        tokens: {}
       });
     }
 

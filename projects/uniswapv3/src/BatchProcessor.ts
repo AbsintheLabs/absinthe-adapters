@@ -337,6 +337,7 @@ export class UniswapV3Processor {
           balanceAfter: position.liquidity,
           tokenPrice: 0, // TODO: Calculate token price
           tokenDecimals: 0, // TODO: Get from position
+          tokens: {},
         };
 
         protocolState.balanceWindows.push(balanceWindow);

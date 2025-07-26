@@ -1,7 +1,8 @@
-import { Currency, HistoryWindow, TimeWindowTrigger } from '@absinthe/common';
+import { Currency, HistoryWindow, TimeWindowTrigger, Token } from '@absinthe/common';
 import { BlockHeader, SwapData } from '../utils/interfaces/interfaces';
 import { PositionStorageService } from './PositionStorageService';
 import { PositionData, ProtocolStateUniswapV3 } from '../utils/interfaces/univ3Types';
+import { BigDecimal } from '@subsquid/big-decimal';
 
 interface IncDecData {
   tokenId: string;
@@ -62,6 +63,7 @@ export class PositionTracker {
           balanceAfter: position.liquidity,
           tokenPrice: 0, // TODO: Calculate token price
           tokenDecimals: 0, // TODO: Get from position
+          tokens: {},
         };
       }
       position.lastUpdatedBlockTs = block.timestamp;
@@ -85,60 +87,156 @@ export class PositionTracker {
     }
   }
 
-  async handleIncreaseLiquidity(block: BlockHeader, data: IncDecData, amountMintedUSD: number) {
+  async handleIncreaseLiquidity(
+    block: BlockHeader,
+    data: IncDecData,
+    amountMintedUSD: number,
+    price0: number,
+    price1: number,
+    token0Decimals: number,
+    token1Decimals: number,
+  ) {
     const position = await this.positionStorageService.getPosition(data.tokenId);
 
-    if (!position) {
-      //this case is already handled and should never happen
-      console.log(`Position ${data.tokenId} not found case reached`);
-    } else {
-      const oldLiquidity = position.liquidity;
-      position.liquidity = (BigInt(position.liquidity) + data.liquidity).toString();
+    if (!position) return; //never true
 
-      if (position.isActive) {
-        const historyWindow = await this.flushLiquidityChange(
-          position.positionId,
-          oldLiquidity,
-          data.liquidity.toString(),
-          TimeWindowTrigger.TRANSFER, //.INCREASE
-          block,
-          data.transactionHash,
-          amountMintedUSD,
-        );
-        return historyWindow;
-      } else {
-        position.lastUpdatedBlockTs = block.timestamp;
-        position.lastUpdatedBlockHeight = block.height;
-        await this.positionStorageService.updatePosition(position);
-      }
+    const depositedToken0 = position.depositedToken0; // 1*10^18 eth
+    const depositedToken1 = position.depositedToken1; // 2000*10^6 usdc
+
+    const oldAmount0 = BigDecimal(depositedToken0, token0Decimals).toNumber(); //1 eth
+    const oldAmount1 = BigDecimal(depositedToken1, token1Decimals).toNumber(); //2000 usdc
+
+    const oldLiquidityUSD = oldAmount0 * price0 + oldAmount1 * price1; //1*1000 + 2000*1000 = 2100000 usd
+
+    position.depositedToken0 = (BigInt(depositedToken0) + data.amount0).toString(); //1+0.5 *10^18 eth
+    position.depositedToken1 = (BigInt(depositedToken1) + data.amount1).toString(); //2000*10^6 + 1000*10^6 usdc
+
+    const newAmount0 = BigDecimal(position.depositedToken0, token0Decimals).toNumber(); //1.5 eth
+    const newAmount1 = BigDecimal(position.depositedToken1, token1Decimals).toNumber(); //3000 usdc
+
+    const newLiquidityUSD = newAmount0 * price0 + newAmount1 * price1; //1.5*1000 + 3000*1000 = 3150000 usd
+
+    if (position.isActive === 'true' && newLiquidityUSD > 0) {
+      const historyWindow = await this.flushLiquidityChange(
+        position.positionId,
+        oldLiquidityUSD.toString(),
+        newLiquidityUSD.toString(),
+        TimeWindowTrigger.TRANSFER, //.INCREASE
+        block,
+        data.transactionHash,
+        amountMintedUSD,
+        {
+          positionNFTId: {
+            value: position.positionId,
+            type: 'string',
+          },
+          token0Decimals: {
+            value: token0Decimals.toString(),
+            type: 'number',
+          },
+          token0PriceUsd: {
+            value: price0.toString(),
+            type: 'number',
+          },
+          amount0: {
+            value: data.amount0.toString(),
+            type: 'number',
+          },
+          amount1: {
+            value: data.amount1.toString(),
+            type: 'number',
+          },
+          token1PriceUsd: {
+            value: price1.toString(),
+            type: 'number',
+          },
+          token1Decimals: {
+            value: token1Decimals.toString(),
+            type: 'number',
+          },
+        },
+      );
+      return historyWindow;
+    } else {
+      position.lastUpdatedBlockTs = block.timestamp;
+      position.lastUpdatedBlockHeight = block.height;
+      await this.positionStorageService.updatePosition(position);
     }
-    return null;
   }
 
-  async handleDecreaseLiquidity(block: BlockHeader, data: IncDecData, amountBurnedUSD: number) {
+  async handleDecreaseLiquidity(
+    block: BlockHeader,
+    data: IncDecData,
+    amountBurnedUSD: number,
+    price0: number,
+    price1: number,
+    token0Decimals: number,
+    token1Decimals: number,
+  ) {
     const position = await this.positionStorageService.getPosition(data.tokenId);
     if (!position) return;
 
-    const oldLiquidity = position.liquidity;
-    //todo: watch the sign if its correct or not
-    const newLiquidity = (BigInt(oldLiquidity) - data.liquidity).toString();
-    position.liquidity = newLiquidity;
+    const depositedToken0 = position.depositedToken0; // 1.5 eth
+    const depositedToken1 = position.depositedToken1; // 3000 usdc
 
-    if (BigInt(newLiquidity) === 0n) {
+    const oldAmount0 = BigDecimal(depositedToken0, token0Decimals).toNumber(); //1.5 eth
+    const oldAmount1 = BigDecimal(depositedToken1, token1Decimals).toNumber(); //3000 usdc
+
+    const oldLiquidityUSD = oldAmount0 * price0 + oldAmount1 * price1; //1.5*1000 + 3000*1000 = 3150000 usd
+
+    position.depositedToken0 = (BigInt(depositedToken0) - data.amount0).toString(); //1.5-0.5 *10^18 eth
+    position.depositedToken1 = (BigInt(depositedToken1) - data.amount1).toString(); //3000*10^6 - 1000*10^6 usdc
+
+    const newAmount0 = BigDecimal(position.depositedToken0, token0Decimals).toNumber(); //1 eth
+    const newAmount1 = BigDecimal(position.depositedToken1, token1Decimals).toNumber(); //2000 usdc
+
+    const newLiquidityUSD = newAmount0 * price0 + newAmount1 * price1; //1*1000 + 2000*1000 = 2100000 usd
+
+    if (BigInt(position.depositedToken0) === 0n && BigInt(position.depositedToken1) === 0n) {
       //if balance is 0, delete the position from tracking- just delete it
       await this.positionStorageService.deletePosition(data.tokenId);
       return;
     }
 
-    if (position.isActive) {
+    if (position.isActive === 'true' && BigInt(newLiquidityUSD) > 0) {
       const historyWindow = await this.flushLiquidityChange(
         position.positionId,
-        oldLiquidity,
-        data.liquidity.toString(),
+        oldLiquidityUSD.toString(),
+        newLiquidityUSD.toString(),
         TimeWindowTrigger.TRANSFER, //.DECREASE
         block,
         data.transactionHash,
         amountBurnedUSD,
+        {
+          positionNFTId: {
+            value: position.positionId,
+            type: 'string',
+          },
+          token0Decimals: {
+            value: token0Decimals.toString(),
+            type: 'number',
+          },
+          token0PriceUsd: {
+            value: price0.toString(),
+            type: 'number',
+          },
+          amount0: {
+            value: data.amount0.toString(),
+            type: 'number',
+          },
+          amount1: {
+            value: data.amount1.toString(),
+            type: 'number',
+          },
+          token1PriceUsd: {
+            value: price1.toString(),
+            type: 'number',
+          },
+          token1Decimals: {
+            value: token1Decimals.toString(),
+            type: 'number',
+          },
+        },
       );
       return historyWindow;
     } else {
@@ -150,22 +248,61 @@ export class PositionTracker {
     }
   }
 
-  async handleTransfer(block: BlockHeader, data: TransferData) {
+  async handleTransfer(
+    block: BlockHeader,
+    data: TransferData,
+    price0: number,
+    price1: number,
+    token0Decimals: number,
+    token1Decimals: number,
+  ) {
     const position = await this.positionStorageService.getPosition(data.tokenId);
 
     if (!position) return;
 
-    if (position.isActive) {
+    const depositedToken0 = position.depositedToken0;
+    const depositedToken1 = position.depositedToken1;
+
+    const oldAmount0 = BigDecimal(depositedToken0, token0Decimals).toNumber();
+    const oldAmount1 = BigDecimal(depositedToken1, token1Decimals).toNumber();
+
+    const oldLiquidityUSD = oldAmount0 * price0 + oldAmount1 * price1;
+
+    //todo: make sure this is no more tracked now for flushes - confirm andrew
+    if (position.isActive === 'true') {
       const historyWindow = await this.flushLiquidityChange(
         position.positionId,
-        position.liquidity,
-        '0', //in case of transfer, the liquidity delta is 0
+        oldLiquidityUSD.toString(),
+        oldLiquidityUSD.toString(), //todo : confirm andrew
         TimeWindowTrigger.TRANSFER,
         block,
         data.transactionHash,
         0,
+        {
+          token0Decimals: {
+            value: token0Decimals.toString(),
+            type: 'number',
+          },
+          token1Decimals: {
+            value: token1Decimals.toString(),
+            type: 'number',
+          },
+          positionNFTId: {
+            value: position.positionId,
+            type: 'string',
+          },
+          token0PriceUsd: {
+            value: price0.toString(),
+            type: 'number',
+          },
+          token1PriceUsd: {
+            value: price1.toString(),
+            type: 'number',
+          },
+        },
       );
-      //todo: in this case also update the owner to be 0xaddress
+      position.owner = data.to;
+      await this.positionStorageService.updatePosition(position); //todo: remove two separate updatePosition calls
       return historyWindow;
     } else {
       position.lastUpdatedBlockTs = block.timestamp;
@@ -208,12 +345,13 @@ export class PositionTracker {
 
   private async flushLiquidityChange(
     positionId: string,
-    oldLiquidity: string,
-    liquidity: string,
+    oldLiquidityUSD: string,
+    newLiquidityUSD: string,
     trigger: TimeWindowTrigger,
     block: BlockHeader,
     transactionHash: string,
     deltaAmountUSD: number,
+    tokens: { [key: string]: { value: string; type: string } },
   ): Promise<HistoryWindow | null> {
     const position = await this.positionStorageService.getPosition(positionId);
 
@@ -221,8 +359,6 @@ export class PositionTracker {
     const blockHeight = block.height;
 
     if (!position) return null;
-    //todo: uncomment this later on for sure 100%
-    if (oldLiquidity === '0') return null;
 
     const historyWindow = {
       userAddress: position.owner,
@@ -233,13 +369,14 @@ export class PositionTracker {
       startBlockNumber: position.lastUpdatedBlockHeight,
       endBlockNumber: blockHeight,
       txHash: transactionHash,
-      windowDurationMs: this.windowDurationMs, // todo: pass in case of exhausted
-      valueUsd: Number(oldLiquidity), //todo: make it usd value
-      balanceBefore: oldLiquidity.toString(),
-      balanceAfter: position.liquidity.toString(),
+      windowDurationMs: this.windowDurationMs,
+      valueUsd: deltaAmountUSD,
+      balanceBefore: oldLiquidityUSD,
+      balanceAfter: newLiquidityUSD,
       currency: Currency.USD,
       tokenPrice: 0, //todo: remove them
-      tokenDecimals: 0, //todo:remove them
+      tokenDecimals: 0, //todo:remove them,
+      tokens: tokens,
     };
 
     position.lastUpdatedBlockTs = blockTimestamp;
