@@ -257,7 +257,7 @@ function processValueChangeBalances({
         balanceBefore: activeUserBalance.balance.toString(),
         balanceAfter: (activeUserBalance.balance + updatedAmount).toString(),
         currency: Currency.USD,
-        tokens: {}
+        tokens: {},
       });
     }
 
