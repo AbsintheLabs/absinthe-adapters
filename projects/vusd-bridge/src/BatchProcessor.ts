@@ -270,6 +270,7 @@ export class VUSDBridgeProcessor {
               txHash: null,
               currency: Currency.USD,
               valueUsd: balanceUsd, //balanceBeforeUsd
+              tokens: {},
             });
 
             protocolState.activeBalances.get(tokenAddress)!.set(userAddress, {

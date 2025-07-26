@@ -1,8 +1,9 @@
-import { Currency, HistoryWindow, TimeWindowTrigger, Token } from '@absinthe/common';
+import { Currency, HistoryWindow, logger, TimeWindowTrigger, Token } from '@absinthe/common';
 import { BlockHeader, SwapData } from '../utils/interfaces/interfaces';
 import { PositionStorageService } from './PositionStorageService';
 import { PositionData, ProtocolStateUniswapV3 } from '../utils/interfaces/univ3Types';
 import { BigDecimal } from '@subsquid/big-decimal';
+import { getOptimizedTokenPrices } from '../utils/pricing';
 
 interface IncDecData {
   tokenId: string;
@@ -42,11 +43,41 @@ export class PositionTracker {
     block: BlockHeader,
     positions: PositionData[],
     protocolStates: Map<string, ProtocolStateUniswapV3>,
+    coingeckoApiKey: string,
+    chainPlatform: string,
   ) {
     for (const position of positions) {
       position.isActive = 'false';
       let balanceWindow: HistoryWindow | null = null;
-      if (position.liquidity !== '0' && position.lastUpdatedBlockTs) {
+
+      const token0 = await this.positionStorageService.getToken(position.token0Id);
+      const token1 = await this.positionStorageService.getToken(position.token1Id);
+      if (!token0 || !token1) {
+        logger.warn(`❌ Skipping position ${position.positionId} - missing token data:`, {
+          token0Exists: !!token0,
+          token0Id: position.token0Id,
+        });
+        return;
+      }
+
+      const depositedToken0 = position.depositedToken0;
+      const depositedToken1 = position.depositedToken1;
+
+      const oldAmount0 = BigDecimal(depositedToken0, token0.decimals).toNumber();
+      const oldAmount1 = BigDecimal(depositedToken1, token1.decimals).toNumber();
+
+      const [token0inUSD, token1inUSD] = await getOptimizedTokenPrices(
+        position.poolId,
+        token0,
+        token1,
+        block,
+        coingeckoApiKey,
+        chainPlatform,
+      );
+
+      const oldLiquidityUSD = oldAmount0 * token0inUSD + oldAmount1 * token1inUSD;
+
+      if (oldLiquidityUSD !== 0 && position.lastUpdatedBlockTs) {
         balanceWindow = {
           userAddress: position.owner,
           deltaAmount: 0,
@@ -58,11 +89,11 @@ export class PositionTracker {
           endBlockNumber: block.height,
           txHash: null,
           currency: Currency.USD,
-          valueUsd: Number(position.liquidity), // TODO: Calculate USD value
-          balanceBefore: position.liquidity,
-          balanceAfter: position.liquidity,
-          tokenPrice: 0, // TODO: Calculate token price
-          tokenDecimals: 0, // TODO: Get from position
+          valueUsd: 0,
+          balanceBefore: oldLiquidityUSD.toString(),
+          balanceAfter: oldLiquidityUSD.toString(),
+          tokenPrice: 0,
+          tokenDecimals: 0,
           tokens: {},
         };
       }
@@ -311,8 +342,6 @@ export class PositionTracker {
       await this.positionStorageService.updatePosition(position);
       return null;
     }
-
-    //todo: maybe we should just delete the position here
   }
 
   async handleSwap(
@@ -320,6 +349,8 @@ export class PositionTracker {
     data: SwapData,
     positions: PositionData[],
     protocolStates: Map<string, ProtocolStateUniswapV3>,
+    coingeckoApiKey: string,
+    chainPlatform: string,
   ) {
     const currentTick = data.tick;
     console.log(block.height, 'block.height');
@@ -339,7 +370,13 @@ export class PositionTracker {
 
     await Promise.all([
       this.activatePosition(block, positionsToActivate),
-      this.deactivatePosition(block, positionsToDeactivate, protocolStates),
+      this.deactivatePosition(
+        block,
+        positionsToDeactivate,
+        protocolStates,
+        coingeckoApiKey,
+        chainPlatform,
+      ),
     ]);
   }
 

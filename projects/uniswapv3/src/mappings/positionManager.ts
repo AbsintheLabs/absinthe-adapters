@@ -296,7 +296,6 @@ async function processIncreaseData(
     block,
     coingeckoApiKey,
     chainPlatform,
-    { ...ctx, block },
   );
 
   const amount0 = BigDecimal(data.amount0, token0!.decimals).toNumber();
@@ -368,7 +367,6 @@ async function processDecreaseData(
     block,
     coingeckoApiKey,
     chainPlatform,
-    { ...ctx, block },
   );
 
   const amount0 = BigDecimal(data.amount0, token0!.decimals).toNumber();
@@ -442,7 +440,6 @@ async function processTransferData(
     block,
     coingeckoApiKey,
     chainPlatform,
-    { ...ctx, block },
   );
 
   const trackerData = await positionTracker.handleTransfer(

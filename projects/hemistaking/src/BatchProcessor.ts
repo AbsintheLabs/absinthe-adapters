@@ -264,6 +264,7 @@ export class HemiStakingProcessor {
               txHash: null,
               currency: Currency.USD,
               valueUsd: balanceUsd, //balanceBeforeUsd
+              tokens: {},
             });
 
             protocolState.activeBalances.get(tokenAddress)!.set(userAddress, {

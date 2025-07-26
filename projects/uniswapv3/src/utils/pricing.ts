@@ -98,7 +98,6 @@ export async function getOptimizedTokenPrices(
   block: BlockHeader,
   coingeckoApiKey: string,
   chainPlatform: string,
-  ctx: BlockHandlerContext<Store>,
 ): Promise<[number, number]> {
   const startTime = Date.now();
   logger.info('🚀 Starting getOptimizedTokenPrices', {
