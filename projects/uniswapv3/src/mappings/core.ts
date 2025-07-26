@@ -315,17 +315,24 @@ async function processSwapData(
     logger.info(`🆕 Created new protocol state for pool ${data.poolId} with first transaction`);
   }
 
-  // const swapHandlingStartTime = Date.now();
-  // logger.info(`🔄 Starting position tracker handleSwap`);
+  const swapHandlingStartTime = Date.now();
+  logger.info(`🔄 Starting position tracker handleSwap`);
 
-  // await positionTracker.handleSwap(block, data, positions, protocolStates);
+  await positionTracker.handleSwap(
+    block,
+    data,
+    positions,
+    protocolStates,
+    coingeckoApiKey,
+    chainPlatform,
+  );
 
-  // logger.info(
-  //   `✅ Position tracker handleSwap completed in ${Date.now() - swapHandlingStartTime}ms`,
-  // );
-  // logger.info(
-  //   `🎯 processSwapData completed in ${Date.now() - startTime}ms for pool ${data.poolId}`,
-  // );
+  logger.info(
+    `✅ Position tracker handleSwap completed in ${Date.now() - swapHandlingStartTime}ms`,
+  );
+  logger.info(
+    `🎯 processSwapData completed in ${Date.now() - startTime}ms for pool ${data.poolId}`,
+  );
 }
 
 function processSwap(log: EvmLog, transaction: any): SwapData {
