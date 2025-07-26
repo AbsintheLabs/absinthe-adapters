@@ -22,6 +22,8 @@ import { PositionTracker } from './services/PositionTracker';
 import { ContextWithEntityManager, PositionData } from './utils/interfaces/univ3Types';
 import { BlockData, BlockHeader } from '@subsquid/evm-processor';
 import { logger } from '@absinthe/common';
+import { getOptimizedTokenPrices } from './utils/pricing';
+import { BigDecimal } from '@subsquid/big-decimal';
 
 interface ProtocolStateUniswapV3 {
   balanceWindows: HistoryWindow[];
@@ -320,6 +322,33 @@ export class UniswapV3Processor {
         `⏰ Creating exhaustion window: ${position.lastUpdatedBlockTs} → ${nextBoundaryTs} (${new Date(nextBoundaryTs).toISOString()})`,
       );
 
+      const token0 = await this.positionStorageService.getToken(position.token0Id);
+      const token1 = await this.positionStorageService.getToken(position.token1Id);
+      if (!token0 || !token1) {
+        logger.warn(`❌ Skipping position ${position.positionId} - missing token data:`, {
+          token0Exists: !!token0,
+          token0Id: position.token0Id,
+        });
+        return;
+      }
+
+      const depositedToken0 = position.depositedToken0;
+      const depositedToken1 = position.depositedToken1;
+
+      const oldAmount0 = BigDecimal(depositedToken0, token0.decimals).toNumber();
+      const oldAmount1 = BigDecimal(depositedToken1, token1.decimals).toNumber();
+
+      const [token0inUSD, token1inUSD] = await getOptimizedTokenPrices(
+        position.poolId,
+        token0,
+        token1,
+        block,
+        this.env.coingeckoApiKey,
+        this.chainConfig.chainName.toLowerCase(),
+      );
+
+      const oldLiquidityUSD = oldAmount0 * token0inUSD + oldAmount1 * token1inUSD;
+
       if (position.isActive === 'true' && BigInt(position.liquidity) > 0n) {
         const balanceWindow = {
           userAddress: position.owner,
@@ -332,11 +361,12 @@ export class UniswapV3Processor {
           endBlockNumber: block.height,
           txHash: null,
           currency: Currency.USD,
-          valueUsd: Number(position.liquidity), // TODO: Calculate USD value
-          balanceBefore: position.liquidity,
-          balanceAfter: position.liquidity,
-          tokenPrice: 0, // TODO: Calculate token price
-          tokenDecimals: 0, // TODO: Get from position
+          valueUsd: 0,
+          balanceBefore: oldLiquidityUSD.toString(),
+          balanceAfter: oldLiquidityUSD.toString(),
+          tokenPrice: 0,
+          tokenDecimals: 0,
+          tokens: {},
         };
 
         protocolState.balanceWindows.push(balanceWindow);

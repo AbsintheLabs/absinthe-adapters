@@ -414,6 +414,7 @@ export class UniswapV2Processor {
             txHash: null,
             currency: Currency.USD,
             valueUsd: balanceUsd, //balanceBeforeUsd
+            tokens: {},
           });
 
           protocolState.activeBalances.set(userAddress, {
