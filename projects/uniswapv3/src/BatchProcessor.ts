@@ -250,8 +250,8 @@ export class UniswapV3Processor {
         await this.processPositionExhaustion(
           position,
           block.header,
-          protocolState,
           positionStorageService,
+          protocolStates,
         );
 
         const afterBalanceWindows = protocolState.balanceWindows.length;
@@ -281,8 +281,8 @@ export class UniswapV3Processor {
   private async processPositionExhaustion(
     position: PositionData,
     block: BlockHeader,
-    protocolState: ProtocolStateUniswapV3,
     positionStorageService: PositionStorageService,
+    protocolStates: Map<string, ProtocolStateUniswapV3>,
   ): Promise<void> {
     logger.info(
       `Processing position exhaustion for position ${position.positionId} at block ${block.height}`,
@@ -349,7 +349,7 @@ export class UniswapV3Processor {
 
       const oldLiquidityUSD = oldAmount0 * token0inUSD + oldAmount1 * token1inUSD;
 
-      if (position.isActive === 'true' && BigInt(position.liquidity) > 0n) {
+      if (position.isActive === 'true' && oldLiquidityUSD > 0) {
         const balanceWindow = {
           userAddress: position.owner,
           deltaAmount: 0,
@@ -369,32 +369,44 @@ export class UniswapV3Processor {
           tokens: {},
         };
 
-        protocolState.balanceWindows.push(balanceWindow);
+        if (balanceWindow) {
+          const poolState = protocolStates.get(position.poolId);
+
+          if (poolState) {
+            poolState.balanceWindows.push(balanceWindow);
+          } else {
+            protocolStates.set(position.poolId, {
+              balanceWindows: [balanceWindow],
+              transactions: [],
+            });
+          }
+
+          logger.info(
+            `✅ Created balance window for position ${position.positionId}: ${JSON.stringify(balanceWindow)}`,
+          );
+        } else {
+          logger.info(
+            `⚪ Skipping balance window creation for position ${position.positionId} (active: ${position.isActive}, liquidity: ${position.liquidity})`,
+          );
+        }
+        position.lastUpdatedBlockTs = nextBoundaryTs;
+        position.lastUpdatedBlockHeight = block.height;
+
+        await positionStorageService.updatePosition(position);
         logger.info(
-          `✅ Created balance window for position ${position.positionId}: ${JSON.stringify(balanceWindow)}`,
+          `📝 Updated position ${position.positionId} with new timestamp: ${nextBoundaryTs}`,
+        );
+
+        exhaustionCount++;
+      }
+
+      if (exhaustionCount > 0) {
+        logger.info(
+          `⚡ Processed ${exhaustionCount} exhaustion windows for position ${position.positionId} at block ${block.height}`,
         );
       } else {
-        logger.info(
-          `⚪ Skipping balance window creation for position ${position.positionId} (active: ${position.isActive}, liquidity: ${position.liquidity})`,
-        );
+        logger.info(`⚪ No exhaustion windows created for position ${position.positionId}`);
       }
-      position.lastUpdatedBlockTs = nextBoundaryTs;
-      position.lastUpdatedBlockHeight = block.height;
-
-      await positionStorageService.updatePosition(position);
-      logger.info(
-        `📝 Updated position ${position.positionId} with new timestamp: ${nextBoundaryTs}`,
-      );
-
-      exhaustionCount++;
-    }
-
-    if (exhaustionCount > 0) {
-      logger.info(
-        `⚡ Processed ${exhaustionCount} exhaustion windows for position ${position.positionId} at block ${block.height}`,
-      );
-    } else {
-      logger.info(`⚪ No exhaustion windows created for position ${position.positionId}`);
     }
   }
 
