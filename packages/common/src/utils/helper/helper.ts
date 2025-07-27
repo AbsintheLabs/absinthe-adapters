@@ -33,7 +33,7 @@ function toTimeWeightedBalance(
   chainConfig: Chain,
 ): TimeWeightedBalanceEvent[] {
   return historyWindows.map((e) => {
-    const eventIdComponents = `${chainConfig.networkId}-${e.userAddress}-${e.startTs}-${e.endTs}-${e.windowDurationMs}-${env.absintheApiKey}`;
+    const eventIdComponents = `${chainConfig.networkId}-${e.userAddress}-${e.startTs}-${e.endTs}-${e.windowDurationMs}-${env.absintheApiKey}-${e.type || ''}`;
     const hash = createHash('md5').update(eventIdComponents).digest('hex').slice(0, 8);
 
     const apiKeyHash = createHash('md5').update(env.absintheApiKey).digest('hex').slice(0, 8);

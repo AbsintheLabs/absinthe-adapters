@@ -158,6 +158,11 @@ export class PositionStorageService {
       isActive: position.isActive,
       lastUpdatedBlockTs: position.lastUpdatedBlockTs.toString(),
       lastUpdatedBlockHeight: position.lastUpdatedBlockHeight.toString(),
+      depositedToken0: position.depositedToken0,
+      depositedToken1: position.depositedToken1,
+      tickLower: position.tickLower.toString(),
+      tickUpper: position.tickUpper.toString(),
+      poolId: position.poolId,
     });
   }
 

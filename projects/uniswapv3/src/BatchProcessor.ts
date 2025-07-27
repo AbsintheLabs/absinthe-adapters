@@ -327,7 +327,19 @@ export class UniswapV3Processor {
         this.chainConfig.chainName.toLowerCase(),
       );
 
+      logger.info(`🔍 Token0 in USD: ${token0inUSD}`);
+      logger.info(`🔍 Token1 in USD: ${token1inUSD}`);
+
       const oldLiquidityUSD = oldAmount0 * token0inUSD + oldAmount1 * token1inUSD;
+      logger.info(`🔍 Old Liquidity in USD: ${oldLiquidityUSD}`, {
+        oldAmount0,
+        oldAmount1,
+        token0inUSD,
+        token1inUSD,
+      });
+
+      logger.info(`🔍 Position lastUpdatedBlockTs: ${position.lastUpdatedBlockTs}`);
+      logger.info(`🔍 Next boundary Ts: ${nextBoundaryTs}`);
 
       if (oldLiquidityUSD > 0 && position.lastUpdatedBlockTs < nextBoundaryTs) {
         const balanceWindow = {
@@ -369,6 +381,7 @@ export class UniswapV3Processor {
         );
       }
       position.lastUpdatedBlockTs = nextBoundaryTs;
+      position.lastUpdatedBlockHeight = block.height;
 
       await positionStorageService.updatePosition(position);
       logger.info(

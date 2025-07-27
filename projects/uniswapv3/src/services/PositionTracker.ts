@@ -187,12 +187,14 @@ export class PositionTracker {
             type: 'number',
           },
         },
+        'increase',
       );
       return historyWindow;
     } else {
       position.lastUpdatedBlockTs = block.timestamp;
       position.lastUpdatedBlockHeight = block.height;
       await this.positionStorageService.updatePosition(position);
+      return null;
     }
   }
 
@@ -223,6 +225,7 @@ export class PositionTracker {
     const newAmount1 = BigDecimal(position.depositedToken1, token1Decimals).toNumber(); //2000 usdc
 
     const newLiquidityUSD = newAmount0 * price0 + newAmount1 * price1; //1*1000 + 2000*1000 = 2100000 usd
+    await this.positionStorageService.updatePosition(position); //todo: reduce double calls
 
     if (BigInt(position.depositedToken0) === 0n && BigInt(position.depositedToken1) === 0n) {
       //if balance is 0, delete the position from tracking- just delete it
@@ -269,14 +272,13 @@ export class PositionTracker {
             type: 'number',
           },
         },
+        'decrease',
       );
-      await this.positionStorageService.updatePosition(position); //todo: reduce double calls
       return historyWindow;
     } else {
       position.lastUpdatedBlockTs = block.timestamp;
       position.lastUpdatedBlockHeight = block.height;
       await this.positionStorageService.updatePosition(position);
-
       return null;
     }
   }
@@ -301,12 +303,11 @@ export class PositionTracker {
 
     const oldLiquidityUSD = oldAmount0 * price0 + oldAmount1 * price1;
 
-    //todo: make sure this is no more tracked now for flushes - confirm andrew
     if (position.isActive === 'true') {
       const historyWindow = await this.flushLiquidityChange(
         position.positionId,
         oldLiquidityUSD.toString(),
-        oldLiquidityUSD.toString(), //todo : confirm andrew
+        oldLiquidityUSD.toString(),
         TimeWindowTrigger.TRANSFER,
         block,
         data.transactionHash,
@@ -333,6 +334,7 @@ export class PositionTracker {
             type: 'number',
           },
         },
+        'transfer',
       );
       position.owner = data.to;
       await this.positionStorageService.updatePosition(position); //todo: remove two separate updatePosition calls
@@ -391,6 +393,7 @@ export class PositionTracker {
     transactionHash: string,
     deltaAmountUSD: number,
     tokens: { [key: string]: { value: string; type: string } },
+    type?: string,
   ): Promise<HistoryWindow | null> {
     const position = await this.positionStorageService.getPosition(positionId);
 
@@ -416,6 +419,7 @@ export class PositionTracker {
       tokenPrice: 0, //todo: remove them
       tokenDecimals: 0, //todo:remove them,
       tokens: tokens,
+      type: type || '',
     };
 
     position.lastUpdatedBlockTs = blockTimestamp;
