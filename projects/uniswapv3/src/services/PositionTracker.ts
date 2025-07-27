@@ -146,6 +146,7 @@ export class PositionTracker {
     const newAmount1 = BigDecimal(position.depositedToken1, token1Decimals).toNumber(); //3000 usdc
 
     const newLiquidityUSD = newAmount0 * price0 + newAmount1 * price1; //1.5*1000 + 3000*1000 = 3150000 usd
+    await this.positionStorageService.updatePosition(position); //todo: reduce double calls
 
     if (position.isActive === 'true' && oldLiquidityUSD > 0) {
       const historyWindow = await this.flushLiquidityChange(
@@ -269,6 +270,7 @@ export class PositionTracker {
           },
         },
       );
+      await this.positionStorageService.updatePosition(position); //todo: reduce double calls
       return historyWindow;
     } else {
       position.lastUpdatedBlockTs = block.timestamp;

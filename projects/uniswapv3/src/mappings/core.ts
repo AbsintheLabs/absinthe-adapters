@@ -278,6 +278,10 @@ async function processSwapData(
         value: amount0Abs.toString(),
         type: 'number',
       },
+      poolId: {
+        value: data.poolId,
+        type: 'string',
+      },
     },
     rawAmount: amount0Abs.toString(),
     displayAmount: swappedAmountUSD,
@@ -328,7 +332,7 @@ async function processSwapData(
   );
 
   logger.info(
-    `✅ Position tracker handleSwap completed in ${Date.now() - swapHandlingStartTime}ms`,
+    `✅ Position trackerx handleSwap completed in ${Date.now() - swapHandlingStartTime}ms`,
   );
   logger.info(
     `🎯 processSwapData completed in ${Date.now() - startTime}ms for pool ${data.poolId}`,
