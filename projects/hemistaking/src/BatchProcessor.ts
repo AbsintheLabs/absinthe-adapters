@@ -227,7 +227,7 @@ export class HemiStakingProcessor {
       Number(protocolState.processState.lastInterpolatedTs) + this.refreshWindow < currentTs
     ) {
       const windowsSinceEpoch = Math.floor(
-        Number(protocolState.processState.lastInterpolatedTs) / this.refreshWindow, //todo: check if this is correct
+        Number(protocolState.processState.lastInterpolatedTs) / this.refreshWindow,
       );
       const nextBoundaryTs: number = (windowsSinceEpoch + 1) * this.refreshWindow;
 

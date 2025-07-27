@@ -243,12 +243,16 @@ export class UniswapV3Processor {
         const beforeBalanceWindows = protocolState.balanceWindows.length;
         logger.info(`🔍 Checking position ${position.positionId} for exhaustion`);
 
-        await this.processPositionExhaustion(
-          position,
-          block.header,
-          positionStorageService,
-          protocolStates,
-        );
+        if (position.isActive === 'true') {
+          await this.processPositionExhaustion(
+            position,
+            block.header,
+            positionStorageService,
+            protocolStates,
+          );
+        } else {
+          logger.info(`⚪ Skipping inactive position ${position.positionId}`);
+        }
 
         const afterBalanceWindows = protocolState.balanceWindows.length;
         const windowsCreated = afterBalanceWindows - beforeBalanceWindows;
@@ -283,111 +287,93 @@ export class UniswapV3Processor {
     const currentTs = block.timestamp;
 
     if (!position.lastUpdatedBlockTs) {
-      logger.info(`⚪ Position ${position.positionId} has no lastUpdatedBlockTs, skipping`);
-      return;
-    }
-
-    const timeSinceLastUpdate = Number(currentTs) - Number(position.lastUpdatedBlockTs);
-
-    if (timeSinceLastUpdate < this.refreshWindow) {
+      logger.info(`⚪ Position ${position.positionId} has no lastUpdatedBlockTs, adding it`);
+      position.lastUpdatedBlockTs = currentTs;
+      await positionStorageService.updatePosition(position);
       return;
     }
 
     while (
       position.lastUpdatedBlockTs &&
-      Number(position.lastUpdatedBlockTs) + this.refreshWindow < currentTs
+      Number(position.lastUpdatedBlockTs) + this.refreshWindow <= currentTs
     ) {
       const windowsSinceEpoch = Math.floor(
         Number(position.lastUpdatedBlockTs) / this.refreshWindow,
       );
       const nextBoundaryTs: number = (windowsSinceEpoch + 1) * this.refreshWindow;
 
-      if (position.isActive === 'true') {
-        const token0 = await this.positionStorageService.getToken(position.token0Id);
-        const token1 = await this.positionStorageService.getToken(position.token1Id);
-        if (!token0 || !token1) {
-          logger.warn(`❌ Skipping position ${position.positionId} - missing token data:`, {
-            token0Exists: !!token0,
-            token0Id: position.token0Id,
-          });
-          return;
-        }
+      const token0 = await this.positionStorageService.getToken(position.token0Id);
+      const token1 = await this.positionStorageService.getToken(position.token1Id);
+      if (!token0 || !token1) {
+        logger.warn(`❌ Skipping position ${position.positionId} - missing token data:`, {
+          token0Exists: !!token0,
+          token0Id: position.token0Id,
+        });
+        return;
+      }
 
-        const depositedToken0 = position.depositedToken0;
-        const depositedToken1 = position.depositedToken1;
+      const depositedToken0 = position.depositedToken0;
+      const depositedToken1 = position.depositedToken1;
 
-        const oldAmount0 = BigDecimal(depositedToken0, token0.decimals).toNumber();
-        const oldAmount1 = BigDecimal(depositedToken1, token1.decimals).toNumber();
+      const oldAmount0 = BigDecimal(depositedToken0, token0.decimals).toNumber();
+      const oldAmount1 = BigDecimal(depositedToken1, token1.decimals).toNumber();
 
-        const [token0inUSD, token1inUSD] = await getOptimizedTokenPrices(
-          position.poolId,
-          token0,
-          token1,
-          block,
-          this.env.coingeckoApiKey,
-          this.chainConfig.chainName.toLowerCase(),
-        );
+      const [token0inUSD, token1inUSD] = await getOptimizedTokenPrices(
+        position.poolId,
+        token0,
+        token1,
+        block,
+        this.env.coingeckoApiKey,
+        this.chainConfig.chainName.toLowerCase(),
+      );
 
-        const oldLiquidityUSD = oldAmount0 * token0inUSD + oldAmount1 * token1inUSD;
+      const oldLiquidityUSD = oldAmount0 * token0inUSD + oldAmount1 * token1inUSD;
 
-        if (oldLiquidityUSD > 0) {
-          const balanceWindow = {
-            userAddress: position.owner,
-            deltaAmount: 0,
-            trigger: TimeWindowTrigger.EXHAUSTED,
-            startTs: position.lastUpdatedBlockTs,
-            endTs: nextBoundaryTs,
-            windowDurationMs: this.refreshWindow,
-            startBlockNumber: position.lastUpdatedBlockHeight,
-            endBlockNumber: block.height,
-            txHash: null,
-            currency: Currency.USD,
-            valueUsd: 0,
-            balanceBefore: oldLiquidityUSD.toString(),
-            balanceAfter: oldLiquidityUSD.toString(),
-            tokenPrice: 0,
-            tokenDecimals: 0,
-            tokens: {},
-          };
+      if (oldLiquidityUSD > 0 && position.lastUpdatedBlockTs < nextBoundaryTs) {
+        const balanceWindow = {
+          userAddress: position.owner,
+          deltaAmount: 0,
+          trigger: TimeWindowTrigger.EXHAUSTED,
+          startTs: position.lastUpdatedBlockTs,
+          endTs: nextBoundaryTs,
+          windowDurationMs: this.refreshWindow,
+          startBlockNumber: position.lastUpdatedBlockHeight,
+          endBlockNumber: block.height,
+          txHash: null,
+          currency: Currency.USD,
+          valueUsd: 0,
+          balanceBefore: oldLiquidityUSD.toString(),
+          balanceAfter: oldLiquidityUSD.toString(),
+          tokenPrice: 0,
+          tokenDecimals: 0,
+          tokens: {},
+        };
 
-          if (balanceWindow) {
-            const poolState = protocolStates.get(position.poolId);
+        const poolState = protocolStates.get(position.poolId);
 
-            if (poolState) {
-              poolState.balanceWindows.push(balanceWindow);
-            } else {
-              protocolStates.set(position.poolId, {
-                balanceWindows: [balanceWindow],
-                transactions: [],
-              });
-            }
-          }
-
-          logger.info(
-            `✅ Created balance window for position ${position.positionId}: ${JSON.stringify(balanceWindow)}`,
-          );
+        if (poolState) {
+          poolState.balanceWindows.push(balanceWindow);
         } else {
-          logger.info(
-            `⚪ Skipping balance window creation for position ${position.positionId} (active: ${position.isActive}, liquidity: ${position.liquidity})`,
-          );
+          protocolStates.set(position.poolId, {
+            balanceWindows: [balanceWindow],
+            transactions: [],
+          });
         }
-        position.lastUpdatedBlockTs = nextBoundaryTs;
-        position.lastUpdatedBlockHeight = block.height;
 
-        await positionStorageService.updatePosition(position);
         logger.info(
-          `📝 Updated position ${position.positionId} with new timestamp: ${nextBoundaryTs}`,
+          `✅ Created balance window for position ${position.positionId}: ${JSON.stringify(balanceWindow)}`,
         );
       } else {
-        // Handle inactive positions - still need to update timestamp to prevent infinite loop
-        position.lastUpdatedBlockTs = nextBoundaryTs;
-        position.lastUpdatedBlockHeight = block.height;
-
-        await positionStorageService.updatePosition(position);
         logger.info(
-          `📝 Updated inactive position ${position.positionId} with new timestamp: ${nextBoundaryTs}`,
+          `⚪ Skipping balance window creation for position ${position.positionId} (active: ${position.isActive}, liquidity: ${position.liquidity})`,
         );
       }
+      position.lastUpdatedBlockTs = nextBoundaryTs;
+
+      await positionStorageService.updatePosition(position);
+      logger.info(
+        `📝 Updated position ${position.positionId} with new timestamp: ${nextBoundaryTs}`,
+      );
     }
   }
 

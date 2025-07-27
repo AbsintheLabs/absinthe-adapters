@@ -148,7 +148,7 @@ export class PositionTracker {
     const newLiquidityUSD = newAmount0 * price0 + newAmount1 * price1; //1.5*1000 + 3000*1000 = 3150000 usd
     await this.positionStorageService.updatePosition(position); //todo: reduce double calls
 
-    if (position.isActive === 'true' && oldLiquidityUSD > 0) {
+    if (position.isActive === 'true') {
       const historyWindow = await this.flushLiquidityChange(
         position.positionId,
         oldLiquidityUSD.toString(),
@@ -230,7 +230,7 @@ export class PositionTracker {
       return;
     }
 
-    if (position.isActive === 'true' && oldLiquidityUSD > 0) {
+    if (position.isActive === 'true') {
       const historyWindow = await this.flushLiquidityChange(
         position.positionId,
         oldLiquidityUSD.toString(),
