@@ -194,6 +194,7 @@ export class PositionTracker {
       position.lastUpdatedBlockTs = block.timestamp;
       position.lastUpdatedBlockHeight = block.height;
       await this.positionStorageService.updatePosition(position);
+      return null;
     }
   }
 
@@ -224,6 +225,7 @@ export class PositionTracker {
     const newAmount1 = BigDecimal(position.depositedToken1, token1Decimals).toNumber(); //2000 usdc
 
     const newLiquidityUSD = newAmount0 * price0 + newAmount1 * price1; //1*1000 + 2000*1000 = 2100000 usd
+    await this.positionStorageService.updatePosition(position); //todo: reduce double calls
 
     if (BigInt(position.depositedToken0) === 0n && BigInt(position.depositedToken1) === 0n) {
       //if balance is 0, delete the position from tracking- just delete it
@@ -272,13 +274,11 @@ export class PositionTracker {
         },
         'decrease',
       );
-      await this.positionStorageService.updatePosition(position); //todo: reduce double calls
       return historyWindow;
     } else {
       position.lastUpdatedBlockTs = block.timestamp;
       position.lastUpdatedBlockHeight = block.height;
       await this.positionStorageService.updatePosition(position);
-
       return null;
     }
   }
