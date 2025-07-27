@@ -187,6 +187,7 @@ export class PositionTracker {
             type: 'number',
           },
         },
+        'increase',
       );
       return historyWindow;
     } else {
@@ -269,6 +270,7 @@ export class PositionTracker {
             type: 'number',
           },
         },
+        'decrease',
       );
       await this.positionStorageService.updatePosition(position); //todo: reduce double calls
       return historyWindow;
@@ -301,12 +303,11 @@ export class PositionTracker {
 
     const oldLiquidityUSD = oldAmount0 * price0 + oldAmount1 * price1;
 
-    //todo: make sure this is no more tracked now for flushes - confirm andrew
     if (position.isActive === 'true') {
       const historyWindow = await this.flushLiquidityChange(
         position.positionId,
         oldLiquidityUSD.toString(),
-        oldLiquidityUSD.toString(), //todo : confirm andrew
+        oldLiquidityUSD.toString(),
         TimeWindowTrigger.TRANSFER,
         block,
         data.transactionHash,
@@ -333,6 +334,7 @@ export class PositionTracker {
             type: 'number',
           },
         },
+        'transfer',
       );
       position.owner = data.to;
       await this.positionStorageService.updatePosition(position); //todo: remove two separate updatePosition calls
@@ -391,6 +393,7 @@ export class PositionTracker {
     transactionHash: string,
     deltaAmountUSD: number,
     tokens: { [key: string]: { value: string; type: string } },
+    type?: string,
   ): Promise<HistoryWindow | null> {
     const position = await this.positionStorageService.getPosition(positionId);
 
@@ -416,6 +419,7 @@ export class PositionTracker {
       tokenPrice: 0, //todo: remove them
       tokenDecimals: 0, //todo:remove them,
       tokens: tokens,
+      type: type || '',
     };
 
     position.lastUpdatedBlockTs = blockTimestamp;

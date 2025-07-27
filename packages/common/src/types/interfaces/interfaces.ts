@@ -116,6 +116,7 @@ interface HistoryWindow {
   balanceBefore: string; // raw balance before the transfer
   balanceAfter: string; // raw balance after the transfer
   tokens: { [key: string]: { value: string; type: string } };
+  type?: string;
 }
 
 interface TimeWeightedBalanceEvent {
