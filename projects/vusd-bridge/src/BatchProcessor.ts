@@ -9,6 +9,7 @@ import {
   TimeWindowTrigger,
   ValidatedEnvBase,
   ValidatedStakingProtocolConfig,
+  ZERO_ADDRESS,
 } from '@absinthe/common';
 
 import { processor } from './processor';
@@ -80,8 +81,7 @@ export class VUSDBridgeProcessor {
   private async initializeProtocolStates(ctx: any): Promise<Map<string, ProtocolStateHemi>> {
     const protocolStates = new Map<string, ProtocolStateHemi>();
 
-    const contractAddress = this.stakingProtocol.contractAddress;
-
+    const contractAddress = this.stakingProtocol.contractAddress.toLowerCase();
     protocolStates.set(contractAddress, {
       activeBalances:
         (await loadActiveBalancesFromDb(ctx, contractAddress)) ||
@@ -99,7 +99,7 @@ export class VUSDBridgeProcessor {
     const { ctx, block, protocolStates } = batchContext;
 
     const contractAddress = this.stakingProtocol.contractAddress.toLowerCase();
-    const protocolState = protocolStates.get(contractAddress)!;
+    const protocolState = protocolStates.get(contractAddress.toLowerCase())!;
     await this.processLogsForProtocol(ctx, block, contractAddress, protocolState);
     await this.processPeriodicBalanceFlush(ctx, block, protocolState);
   }
@@ -137,7 +137,7 @@ export class VUSDBridgeProcessor {
     protocolState: ProtocolStateHemi,
   ): Promise<void> {
     const { localToken, from, to, amount } = vusdAbi.events.ERC20BridgeFinalized.decode(log);
-    console.log(localToken, from, to, amount);
+    console.log(log.transactionHash);
     const tokenMetadata = checkToken(localToken);
     if (!tokenMetadata) {
       console.warn(`Ignoring deposit for unsupported token: ${localToken}`);
@@ -152,7 +152,7 @@ export class VUSDBridgeProcessor {
 
     const newHistoryWindows = processValueChangeBalances({
       from: from,
-      to: to,
+      to: ZERO_ADDRESS,
       amount: amount,
       usdValue,
       blockTimestamp: block.header.timestamp,
@@ -257,8 +257,14 @@ export class VUSDBridgeProcessor {
     ctx: any,
     protocolStates: Map<string, ProtocolStateHemi>,
   ): Promise<void> {
-    const contractAddress = this.stakingProtocol.contractAddress;
-    const protocolState = protocolStates.get(contractAddress)!;
+    const contractAddress = this.stakingProtocol.contractAddress.toLowerCase();
+    const protocolState = protocolStates.get(contractAddress);
+
+    if (!protocolState) {
+      console.error(`Protocol state not found for contract: ${contractAddress}`);
+      return;
+    }
+
     // Send data to Absinthe API
     const balances = toTimeWeightedBalance(
       protocolState.balanceWindows,
