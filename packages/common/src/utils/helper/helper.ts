@@ -142,6 +142,7 @@ function processValueChange({
   windowDurationMs,
   tokenPrice,
   tokenDecimals,
+  tokens,
 }: ProcessValueChangeParams): HistoryWindow[] {
   const historyWindows: HistoryWindow[] = [];
 
@@ -177,7 +178,7 @@ function processValueChange({
         balanceBefore: activeUserBalance.balance.toString(),
         balanceAfter: (activeUserBalance.balance + updatedAmount).toString(),
         currency: Currency.USD,
-        tokens: {},
+        tokens: tokens,
       });
     }
 
@@ -193,7 +194,7 @@ function processValueChange({
     }
   }
 
-  processAddress(from, amount); // from address loses amount
+  processAddress(from, BigInt(-amount)); // from address loses amount
   processAddress(to, amount); // to address gains amount
   return historyWindows;
 }

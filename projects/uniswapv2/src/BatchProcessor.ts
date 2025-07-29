@@ -1,4 +1,4 @@
-import { ActiveBalances } from './model';
+import { ActiveBalances, PoolState, PoolProcessState, PoolConfig } from './model';
 
 import {
   AbsintheApiClient,
@@ -21,8 +21,6 @@ import {
 import { processor } from './processor';
 import { createHash } from 'crypto';
 import { TypeormDatabase } from '@subsquid/typeorm-store';
-import { PoolProcessState } from './model';
-import { PoolState } from './model';
 import {
   initPoolConfigIfNeeded,
   initPoolProcessStateIfNeeded,
@@ -32,7 +30,6 @@ import {
 import { loadPoolProcessStateFromDb, loadPoolStateFromDb } from './utils/pool';
 import { loadPoolConfigFromDb } from './utils/pool';
 import { ProtocolStateUniv2 } from './utils/types';
-import { PoolConfig } from './model';
 import * as univ2Abi from './abi/univ2';
 import { computeLpTokenPrice, computePricedSwapVolume } from './utils/pricing';
 import {
@@ -215,9 +212,8 @@ export class UniswapV2Processor {
     const { gasPrice, gasUsed } = log.transaction;
     const gasFee = Number(gasUsed) * Number(gasPrice);
     const displayGasFee = gasFee / 10 ** 18;
-    //todo:fix
     const ethPriceUsd = await fetchHistoricalUsd(
-      'ethereum',
+      'hemi',
       block.header.timestamp,
       this.env.coingeckoApiKey,
     );
@@ -253,7 +249,7 @@ export class UniswapV2Processor {
           type: 'string',
         },
         token0Symbol: {
-          value: ChainShortName.ETHEREUM,
+          value: ChainShortName.HEMI,
           type: 'string',
         },
         token0PriceUsd: {
@@ -342,7 +338,6 @@ export class UniswapV2Processor {
       value,
       protocolState.config.lpToken.decimals,
     );
-    //todo: check to and from
     const newHistoryWindows = processValueChange({
       from,
       to,
@@ -355,6 +350,33 @@ export class UniswapV2Processor {
       windowDurationMs: this.refreshWindow,
       tokenPrice: lpTokenPrice,
       tokenDecimals: protocolState.config.lpToken.decimals,
+      tokens: {
+        token0Decimals: {
+          value: protocolState.config.token0.decimals.toString(),
+          type: 'number',
+        },
+        token0Address: {
+          value: protocolState.config.token0.address,
+          type: 'string',
+        },
+        token0Symbol: {
+          value: ChainShortName.HEMI,
+          type: 'string',
+        },
+
+        token1Address: {
+          value: protocolState.config.token1.address,
+          type: 'string',
+        },
+        token1Decimals: {
+          value: protocolState.config.token1.decimals.toString(),
+          type: 'number',
+        },
+        lpTokenPrice: {
+          value: lpTokenPrice.toString(),
+          type: 'string',
+        },
+      },
     });
     protocolState.balanceWindows.push(...newHistoryWindows);
   }
