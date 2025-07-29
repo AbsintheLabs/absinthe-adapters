@@ -42,18 +42,18 @@
           "fromBlock": 1435768,
           "pricingStrategy": "coingecko",
           "token0": {
-            "coingeckoId": "bitcoin",
-            "decimals": 8
-          },
-          "token1": {
             "coingeckoId": "weth",
             "decimals": 18
+          },
+          "token1": {
+            "coingeckoId": "hemibtc",
+            "decimals": 8
           },
           "preferredTokenCoingeckoId": "token1"
         },
         {
           "name": "vusd-usdc.e",
-          "contractAddress": "0x225283e4d46ab82561a285998517a9175f3e0f06",
+          "contractAddress": "0xf23eec60263de9b0c8472c58be10feba28d9eb53",
           "fromBlock": 1326101,
           "pricingStrategy": "coingecko",
           "token0": {

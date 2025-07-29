@@ -125,7 +125,7 @@ export class VusdMintProcessor {
     const gasFee = Number(gasUsed) * Number(gasPrice);
     const displayGasFee = gasFee / 10 ** 18;
     const ethPriceUsd = await fetchHistoricalUsd(
-      'vusd',
+      'vesper-vdollar',
       block.header.timestamp,
       this.env.coingeckoApiKey,
     );
