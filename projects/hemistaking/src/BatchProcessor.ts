@@ -168,6 +168,24 @@ export class HemiStakingProcessor {
       tokenPrice,
       tokenDecimals: tokenMetadata.decimals,
       tokenAddress: token,
+      tokens: {
+        tokenAddress: {
+          value: tokenMetadata.address,
+          type: 'string',
+        },
+        coingeckoId: {
+          value: tokenMetadata.coingeckoId,
+          type: 'string',
+        },
+        tokenDecimals: {
+          value: `${tokenMetadata.decimals}`,
+          type: 'number',
+        },
+        tokenPrice: {
+          value: `${tokenPrice}`,
+          type: 'number',
+        },
+      },
     });
 
     protocolState.balanceWindows.push(...newHistoryWindows);
@@ -206,6 +224,24 @@ export class HemiStakingProcessor {
       tokenPrice,
       tokenDecimals: tokenMetadata.decimals,
       tokenAddress: token,
+      tokens: {
+        tokenAddress: {
+          value: tokenMetadata.address,
+          type: 'string',
+        },
+        coingeckoId: {
+          value: tokenMetadata.coingeckoId,
+          type: 'string',
+        },
+        tokenDecimals: {
+          value: `${tokenMetadata.decimals}`,
+          type: 'number',
+        },
+        tokenPrice: {
+          value: `${tokenPrice}`,
+          type: 'number',
+        },
+      },
     });
 
     protocolState.balanceWindows.push(...newHistoryWindows);
@@ -247,7 +283,6 @@ export class HemiStakingProcessor {
             );
             const balanceUsd = pricePosition(tokenPrice, data.balance, tokenMetadata.decimals);
 
-            // calculate the usd value of the lp token before and after the transfer
             protocolState.balanceWindows.push({
               userAddress: userAddress,
               deltaAmount: 0,
@@ -264,7 +299,24 @@ export class HemiStakingProcessor {
               txHash: null,
               currency: Currency.USD,
               valueUsd: balanceUsd, //balanceBeforeUsd
-              tokens: {},
+              tokens: {
+                tokenAddress: {
+                  value: tokenMetadata.address,
+                  type: 'string',
+                },
+                coingeckoId: {
+                  value: tokenMetadata.coingeckoId,
+                  type: 'string',
+                },
+                tokenDecimals: {
+                  value: `${tokenMetadata.decimals}`,
+                  type: 'number',
+                },
+                tokenPrice: {
+                  value: `${tokenPrice}`,
+                  type: 'number',
+                },
+              },
             });
 
             protocolState.activeBalances.get(tokenAddress)!.set(userAddress, {

@@ -72,7 +72,6 @@ export class VusdMintProcessor {
     const protocolStates = new Map<string, ProtocolState>();
 
     const contractAddress = this.bondingCurveProtocol.contractAddress.toLowerCase();
-    //todo: move into a seperate function
     protocolStates.set(contractAddress, {
       balanceWindows: [],
       transactions: [],
@@ -126,7 +125,7 @@ export class VusdMintProcessor {
     const gasFee = Number(gasUsed) * Number(gasPrice);
     const displayGasFee = gasFee / 10 ** 18;
     const ethPriceUsd = await fetchHistoricalUsd(
-      'vesper-vdollar',
+      'vusd',
       block.header.timestamp,
       this.env.coingeckoApiKey,
     );
