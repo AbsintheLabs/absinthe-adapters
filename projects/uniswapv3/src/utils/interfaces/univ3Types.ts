@@ -17,6 +17,7 @@ interface PositionData {
   liquidity: string;
   tickLower: number;
   tickUpper: number;
+  currentTick: number;
   token0Id: string;
   token1Id: string;
   fee: number;
