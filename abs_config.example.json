@@ -3,21 +3,66 @@
   "dexProtocols": [
     {
       "type": "uniswap-v2",
-      "chainId": 1,
+      "chainId": 43111,
       "toBlock": 0,
       "protocols": [
         {
-          "name": "pepe-weth",
-          "contractAddress": "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f",
-          "fromBlock": 17046833,
+          "name": "weth-usdc.e",
+          "contractAddress": "0xaf6ed58980b5a0732423469dd9f3f69d9dc6dab5",
+          "fromBlock": 865348,
           "pricingStrategy": "coingecko",
           "token0": {
-            "coingeckoId": "pepe",
+            "coingeckoId": "weth",
             "decimals": 18
+          },
+          "token1": {
+            "coingeckoId": "usd-coin",
+            "decimals": 6
+          },
+          "preferredTokenCoingeckoId": "token1"
+        },
+        {
+          "name": "hemibtc-usdc.e",
+          "contractAddress": "0x0621bae969de9c153835680f158f481424c0720a",
+          "fromBlock": 1451314,
+          "pricingStrategy": "coingecko",
+          "token0": {
+            "coingeckoId": "bitcoin",
+            "decimals": 8
+          },
+          "token1": {
+            "coingeckoId": "usd-coin",
+            "decimals": 6
+          },
+          "preferredTokenCoingeckoId": "token1"
+        },
+        {
+          "name": "weth-hemibtc",
+          "contractAddress": "0x225283e4d46ab82561a285998517a9175f3e0f06",
+          "fromBlock": 1435768,
+          "pricingStrategy": "coingecko",
+          "token0": {
+            "coingeckoId": "bitcoin",
+            "decimals": 8
           },
           "token1": {
             "coingeckoId": "weth",
             "decimals": 18
+          },
+          "preferredTokenCoingeckoId": "token1"
+        },
+        {
+          "name": "vusd-usdc.e",
+          "contractAddress": "0x225283e4d46ab82561a285998517a9175f3e0f06",
+          "fromBlock": 1326101,
+          "pricingStrategy": "coingecko",
+          "token0": {
+            "coingeckoId": "vusd",
+            "decimals": 18
+          },
+          "token1": {
+            "coingeckoId": "usd-coin",
+            "decimals": 6
           },
           "preferredTokenCoingeckoId": "token1"
         }
@@ -29,17 +74,17 @@
       "toBlock": 0,
       "protocols": [
         {
-          "name": "weth-hemitbtc",
-          "contractAddress": "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f",
-          "fromBlock": 1276815,
+          "name": "hemibtc-usdc.e",
+          "contractAddress": "0x0621bae969de9c153835680f158f481424c0720a",
+          "fromBlock": 1451314,
           "pricingStrategy": "coingecko",
           "token0": {
-            "coingeckoId": "weth",
+            "coingeckoId": "bitcoin",
             "decimals": 18
           },
           "token1": {
-            "coingeckoId": "btc",
-            "decimals": 8
+            "coingeckoId": "usd-coin",
+            "decimals": 6
           },
           "preferredTokenCoingeckoId": "token1"
         },

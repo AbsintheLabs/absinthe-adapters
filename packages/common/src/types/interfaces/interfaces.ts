@@ -52,6 +52,7 @@ interface ProcessValueChangeParams {
   windowDurationMs: number;
   tokenPrice: number;
   tokenDecimals: number;
+  tokens: { [key: string]: { value: string; type: string } };
 }
 
 interface ProcessValueChangeBalancesParams {
