@@ -24,6 +24,7 @@ import { BlockData, BlockHeader } from '@subsquid/evm-processor';
 import { logger } from '@absinthe/common';
 import { getOptimizedTokenPrices } from './utils/pricing';
 import { BigDecimal } from '@subsquid/big-decimal';
+import { getAmountsForLiquidityRaw } from './utils/liquidityMath';
 
 interface ProtocolStateUniswapV3 {
   balanceWindows: HistoryWindow[];
@@ -311,12 +312,17 @@ export class UniswapV3Processor {
         });
         return;
       }
+      const liquidity = BigInt(position.liquidity);
 
-      const depositedToken0 = position.depositedToken0;
-      const depositedToken1 = position.depositedToken1;
-
-      const oldAmount0 = BigDecimal(depositedToken0, token0.decimals).toNumber();
-      const oldAmount1 = BigDecimal(depositedToken1, token1.decimals).toNumber();
+      const { humanAmount0: oldHumanAmount0, humanAmount1: oldHumanAmount1 } =
+        getAmountsForLiquidityRaw(
+          liquidity,
+          position.tickLower,
+          position.tickUpper,
+          position.currentTick,
+          token0.decimals,
+          token1.decimals,
+        );
 
       const [token0inUSD, token1inUSD] = await getOptimizedTokenPrices(
         position.poolId,
@@ -330,10 +336,11 @@ export class UniswapV3Processor {
       logger.info(`🔍 Token0 in USD: ${token0inUSD}`);
       logger.info(`🔍 Token1 in USD: ${token1inUSD}`);
 
-      const oldLiquidityUSD = oldAmount0 * token0inUSD + oldAmount1 * token1inUSD;
+      const oldLiquidityUSD =
+        Number(oldHumanAmount0) * token0inUSD + Number(oldHumanAmount1) * token1inUSD;
       logger.info(`🔍 Old Liquidity in USD: ${oldLiquidityUSD}`, {
-        oldAmount0,
-        oldAmount1,
+        oldHumanAmount0,
+        oldHumanAmount1,
         token0inUSD,
         token1inUSD,
       });

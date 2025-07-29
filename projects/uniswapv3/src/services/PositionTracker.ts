@@ -4,6 +4,7 @@ import { PositionStorageService } from './PositionStorageService';
 import { PositionData, ProtocolStateUniswapV3 } from '../utils/interfaces/univ3Types';
 import { BigDecimal } from '@subsquid/big-decimal';
 import { getOptimizedTokenPrices } from '../utils/pricing';
+import { getAmountsForLiquidityRaw } from '../utils/liquidityMath';
 
 interface IncDecData {
   tokenId: string;
@@ -28,9 +29,14 @@ export class PositionTracker {
     this.windowDurationMs = windowDurationMs;
   }
 
-  private async activatePosition(block: BlockHeader, positions: PositionData[]) {
+  private async activatePosition(
+    block: BlockHeader,
+    currentTick: number,
+    positions: PositionData[],
+  ) {
     for (const position of positions) {
       position.isActive = 'true';
+      position.currentTick = currentTick;
       position.lastUpdatedBlockTs = block.timestamp;
       position.lastUpdatedBlockHeight = block.height;
       await this.positionStorageService.updatePosition(position);
@@ -41,6 +47,7 @@ export class PositionTracker {
 
   private async deactivatePosition(
     block: BlockHeader,
+    currentTick: number,
     positions: PositionData[],
     protocolStates: Map<string, ProtocolStateUniswapV3>,
     coingeckoApiKey: string,
@@ -48,7 +55,9 @@ export class PositionTracker {
   ) {
     for (const position of positions) {
       position.isActive = 'false';
+      position.currentTick = currentTick;
       let balanceWindow: HistoryWindow | null = null;
+      await this.positionStorageService.updatePosition(position); //todo: check-double
 
       const token0 = await this.positionStorageService.getToken(position.token0Id);
       const token1 = await this.positionStorageService.getToken(position.token1Id);
@@ -60,12 +69,17 @@ export class PositionTracker {
         return;
       }
 
-      const depositedToken0 = position.depositedToken0;
-      const depositedToken1 = position.depositedToken1;
+      const oldLiquidity = BigInt(position.liquidity);
 
-      const oldAmount0 = BigDecimal(depositedToken0, token0.decimals).toNumber();
-      const oldAmount1 = BigDecimal(depositedToken1, token1.decimals).toNumber();
-
+      const { humanAmount0: oldHumanAmount0, humanAmount1: oldHumanAmount1 } =
+        getAmountsForLiquidityRaw(
+          oldLiquidity,
+          position.tickLower,
+          position.tickUpper,
+          position.currentTick,
+          token0.decimals,
+          token1.decimals,
+        );
       const [token0inUSD, token1inUSD] = await getOptimizedTokenPrices(
         position.poolId,
         token0,
@@ -75,7 +89,8 @@ export class PositionTracker {
         chainPlatform,
       );
 
-      const oldLiquidityUSD = oldAmount0 * token0inUSD + oldAmount1 * token1inUSD;
+      const oldLiquidityUSD =
+        Number(oldHumanAmount0) * token0inUSD + Number(oldHumanAmount1) * token1inUSD;
 
       if (oldLiquidityUSD !== 0 && position.lastUpdatedBlockTs) {
         balanceWindow = {
@@ -100,6 +115,7 @@ export class PositionTracker {
       position.lastUpdatedBlockTs = block.timestamp;
       position.lastUpdatedBlockHeight = block.height;
       const poolState = protocolStates.get(position.poolId);
+      await this.positionStorageService.updatePosition(position); //todo: check
 
       if (poolState) {
         if (balanceWindow) {
@@ -112,8 +128,6 @@ export class PositionTracker {
         });
       }
 
-      await this.positionStorageService.updatePosition(position);
-
       console.log(`Stopped tracking position ${position.positionId}`);
     }
   }
@@ -121,7 +135,7 @@ export class PositionTracker {
   async handleIncreaseLiquidity(
     block: BlockHeader,
     data: IncDecData,
-    amountMintedUSD: number,
+    liquidityMinted: bigint,
     price0: number,
     price1: number,
     token0Decimals: number,
@@ -131,21 +145,41 @@ export class PositionTracker {
 
     if (!position) return; //never true
 
-    const depositedToken0 = position.depositedToken0; // 1*10^18 eth
-    const depositedToken1 = position.depositedToken1; // 2000*10^6 usdc
+    const oldLiquidity = BigInt(position.liquidity);
+    position.liquidity = (BigInt(position.liquidity) + liquidityMinted).toString();
 
-    const oldAmount0 = BigDecimal(depositedToken0, token0Decimals).toNumber(); //1 eth
-    const oldAmount1 = BigDecimal(depositedToken1, token1Decimals).toNumber(); //2000 usdc
+    const { humanAmount0: oldHumanAmount0, humanAmount1: oldHumanAmount1 } =
+      getAmountsForLiquidityRaw(
+        oldLiquidity,
+        position.tickLower,
+        position.tickUpper,
+        position.currentTick,
+        token0Decimals,
+        token1Decimals,
+      );
+    const oldLiquidityUSD = Number(oldHumanAmount0) * price0 + Number(oldHumanAmount1) * price1;
 
-    const oldLiquidityUSD = oldAmount0 * price0 + oldAmount1 * price1; //1*1000 + 2000*1000 = 2100000 usd
+    const { humanAmount0: newHumanAmount0, humanAmount1: newHumanAmount1 } =
+      getAmountsForLiquidityRaw(
+        BigInt(position.liquidity),
+        position.tickLower,
+        position.tickUpper,
+        position.currentTick,
+        token0Decimals,
+        token1Decimals,
+      );
+    const newLiquidityUSD = Number(newHumanAmount0) * price0 + Number(newHumanAmount1) * price1;
 
-    position.depositedToken0 = (BigInt(depositedToken0) + data.amount0).toString(); //1+0.5 *10^18 eth
-    position.depositedToken1 = (BigInt(depositedToken1) + data.amount1).toString(); //2000*10^6 + 1000*10^6 usdc
+    const { humanAmount0: amountMinted0, humanAmount1: amountMinted1 } = getAmountsForLiquidityRaw(
+      liquidityMinted,
+      position.tickLower,
+      position.tickUpper,
+      position.currentTick,
+      token0Decimals,
+      token1Decimals,
+    );
+    const amountMintedUSD = Number(amountMinted0) * price0 + Number(amountMinted1) * price1;
 
-    const newAmount0 = BigDecimal(position.depositedToken0, token0Decimals).toNumber(); //1.5 eth
-    const newAmount1 = BigDecimal(position.depositedToken1, token1Decimals).toNumber(); //3000 usdc
-
-    const newLiquidityUSD = newAmount0 * price0 + newAmount1 * price1; //1.5*1000 + 3000*1000 = 3150000 usd
     await this.positionStorageService.updatePosition(position); //todo: reduce double calls
 
     if (position.isActive === 'true') {
@@ -186,6 +220,10 @@ export class PositionTracker {
             value: token1Decimals.toString(),
             type: 'number',
           },
+          currentTick: {
+            value: position.currentTick.toString(),
+            type: 'number',
+          },
         },
         'increase',
       );
@@ -201,7 +239,7 @@ export class PositionTracker {
   async handleDecreaseLiquidity(
     block: BlockHeader,
     data: IncDecData,
-    amountBurnedUSD: number,
+    liquidityBurned: bigint,
     price0: number,
     price1: number,
     token0Decimals: number,
@@ -210,29 +248,47 @@ export class PositionTracker {
     const position = await this.positionStorageService.getPosition(data.tokenId);
     if (!position) return;
 
-    const depositedToken0 = position.depositedToken0; // 1.5 eth
-    const depositedToken1 = position.depositedToken1; // 3000 usdc
+    const oldLiquidity = BigInt(position.liquidity);
+    position.liquidity = (BigInt(position.liquidity) - liquidityBurned).toString();
 
-    const oldAmount0 = BigDecimal(depositedToken0, token0Decimals).toNumber(); //1.5 eth
-    const oldAmount1 = BigDecimal(depositedToken1, token1Decimals).toNumber(); //3000 usdc
+    const { humanAmount0, humanAmount1 } = getAmountsForLiquidityRaw(
+      oldLiquidity,
+      position.tickLower,
+      position.tickUpper,
+      position.currentTick,
+      token0Decimals,
+      token1Decimals,
+    );
+    const oldLiquidityUSD = Number(humanAmount0) * price0 + Number(humanAmount1) * price1;
 
-    const oldLiquidityUSD = oldAmount0 * price0 + oldAmount1 * price1; //1.5*1000 + 3000*1000 = 3150000 usd
+    const { humanAmount0: newHumanAmount0, humanAmount1: newHumanAmount1 } =
+      getAmountsForLiquidityRaw(
+        BigInt(position.liquidity),
+        position.tickLower,
+        position.tickUpper,
+        position.currentTick,
+        token0Decimals,
+        token1Decimals,
+      );
+    const newLiquidityUSD = Number(newHumanAmount0) * price0 + Number(newHumanAmount1) * price1;
 
-    position.depositedToken0 = (BigInt(depositedToken0) - data.amount0).toString(); //1.5-0.5 *10^18 eth
-    position.depositedToken1 = (BigInt(depositedToken1) - data.amount1).toString(); //3000*10^6 - 1000*10^6 usdc
+    const { humanAmount0: amountBurned0, humanAmount1: amountBurned1 } = getAmountsForLiquidityRaw(
+      liquidityBurned,
+      position.tickLower,
+      position.tickUpper,
+      position.currentTick,
+      token0Decimals,
+      token1Decimals,
+    );
 
-    const newAmount0 = BigDecimal(position.depositedToken0, token0Decimals).toNumber(); //1 eth
-    const newAmount1 = BigDecimal(position.depositedToken1, token1Decimals).toNumber(); //2000 usdc
+    const amountBurnedUSD = Number(amountBurned0) * price0 + Number(amountBurned1) * price1;
 
-    const newLiquidityUSD = newAmount0 * price0 + newAmount1 * price1; //1*1000 + 2000*1000 = 2100000 usd
     await this.positionStorageService.updatePosition(position); //todo: reduce double calls
-
-    if (BigInt(position.depositedToken0) === 0n && BigInt(position.depositedToken1) === 0n) {
-      //if balance is 0, delete the position from tracking- just delete it
-      await this.positionStorageService.deletePosition(data.tokenId);
-      return;
-    }
-
+    // if (BigInt(position.liquidity) === 0n) {
+    //   //if balance is 0, delete the position from tracking- just delete it
+    //   await this.positionStorageService.deletePosition(data.tokenId);
+    //   return;
+    // }
     if (position.isActive === 'true') {
       const historyWindow = await this.flushLiquidityChange(
         position.positionId,
@@ -271,6 +327,10 @@ export class PositionTracker {
             value: token1Decimals.toString(),
             type: 'number',
           },
+          currentTick: {
+            value: position.currentTick.toString(),
+            type: 'number',
+          },
         },
         'decrease',
       );
@@ -295,13 +355,17 @@ export class PositionTracker {
 
     if (!position) return;
 
-    const depositedToken0 = position.depositedToken0;
-    const depositedToken1 = position.depositedToken1;
+    const oldLiquidity = BigInt(position.liquidity);
 
-    const oldAmount0 = BigDecimal(depositedToken0, token0Decimals).toNumber();
-    const oldAmount1 = BigDecimal(depositedToken1, token1Decimals).toNumber();
-
-    const oldLiquidityUSD = oldAmount0 * price0 + oldAmount1 * price1;
+    const { humanAmount0, humanAmount1 } = getAmountsForLiquidityRaw(
+      oldLiquidity,
+      position.tickLower,
+      position.tickUpper,
+      position.currentTick,
+      token0Decimals,
+      token1Decimals,
+    );
+    const oldLiquidityUSD = Number(humanAmount0) * price0 + Number(humanAmount1) * price1;
 
     if (position.isActive === 'true') {
       const historyWindow = await this.flushLiquidityChange(
@@ -331,6 +395,10 @@ export class PositionTracker {
           },
           token1PriceUsd: {
             value: price1.toString(),
+            type: 'number',
+          },
+          currentTick: {
+            value: position.currentTick.toString(),
             type: 'number',
           },
         },
@@ -373,9 +441,10 @@ export class PositionTracker {
     }
 
     await Promise.all([
-      this.activatePosition(block, positionsToActivate),
+      this.activatePosition(block, currentTick, positionsToActivate),
       this.deactivatePosition(
         block,
+        currentTick,
         positionsToDeactivate,
         protocolStates,
         coingeckoApiKey,

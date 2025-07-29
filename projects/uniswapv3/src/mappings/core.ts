@@ -282,6 +282,10 @@ async function processSwapData(
         value: data.poolId,
         type: 'string',
       },
+      tick: {
+        value: data.tick.toString(),
+        type: 'number',
+      },
     },
     rawAmount: amount0Abs.toString(),
     displayAmount: swappedAmountUSD,

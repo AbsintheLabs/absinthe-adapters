@@ -92,6 +92,7 @@ export class PositionStorageService {
       liquidity: position.liquidity,
       tickLower: position.tickLower.toString(),
       tickUpper: position.tickUpper.toString(),
+      currentTick: position.currentTick.toString(),
       token0Id: position.token0Id,
       token1Id: position.token1Id,
       fee: position.fee,
@@ -133,6 +134,7 @@ export class PositionStorageService {
       liquidity: data.liquidity,
       tickLower: parseInt(data.tickLower),
       tickUpper: parseInt(data.tickUpper),
+      currentTick: parseInt(data.currentTick),
       token0Id: data.token0Id,
       token1Id: data.token1Id,
       fee: parseInt(data.fee),
@@ -162,6 +164,7 @@ export class PositionStorageService {
       depositedToken1: position.depositedToken1,
       tickLower: position.tickLower.toString(),
       tickUpper: position.tickUpper.toString(),
+      currentTick: position.currentTick.toString(),
       poolId: position.poolId,
     });
   }
