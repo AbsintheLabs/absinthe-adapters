@@ -81,7 +81,7 @@ export class UniswapV2Processor {
         try {
           await this.processBatch(ctx);
         } catch (error) {
-          console.error('Error processing batch:', error);
+          console.error('Error processing batch:', (error as Error).message);
           throw error;
         }
       },
@@ -92,9 +92,9 @@ export class UniswapV2Processor {
     const protocolStates = await this.initializeProtocolStates(ctx);
 
     for (const block of ctx.blocks) {
+      console.log(block.header.height, 'block');
       await this.processBlock({ ctx, block, protocolStates });
     }
-
     await this.finalizeBatch(ctx, protocolStates);
   }
 
@@ -102,7 +102,7 @@ export class UniswapV2Processor {
     const protocolStates = new Map<string, ProtocolStateUniv2>();
 
     for (const protocol of this.protocols) {
-      const contractAddress = protocol.contractAddress;
+      const contractAddress = protocol.contractAddress.toLowerCase();
 
       protocolStates.set(contractAddress, {
         config: (await loadPoolConfigFromDb(ctx, contractAddress)) || new PoolConfig({}),
@@ -126,9 +126,20 @@ export class UniswapV2Processor {
     for (const protocol of this.protocols) {
       const contractAddress = protocol.contractAddress;
       const protocolState = protocolStates.get(contractAddress)!;
-      await this.initializeProtocolForBlock(ctx, block, contractAddress, protocol, protocolState);
-      await this.processLogsForProtocol(ctx, block, contractAddress, protocol, protocolState);
-      await this.processPeriodicBalanceFlush(ctx, block, contractAddress, protocolState);
+      try {
+        await this.initializeProtocolForBlock(ctx, block, contractAddress, protocol, protocolState);
+
+        // Only process logs if we have a valid config
+        if (
+          protocolState.config.id &&
+          protocolState.config.lpToken &&
+          protocolState.config.token0 &&
+          protocolState.config.token1
+        ) {
+          await this.processLogsForProtocol(ctx, block, contractAddress, protocol, protocolState);
+          await this.processPeriodicBalanceFlush(ctx, block, contractAddress, protocolState);
+        }
+      } catch (error) {}
     }
   }
 
@@ -170,7 +181,9 @@ export class UniswapV2Processor {
     protocol: ProtocolConfig,
     protocolState: ProtocolStateUniv2,
   ): Promise<void> {
-    const poolLogs = block.logs.filter((log: any) => log.address === contractAddress);
+    const poolLogs = block.logs.filter(
+      (log: any) => log.address.toLowerCase() === contractAddress.toLowerCase(),
+    );
 
     for (const log of poolLogs) {
       await this.processLog(ctx, block, log, protocol, protocolState);
@@ -324,6 +337,7 @@ export class UniswapV2Processor {
     protocol: ProtocolConfig,
     protocolState: ProtocolStateUniv2,
   ): Promise<void> {
+    //todo: fix if the value is +ve or -ve
     const { from, to, value } = univ2Abi.events.Transfer.decode(log);
     const lpTokenPrice = await computeLpTokenPrice(
       ctx,
@@ -338,6 +352,7 @@ export class UniswapV2Processor {
       value,
       protocolState.config.lpToken.decimals,
     );
+
     const newHistoryWindows = processValueChange({
       from,
       to,
@@ -456,6 +471,20 @@ export class UniswapV2Processor {
   ): Promise<void> {
     for (const protocol of this.protocols) {
       const protocolState = protocolStates.get(protocol.contractAddress)!;
+
+      // Skip if config is not properly initialized
+      if (
+        !protocolState.config.id ||
+        !protocolState.config.token0 ||
+        !protocolState.config.token1 ||
+        !protocolState.config.lpToken
+      ) {
+        // console.warn(
+        //   `Skipping finalize for ${protocol.contractAddress} - config not properly initialized`,
+        // );
+        continue;
+      }
+
       const balances = toTimeWeightedBalance(
         protocolState.balanceWindows,
         { ...protocol, type: this.protocolType },
@@ -468,16 +497,32 @@ export class UniswapV2Processor {
         this.env,
         this.chainConfig,
       );
+
+      console.log(balances, 'balances');
+      console.log(transactions, 'transactions');
+
       await this.apiClient.send(balances);
       await this.apiClient.send(transactions);
 
-      // Save to database
-      await ctx.store.upsert(protocolState.config.token0); //saves to Token table
-      await ctx.store.upsert(protocolState.config.token1);
-      await ctx.store.upsert(protocolState.config.lpToken);
-      await ctx.store.upsert(protocolState.config);
-      await ctx.store.upsert(protocolState.state);
-      await ctx.store.upsert(protocolState.processState);
+      // Save to database - only if entities exist
+      if (protocolState.config.token0) {
+        await ctx.store.upsert(protocolState.config.token0);
+      }
+      if (protocolState.config.token1) {
+        await ctx.store.upsert(protocolState.config.token1);
+      }
+      if (protocolState.config.lpToken) {
+        await ctx.store.upsert(protocolState.config.lpToken);
+      }
+      if (protocolState.config.id) {
+        await ctx.store.upsert(protocolState.config);
+      }
+      if (protocolState.state.id) {
+        await ctx.store.upsert(protocolState.state);
+      }
+      if (protocolState.processState.id) {
+        await ctx.store.upsert(protocolState.processState);
+      }
 
       await ctx.store.upsert(
         new ActiveBalances({
