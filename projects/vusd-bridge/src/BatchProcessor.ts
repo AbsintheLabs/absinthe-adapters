@@ -20,45 +20,7 @@ import * as vusdAbi from './abi/vusd';
 import { fetchHistoricalUsd } from '@absinthe/common';
 import { mapToJson, toTimeWeightedBalance, pricePosition } from '@absinthe/common';
 import { ActiveBalances, PoolProcessState } from './model/index';
-import * as erc20Abi from './abi/erc20';
-
-function flattenNestedMap(
-  nestedMap: Map<string, Map<string, ActiveBalance>>,
-): Map<string, ActiveBalance> {
-  const flatMap = new Map<string, ActiveBalance>();
-  for (const [tokenAddress, userBalances] of nestedMap.entries()) {
-    for (const [userAddress, balance] of userBalances.entries()) {
-      flatMap.set(`${tokenAddress}-${userAddress}`, balance);
-    }
-  }
-  return flatMap;
-}
-
-const TOKEN_METADATA = [
-  {
-    address: '0x677ddbd918637e5f2c79e164d402454de7da8619',
-    symbol: 'VUSD',
-    decimals: 18,
-    coingeckoId: 'vesper-vdollar',
-  },
-];
-
-interface TokenMetadata {
-  address: string;
-  symbol: string;
-  decimals: number;
-  coingeckoId: string;
-}
-
-function checkToken(token: string): TokenMetadata | null {
-  let tokenMetadata = TOKEN_METADATA.find((t) => t.address.toLowerCase() === token.toLowerCase());
-  if (!tokenMetadata) {
-    console.warn(`Ignoring deposit for unsupported token: ${token}`);
-    return null;
-  }
-
-  return tokenMetadata;
-}
+import { checkToken, flattenNestedMap } from './utils/helper';
 
 export class VUSDBridgeProcessor {
   private readonly stakingProtocol: ValidatedStakingProtocolConfig;
@@ -174,24 +136,13 @@ export class VUSDBridgeProcessor {
     log: any,
     protocolState: ProtocolStateHemi,
   ): Promise<void> {
-    const { localToken, remoteToken, from, to, amount, extraData } =
-      vusdAbi.events.ERC20BridgeFinalized.decode(log);
-
+    const { localToken, from, to, amount } = vusdAbi.events.ERC20BridgeFinalized.decode(log);
+    console.log(localToken, from, to, amount);
     const tokenMetadata = checkToken(localToken);
     if (!tokenMetadata) {
       console.warn(`Ignoring deposit for unsupported token: ${localToken}`);
       return;
     }
-    // todo: just add the token correctly - rest working fine
-
-    const baseCurrencyContract = new erc20Abi.Contract(ctx, block.header, localToken);
-    const baseCurrencySymbol = await baseCurrencyContract.symbol();
-    const baseCurrencyDecimals = await baseCurrencyContract.decimals();
-
-    const remoteTokenContract = new erc20Abi.Contract(ctx, block.header, remoteToken);
-    const remoteTokenSymbol = await remoteTokenContract.symbol();
-    const remoteTokenDecimals = await remoteTokenContract.decimals();
-
     const tokenPrice = await fetchHistoricalUsd(
       tokenMetadata.coingeckoId,
       block.header.timestamp,
@@ -212,6 +163,16 @@ export class VUSDBridgeProcessor {
       tokenPrice,
       tokenDecimals: tokenMetadata.decimals,
       tokenAddress: localToken,
+      tokens: {
+        tokenDecimals: {
+          value: `${tokenMetadata.decimals}`,
+          type: 'string',
+        },
+        tokenCoinGeckoId: {
+          value: `${tokenMetadata.coingeckoId}`,
+          type: 'string',
+        },
+      },
     });
 
     protocolState.balanceWindows.push(...newHistoryWindows);
@@ -233,7 +194,7 @@ export class VUSDBridgeProcessor {
       Number(protocolState.processState.lastInterpolatedTs) + this.refreshWindow < currentTs
     ) {
       const windowsSinceEpoch = Math.floor(
-        Number(protocolState.processState.lastInterpolatedTs) / this.refreshWindow, //todo: check if this is correct
+        Number(protocolState.processState.lastInterpolatedTs) / this.refreshWindow,
       );
       const nextBoundaryTs: number = (windowsSinceEpoch + 1) * this.refreshWindow;
 
@@ -252,8 +213,6 @@ export class VUSDBridgeProcessor {
               this.env.coingeckoApiKey,
             );
             const balanceUsd = pricePosition(tokenPrice, data.balance, tokenMetadata.decimals);
-
-            // calculate the usd value of the lp token before and after the transfer
             protocolState.balanceWindows.push({
               userAddress: userAddress,
               deltaAmount: 0,
@@ -269,8 +228,17 @@ export class VUSDBridgeProcessor {
               balanceAfter: data.balance.toString(),
               txHash: null,
               currency: Currency.USD,
-              valueUsd: balanceUsd, //balanceBeforeUsd
-              tokens: {},
+              valueUsd: balanceUsd,
+              tokens: {
+                tokenDecimals: {
+                  value: `${tokenMetadata.decimals}`,
+                  type: 'string',
+                },
+                tokenCoinGeckoId: {
+                  value: `${tokenMetadata.coingeckoId}`,
+                  type: 'string',
+                },
+              },
             });
 
             protocolState.activeBalances.get(tokenAddress)!.set(userAddress, {
@@ -298,6 +266,8 @@ export class VUSDBridgeProcessor {
       this.env,
       this.chainConfig,
     ).filter((e: TimeWeightedBalanceEvent) => e.startUnixTimestampMs !== e.endUnixTimestampMs);
+
+    console.log(JSON.stringify(balances));
     await this.apiClient.send(balances);
 
     // Save to database

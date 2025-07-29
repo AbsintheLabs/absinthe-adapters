@@ -52,7 +52,22 @@ interface ProcessValueChangeParams {
   windowDurationMs: number;
   tokenPrice: number;
   tokenDecimals: number;
-  tokenAddress?: string;
+}
+
+interface ProcessValueChangeBalancesParams {
+  from: string;
+  to: string;
+  amount: bigint;
+  usdValue: number;
+  blockTimestamp: number;
+  blockHeight: number;
+  txHash: string;
+  activeBalances: any; // todo: remove any
+  windowDurationMs: number;
+  tokenPrice: number;
+  tokenDecimals: number;
+  tokenAddress: string;
+  tokens: { [key: string]: { value: string; type: string } };
 }
 
 interface Runner {
@@ -161,4 +176,5 @@ export {
   ProtocolState,
   BatchContext,
   ProcessValueChangeParams,
+  ProcessValueChangeBalancesParams,
 };

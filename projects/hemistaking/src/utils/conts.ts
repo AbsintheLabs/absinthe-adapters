@@ -1,4 +1,5 @@
 const TOKEN_METADATA = [
+  //hemi-bitcoing
   {
     address: '0xaa40c0c7644e0b2b224509571e10ad20d9c4ef28',
     decimals: 8,
@@ -6,7 +7,7 @@ const TOKEN_METADATA = [
   },
   {
     address: '0xbb0d083fb1be0a9f6157ec484b6c79e0a4e31c2e',
-    decimals: 18,
+    decimals: 6,
     coingeckoId: 'tether',
   },
   {
@@ -14,6 +15,7 @@ const TOKEN_METADATA = [
     decimals: 18,
     coingeckoId: 'ethereum',
   },
+  //vusd
   {
     address: '0x7a06c4aef988e7925575c50261297a946ad204a8',
     decimals: 18,
@@ -21,17 +23,18 @@ const TOKEN_METADATA = [
   },
   {
     address: '0x03C7054BCB39f7b2e5B2c7AcB37583e32D70Cfa3',
-    decimals: 18,
-    coingeckoId: 'ethereum',
-  },
-  {
-    address: '0xf6718b2701D4a6498eF77D7c152b2137Ab28b8A3',
     decimals: 8,
     coingeckoId: 'bitcoin',
   },
   {
+    address: '0xf6718b2701D4a6498eF77D7c152b2137Ab28b8A3',
+    decimals: 18,
+    coingeckoId: 'bitcoin',
+  },
+  //ubtc
+  {
     address: '0x78E26E8b953C7c78A58d69d8B9A91745C2BbB258',
-    decimals: 8,
+    decimals: 18,
     coingeckoId: 'bitcoin',
   },
   {
@@ -54,10 +57,9 @@ const TOKEN_METADATA = [
     decimals: 18,
     coingeckoId: 'ethereum',
   },
-
   {
     address: '0x9BFA177621119e64CecbEabE184ab9993E2ef727',
-    decimals: 8,
+    decimals: 18,
     coingeckoId: 'bitcoin',
   },
   {
@@ -67,7 +69,7 @@ const TOKEN_METADATA = [
   },
   {
     address: '0x8154Aaf094c2f03Ad550B6890E1d4264B5DdaD9A',
-    decimals: 8,
+    decimals: 18,
     coingeckoId: 'bitcoin',
   },
   {

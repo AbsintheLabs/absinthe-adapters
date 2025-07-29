@@ -2,6 +2,7 @@ import Big from 'big.js';
 import {
   ActiveBalance,
   Chain,
+  ProcessValueChangeBalancesParams,
   ProcessValueChangeParams,
   TransactionEvent,
   ValidatedEnvBase,
@@ -210,7 +211,8 @@ function processValueChangeBalances({
   tokenPrice,
   tokenDecimals,
   tokenAddress,
-}: ProcessValueChangeParams): HistoryWindow[] {
+  tokens,
+}: ProcessValueChangeBalancesParams): HistoryWindow[] {
   const historyWindows: HistoryWindow[] = [];
 
   function snapshotAndUpdate(userAddress: string, updatedAmount: bigint) {
@@ -257,7 +259,7 @@ function processValueChangeBalances({
         balanceBefore: activeUserBalance.balance.toString(),
         balanceAfter: (activeUserBalance.balance + updatedAmount).toString(),
         currency: Currency.USD,
-        tokens: {},
+        tokens: tokens,
       });
     }
 
