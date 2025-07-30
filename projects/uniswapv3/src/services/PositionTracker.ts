@@ -109,7 +109,36 @@ export class PositionTracker {
           balanceAfter: oldLiquidityUSD.toString(),
           tokenPrice: 0,
           tokenDecimals: 0,
-          tokens: {},
+          tokens: {
+            isActive: {
+              value: 'false',
+              type: 'boolean',
+            },
+            currentTick: {
+              value: currentTick.toString(),
+              type: 'number',
+            },
+            tickLower: {
+              value: position.tickLower.toString(),
+              type: 'number',
+            },
+            tickUpper: {
+              value: position.tickUpper.toString(),
+              type: 'number',
+            },
+            liquidity: {
+              value: position.liquidity.toString(),
+              type: 'number',
+            },
+            token0Id: {
+              value: position.token0Id,
+              type: 'string',
+            },
+            token1Id: {
+              value: position.token1Id,
+              type: 'string',
+            },
+          },
         };
       }
       position.lastUpdatedBlockTs = block.timestamp;
@@ -237,6 +266,26 @@ export class PositionTracker {
             value: position.currentTick.toString(),
             type: 'number',
           },
+          tickLower: {
+            value: position.tickLower.toString(),
+            type: 'number',
+          },
+          tickUpper: {
+            value: position.tickUpper.toString(),
+            type: 'number',
+          },
+          liquidity: {
+            value: liquidityMinted.toString(),
+            type: 'number',
+          },
+          oldLiquidity: {
+            value: oldLiquidity.toString(),
+            type: 'number',
+          },
+          newLiquidity: {
+            value: position.liquidity.toString(),
+            type: 'number',
+          },
         },
         'increase',
       );
@@ -356,6 +405,26 @@ export class PositionTracker {
             value: position.currentTick.toString(),
             type: 'number',
           },
+          tickLower: {
+            value: position.tickLower.toString(),
+            type: 'number',
+          },
+          tickUpper: {
+            value: position.tickUpper.toString(),
+            type: 'number',
+          },
+          oldLiquidity: {
+            value: oldLiquidity.toString(),
+            type: 'number',
+          },
+          newLiquidity: {
+            value: position.liquidity.toString(),
+            type: 'number',
+          },
+          liquidity: {
+            value: liquidityBurned.toString(),
+            type: 'number',
+          },
         },
         'decrease',
       );
@@ -434,6 +503,30 @@ export class PositionTracker {
             value: position.currentTick.toString(),
             type: 'number',
           },
+          token0Id: {
+            value: position.token0Id,
+            type: 'string',
+          },
+          token1Id: {
+            value: position.token1Id,
+            type: 'string',
+          },
+          tickLower: {
+            value: position.tickLower.toString(),
+            type: 'number',
+          },
+          tickUpper: {
+            value: position.tickUpper.toString(),
+            type: 'number',
+          },
+          oldLiquidity: {
+            value: oldLiquidity.toString(),
+            type: 'number',
+          },
+          newLiquidity: {
+            value: position.liquidity.toString(),
+            type: 'number',
+          },
         },
         'transfer',
       );
@@ -504,13 +597,23 @@ export class PositionTracker {
 
     if (!position) return null;
 
+    // Handle cases where start timestamp or block number is 0
+    const startTs =
+      position.lastUpdatedBlockTs && position.lastUpdatedBlockTs > 0
+        ? position.lastUpdatedBlockTs
+        : blockTimestamp;
+    const startBlockNumber =
+      position.lastUpdatedBlockHeight && position.lastUpdatedBlockHeight > 0
+        ? position.lastUpdatedBlockHeight
+        : blockHeight;
+
     const historyWindow = {
       userAddress: position.owner,
       deltaAmount: deltaAmountUSD,
       trigger: trigger,
-      startTs: position.lastUpdatedBlockTs,
+      startTs: startTs,
       endTs: blockTimestamp,
-      startBlockNumber: position.lastUpdatedBlockHeight,
+      startBlockNumber: startBlockNumber,
       endBlockNumber: blockHeight,
       txHash: transactionHash,
       windowDurationMs: this.windowDurationMs,

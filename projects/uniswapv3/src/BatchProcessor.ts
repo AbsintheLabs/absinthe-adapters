@@ -365,7 +365,36 @@ export class UniswapV3Processor {
           balanceAfter: oldLiquidityUSD.toString(),
           tokenPrice: 0,
           tokenDecimals: 0,
-          tokens: {},
+          tokens: {
+            isActive: {
+              value: 'true',
+              type: 'boolean',
+            },
+            currentTick: {
+              value: position.currentTick.toString(),
+              type: 'number',
+            },
+            tickLower: {
+              value: position.tickLower.toString(),
+              type: 'number',
+            },
+            tickUpper: {
+              value: position.tickUpper.toString(),
+              type: 'number',
+            },
+            liquidity: {
+              value: position.liquidity.toString(),
+              type: 'number',
+            },
+            token0Id: {
+              value: position.token0Id,
+              type: 'string',
+            },
+            token1Id: {
+              value: position.token1Id,
+              type: 'string',
+            },
+          },
         };
 
         const poolState = protocolStates.get(position.poolId);
