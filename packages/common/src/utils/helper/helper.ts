@@ -22,6 +22,7 @@ import {
 } from '../../types/interfaces/protocols';
 import { ChainId, Currency, MessageType, ProtocolType, TimeWindowTrigger } from '../../types/enums';
 import { VERSION, ZERO_ADDRESS } from '../consts';
+import { createLogger, logger } from '../logger';
 
 function toTimeWeightedBalance(
   historyWindows: HistoryWindow[],
@@ -146,10 +147,32 @@ function processValueChange({
 }: ProcessValueChangeParams): HistoryWindow[] {
   const historyWindows: HistoryWindow[] = [];
 
+  logger.info('Starting processValueChange', {
+    from,
+    to,
+    amount: amount.toString(),
+    usdValue,
+    blockTimestamp: blockTimestamp.toString(),
+    blockHeight: blockHeight.toString(),
+    txHash,
+    windowDurationMs,
+    tokenPrice,
+    tokenDecimals,
+    tokensCount: tokens?.length || 0,
+    activeBalancesSize: activeBalances.size,
+  });
+
   function snapshotAndUpdate(userAddress: string, updatedAmount: bigint) {
+    logger.debug('Processing snapshotAndUpdate', {
+      userAddress,
+      updatedAmount: updatedAmount.toString(),
+      isNegative: updatedAmount < 0n,
+    });
+
     // Get the user's balance for this token
     let activeUserBalance = activeBalances.get(userAddress);
     if (!activeUserBalance) {
+      logger.debug('Creating new user balance', { userAddress });
       // Create new user balance if it doesn't exist
       activeUserBalance = {
         balance: 0n,
@@ -157,12 +180,26 @@ function processValueChange({
         updatedBlockHeight: blockHeight,
       };
       activeBalances.set(userAddress, activeUserBalance);
+    } else {
+      logger.debug('Found existing user balance', {
+        userAddress,
+        currentBalance: activeUserBalance.balance.toString(),
+        lastUpdatedTs: activeUserBalance.updatedBlockTs.toString(),
+        lastUpdatedBlock: activeUserBalance.updatedBlockHeight.toString(),
+      });
     }
 
     // Create history window if there was a previous balance
     if (activeUserBalance.balance > 0n) {
+      logger.debug('Creating history window for existing balance', {
+        userAddress,
+        balanceBefore: activeUserBalance.balance.toString(),
+        balanceAfter: (activeUserBalance.balance + updatedAmount).toString(),
+      });
+
       const balanceBefore = pricePosition(tokenPrice, activeUserBalance.balance, tokenDecimals);
-      historyWindows.push({
+
+      const historyWindow = {
         userAddress: userAddress,
         deltaAmount: usdValue,
         trigger: TimeWindowTrigger.TRANSFER,
@@ -179,23 +216,71 @@ function processValueChange({
         balanceAfter: (activeUserBalance.balance + updatedAmount).toString(),
         currency: Currency.USD,
         tokens: tokens,
+      };
+
+      logger.debug('Created history window', {
+        userAddress,
+        balanceBefore: historyWindow.balanceBefore,
+        balanceAfter: historyWindow.balanceAfter,
+        valueUsd: historyWindow.valueUsd,
+        startTs: historyWindow.startTs.toString(),
+        endTs: historyWindow.endTs.toString(),
+      });
+
+      historyWindows.push(historyWindow);
+    } else {
+      logger.debug('Skipping history window creation - no previous balance', {
+        userAddress,
+        currentBalance: activeUserBalance.balance.toString(),
       });
     }
 
     // Update the balance
+    const oldBalance = activeUserBalance.balance;
     activeUserBalance.balance += updatedAmount;
     activeUserBalance.updatedBlockTs = blockTimestamp;
     activeUserBalance.updatedBlockHeight = blockHeight;
+
+    logger.debug('Updated user balance', {
+      userAddress,
+      oldBalance: oldBalance.toString(),
+      newBalance: activeUserBalance.balance.toString(),
+      change: updatedAmount.toString(),
+      updatedBlockTs: activeUserBalance.updatedBlockTs.toString(),
+      updatedBlockHeight: activeUserBalance.updatedBlockHeight.toString(),
+    });
   }
 
   function processAddress(address: string, amount: bigint) {
+    logger.debug('Processing address', {
+      address,
+      amount: amount.toString(),
+      isZeroAddress: address === ZERO_ADDRESS,
+      isValidAddress: address && address !== ZERO_ADDRESS,
+    });
+
     if (address && address !== ZERO_ADDRESS) {
       snapshotAndUpdate(address, amount);
+    } else {
+      logger.debug('Skipping address processing', {
+        address,
+        reason: !address ? 'null/undefined address' : 'zero address',
+      });
     }
   }
 
+  logger.info('Processing from address', { from, amount: (-amount).toString() });
   processAddress(from, BigInt(-amount)); // from address loses amount
+
+  logger.info('Processing to address', { to, amount: amount.toString() });
   processAddress(to, amount); // to address gains amount
+
+  logger.info('Completed processValueChange', {
+    historyWindowsCreated: historyWindows.length,
+    finalActiveBalancesSize: activeBalances.size,
+    txHash,
+  });
+
   return historyWindows;
 }
 

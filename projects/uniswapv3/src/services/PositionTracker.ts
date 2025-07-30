@@ -181,7 +181,20 @@ export class PositionTracker {
     const amountMintedUSD = Number(amountMinted0) * price0 + Number(amountMinted1) * price1;
 
     await this.positionStorageService.updatePosition(position); //todo: reduce double calls
-
+    logger.info(`💰 [Tracker] handleIncreaseLiquidity`, {
+      price0,
+      price1,
+      liquidityMinted,
+      oldHumanAmount0,
+      oldHumanAmount1,
+      oldLiquidityUSD,
+      newHumanAmount0,
+      newHumanAmount1,
+      newLiquidityUSD,
+      amountMinted0,
+      amountMinted1,
+      amountMintedUSD,
+    });
     if (position.isActive === 'true') {
       const historyWindow = await this.flushLiquidityChange(
         position.positionId,
@@ -289,6 +302,18 @@ export class PositionTracker {
     //   await this.positionStorageService.deletePosition(data.tokenId);
     //   return;
     // }
+
+    logger.info(`💰 [Tracker] handleDecreaseLiquidity`, {
+      oldLiquidityUSD,
+      price0,
+      price1,
+      humanAmount0,
+      humanAmount1,
+      oldLiquidity,
+      liquidityBurned,
+      amountBurnedUSD,
+      newLiquidityUSD,
+    });
     if (position.isActive === 'true') {
       const historyWindow = await this.flushLiquidityChange(
         position.positionId,
@@ -366,6 +391,14 @@ export class PositionTracker {
       token1Decimals,
     );
     const oldLiquidityUSD = Number(humanAmount0) * price0 + Number(humanAmount1) * price1;
+
+    logger.info(`💰 [Tracker] handleTransfer`, {
+      oldLiquidityUSD,
+      price0,
+      price1,
+      humanAmount0,
+      humanAmount1,
+    });
 
     if (position.isActive === 'true') {
       const historyWindow = await this.flushLiquidityChange(
