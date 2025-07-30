@@ -22,6 +22,9 @@ import { PositionTracker } from './services/PositionTracker';
 import { ContextWithEntityManager, PositionData } from './utils/interfaces/univ3Types';
 import { BlockData, BlockHeader } from '@subsquid/evm-processor';
 import { logger } from '@absinthe/common';
+import { getOptimizedTokenPrices } from './utils/pricing';
+import { BigDecimal } from '@subsquid/big-decimal';
+import { getAmountsForLiquidityRaw } from './utils/liquidityMath';
 
 interface ProtocolStateUniswapV3 {
   balanceWindows: HistoryWindow[];
@@ -167,8 +170,6 @@ export class UniswapV3Processor {
     protocolStates: Map<string, ProtocolStateUniswapV3>,
   ): Promise<void> {
     logger.info(`🎯 Starting processBlock for #${block.header.height}`);
-
-    // Count events in this block
     const eventCount = block.logs.length;
     logger.info(`📊 Block #${block.header.height} contains ${eventCount} events`);
 
@@ -225,11 +226,11 @@ export class UniswapV3Processor {
     let totalExhaustedPositions = 0;
 
     for (const [contractAddress, protocolState] of protocolStates.entries()) {
-      logger.info(`🔍 Processing pool: ${contractAddress}`, JSON.stringify(protocolState, null, 2));
+      logger.info(`🔍 Processing pool: ${contractAddress}`);
       const positionsByPoolId =
         await positionStorageService.getAllPositionsByPoolId(contractAddress);
 
-      logger.info(`🔍 Positions by pool id: ${JSON.stringify(positionsByPoolId, null, 2)}`);
+      logger.info(`🔍 Positions by pool id: ${positionsByPoolId.length}`);
       if (positionsByPoolId.length === 0) {
         logger.info(`⚪ No positions found for pool: ${contractAddress}`);
 
@@ -241,16 +242,18 @@ export class UniswapV3Processor {
 
       for (const position of positionsByPoolId) {
         const beforeBalanceWindows = protocolState.balanceWindows.length;
-        logger.info(
-          `🔍 Checking position ${position.positionId} for exhaustion (active: ${position.isActive}, liquidity: ${position.liquidity})`,
-        );
+        logger.info(`🔍 Checking position ${position.positionId} for exhaustion`);
 
-        await this.processPositionExhaustion(
-          position,
-          block.header,
-          protocolState,
-          positionStorageService,
-        );
+        if (position.isActive === 'true') {
+          await this.processPositionExhaustion(
+            position,
+            block.header,
+            positionStorageService,
+            protocolStates,
+          );
+        } else {
+          logger.info(`⚪ Skipping inactive position ${position.positionId}`);
+        }
 
         const afterBalanceWindows = protocolState.balanceWindows.length;
         const windowsCreated = afterBalanceWindows - beforeBalanceWindows;
@@ -279,48 +282,73 @@ export class UniswapV3Processor {
   private async processPositionExhaustion(
     position: PositionData,
     block: BlockHeader,
-    protocolState: ProtocolStateUniswapV3,
     positionStorageService: PositionStorageService,
+    protocolStates: Map<string, ProtocolStateUniswapV3>,
   ): Promise<void> {
-    logger.info(
-      `Processing position exhaustion for position ${position.positionId} at block ${block.height}`,
-    );
     const currentTs = block.timestamp;
-    logger.info(`⏰ Current timestamp: ${currentTs} (${new Date(currentTs).toISOString()})`);
 
     if (!position.lastUpdatedBlockTs) {
-      logger.info(`⚪ Position ${position.positionId} has no lastUpdatedBlockTs, skipping`);
+      logger.info(`⚪ Position ${position.positionId} has no lastUpdatedBlockTs, adding it`);
+      position.lastUpdatedBlockTs = currentTs;
+      await positionStorageService.updatePosition(position);
       return;
     }
-
-    const timeSinceLastUpdate = Number(currentTs) - Number(position.lastUpdatedBlockTs);
-    logger.info(
-      `⏱️ Time since last update: ${timeSinceLastUpdate}ms (refresh window: ${this.refreshWindow}ms)`,
-    );
-
-    if (timeSinceLastUpdate < this.refreshWindow) {
-      logger.info(
-        `⏱️ Position ${position.positionId} not ready for exhaustion (${timeSinceLastUpdate} < ${this.refreshWindow})`,
-      );
-      return;
-    }
-
-    let exhaustionCount = 0;
-    logger.info(`🔄 Starting exhaustion loop for position ${position.positionId}`);
 
     while (
       position.lastUpdatedBlockTs &&
-      Number(position.lastUpdatedBlockTs) + this.refreshWindow < currentTs
+      Number(position.lastUpdatedBlockTs) + this.refreshWindow <= currentTs
     ) {
       const windowsSinceEpoch = Math.floor(
         Number(position.lastUpdatedBlockTs) / this.refreshWindow,
       );
       const nextBoundaryTs: number = (windowsSinceEpoch + 1) * this.refreshWindow;
-      logger.info(
-        `⏰ Creating exhaustion window: ${position.lastUpdatedBlockTs} → ${nextBoundaryTs} (${new Date(nextBoundaryTs).toISOString()})`,
+
+      const token0 = await this.positionStorageService.getToken(position.token0Id);
+      const token1 = await this.positionStorageService.getToken(position.token1Id);
+      if (!token0 || !token1) {
+        logger.warn(`❌ Skipping position ${position.positionId} - missing token data:`, {
+          token0Exists: !!token0,
+          token0Id: position.token0Id,
+        });
+        return;
+      }
+      const liquidity = BigInt(position.liquidity);
+
+      const { humanAmount0: oldHumanAmount0, humanAmount1: oldHumanAmount1 } =
+        getAmountsForLiquidityRaw(
+          liquidity,
+          position.tickLower,
+          position.tickUpper,
+          position.currentTick,
+          token0.decimals,
+          token1.decimals,
+        );
+
+      const [token0inUSD, token1inUSD] = await getOptimizedTokenPrices(
+        position.poolId,
+        token0,
+        token1,
+        block,
+        this.env.coingeckoApiKey,
+        this.chainConfig.chainName.toLowerCase(),
       );
 
-      if (position.isActive === 'true' && BigInt(position.liquidity) > 0n) {
+      logger.info(`🔍 Token0 in USD: ${token0inUSD}`);
+      logger.info(`🔍 Token1 in USD: ${token1inUSD}`);
+
+      const oldLiquidityUSD =
+        Number(oldHumanAmount0) * token0inUSD + Number(oldHumanAmount1) * token1inUSD;
+      logger.info(`🔍 Old Liquidity in USD: ${oldLiquidityUSD}`, {
+        oldHumanAmount0,
+        oldHumanAmount1,
+        token0inUSD,
+        token1inUSD,
+      });
+
+      logger.info(`🔍 Position lastUpdatedBlockTs: ${position.lastUpdatedBlockTs}`);
+      logger.info(`🔍 Next boundary Ts: ${nextBoundaryTs}`);
+
+      if (oldLiquidityUSD > 0 && position.lastUpdatedBlockTs < nextBoundaryTs) {
         const balanceWindow = {
           userAddress: position.owner,
           deltaAmount: 0,
@@ -332,14 +360,54 @@ export class UniswapV3Processor {
           endBlockNumber: block.height,
           txHash: null,
           currency: Currency.USD,
-          valueUsd: Number(position.liquidity), // TODO: Calculate USD value
-          balanceBefore: position.liquidity,
-          balanceAfter: position.liquidity,
-          tokenPrice: 0, // TODO: Calculate token price
-          tokenDecimals: 0, // TODO: Get from position
+          valueUsd: 0,
+          balanceBefore: oldLiquidityUSD.toString(),
+          balanceAfter: oldLiquidityUSD.toString(),
+          tokenPrice: 0,
+          tokenDecimals: 0,
+          tokens: {
+            isActive: {
+              value: 'true',
+              type: 'boolean',
+            },
+            currentTick: {
+              value: position.currentTick.toString(),
+              type: 'number',
+            },
+            tickLower: {
+              value: position.tickLower.toString(),
+              type: 'number',
+            },
+            tickUpper: {
+              value: position.tickUpper.toString(),
+              type: 'number',
+            },
+            liquidity: {
+              value: position.liquidity.toString(),
+              type: 'number',
+            },
+            token0Id: {
+              value: position.token0Id,
+              type: 'string',
+            },
+            token1Id: {
+              value: position.token1Id,
+              type: 'string',
+            },
+          },
         };
 
-        protocolState.balanceWindows.push(balanceWindow);
+        const poolState = protocolStates.get(position.poolId);
+
+        if (poolState) {
+          poolState.balanceWindows.push(balanceWindow);
+        } else {
+          protocolStates.set(position.poolId, {
+            balanceWindows: [balanceWindow],
+            transactions: [],
+          });
+        }
+
         logger.info(
           `✅ Created balance window for position ${position.positionId}: ${JSON.stringify(balanceWindow)}`,
         );
@@ -355,16 +423,6 @@ export class UniswapV3Processor {
       logger.info(
         `📝 Updated position ${position.positionId} with new timestamp: ${nextBoundaryTs}`,
       );
-
-      exhaustionCount++;
-    }
-
-    if (exhaustionCount > 0) {
-      logger.info(
-        `⚡ Processed ${exhaustionCount} exhaustion windows for position ${position.positionId} at block ${block.height}`,
-      );
-    } else {
-      logger.info(`⚪ No exhaustion windows created for position ${position.positionId}`);
     }
   }
 

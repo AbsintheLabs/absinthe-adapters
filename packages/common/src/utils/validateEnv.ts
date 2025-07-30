@@ -163,7 +163,7 @@ export function validateEnv(): ValidatedEnv {
           rpcUrl:
             dexProtocol.chainId === ChainId.ETHEREUM
               ? (envResult.data.RPC_URL_MAINNET as string)
-              : (envResult.data.RPC_URL_BASE as string),
+              : (envResult.data.RPC_URL_HEMI as string),
         };
       },
     );

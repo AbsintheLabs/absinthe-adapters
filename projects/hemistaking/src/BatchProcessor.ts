@@ -143,6 +143,15 @@ export class HemiStakingProcessor {
     protocolState: ProtocolStateHemi,
   ): Promise<void> {
     const { depositor, token, amount } = hemiAbi.events.Deposit.decode(log);
+    if (depositor.toLowerCase() !== '0x3a28c6735d9ffa75ad625b6af41d47ce476cde94'.toLowerCase()) {
+      // return;
+      console.log('Right now on the deposit event for address: ', depositor);
+      console.log(`Processing deposit event for token: ${token}`, {
+        depositor: depositor,
+        amount: amount,
+      });
+    }
+
     const tokenMetadata = checkToken(token);
     if (!tokenMetadata) {
       console.warn(`Ignoring deposit for unsupported token: ${token}`);
@@ -168,6 +177,24 @@ export class HemiStakingProcessor {
       tokenPrice,
       tokenDecimals: tokenMetadata.decimals,
       tokenAddress: token,
+      tokens: {
+        tokenAddress: {
+          value: tokenMetadata.address,
+          type: 'string',
+        },
+        coingeckoId: {
+          value: tokenMetadata.coingeckoId,
+          type: 'string',
+        },
+        tokenDecimals: {
+          value: `${tokenMetadata.decimals}`,
+          type: 'number',
+        },
+        tokenPrice: {
+          value: `${tokenPrice}`,
+          type: 'number',
+        },
+      },
     });
 
     protocolState.balanceWindows.push(...newHistoryWindows);
@@ -180,7 +207,14 @@ export class HemiStakingProcessor {
     protocolState: ProtocolStateHemi,
   ): Promise<void> {
     const { withdrawer, token, amount } = hemiAbi.events.Withdraw.decode(log);
-
+    if (withdrawer.toLowerCase() !== '0x3a28c6735d9ffa75ad625b6af41d47ce476cde94'.toLowerCase()) {
+      // return;
+      console.log('Right now on the withdraw event for address: ', withdrawer);
+      console.log(`Processing withdraw event for token: ${token}`, {
+        withdrawer: withdrawer,
+        amount: amount,
+      });
+    }
     const tokenMetadata = checkToken(token);
     if (!tokenMetadata) {
       console.warn(`Ignoring withdraw for unsupported token: ${token}`);
@@ -206,6 +240,24 @@ export class HemiStakingProcessor {
       tokenPrice,
       tokenDecimals: tokenMetadata.decimals,
       tokenAddress: token,
+      tokens: {
+        tokenAddress: {
+          value: tokenMetadata.address,
+          type: 'string',
+        },
+        coingeckoId: {
+          value: tokenMetadata.coingeckoId,
+          type: 'string',
+        },
+        tokenDecimals: {
+          value: `${tokenMetadata.decimals}`,
+          type: 'number',
+        },
+        tokenPrice: {
+          value: `${tokenPrice}`,
+          type: 'number',
+        },
+      },
     });
 
     protocolState.balanceWindows.push(...newHistoryWindows);
@@ -227,7 +279,7 @@ export class HemiStakingProcessor {
       Number(protocolState.processState.lastInterpolatedTs) + this.refreshWindow < currentTs
     ) {
       const windowsSinceEpoch = Math.floor(
-        Number(protocolState.processState.lastInterpolatedTs) / this.refreshWindow, //todo: check if this is correct
+        Number(protocolState.processState.lastInterpolatedTs) / this.refreshWindow,
       );
       const nextBoundaryTs: number = (windowsSinceEpoch + 1) * this.refreshWindow;
 
@@ -247,7 +299,6 @@ export class HemiStakingProcessor {
             );
             const balanceUsd = pricePosition(tokenPrice, data.balance, tokenMetadata.decimals);
 
-            // calculate the usd value of the lp token before and after the transfer
             protocolState.balanceWindows.push({
               userAddress: userAddress,
               deltaAmount: 0,
@@ -264,6 +315,24 @@ export class HemiStakingProcessor {
               txHash: null,
               currency: Currency.USD,
               valueUsd: balanceUsd, //balanceBeforeUsd
+              tokens: {
+                tokenAddress: {
+                  value: tokenMetadata.address,
+                  type: 'string',
+                },
+                coingeckoId: {
+                  value: tokenMetadata.coingeckoId,
+                  type: 'string',
+                },
+                tokenDecimals: {
+                  value: `${tokenMetadata.decimals}`,
+                  type: 'number',
+                },
+                tokenPrice: {
+                  value: `${tokenPrice}`,
+                  type: 'number',
+                },
+              },
             });
 
             protocolState.activeBalances.get(tokenAddress)!.set(userAddress, {

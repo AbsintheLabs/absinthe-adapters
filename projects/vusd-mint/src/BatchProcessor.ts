@@ -72,7 +72,6 @@ export class VusdMintProcessor {
     const protocolStates = new Map<string, ProtocolState>();
 
     const contractAddress = this.bondingCurveProtocol.contractAddress.toLowerCase();
-    //todo: move into a seperate function
     protocolStates.set(contractAddress, {
       balanceWindows: [],
       transactions: [],
