@@ -26,7 +26,7 @@ const earliestFromBlock = vusdBridgeProtocol.fromBlock;
 
 export const processor = new EvmBatchProcessor()
   .setRpcEndpoint(vusdBridgeProtocol.rpcUrl)
-  // .setGateway(vusdBridgeProtocol.gatewayUrl)
+  .setGateway(vusdBridgeProtocol.gatewayUrl)
   .setBlockRange({
     from: earliestFromBlock,
     ...(vusdBridgeProtocol.toBlock !== 0 ? { to: Number(vusdBridgeProtocol.toBlock) } : {}),

@@ -23,6 +23,8 @@ const chainConfig = {
   chainName: uniswapV2DexProtocol.chainName,
 };
 
+console.log(uniswapV2DexProtocol, chainConfig);
+
 // todo: make the contract address lowercase throughout the codebase
 
 const WINDOW_DURATION_MS = env.baseConfig.balanceFlushIntervalHours * HOURS_TO_MS;

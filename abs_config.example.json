@@ -1,23 +1,68 @@
 {
-  "balanceFlushIntervalHours": 1,
+  "balanceFlushIntervalHours": 48,
   "dexProtocols": [
     {
       "type": "uniswap-v2",
-      "chainId": 1,
+      "chainId": 43111,
       "toBlock": 0,
       "protocols": [
         {
-          "name": "pepe-weth",
-          "contractAddress": "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f",
-          "fromBlock": 17046833,
+          "name": "weth-usdc.e",
+          "contractAddress": "0xaf6ed58980b5a0732423469dd9f3f69d9dc6dab5",
+          "fromBlock": 865348,
           "pricingStrategy": "coingecko",
           "token0": {
-            "coingeckoId": "pepe",
+            "coingeckoId": "weth",
             "decimals": 18
           },
           "token1": {
+            "coingeckoId": "usd-coin",
+            "decimals": 6
+          },
+          "preferredTokenCoingeckoId": "token1"
+        },
+        {
+          "name": "hemibtc-usdc.e",
+          "contractAddress": "0x0621bae969de9c153835680f158f481424c0720a",
+          "fromBlock": 1451314,
+          "pricingStrategy": "coingecko",
+          "token0": {
+            "coingeckoId": "bitcoin",
+            "decimals": 8
+          },
+          "token1": {
+            "coingeckoId": "usd-coin",
+            "decimals": 6
+          },
+          "preferredTokenCoingeckoId": "token1"
+        },
+        {
+          "name": "weth-hemibtc",
+          "contractAddress": "0x225283e4d46ab82561a285998517a9175f3e0f06",
+          "fromBlock": 1435768,
+          "pricingStrategy": "coingecko",
+          "token0": {
             "coingeckoId": "weth",
             "decimals": 18
+          },
+          "token1": {
+            "coingeckoId": "hemibtc",
+            "decimals": 8
+          },
+          "preferredTokenCoingeckoId": "token1"
+        },
+        {
+          "name": "vusd-usdc.e",
+          "contractAddress": "0xf23eec60263de9b0c8472c58be10feba28d9eb53",
+          "fromBlock": 1326101,
+          "pricingStrategy": "coingecko",
+          "token0": {
+            "coingeckoId": "vusd",
+            "decimals": 18
+          },
+          "token1": {
+            "coingeckoId": "usd-coin",
+            "decimals": 6
           },
           "preferredTokenCoingeckoId": "token1"
         }
@@ -29,17 +74,17 @@
       "toBlock": 0,
       "protocols": [
         {
-          "name": "weth-hemitbtc",
-          "contractAddress": "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f",
-          "fromBlock": 1276815,
+          "name": "hemibtc-usdc.e",
+          "contractAddress": "0x0621bae969de9c153835680f158f481424c0720a",
+          "fromBlock": 1451314,
           "pricingStrategy": "coingecko",
           "token0": {
-            "coingeckoId": "weth",
+            "coingeckoId": "bitcoin",
             "decimals": 18
           },
           "token1": {
-            "coingeckoId": "btc",
-            "decimals": 8
+            "coingeckoId": "usd-coin",
+            "decimals": 6
           },
           "preferredTokenCoingeckoId": "token1"
         },
@@ -108,10 +153,10 @@
     {
       "type": "vusd-bridge",
       "name": "vusd-bridge",
-      "contractAddress": "0x5eaa10F99e7e6D177eF9F74E519E319aa49f191e",
+      "contractAddress": "0x5eaa10f99e7e6d177ef9f74e519e319aa49f191e",
       "chainId": 1,
       "toBlock": 0,
-      "fromBlock": 22695105
+      "fromBlock": 22033013
     }
   ],
   "univ3Protocols": [
@@ -125,7 +170,7 @@
       "pools": [
         {
           "name": "weth-hemibtc",
-          "contractAddress": "0xd8a6e60661aA3E53BCd77CC0d20F462c2D9376B9",
+          "contractAddress": "0xd8a6e60661aa3e53bcd77cc0d20f462c2d9376b9",
           "fromBlock": 1370183
         },
         {
@@ -135,7 +180,7 @@
         },
         {
           "name": "weth-hemibtc",
-          "contractAddress": "0xe31377f1F1E200a24e8C2D5b059829635B8C34EA",
+          "contractAddress": "0xe31377f1f1e200a24e8c2d5b059829635b8c34ea",
           "fromBlock": 1328544
         },
         {
@@ -170,7 +215,7 @@
         },
         {
           "name": "vusd-usdc.e",
-          "contractAddress": "0xdA44564DF732dECfd93Ba8539803C5a8dF241954",
+          "contractAddress": "0xda44564df732decfd93ba8539803c5a8df241954",
           "fromBlock": 1335361
         },
         {
@@ -185,7 +230,7 @@
         },
         {
           "name": "vusd-usdc.e-10000",
-          "contractAddress": "0x8025Ba536e4ED403aCB87eC939D8b8B45527b3ce",
+          "contractAddress": "0x8025ba536e4ed403acb87ec939d8b8b45527b3ce",
           "fromBlock": 1413533
         },
         {
@@ -195,12 +240,12 @@
         },
         {
           "name": "hemibtc-usdt-500",
-          "contractAddress": "0x2450dEF5f751c569339d458384B80C2e96185404",
+          "contractAddress": "0x2450def5f751c569339d458384b80c2e96185404",
           "fromBlock": 1630644
         },
         {
           "name": "hemibtc-usdt-3000",
-          "contractAddress": "0x0C07240c009469cbf4e393484f692064dfEf15Ed",
+          "contractAddress": "0x0c07240c009469cbf4e393484f692064dfef15ed",
           "fromBlock": 1518680
         },
         {
@@ -210,12 +255,12 @@
         },
         {
           "name": "usdc.e-usdt-500",
-          "contractAddress": "0x6ab24C166b4E0a2f6eDAB3A65a7C2d9CD6DC7a06",
+          "contractAddress": "0x6ab24c166b4e0a2f6edab3a65a7c2d9cd6dc7a06",
           "fromBlock": 1325792
         },
         {
           "name": "usdc.e-usdt-100",
-          "contractAddress": "0x94504F06F31Bf4224eBa82C58B280400b85E6DF3",
+          "contractAddress": "0x94504f06f31bf4224eba82c58b280400b85e6df3",
           "fromBlock": 1341456
         },
         {
@@ -235,7 +280,7 @@
         },
         {
           "name": "hemibtc-usdc.e-3000",
-          "contractAddress": "0xF5819f1B4Db39F78c2CA1758a89c70cBbaFe3Bd8",
+          "contractAddress": "0xf5819f1b4db39f78c2ca1758a89c70cbbafe3bd8",
           "fromBlock": 1435746
         },
         {

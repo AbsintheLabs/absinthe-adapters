@@ -3,11 +3,11 @@ import { EvmLog } from '@subsquid/evm-processor/lib/interfaces/evm';
 import { BlockHeader, SwapData } from '../utils/interfaces/interfaces';
 import * as poolAbi from '../abi/pool';
 import { BlockData } from '@subsquid/evm-processor/src/interfaces/data';
-import { Currency, logger, MessageType } from '@absinthe/common';
+import { Currency, fetchHistoricalUsd, logger, MessageType } from '@absinthe/common';
 import { PositionStorageService } from '../services/PositionStorageService';
 import { PositionTracker } from '../services/PositionTracker';
 import { ContextWithEntityManager, ProtocolStateUniswapV3 } from '../utils/interfaces/univ3Types';
-import { getOptimizedTokenPrices } from '../utils/pricing';
+import { getCGId } from '../utils/pricing';
 type EventData = SwapData & { type: 'Swap' };
 
 export async function processPairs(
@@ -195,85 +195,63 @@ async function processSwapData(
   logger.info(`🔍 Using reference position:`, {
     positionId: positionForReference.positionId,
     token0Id: positionForReference.token0Id,
-    token1Id: positionForReference.token1Id,
   });
 
   const tokenStartTime = Date.now();
   const token0 = await positionStorageService.getToken(positionForReference.token0Id);
-  const token1 = await positionStorageService.getToken(positionForReference.token1Id);
   logger.info(`🔍 Retrieved token data in ${Date.now() - tokenStartTime}ms:`, {
     token0: token0 ? { id: token0.id, symbol: token0.symbol, decimals: token0.decimals } : null,
-    token1: token1 ? { id: token1.id, symbol: token1.symbol, decimals: token1.decimals } : null,
   });
 
-  if (!token0 || !token1) {
+  if (!token0) {
     logger.warn(`❌ Skipping swap for pool ${data.poolId} - missing token data:`, {
       token0Exists: !!token0,
-      token1Exists: !!token1,
       token0Id: positionForReference.token0Id,
-      token1Id: positionForReference.token1Id,
     });
     return;
   }
 
   const amount0 = BigDecimal(data.amount0, token0.decimals).toNumber();
-  const amount1 = BigDecimal(data.amount1, token1.decimals).toNumber();
 
   logger.info(`🧮 Calculated amounts:`, {
     poolId: data.poolId,
     rawAmount0: data.amount0.toString(),
     rawAmount1: data.amount1.toString(),
     amount0: amount0,
-    amount1: amount1,
     token0Decimals: token0.decimals,
-    token1Decimals: token1.decimals,
   });
 
-  // need absolute amounts for volume
   const amount0Abs = Math.abs(amount0);
-  const amount1Abs = Math.abs(amount1);
 
   logger.info(`📊 Absolute amounts:`, {
     amount0Abs,
-    amount1Abs,
-    totalAbsoluteAmount: amount0Abs + amount1Abs,
   });
 
-  // Use optimized pricing strategy - returns USD prices directly
   const pricingStartTime = Date.now();
   logger.info(`💰 Starting price calculation for tokens`);
 
-  const [token0inUSD, token1inUSD] = await getOptimizedTokenPrices(
-    data.poolId,
-    token0,
-    token1,
-    block,
+  const token0inUSD = await fetchHistoricalUsd(
+    getCGId(token0.id)!,
+    block.timestamp,
     coingeckoApiKey,
-    chainPlatform,
-    { ...ctx, block },
   );
 
   logger.info(`💰 Price calculation completed in ${Date.now() - pricingStartTime}ms:`, {
     token0inUSD,
-    token1inUSD,
     token0Symbol: token0.symbol,
-    token1Symbol: token1.symbol,
   });
 
-  // Direct USD calculation - no need to convert through ETH
-  const swappedAmountUSD = amount0Abs * token0inUSD + amount1Abs * token1inUSD;
+  const swappedAmountUSD = amount0Abs * token0inUSD;
 
   logger.info(`💵 USD value calculation:`, {
-    calculation: `${amount0Abs} * ${token0inUSD} + ${amount1Abs} * ${token1inUSD} = ${swappedAmountUSD}`,
+    calculation: `${amount0Abs} * ${token0inUSD} = ${swappedAmountUSD}`,
     amount0USD: amount0Abs * token0inUSD,
-    amount1USD: amount1Abs * token1inUSD,
     totalSwappedAmountUSD: swappedAmountUSD,
   });
 
   const transactionSchema = {
     eventType: MessageType.TRANSACTION,
     eventName: 'Swap',
-
     tokens: {
       token0Decimals: {
         value: token0!.decimals.toString(),
@@ -291,40 +269,25 @@ async function processSwapData(
         value: token0inUSD.toString(),
         type: 'number',
       },
-      token1Decimals: {
-        value: token1!.decimals.toString(),
-        type: 'number',
-      },
-      token1Address: {
-        value: token1!.id,
-        type: 'string',
-      },
-      token1Symbol: {
-        value: token1!.symbol,
-        type: 'string',
-      },
-      token1PriceUsd: {
-        value: token1inUSD.toString(),
-        type: 'number',
-      },
       amount0: {
         value: amount0.toString(),
         type: 'number',
       },
-      amount1: {
-        value: amount1.toString(),
-        type: 'number',
-      },
+
       amount0Abs: {
         value: amount0Abs.toString(),
         type: 'number',
       },
-      amount1Abs: {
-        value: amount1Abs.toString(),
+      poolId: {
+        value: data.poolId,
+        type: 'string',
+      },
+      tick: {
+        value: data.tick.toString(),
         type: 'number',
       },
     },
-    rawAmount: (amount0Abs + amount1Abs).toString(),
+    rawAmount: amount0Abs.toString(),
     displayAmount: swappedAmountUSD,
     unixTimestampMs: block.timestamp,
     txHash: data.transaction.hash,
@@ -363,10 +326,17 @@ async function processSwapData(
   const swapHandlingStartTime = Date.now();
   logger.info(`🔄 Starting position tracker handleSwap`);
 
-  await positionTracker.handleSwap(block, data, positions, protocolStates);
+  await positionTracker.handleSwap(
+    block,
+    data,
+    positions,
+    protocolStates,
+    coingeckoApiKey,
+    chainPlatform,
+  );
 
   logger.info(
-    `✅ Position tracker handleSwap completed in ${Date.now() - swapHandlingStartTime}ms`,
+    `✅ Position trackerx handleSwap completed in ${Date.now() - swapHandlingStartTime}ms`,
   );
   logger.info(
     `🎯 processSwapData completed in ${Date.now() - startTime}ms for pool ${data.poolId}`,

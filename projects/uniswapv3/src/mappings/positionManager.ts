@@ -80,15 +80,15 @@ export async function processPositions(
     multicallAddress,
   );
 
-  // await processPairs(
-  //   ctx,
-  //   block,
-  //   positionTracker,
-  //   positionStorageService,
-  //   protocolStates,
-  //   chainPlatform,
-  //   coingeckoApiKey,
-  // );
+  await processPairs(
+    ctx,
+    block,
+    positionTracker,
+    positionStorageService,
+    protocolStates,
+    chainPlatform,
+    coingeckoApiKey,
+  );
 
   let processedCount = 0;
   let errorCount = 0;
@@ -128,6 +128,8 @@ export async function processPositions(
             protocolStates,
             positionTracker,
             positionStorageService,
+            coingeckoApiKey,
+            chainPlatform,
           );
           break;
       }
@@ -294,18 +296,21 @@ async function processIncreaseData(
     block,
     coingeckoApiKey,
     chainPlatform,
-    { ...ctx, block },
   );
-
-  const amount0 = BigDecimal(data.amount0, token0!.decimals).toNumber();
-  const amount1 = BigDecimal(data.amount1, token1!.decimals).toNumber();
-  const amountMintedUSD = amount0 * token0inUSD + amount1 * token1inUSD;
 
   logger.info(
-    `💰 [PositionManager] Position ${data.tokenId}: +$${amountMintedUSD.toFixed(2)} USD (${amount0.toFixed(4)} ${token0.symbol} @ $${token0inUSD.toFixed(4)} + ${amount1.toFixed(4)} ${token1.symbol} @ $${token1inUSD.toFixed(4)})`,
+    `💰 [PositionManager] Position ${data.tokenId}: +$${data.liquidity} USD (${data.amount0} ${token0.symbol} @ $${token0inUSD.toFixed(4)} + ${data.amount1} ${token1.symbol} @ $${token1inUSD.toFixed(4)})`,
   );
 
-  const trackerData = await positionTracker.handleIncreaseLiquidity(block, data, amountMintedUSD);
+  const trackerData = await positionTracker.handleIncreaseLiquidity(
+    block,
+    data,
+    data.liquidity,
+    token0inUSD,
+    token1inUSD,
+    token0.decimals,
+    token1.decimals,
+  );
 
   if (trackerData) {
     const poolState = protocolStates.get(position.poolId);
@@ -358,18 +363,21 @@ async function processDecreaseData(
     block,
     coingeckoApiKey,
     chainPlatform,
-    { ...ctx, block },
   );
-
-  const amount0 = BigDecimal(data.amount0, token0!.decimals).toNumber();
-  const amount1 = BigDecimal(data.amount1, token1!.decimals).toNumber();
-  const amountBurnedUSD = amount0 * token0inUSD + amount1 * token1inUSD;
 
   logger.info(
-    `💰 [PositionManager] Position ${data.tokenId}: -$${amountBurnedUSD.toFixed(2)} USD (${amount0.toFixed(4)} ${token0.symbol} @ $${token0inUSD.toFixed(4)} + ${amount1.toFixed(4)} ${token1.symbol} @ $${token1inUSD.toFixed(4)})`,
+    `💰 [PositionManager] Position ${data.tokenId}: -$${data.liquidity} USD (${data.amount0} ${token0.symbol} @ $${token0inUSD.toFixed(4)} + ${data.amount1} ${token1.symbol} @ $${token1inUSD.toFixed(4)})`,
   );
 
-  const trackerData = await positionTracker.handleDecreaseLiquidity(block, data, amountBurnedUSD);
+  const trackerData = await positionTracker.handleDecreaseLiquidity(
+    block,
+    data,
+    data.liquidity,
+    token0inUSD,
+    token1inUSD,
+    token0.decimals,
+    token1.decimals,
+  );
 
   if (trackerData) {
     const poolState = protocolStates.get(position.poolId);
@@ -392,6 +400,8 @@ async function processTransferData(
   protocolStates: Map<string, ProtocolStateUniswapV3>,
   positionTracker: PositionTracker,
   positionStorageService: PositionStorageService,
+  coingeckoApiKey: string,
+  chainPlatform: string,
 ) {
   logger.info(
     `🔄 [PositionManager] Processing Transfer for position ${data.tokenId} to ${data.to}...`,
@@ -403,7 +413,35 @@ async function processTransferData(
     return;
   }
 
-  const trackerData = await positionTracker.handleTransfer(block, data);
+  const token0 = await positionStorageService.getToken(position.token0Id);
+  const token1 = await positionStorageService.getToken(position.token1Id);
+  if (!token0 || !token1) {
+    logger.warn(
+      `⚠️ [PositionManager] Skipping position ${data.tokenId} - missing token data: token0=${!!token0}, token1=${!!token1}`,
+    );
+    return;
+  }
+
+  logger.info(
+    `💰 [PositionManager] Fetching prices for tokens ${token0!.symbol}/${token1!.symbol}...`,
+  );
+  const [token0inUSD, token1inUSD] = await getOptimizedTokenPrices(
+    position.poolId,
+    token0,
+    token1,
+    block,
+    coingeckoApiKey,
+    chainPlatform,
+  );
+
+  const trackerData = await positionTracker.handleTransfer(
+    block,
+    data,
+    token0inUSD,
+    token1inUSD,
+    token0!.decimals,
+    token1!.decimals,
+  );
   if (trackerData) {
     const poolState = protocolStates.get(position.poolId);
 
@@ -507,6 +545,7 @@ async function initPositions(
           isActive: 'false',
           lastUpdatedBlockTs: 0,
           lastUpdatedBlockHeight: 0,
+          currentTick: 0,
           poolId: '',
         });
         totalProcessed++;
@@ -575,6 +614,7 @@ async function initPositions(
             const isInRange =
               position.tickLower <= currentTick && currentTick <= position.tickUpper;
             position.isActive = isInRange ? 'true' : 'false';
+            position.currentTick = currentTick;
             if (isInRange) activePositions++;
           });
         } else {
