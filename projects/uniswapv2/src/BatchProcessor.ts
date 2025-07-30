@@ -127,9 +127,6 @@ export class UniswapV2Processor {
       const contractAddress = protocol.contractAddress;
       const protocolState = protocolStates.get(contractAddress)!;
       try {
-        await this.initializeProtocolForBlock(ctx, block, contractAddress, protocol, protocolState);
-
-        // Only process logs if we have a valid config
         if (
           protocolState.config.id &&
           protocolState.config.lpToken &&
@@ -142,38 +139,6 @@ export class UniswapV2Processor {
       } catch (error) {}
     }
   }
-
-  private async initializeProtocolForBlock(
-    ctx: any,
-    block: any,
-    contractAddress: string,
-    protocol: ProtocolConfig,
-    protocolState: ProtocolStateUniv2,
-  ): Promise<void> {
-    // Initialize config, state, and process state
-    protocolState.config = await initPoolConfigIfNeeded(
-      ctx,
-      block,
-      contractAddress,
-      protocolState.config,
-      protocol,
-    );
-    protocolState.state = await initPoolStateIfNeeded(
-      ctx,
-      block,
-      contractAddress,
-      protocolState.state,
-      protocolState.config,
-    );
-    protocolState.processState = await initPoolProcessStateIfNeeded(
-      ctx,
-      block,
-      contractAddress,
-      protocolState.config,
-      protocolState.processState,
-    );
-  }
-
   private async processLogsForProtocol(
     ctx: any,
     block: any,
@@ -450,7 +415,7 @@ export class UniswapV2Processor {
             balanceAfter: data.balance.toString(),
             txHash: null,
             currency: Currency.USD,
-            valueUsd: balanceUsd, //balanceBeforeUsd
+            valueUsd: 0, //balanceBeforeUsd
             tokens: {},
           });
 
