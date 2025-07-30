@@ -322,8 +322,9 @@ function processValueChangeBalances({
       tokenBalances.set(userAddress, activeUserBalance);
     }
 
-    // Create history window if there was a previous balance
+    // Create history window if there was a previous balance OR if it's the first time
     if (activeUserBalance.balance > 0n) {
+      // Existing balance - create history window from previous balance to current
       const balanceBeforeInUSD = pricePosition(
         tokenPrice,
         activeUserBalance.balance,
@@ -346,6 +347,32 @@ function processValueChangeBalances({
         balanceAfter: (activeUserBalance.balance + updatedAmount).toString(),
         currency: Currency.USD,
         tokens: tokens,
+      });
+    } else if (updatedAmount > 0n) {
+      // First time getting a balance - create history window with same start/end
+      const balanceAfterInUSD = pricePosition(tokenPrice, updatedAmount, tokenDecimals);
+      historyWindows.push({
+        userAddress: userAddress,
+        deltaAmount: usdValue,
+        trigger: TimeWindowTrigger.TRANSFER,
+        startTs: blockTimestamp, // Same as end timestamp for first time
+        endTs: blockTimestamp,
+        startBlockNumber: blockHeight, // Same as end block for first time
+        endBlockNumber: blockHeight,
+        txHash: txHash,
+        windowDurationMs: windowDurationMs,
+        tokenPrice: tokenPrice,
+        tokenDecimals: tokenDecimals,
+        valueUsd: balanceAfterInUSD,
+        balanceBefore: '0', // Previous balance was 0
+        balanceAfter: updatedAmount.toString(),
+        currency: Currency.USD,
+        tokens: tokens,
+      });
+    } else {
+      console.log('Skipping history window creation - no previous balance', {
+        userAddress,
+        currentBalance: activeUserBalance.balance.toString(),
       });
     }
 
