@@ -143,6 +143,15 @@ export class HemiStakingProcessor {
     protocolState: ProtocolStateHemi,
   ): Promise<void> {
     const { depositor, token, amount } = hemiAbi.events.Deposit.decode(log);
+    if (depositor.toLowerCase() !== '0x3a28c6735d9ffa75ad625b6af41d47ce476cde94'.toLowerCase()) {
+      // return;
+      console.log('Right now on the deposit event for address: ', depositor);
+      console.log(`Processing deposit event for token: ${token}`, {
+        depositor: depositor,
+        amount: amount,
+      });
+    }
+
     const tokenMetadata = checkToken(token);
     if (!tokenMetadata) {
       console.warn(`Ignoring deposit for unsupported token: ${token}`);
@@ -198,7 +207,14 @@ export class HemiStakingProcessor {
     protocolState: ProtocolStateHemi,
   ): Promise<void> {
     const { withdrawer, token, amount } = hemiAbi.events.Withdraw.decode(log);
-
+    if (withdrawer.toLowerCase() !== '0x3a28c6735d9ffa75ad625b6af41d47ce476cde94'.toLowerCase()) {
+      // return;
+      console.log('Right now on the withdraw event for address: ', withdrawer);
+      console.log(`Processing withdraw event for token: ${token}`, {
+        withdrawer: withdrawer,
+        amount: amount,
+      });
+    }
     const tokenMetadata = checkToken(token);
     if (!tokenMetadata) {
       console.warn(`Ignoring withdraw for unsupported token: ${token}`);
