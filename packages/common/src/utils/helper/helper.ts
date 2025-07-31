@@ -144,31 +144,11 @@ function processValueChange({
   tokenPrice,
   tokenDecimals,
   tokens,
+  contractAddress,
 }: ProcessValueChangeParams): HistoryWindow[] {
   const historyWindows: HistoryWindow[] = [];
 
-  logger.info('Starting processValueChange', {
-    from,
-    to,
-    amount: amount.toString(),
-    usdValue,
-    blockTimestamp: blockTimestamp.toString(),
-    blockHeight: blockHeight.toString(),
-    txHash,
-    windowDurationMs,
-    tokenPrice,
-    tokenDecimals,
-    tokensCount: tokens?.length || 0,
-    activeBalancesSize: activeBalances.size,
-  });
-
   function snapshotAndUpdate(userAddress: string, updatedAmount: bigint) {
-    logger.debug('Processing snapshotAndUpdate', {
-      userAddress,
-      updatedAmount: updatedAmount.toString(),
-      isNegative: updatedAmount < 0n,
-    });
-
     // Get the user's balance for this token
     let activeUserBalance = activeBalances.get(userAddress);
     if (!activeUserBalance) {
@@ -252,34 +232,17 @@ function processValueChange({
   }
 
   function processAddress(address: string, amount: bigint) {
-    logger.debug('Processing address', {
-      address,
-      amount: amount.toString(),
-      isZeroAddress: address === ZERO_ADDRESS,
-      isValidAddress: address && address !== ZERO_ADDRESS,
-    });
-
-    if (address && address !== ZERO_ADDRESS) {
+    if (
+      address &&
+      address !== ZERO_ADDRESS &&
+      (!contractAddress || address.toLowerCase() !== contractAddress.toLowerCase())
+    ) {
       snapshotAndUpdate(address, amount);
-    } else {
-      logger.debug('Skipping address processing', {
-        address,
-        reason: !address ? 'null/undefined address' : 'zero address',
-      });
     }
   }
 
-  logger.info('Processing from address', { from, amount: (-amount).toString() });
   processAddress(from, BigInt(-amount)); // from address loses amount
-
-  logger.info('Processing to address', { to, amount: amount.toString() });
   processAddress(to, amount); // to address gains amount
-
-  logger.info('Completed processValueChange', {
-    historyWindowsCreated: historyWindows.length,
-    finalActiveBalancesSize: activeBalances.size,
-    txHash,
-  });
 
   return historyWindows;
 }

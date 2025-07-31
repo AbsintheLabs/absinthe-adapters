@@ -21,7 +21,6 @@ type PoolState @entity {
   lastBlock: Int!
   lastTsMs: BigInt!
   updatedAt: DateTime!
-  isDirty: Boolean!
 }
 
 type ActiveBalances @entity {

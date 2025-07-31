@@ -12,7 +12,6 @@ import {
   fetchHistoricalUsd,
   MessageType,
   ProtocolConfig,
-  TimeWeightedBalanceEvent,
   TimeWindowTrigger,
   ValidatedDexProtocolConfig,
   ValidatedEnvBase,
@@ -39,6 +38,7 @@ import {
   toTransaction,
   pricePosition,
 } from '@absinthe/common';
+import { logger } from '@absinthe/common';
 
 export class UniswapV2Processor {
   private readonly protocols: ProtocolConfig[];
@@ -81,7 +81,7 @@ export class UniswapV2Processor {
         try {
           await this.processBatch(ctx);
         } catch (error) {
-          console.error('Error processing batch:', (error as Error).message);
+          logger.error('Error processing batch:', (error as Error).message);
           throw error;
         }
       },
@@ -89,12 +89,19 @@ export class UniswapV2Processor {
   }
 
   private async processBatch(ctx: any): Promise<void> {
-    const protocolStates = await this.initializeProtocolStates(ctx);
-    for (const block of ctx.blocks) {
-      console.log(ctx.blocks, 'blocks');
+    logger.info(`Processing batch with ${ctx.blocks.length} blocks`, {
+      blockRange: `${ctx.blocks[0]?.header.height} - ${ctx.blocks[ctx.blocks.length - 1]?.header.height}`,
+    });
 
+    const protocolStates = await this.initializeProtocolStates(ctx);
+
+    for (const block of ctx.blocks) {
+      logger.info(`Processing block ${block.header.height}`, {
+        timestamp: new Date(block.header.timestamp).toISOString(),
+      });
       await this.processBlock({ ctx, block, protocolStates });
     }
+
     await this.finalizeBatch(ctx, protocolStates);
   }
 
@@ -108,26 +115,50 @@ export class UniswapV2Processor {
       let poolState = await loadPoolStateFromDb(ctx, contractAddress);
       let poolProcessState = await loadPoolProcessStateFromDb(ctx, contractAddress);
       let activeBalances = await loadActiveBalancesFromDb(ctx, contractAddress);
-      const blockForInit = ctx.blocks[0];
 
+      // Only initialize if not already in DB
       if (!poolConfig?.id) {
-        poolConfig = await initPoolConfigIfNeeded(
-          ctx,
-          blockForInit,
-          contractAddress,
-          poolConfig || new PoolConfig({}),
-          protocol,
+        logger.info(
+          `Pool config not found in DB for ${contractAddress}, checking if we can initialize`,
         );
+
+        // Check if startBlock is in the current batch
+        const initBlock = this.findInitializationBlock(ctx.blocks, protocol.fromBlock);
+
+        if (initBlock) {
+          poolConfig = await initPoolConfigIfNeeded(
+            ctx,
+            initBlock,
+            contractAddress,
+            poolConfig || new PoolConfig({}),
+            protocol,
+          );
+        } else {
+          logger.warn(
+            `Cannot initialize ${contractAddress} - startBlock ${protocol.fromBlock} not in current batch (${ctx.blocks[0].header.height}-${ctx.blocks[ctx.blocks.length - 1].header.height})`,
+          );
+          // poolConfig remains undefined, will be skipped in processing
+        }
       }
 
+      // Only initialize pool state if we have a valid config
       if (!poolState?.id && poolConfig?.id) {
-        poolState = await initPoolStateIfNeeded(
-          ctx,
-          blockForInit,
-          contractAddress,
-          poolState || new PoolState({}),
-          poolConfig,
-        );
+        // Use the same logic for finding the right block
+        const initBlock = this.findInitializationBlock(ctx.blocks, protocol.fromBlock);
+
+        if (initBlock) {
+          poolState = await initPoolStateIfNeeded(
+            ctx,
+            initBlock,
+            contractAddress,
+            poolState || new PoolState({}),
+            poolConfig,
+          );
+        } else {
+          logger.warn(
+            `Cannot initialize pool state for ${contractAddress} - no suitable block found`,
+          );
+        }
       }
 
       if (!poolProcessState?.id) {
@@ -151,12 +182,25 @@ export class UniswapV2Processor {
     return protocolStates;
   }
 
+  private findInitializationBlock(blocks: any[], startBlock: number): any | null {
+    // Find the first block that's >= startBlock
+    for (const block of blocks) {
+      if (block.header.height >= startBlock) {
+        return block;
+      }
+    }
+
+    // If no block is >= startBlock, return null (don't initialize)
+    return null;
+  }
+
   private async processBlock(batchContext: BatchContext): Promise<void> {
     const { ctx, block, protocolStates } = batchContext;
 
     for (const protocol of this.protocols) {
       const contractAddress = protocol.contractAddress;
       const protocolState = protocolStates.get(contractAddress)!;
+
       try {
         if (
           protocolState.config.id &&
@@ -166,10 +210,18 @@ export class UniswapV2Processor {
         ) {
           await this.processLogsForProtocol(ctx, block, contractAddress, protocol, protocolState);
           await this.processPeriodicBalanceFlush(ctx, block, contractAddress, protocolState);
+        } else {
+          logger.warn(`Skipping ${contractAddress} - config not properly initialized`);
         }
-      } catch (error) {}
+      } catch (error) {
+        logger.error(
+          `Error processing ${contractAddress} in block ${block.header.height}:`,
+          (error as Error).message,
+        );
+      }
     }
   }
+
   private async processLogsForProtocol(
     ctx: any,
     block: any,
@@ -195,10 +247,6 @@ export class UniswapV2Processor {
   ): Promise<void> {
     if (log.topics[0] === univ2Abi.events.Swap.topic) {
       await this.processSwapEvent(ctx, block, log, protocol, protocolState);
-    }
-
-    if (log.topics[0] === univ2Abi.events.Sync.topic) {
-      this.processSyncEvent(protocolState);
     }
 
     if (log.topics[0] === univ2Abi.events.Transfer.topic) {
@@ -321,11 +369,6 @@ export class UniswapV2Processor {
     protocolState.transactions.push(transactionSchema);
   }
 
-  private processSyncEvent(protocolState: ProtocolStateUniv2): void {
-    // If we see a sync event, we need to update the pool state later since reserves and/or total supply have changed
-    protocolState.state.isDirty = true;
-  }
-
   private async processTransferEvent(
     ctx: any,
     block: any,
@@ -334,7 +377,18 @@ export class UniswapV2Processor {
     protocolState: ProtocolStateUniv2,
   ): Promise<void> {
     const { from, to, value } = univ2Abi.events.Transfer.decode(log);
-    const lpTokenPrice = await computeLpTokenPrice(
+
+    const {
+      price: lpTokenPrice,
+      token0Price,
+      token1Price,
+      token0Value,
+      token1Value,
+      totalPoolValue,
+      totalSupplyBig,
+      reserve0,
+      reserve1,
+    } = await computeLpTokenPrice(
       ctx,
       block,
       protocolState.config,
@@ -342,6 +396,7 @@ export class UniswapV2Processor {
       this.env.coingeckoApiKey,
       block.header.timestamp,
     );
+
     const lpTokenSwapUsdValue = pricePosition(
       lpTokenPrice,
       value,
@@ -394,8 +449,42 @@ export class UniswapV2Processor {
           value: protocolState.config.lpToken.decimals.toString(),
           type: 'number',
         },
+        token0Price: {
+          value: token0Price.toString(),
+          type: 'string',
+        },
+        token1Price: {
+          value: token1Price.toString(),
+          type: 'string',
+        },
+        token0Value: {
+          value: token0Value.toString(),
+          type: 'string',
+        },
+        token1Value: {
+          value: token1Value.toString(),
+          type: 'string',
+        },
+        totalPoolValue: {
+          value: totalPoolValue.toString(),
+          type: 'string',
+        },
+        totalSupplyBig: {
+          value: totalSupplyBig.toString(),
+          type: 'string',
+        },
+        reserve0: {
+          value: reserve0.toString(),
+          type: 'string',
+        },
+        reserve1: {
+          value: reserve1.toString(),
+          type: 'string',
+        },
       },
+      contractAddress: protocol.contractAddress,
     });
+
     protocolState.balanceWindows.push(...newHistoryWindows);
   }
 
@@ -406,12 +495,10 @@ export class UniswapV2Processor {
     protocolState: ProtocolStateUniv2,
   ): Promise<void> {
     const currentTs = block.header.timestamp;
-    const currentBlockHeight = block.header.height; // needed as we need to calculate lpTokenPrice
 
     if (!protocolState.processState?.lastInterpolatedTs) {
       protocolState.processState.lastInterpolatedTs = currentTs;
     }
-
     while (
       protocolState.processState.lastInterpolatedTs &&
       Number(protocolState.processState.lastInterpolatedTs) + this.refreshWindow < currentTs
@@ -424,7 +511,17 @@ export class UniswapV2Processor {
       for (const [userAddress, data] of protocolState.activeBalances.entries()) {
         const oldStart = data.updatedBlockTs;
         if (data.balance > 0n && oldStart < nextBoundaryTs) {
-          const lpTokenPrice = await computeLpTokenPrice(
+          const {
+            price: lpTokenPrice,
+            token0Price,
+            token1Price,
+            token0Value,
+            token1Value,
+            totalPoolValue,
+            totalSupplyBig,
+            reserve0,
+            reserve1,
+          } = await computeLpTokenPrice(
             ctx,
             block,
             protocolState.config,
@@ -432,6 +529,7 @@ export class UniswapV2Processor {
             this.env.coingeckoApiKey,
             currentTs,
           );
+
           protocolState.balanceWindows.push({
             userAddress: userAddress,
             deltaAmount: 0,
@@ -447,7 +545,7 @@ export class UniswapV2Processor {
             balanceAfter: data.balance.toString(),
             txHash: null,
             currency: Currency.USD,
-            valueUsd: 0, //balanceBeforeUsd
+            valueUsd: 0,
             tokens: {
               token0Decimals: {
                 value: protocolState.config.token0.decimals.toString(),
@@ -482,6 +580,38 @@ export class UniswapV2Processor {
                 value: protocolState.config.lpToken.decimals.toString(),
                 type: 'number',
               },
+              token0Price: {
+                value: token0Price.toString(),
+                type: 'string',
+              },
+              token1Price: {
+                value: token1Price.toString(),
+                type: 'string',
+              },
+              token0Value: {
+                value: token0Value.toString(),
+                type: 'string',
+              },
+              token1Value: {
+                value: token1Value.toString(),
+                type: 'string',
+              },
+              totalPoolValue: {
+                value: totalPoolValue.toString(),
+                type: 'string',
+              },
+              totalSupplyBig: {
+                value: totalSupplyBig.toString(),
+                type: 'string',
+              },
+              reserve0: {
+                value: reserve0.toString(),
+                type: 'string',
+              },
+              reserve1: {
+                value: reserve1.toString(),
+                type: 'string',
+              },
             },
           });
 
@@ -500,6 +630,8 @@ export class UniswapV2Processor {
     ctx: any,
     protocolStates: Map<string, ProtocolStateUniv2>,
   ): Promise<void> {
+    logger.info('Finalizing batch...');
+
     for (const protocol of this.protocols) {
       const protocolState = protocolStates.get(protocol.contractAddress)!;
 
@@ -510,9 +642,9 @@ export class UniswapV2Processor {
         !protocolState.config.token1 ||
         !protocolState.config.lpToken
       ) {
-        // console.warn(
-        //   `Skipping finalize for ${protocol.contractAddress} - config not properly initialized`,
-        // );
+        logger.warn(
+          `Skipping finalize for ${protocol.contractAddress} - config not properly initialized`,
+        );
         continue;
       }
 
@@ -528,9 +660,6 @@ export class UniswapV2Processor {
         this.env,
         this.chainConfig,
       );
-
-      console.log(balances, 'balances');
-      console.log(transactions, 'transactions');
 
       await this.apiClient.send(balances);
       await this.apiClient.send(transactions);
