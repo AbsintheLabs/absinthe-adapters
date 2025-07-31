@@ -104,14 +104,51 @@ export class UniswapV2Processor {
     for (const protocol of this.protocols) {
       const contractAddress = protocol.contractAddress.toLowerCase();
 
+      let poolConfig = await loadPoolConfigFromDb(ctx, contractAddress);
+      let poolState = await loadPoolStateFromDb(ctx, contractAddress);
+      let poolProcessState = await loadPoolProcessStateFromDb(ctx, contractAddress);
+      let activeBalances = await loadActiveBalancesFromDb(ctx, contractAddress);
+      const latestBlock = await ctx.store.get('Block', {
+        where: {},
+        order: { height: 'DESC' },
+        take: 1,
+      });
+      const blockForInit =
+        latestBlock || ({ header: { height: 0, timestamp: 0, hash: '' } } as any);
+
+      if (!poolConfig?.id) {
+        poolConfig = await initPoolConfigIfNeeded(
+          ctx,
+          blockForInit,
+          contractAddress,
+          poolConfig || new PoolConfig({}),
+          protocol,
+        );
+      }
+
+      if (!poolState?.id && poolConfig?.id) {
+        poolState = await initPoolStateIfNeeded(
+          ctx,
+          blockForInit,
+          contractAddress,
+          poolState || new PoolState({}),
+          poolConfig,
+        );
+      }
+
+      if (!poolProcessState?.id) {
+        poolProcessState = await initPoolProcessStateIfNeeded(
+          contractAddress,
+          poolConfig || new PoolConfig({}),
+          poolProcessState || new PoolProcessState({}),
+        );
+      }
+
       protocolStates.set(contractAddress, {
-        config: (await loadPoolConfigFromDb(ctx, contractAddress)) || new PoolConfig({}),
-        state: (await loadPoolStateFromDb(ctx, contractAddress)) || new PoolState({}),
-        processState:
-          (await loadPoolProcessStateFromDb(ctx, contractAddress)) || new PoolProcessState({}),
-        activeBalances:
-          (await loadActiveBalancesFromDb(ctx, contractAddress)) ||
-          new Map<string, ActiveBalance>(),
+        config: poolConfig || new PoolConfig({}),
+        state: poolState || new PoolState({}),
+        processState: poolProcessState || new PoolProcessState({}),
+        activeBalances: activeBalances || new Map<string, ActiveBalance>(),
         balanceWindows: [],
         transactions: [],
       });
@@ -302,7 +339,6 @@ export class UniswapV2Processor {
     protocol: ProtocolConfig,
     protocolState: ProtocolStateUniv2,
   ): Promise<void> {
-    //todo: fix if the value is +ve or -ve
     const { from, to, value } = univ2Abi.events.Transfer.decode(log);
     const lpTokenPrice = await computeLpTokenPrice(
       ctx,
@@ -356,6 +392,14 @@ export class UniswapV2Processor {
           value: lpTokenPrice.toString(),
           type: 'string',
         },
+        value: {
+          value: value.toString(),
+          type: 'number',
+        },
+        lpTokenDecimals: {
+          value: protocolState.config.lpToken.decimals.toString(),
+          type: 'number',
+        },
       },
     });
     protocolState.balanceWindows.push(...newHistoryWindows);
@@ -394,12 +438,6 @@ export class UniswapV2Processor {
             this.env.coingeckoApiKey,
             currentBlockHeight,
           );
-          const balanceUsd = pricePosition(
-            lpTokenPrice,
-            data.balance,
-            protocolState.config.lpToken.decimals,
-          );
-          // calculate the usd value of the lp token before and after the transfer
           protocolState.balanceWindows.push({
             userAddress: userAddress,
             deltaAmount: 0,
@@ -416,7 +454,41 @@ export class UniswapV2Processor {
             txHash: null,
             currency: Currency.USD,
             valueUsd: 0, //balanceBeforeUsd
-            tokens: {},
+            tokens: {
+              token0Decimals: {
+                value: protocolState.config.token0.decimals.toString(),
+                type: 'number',
+              },
+              token0Address: {
+                value: protocolState.config.token0.address,
+                type: 'string',
+              },
+              token0Symbol: {
+                value: ChainShortName.HEMI,
+                type: 'string',
+              },
+
+              token1Address: {
+                value: protocolState.config.token1.address,
+                type: 'string',
+              },
+              token1Decimals: {
+                value: protocolState.config.token1.decimals.toString(),
+                type: 'number',
+              },
+              lpTokenPrice: {
+                value: lpTokenPrice.toString(),
+                type: 'string',
+              },
+              value: {
+                value: '0',
+                type: 'number',
+              },
+              lpTokenDecimals: {
+                value: protocolState.config.lpToken.decimals.toString(),
+                type: 'number',
+              },
+            },
           });
 
           protocolState.activeBalances.set(userAddress, {

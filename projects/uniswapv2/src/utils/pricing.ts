@@ -79,6 +79,7 @@ export async function computeLpTokenPrice(
       block,
       poolConfig.lpToken.address,
       poolConfig,
+      poolState,
     );
   }
 
