@@ -37,11 +37,7 @@ export const processor = new EvmBatchProcessor()
   .setFinalityConfirmation(75)
   .addLog({
     address: contractAddresses,
-    topic0: [
-      univ2Abi.events.Transfer.topic,
-      univ2Abi.events.Sync.topic,
-      univ2Abi.events.Swap.topic,
-    ],
+    topic0: [univ2Abi.events.Transfer.topic, univ2Abi.events.Swap.topic],
     transaction: true,
   })
   .setFields({

@@ -32,7 +32,6 @@ export async function updatePoolStateFromOnChain(
   existingPoolState.totalSupply = totalSupply;
   existingPoolState.lastBlock = block.header.height;
   existingPoolState.lastTsMs = BigInt(block.header.timestamp);
-  existingPoolState.isDirty = false;
   existingPoolState.updatedAt = new Date();
 
   return existingPoolState;
@@ -63,7 +62,6 @@ export async function initPoolStateIfNeeded(
     totalSupply,
     lastBlock: block.header.height,
     lastTsMs: BigInt(block.header.timestamp),
-    isDirty: false,
     updatedAt: new Date(),
   });
 
