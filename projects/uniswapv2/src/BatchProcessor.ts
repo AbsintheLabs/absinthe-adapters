@@ -108,13 +108,7 @@ export class UniswapV2Processor {
       let poolState = await loadPoolStateFromDb(ctx, contractAddress);
       let poolProcessState = await loadPoolProcessStateFromDb(ctx, contractAddress);
       let activeBalances = await loadActiveBalancesFromDb(ctx, contractAddress);
-      const latestBlock = await ctx.store.get('Block', {
-        where: {},
-        order: { height: 'DESC' },
-        take: 1,
-      });
-      const blockForInit =
-        latestBlock || ({ header: { height: 0, timestamp: 0, hash: '' } } as any);
+      const blockForInit = ctx.blocks[0];
 
       if (!poolConfig?.id) {
         poolConfig = await initPoolConfigIfNeeded(
