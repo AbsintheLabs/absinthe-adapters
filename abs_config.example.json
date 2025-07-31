@@ -46,7 +46,7 @@
             "decimals": 18
           },
           "token1": {
-            "coingeckoId": "hemibtc",
+            "coingeckoId": "bitcoin",
             "decimals": 8
           },
           "preferredTokenCoingeckoId": "token1"

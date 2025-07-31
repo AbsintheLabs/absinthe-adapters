@@ -96,6 +96,14 @@ export async function computeLpTokenPrice(
   ]);
 
   if (token0Price === 0 || token1Price === 0) {
+    console.log(
+      token0Price,
+      token1Price,
+      'token0Price, token1Price',
+      poolConfig.token0.coingeckoId,
+      poolConfig.token1.coingeckoId,
+      timestamp,
+    );
     console.warn(`One or both token prices are 0 for pool ${poolConfig.id}, returning price 0`);
     return 0;
   }

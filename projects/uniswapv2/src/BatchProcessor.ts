@@ -90,9 +90,9 @@ export class UniswapV2Processor {
 
   private async processBatch(ctx: any): Promise<void> {
     const protocolStates = await this.initializeProtocolStates(ctx);
-
     for (const block of ctx.blocks) {
-      console.log(block.header.height, 'block');
+      console.log(ctx.blocks, 'blocks');
+
       await this.processBlock({ ctx, block, protocolStates });
     }
     await this.finalizeBatch(ctx, protocolStates);
@@ -222,7 +222,7 @@ export class UniswapV2Processor {
     const gasFee = Number(gasUsed) * Number(gasPrice);
     const displayGasFee = gasFee / 10 ** 18;
     const ethPriceUsd = await fetchHistoricalUsd(
-      'hemi',
+      'ethereum',
       block.header.timestamp,
       this.env.coingeckoApiKey,
     );
@@ -430,7 +430,7 @@ export class UniswapV2Processor {
             protocolState.config,
             protocolState.state,
             this.env.coingeckoApiKey,
-            currentBlockHeight,
+            currentTs,
           );
           protocolState.balanceWindows.push({
             userAddress: userAddress,
@@ -521,7 +521,7 @@ export class UniswapV2Processor {
         { ...protocol, type: this.protocolType },
         this.env,
         this.chainConfig,
-      ).filter((e: TimeWeightedBalanceEvent) => e.startUnixTimestampMs !== e.endUnixTimestampMs);
+      );
       const transactions = toTransaction(
         protocolState.transactions,
         { ...protocol, type: this.protocolType },

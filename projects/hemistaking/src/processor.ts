@@ -25,7 +25,7 @@ const contractAddresses = hemiStakingProtocol.contractAddress;
 const earliestFromBlock = hemiStakingProtocol.fromBlock;
 
 export const processor = new EvmBatchProcessor()
-  // .setGateway(hemiStakingProtocol.gatewayUrl)
+  .setGateway('https://v2.archive.subsquid.io/network/hemi-mainnet')
   .setRpcEndpoint(hemiStakingProtocol.rpcUrl)
   .setBlockRange({
     from: earliestFromBlock,
