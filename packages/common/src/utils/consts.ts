@@ -53,6 +53,9 @@ const HEMI_WHITELIST_TOKENS: string[] = [
   '0x03c7054bcb39f7b2e5b2c7acb37583e32d70cfa3', //WBTC
   '0xbf7d0f62b64b23053949b3a88a03da5bfd35b2e2', // msETH
   '0x3ea24e3727a85a479e29e02cc70e792936fbbcad', // msUSDC
+  '0x8154aaf094c2f03ad550b6890e1d4264b5ddad9a', // enzoBTC
+  '0x6a9a65b84843f5fd4ac9a0471c4fc11afffbce4a', // iBTC
+  '0x78e26e8b953c7c78a58d69d8b9a91745c2bbb258', // uBTC
 ];
 
 const HEMI_WHITELIST_TOKENS_WITH_COINGECKO_ID: {
@@ -64,6 +67,21 @@ const HEMI_WHITELIST_TOKENS_WITH_COINGECKO_ID: {
     symbol: 'WETH',
     address: HEMI_WETH_ADDRESS,
     coingeckoId: 'weth',
+  },
+  {
+    symbol: 'enzoBTC',
+    address: '0x8154aaf094c2f03ad550b6890e1d4264b5ddad9a',
+    coingeckoId: 'bitcoin',
+  },
+  {
+    symbol: 'iBTC',
+    address: '0x6a9a65b84843f5fd4ac9a0471c4fc11afffbce4a',
+    coingeckoId: 'bitcoin',
+  },
+  {
+    symbol: 'uBTC',
+    address: '0x78e26e8b953c7c78a58d69d8b9a91745c2bbb258',
+    coingeckoId: 'bitcoin',
   },
   {
     symbol: 'USDT',
