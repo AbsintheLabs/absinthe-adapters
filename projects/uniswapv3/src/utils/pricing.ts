@@ -1,7 +1,4 @@
 import { BlockHeader } from '@subsquid/evm-processor';
-import { WHITELIST_TOKENS, WHITELIST_TOKENS_WITH_COINGECKO_ID } from './constants';
-import * as poolAbi from '../abi/pool';
-import { Multicall } from './multicall';
 import {
   fetchHistoricalUsd,
   getCoingeckoIdFromAddress,
