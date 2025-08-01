@@ -1,18 +1,10 @@
 import { BlockHeader } from '@subsquid/evm-processor';
-import { WHITELIST_TOKENS, WHITELIST_TOKENS_WITH_COINGECKO_ID } from './constants';
-import * as poolAbi from '../abi/pool';
-import { Multicall } from './multicall';
 import {
   fetchHistoricalUsd,
-  getCoingeckoIdFromAddress,
   HEMI_WHITELIST_TOKENS,
   HEMI_WHITELIST_TOKENS_WITH_COINGECKO_ID,
   logger,
-  MULTICALL_ADDRESS_HEMI,
-  MULTICALL_PAGE_SIZE,
 } from '@absinthe/common';
-import { BlockHandlerContext } from './interfaces/interfaces';
-import { Store } from '@subsquid/typeorm-store';
 
 export function sqrtPriceX96ToTokenPrices(
   sqrtPriceX96: bigint,
@@ -208,5 +200,6 @@ export async function getOptimizedTokenPrices(
 }
 
 export const getCGId = (addr: string) =>
-  HEMI_WHITELIST_TOKENS_WITH_COINGECKO_ID.find((t) => t.address.toLowerCase() === addr)
-    ?.coingeckoId ?? null;
+  HEMI_WHITELIST_TOKENS_WITH_COINGECKO_ID.find(
+    (t) => t.address.toLowerCase() === addr.toLowerCase(),
+  )?.coingeckoId ?? null;

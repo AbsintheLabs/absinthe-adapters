@@ -15,7 +15,36 @@ export async function updatePoolStateFromOnChain(
   block: BlockData,
   contractAddress: string,
   poolConfig: PoolConfig,
+  existingPoolState: PoolState,
 ): Promise<PoolState> {
+  if (!poolConfig.id || !poolConfig.lpToken || !poolConfig.token0 || !poolConfig.token1)
+    throw new Error('Pool config not found');
+
+  const contract = new univ2Abi.Contract(ctx, block.header, contractAddress);
+  const reserve = await contract.getReserves();
+  const totalSupply = await contract.totalSupply();
+  const r0 = reserve._reserve0;
+  const r1 = reserve._reserve1;
+
+  // Update the existing pool state instead of creating a new one
+  existingPoolState.reserve0 = r0;
+  existingPoolState.reserve1 = r1;
+  existingPoolState.totalSupply = totalSupply;
+  existingPoolState.lastBlock = block.header.height;
+  existingPoolState.lastTsMs = BigInt(block.header.timestamp);
+  existingPoolState.updatedAt = new Date();
+
+  return existingPoolState;
+}
+
+export async function initPoolStateIfNeeded(
+  ctx: DataHandlerContext<Store>,
+  block: BlockData,
+  contractAddress: string,
+  poolState: PoolState,
+  poolConfig: PoolConfig,
+): Promise<PoolState> {
+  if (poolState.id) return poolState;
   if (!poolConfig.id || !poolConfig.lpToken || !poolConfig.token0 || !poolConfig.token1)
     throw new Error('Pool config not found');
 
@@ -33,25 +62,10 @@ export async function updatePoolStateFromOnChain(
     totalSupply,
     lastBlock: block.header.height,
     lastTsMs: BigInt(block.header.timestamp),
-    isDirty: false,
     updatedAt: new Date(),
   });
 
   return newPoolState;
-}
-
-export async function initPoolStateIfNeeded(
-  ctx: DataHandlerContext<Store>,
-  block: BlockData,
-  contractAddress: string,
-  poolState: PoolState,
-  poolConfig: PoolConfig,
-): Promise<PoolState> {
-  // if already defined, do nothing
-  if (poolState.id) return poolState;
-
-  // if not found, create a new pool state
-  return await updatePoolStateFromOnChain(ctx, block, contractAddress, poolConfig);
 }
 
 export async function initPoolConfigIfNeeded(
@@ -118,7 +132,6 @@ export async function initPoolConfigIfNeeded(
   }
 }
 
-// Initial data loading functions from db
 export async function loadPoolStateFromDb(
   ctx: DataHandlerContext<Store>,
   contractAddress: string,
@@ -165,16 +178,12 @@ export async function loadActiveBalancesFromDb(
 }
 
 export async function initPoolProcessStateIfNeeded(
-  ctx: DataHandlerContext<Store>,
-  block: BlockData,
   contractAddress: string,
   poolConfig: PoolConfig,
   poolProcessState: PoolProcessState | undefined,
 ): Promise<PoolProcessState> {
-  // If already defined, do nothing
   if (poolProcessState?.id) return poolProcessState;
 
-  // If not found, create a new pool process state
   return new PoolProcessState({
     id: `${contractAddress}-process-state`,
     pool: poolConfig,

@@ -117,9 +117,6 @@ export class UniswapV3Processor {
             `📋 BLOCK DETAILS: ${ctx.blocks.map((b) => `#${b.header.height}`).join(', ')}`,
           );
         }
-        //process all blocks for factory in one go
-        logger.info('🏭 Starting factory processing for all blocks');
-        const factoryStartTime = Date.now();
 
         await processFactory(
           entitiesCtx,
@@ -127,10 +124,6 @@ export class UniswapV3Processor {
           this.factoryAddress,
           this.positionStorageService,
         );
-
-        logger.info(`🏭 Factory processing completed in ${Date.now() - factoryStartTime}ms`);
-
-        logger.info('🔄 Starting individual block processing');
 
         for (const block of ctx.blocks) {
           const blockStartTime = Date.now();
@@ -144,10 +137,6 @@ export class UniswapV3Processor {
             this.positionStorageService,
             this.positionTracker,
             protocolStates,
-          );
-
-          logger.info(
-            `✅ Block #${block.header.height} processed in ${Date.now() - blockStartTime}ms`,
           );
         }
 
@@ -169,12 +158,6 @@ export class UniswapV3Processor {
 
     protocolStates: Map<string, ProtocolStateUniswapV3>,
   ): Promise<void> {
-    logger.info(`🎯 Starting processBlock for #${block.header.height}`);
-    const eventCount = block.logs.length;
-    logger.info(`📊 Block #${block.header.height} contains ${eventCount} events`);
-
-    const positionsStartTime = Date.now();
-
     await processPositions(
       entitiesCtx,
       block,
@@ -186,10 +169,6 @@ export class UniswapV3Processor {
       this.factoryAddress,
       this.multicallAddress,
       protocolStates,
-    );
-
-    logger.info(
-      `🎯 Position processing for block #${block.header.height} completed in ${Date.now() - positionsStartTime}ms`,
     );
 
     // await processPairs(
@@ -220,30 +199,15 @@ export class UniswapV3Processor {
     protocolStates: Map<string, ProtocolStateUniswapV3>,
     positionStorageService: PositionStorageService,
   ): Promise<void> {
-    logger.info(`🔄 Starting periodic balance flush for block #${block.header.height}`);
-
-    let totalProcessedPositions = 0;
-    let totalExhaustedPositions = 0;
-
     for (const [contractAddress, protocolState] of protocolStates.entries()) {
-      logger.info(`🔍 Processing pool: ${contractAddress}`);
       const positionsByPoolId =
         await positionStorageService.getAllPositionsByPoolId(contractAddress);
 
-      logger.info(`🔍 Positions by pool id: ${positionsByPoolId.length}`);
       if (positionsByPoolId.length === 0) {
-        logger.info(`⚪ No positions found for pool: ${contractAddress}`);
-
         continue;
       }
 
-      let processedPositions = 0;
-      let exhaustedPositions = 0;
-
       for (const position of positionsByPoolId) {
-        const beforeBalanceWindows = protocolState.balanceWindows.length;
-        logger.info(`🔍 Checking position ${position.positionId} for exhaustion`);
-
         if (position.isActive === 'true') {
           await this.processPositionExhaustion(
             position,
@@ -251,32 +215,9 @@ export class UniswapV3Processor {
             positionStorageService,
             protocolStates,
           );
-        } else {
-          logger.info(`⚪ Skipping inactive position ${position.positionId}`);
         }
-
-        const afterBalanceWindows = protocolState.balanceWindows.length;
-        const windowsCreated = afterBalanceWindows - beforeBalanceWindows;
-
-        if (windowsCreated > 0) {
-          exhaustedPositions++;
-          logger.info(
-            `⚡ Position ${position.positionId} created ${windowsCreated} exhaustion windows`,
-          );
-        }
-
-        processedPositions++;
       }
-      logger.info(
-        `📊 Pool ${contractAddress}: ${processedPositions} positions processed, ${exhaustedPositions} exhausted`,
-      );
-      totalProcessedPositions += processedPositions;
-      totalExhaustedPositions += exhaustedPositions;
     }
-
-    logger.info(
-      `🎯 Periodic balance flush completed: ${totalProcessedPositions} positions processed, ${totalExhaustedPositions} exhausted`,
-    );
   }
 
   private async processPositionExhaustion(
@@ -288,7 +229,6 @@ export class UniswapV3Processor {
     const currentTs = block.timestamp;
 
     if (!position.lastUpdatedBlockTs) {
-      logger.info(`⚪ Position ${position.positionId} has no lastUpdatedBlockTs, adding it`);
       position.lastUpdatedBlockTs = currentTs;
       await positionStorageService.updatePosition(position);
       return;
@@ -333,20 +273,8 @@ export class UniswapV3Processor {
         this.chainConfig.chainName.toLowerCase(),
       );
 
-      logger.info(`🔍 Token0 in USD: ${token0inUSD}`);
-      logger.info(`🔍 Token1 in USD: ${token1inUSD}`);
-
       const oldLiquidityUSD =
         Number(oldHumanAmount0) * token0inUSD + Number(oldHumanAmount1) * token1inUSD;
-      logger.info(`🔍 Old Liquidity in USD: ${oldLiquidityUSD}`, {
-        oldHumanAmount0,
-        oldHumanAmount1,
-        token0inUSD,
-        token1inUSD,
-      });
-
-      logger.info(`🔍 Position lastUpdatedBlockTs: ${position.lastUpdatedBlockTs}`);
-      logger.info(`🔍 Next boundary Ts: ${nextBoundaryTs}`);
 
       if (oldLiquidityUSD > 0 && position.lastUpdatedBlockTs < nextBoundaryTs) {
         const balanceWindow = {
@@ -407,22 +335,12 @@ export class UniswapV3Processor {
             transactions: [],
           });
         }
-
-        logger.info(
-          `✅ Created balance window for position ${position.positionId}: ${JSON.stringify(balanceWindow)}`,
-        );
-      } else {
-        logger.info(
-          `⚪ Skipping balance window creation for position ${position.positionId} (active: ${position.isActive}, liquidity: ${position.liquidity})`,
-        );
       }
+
       position.lastUpdatedBlockTs = nextBoundaryTs;
       position.lastUpdatedBlockHeight = block.height;
 
       await positionStorageService.updatePosition(position);
-      logger.info(
-        `📝 Updated position ${position.positionId} with new timestamp: ${nextBoundaryTs}`,
-      );
     }
   }
 
@@ -444,10 +362,6 @@ export class UniswapV3Processor {
         continue;
       }
 
-      logger.info(
-        `📊 Pool ${pool.contractAddress}: ${protocolState.balanceWindows.length} balance windows, ${protocolState.transactions.length} transactions`,
-      );
-
       const balances = toTimeWeightedBalance(
         protocolState.balanceWindows,
         { ...pool, type: this.uniswapV3DexProtocol.type },
@@ -462,18 +376,9 @@ export class UniswapV3Processor {
         this.chainConfig,
       );
 
-      logger.info(
-        `📤 Sending ${balances.length} balance records and ${transactions.length} transaction records for pool ${pool.contractAddress}`,
-      );
-      logger.info('📋 Balance data:', JSON.stringify(balances, null, 2));
-      logger.info('📋 Transaction data:', JSON.stringify(transactions, null, 2));
-
       try {
         if (balances.length > 0) {
           await this.apiClient.send(balances);
-          logger.info(
-            `✅ Successfully sent ${balances.length} balance records for pool ${pool.contractAddress}`,
-          );
         }
       } catch (error) {
         logger.error(`❌ Failed to send balance records for pool ${pool.contractAddress}:`, error);
@@ -482,9 +387,6 @@ export class UniswapV3Processor {
       try {
         if (transactions.length > 0) {
           await this.apiClient.send(transactions);
-          logger.info(
-            `✅ Successfully sent ${transactions.length} transaction records for pool ${pool.contractAddress}`,
-          );
         }
       } catch (error) {
         logger.error(

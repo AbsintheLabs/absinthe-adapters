@@ -28,7 +28,7 @@ const earliestFromBlock = Math.min(
   ...uniswapV2DexProtocol.protocols.map((protocol) => protocol.fromBlock),
 );
 export const processor = new EvmBatchProcessor()
-  // .setGateway(uniswapV2DexProtocol.gatewayUrl)
+  .setGateway('https://v2.archive.subsquid.io/network/hemi-mainnet')
   .setRpcEndpoint(uniswapV2DexProtocol.rpcUrl)
   .setBlockRange({
     from: earliestFromBlock,
@@ -37,11 +37,7 @@ export const processor = new EvmBatchProcessor()
   .setFinalityConfirmation(75)
   .addLog({
     address: contractAddresses,
-    topic0: [
-      univ2Abi.events.Transfer.topic,
-      univ2Abi.events.Sync.topic,
-      univ2Abi.events.Swap.topic,
-    ],
+    topic0: [univ2Abi.events.Transfer.topic, univ2Abi.events.Swap.topic],
     transaction: true,
   })
   .setFields({

@@ -28,7 +28,7 @@ const functionSelector = '0xa4760a9e';
 
 export const processor = new EvmBatchProcessor()
   .setRpcEndpoint(demosProtocol.rpcUrl)
-  // .setGateway(vusdBridgeProtocol.gatewayUrl)
+  .setGateway('https://v2.archive.subsquid.io/network/hemi-mainnet')
   .setBlockRange({
     from: earliestFromBlock,
     ...(demosProtocol.toBlock !== 0 ? { to: Number(demosProtocol.toBlock) } : {}),

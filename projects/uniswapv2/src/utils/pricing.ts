@@ -48,7 +48,17 @@ export async function computeLpTokenPrice(
   poolState: PoolState,
   coingeckoApiKey: string,
   timestampMs?: number,
-): Promise<number> {
+): Promise<{
+  price: number;
+  token0Price: number;
+  token1Price: number;
+  token0Value: number;
+  token1Value: number;
+  totalPoolValue: number;
+  totalSupplyBig: Big.Big;
+  reserve0: bigint;
+  reserve1: bigint;
+}> {
   if (!poolConfig) {
     throw new Error('No poolConfig provided to computeLpTokenPrice');
   }
@@ -73,19 +83,28 @@ export async function computeLpTokenPrice(
     throw new Error('No coingecko id found for token0 or token1');
   }
 
-  if (poolState.isDirty) {
-    poolState = await updatePoolStateFromOnChain(
-      ctx,
-      block,
-      poolConfig.lpToken.address,
-      poolConfig,
-    );
-  }
+  poolState = await updatePoolStateFromOnChain(
+    ctx,
+    block,
+    poolConfig.lpToken.address,
+    poolConfig,
+    poolState,
+  );
 
   // Check for zero total supply to avoid division by zero
   if (poolState.totalSupply === 0n) {
     console.warn(`Pool ${poolConfig.id} has zero total supply, returning price 0`);
-    return 0;
+    return {
+      price: 0,
+      token0Price: 0,
+      token1Price: 0,
+      token0Value: 0,
+      token1Value: 0,
+      totalPoolValue: 0,
+      totalSupplyBig: new Big(0),
+      reserve0: BigInt(0),
+      reserve1: BigInt(0),
+    };
   }
 
   const timestamp = timestampMs ?? Number(poolState.lastTsMs);
@@ -96,7 +115,17 @@ export async function computeLpTokenPrice(
 
   if (token0Price === 0 || token1Price === 0) {
     console.warn(`One or both token prices are 0 for pool ${poolConfig.id}, returning price 0`);
-    return 0;
+    return {
+      price: 0,
+      token0Price: 0,
+      token1Price: 0,
+      token0Value: 0,
+      token1Value: 0,
+      totalPoolValue: 0,
+      totalSupplyBig: new Big(0),
+      reserve0: BigInt(0),
+      reserve1: BigInt(0),
+    };
   }
 
   const token0Value = pricePosition(token0Price, poolState.reserve0, poolConfig.token0.decimals);
@@ -114,10 +143,30 @@ export async function computeLpTokenPrice(
     console.warn(
       `Pool ${poolConfig.id} has zero total supply after decimal conversion, returning price 0`,
     );
-    return 0;
+    return {
+      price: 0,
+      token0Price: 0,
+      token1Price: 0,
+      token0Value: 0,
+      token1Value: 0,
+      totalPoolValue: 0,
+      totalSupplyBig: new Big(0),
+      reserve0: BigInt(0),
+      reserve1: BigInt(0),
+    };
   }
 
   const price = new Big(totalPoolValue).div(totalSupplyBig).toNumber();
 
-  return price;
+  return {
+    price,
+    token0Price,
+    token1Price,
+    token0Value,
+    token1Value,
+    totalPoolValue,
+    totalSupplyBig,
+    reserve0: poolState.reserve0,
+    reserve1: poolState.reserve1,
+  };
 }
