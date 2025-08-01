@@ -117,9 +117,6 @@ export class UniswapV3Processor {
             `📋 BLOCK DETAILS: ${ctx.blocks.map((b) => `#${b.header.height}`).join(', ')}`,
           );
         }
-        //process all blocks for factory in one go
-        logger.info('🏭 Starting factory processing for all blocks');
-        const factoryStartTime = Date.now();
 
         await processFactory(
           entitiesCtx,
@@ -127,10 +124,6 @@ export class UniswapV3Processor {
           this.factoryAddress,
           this.positionStorageService,
         );
-
-        logger.info(`🏭 Factory processing completed in ${Date.now() - factoryStartTime}ms`);
-
-        logger.info('🔄 Starting individual block processing');
 
         for (const block of ctx.blocks) {
           const blockStartTime = Date.now();
@@ -144,10 +137,6 @@ export class UniswapV3Processor {
             this.positionStorageService,
             this.positionTracker,
             protocolStates,
-          );
-
-          logger.info(
-            `✅ Block #${block.header.height} processed in ${Date.now() - blockStartTime}ms`,
           );
         }
 
@@ -169,8 +158,6 @@ export class UniswapV3Processor {
 
     protocolStates: Map<string, ProtocolStateUniswapV3>,
   ): Promise<void> {
-    const eventCount = block.logs.length;
-
     await processPositions(
       entitiesCtx,
       block,
@@ -213,7 +200,6 @@ export class UniswapV3Processor {
     positionStorageService: PositionStorageService,
   ): Promise<void> {
     for (const [contractAddress, protocolState] of protocolStates.entries()) {
-      logger.info(`🔍 Processing pool: ${contractAddress}`);
       const positionsByPoolId =
         await positionStorageService.getAllPositionsByPoolId(contractAddress);
 
