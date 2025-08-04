@@ -24,6 +24,7 @@ const chainConfig = {
 };
 
 // todo: make the contract address lowercase throughout the codebase
+// todo: revamp needed
 
 const WINDOW_DURATION_MS = env.baseConfig.balanceFlushIntervalHours * HOURS_TO_MS;
 const vusdBridgeProcessor = new VUSDBridgeProcessor(

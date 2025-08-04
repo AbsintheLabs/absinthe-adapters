@@ -144,7 +144,7 @@ export class PositionTracker {
       position.lastUpdatedBlockTs = block.timestamp;
       position.lastUpdatedBlockHeight = block.height;
       const poolState = protocolStates.get(position.poolId);
-      await this.positionStorageService.updatePosition(position); //todo: check
+      await this.positionStorageService.updatePosition(position);
 
       if (poolState) {
         if (balanceWindow) {
@@ -346,11 +346,6 @@ export class PositionTracker {
     const amountBurnedUSD = Number(amountBurned0) * price0 + Number(amountBurned1) * price1;
 
     await this.positionStorageService.updatePosition(position); //todo: reduce double calls
-    // if (BigInt(position.liquidity) === 0n) {
-    //   //if balance is 0, delete the position from tracking- just delete it
-    //   await this.positionStorageService.deletePosition(data.tokenId);
-    //   return;
-    // }
 
     logger.info(`💰 [Tracker] handleDecreaseLiquidity`, {
       oldLiquidityUSD,
@@ -460,14 +455,6 @@ export class PositionTracker {
       token1Decimals,
     );
     const oldLiquidityUSD = Number(humanAmount0) * price0 + Number(humanAmount1) * price1;
-
-    logger.info(`💰 [Tracker] handleTransfer`, {
-      oldLiquidityUSD,
-      price0,
-      price1,
-      humanAmount0,
-      humanAmount1,
-    });
 
     if (position.isActive === 'true') {
       const historyWindow = await this.flushLiquidityChange(

@@ -6,10 +6,10 @@ import { Multicall } from './multicall';
 import { StaticTokenDefinition } from './staticTokenDefinition';
 import { removeNullBytes } from './tools';
 import { Store } from '@subsquid/typeorm-store';
-import { MULTICALL_ADDRESS_HEMI } from '@absinthe/common';
+import { MULTICALL_ADDRESS } from '@absinthe/common';
 
 export async function fetchTokensSymbol(ctx: BlockHandlerContext<Store>, tokenAddresses: string[]) {
-  const multicall = new Multicall(ctx, MULTICALL_ADDRESS_HEMI);
+  const multicall = new Multicall(ctx, MULTICALL_ADDRESS);
   const symbols = new Map<string, string>();
 
   const results = await multicall.tryAggregate(
@@ -38,7 +38,7 @@ export async function fetchTokensSymbol(ctx: BlockHandlerContext<Store>, tokenAd
 }
 
 export async function fetchTokensName(ctx: BlockHandlerContext<Store>, tokenAddresses: string[]) {
-  const multicall = new Multicall(ctx, MULTICALL_ADDRESS_HEMI);
+  const multicall = new Multicall(ctx, MULTICALL_ADDRESS);
 
   const names = new Map<string, string>();
 
@@ -72,7 +72,7 @@ export async function fetchTokensTotalSupply(
   tokenAddresses: string[],
 ) {
   //tokenAddresses = ["0x7F5c764cBc14f9669B88837ca1490cCa17c31607"];
-  let multicall = new Multicall(ctx, MULTICALL_ADDRESS_HEMI);
+  let multicall = new Multicall(ctx, MULTICALL_ADDRESS);
 
   let results = await multicall.tryAggregate(
     ERC20.functions.totalSupply,
@@ -92,7 +92,7 @@ export async function fetchTokensDecimals(
   ctx: BlockHandlerContext<Store>,
   tokenAddresses: string[],
 ) {
-  let multicall = new Multicall(ctx, MULTICALL_ADDRESS_HEMI);
+  let multicall = new Multicall(ctx, MULTICALL_ADDRESS);
 
   let results = await multicall.tryAggregate(
     ERC20.functions.decimals,

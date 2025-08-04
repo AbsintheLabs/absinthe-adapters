@@ -12,6 +12,7 @@ import { TypeormDatabase } from '@subsquid/typeorm-store';
 import { processor } from './processor';
 import { BatchContext, ProtocolState } from '@absinthe/common';
 import { fetchHistoricalUsd, toTransaction } from '@absinthe/common';
+import { FUNCTION_SELECTOR } from './utils/consts';
 
 export class DemosProcessor {
   private readonly bondingCurveProtocol: ValidatedBondingCurveProtocolConfig;
@@ -106,7 +107,7 @@ export class DemosProcessor {
     protocolState: ProtocolState,
   ): Promise<void> {
     const { input, from, to, gasPrice, gasUsed, sighash } = transaction;
-    if (input?.startsWith('0xa4760a9e')) {
+    if (input?.startsWith(FUNCTION_SELECTOR)) {
       const gasFee = Number(gasUsed) * Number(gasPrice);
       const displayGasFee = gasFee / 10 ** 18;
       const ethPriceUsd = await fetchHistoricalUsd(

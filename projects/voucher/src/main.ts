@@ -27,7 +27,5 @@ const chainConfig = {
   chainName: voucher.chainName,
 };
 
-// todo: make the contract address lowercase throughout the codebase
-
 const voucherProcessor = new VoucherProcessor(voucher, apiClient, env.baseConfig, chainConfig);
 voucherProcessor.run();

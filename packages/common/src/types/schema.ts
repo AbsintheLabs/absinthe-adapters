@@ -6,11 +6,6 @@ const tokenSchema = z.object({
   decimals: z.number(),
 });
 
-const simpleTokenSchema = z.object({
-  symbol: z.string(),
-  decimals: z.number(),
-});
-
 const protocolConfigSchema = z.object({
   name: z.string(),
   contractAddress: z

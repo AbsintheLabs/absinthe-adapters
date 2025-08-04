@@ -53,6 +53,7 @@ interface ProcessValueChangeParams {
   tokenPrice: number;
   tokenDecimals: number;
   tokens: { [key: string]: { value: string; type: string } };
+  contractAddress?: string;
 }
 
 interface ProcessValueChangeBalancesParams {

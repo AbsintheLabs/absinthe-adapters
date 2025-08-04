@@ -163,130 +163,65 @@
     {
       "type": "uniswap-v3",
       "chainId": 43111,
-      "factoryAddress": "0xCdBCd51a5E8728E0AF4895ce5771b7d17fF71959",
-      "factoryDeployedAt": 507517,
-      "positionsAddress": "0xe43ca1Dee3F0fc1e2df73A0745674545F11A59F5",
+      "factoryAddress": "0x346239972d1fa486fc4a521031bc81bfb7d6e8a4",
+      "factoryDeployedAt": 1293598,
+      "positionsAddress": "0xefde184f4b5d79f7c3b7efc0388d829ff9af0050",
       "toBlock": 0,
       "pools": [
         {
-          "name": "weth-hemibtc",
-          "contractAddress": "0xd8a6e60661aa3e53bcd77cc0d20f462c2d9376b9",
-          "fromBlock": 1370183
+          "name": "USDC.e-ETH",
+          "contractAddress": "0x95a8b611e90de2b682267e2f00c8dff71909298a",
+          "fromBlock": 1293930
         },
         {
-          "name": "weth-hemibtc",
-          "contractAddress": "0x3f1228f4bd8de23dec4e1fcf81f16ed7fde5d1a8",
-          "fromBlock": 1335038
+          "name": "hemiBTC-ETH",
+          "contractAddress": "0xdc5ebab82ba76ccf5eab9c32aef228a1eb77a781",
+          "fromBlock": 1337235
         },
         {
-          "name": "weth-hemibtc",
-          "contractAddress": "0xe31377f1f1e200a24e8c2d5b059829635b8c34ea",
-          "fromBlock": 1328544
+          "name": "hemiBTC-ETH",
+          "contractAddress": "0x875c1efa41a868fbb4274c3e06afc14b597e8828",
+          "fromBlock": 1320586
         },
         {
-          "name": "weth-hemibtc-3000",
-          "contractAddress": "0x51109fa53e904c17daeb320d56166900e23707d3",
-          "fromBlock": 1271574
+          "name": "vUSD-USDC.e",
+          "contractAddress": "0x0bbd621fb38f6ddc16b0089ebbeade8db9a8d354",
+          "fromBlock": 1320524
         },
         {
-          "name": "weth-usdc.e-10000",
-          "contractAddress": "0xb46335caccccb3fdc2a3f40d9fd253f5f76919a0",
-          "fromBlock": 1171886
+          "name": "iBTC-enzoBTC",
+          "contractAddress": "0x12042d9f89839f76c483463bce06491b84c5d31b",
+          "fromBlock": 1442744
         },
         {
-          "name": "weth-usdc.e-500",
-          "contractAddress": "0x62a567bab98e96968e29b3815ea9b8c7bee56d6e",
-          "fromBlock": 1164129
+          "name": "iBTC-enzoBTC",
+          "contractAddress": "0xbd479b76401b298676a50e4d7777d54a8d199772",
+          "fromBlock": 1436613
         },
         {
-          "name": "weth-usdc.e-100",
-          "contractAddress": "0xc863ddd8ac2157f3a6fe85c9c383b98812cf1986",
-          "fromBlock": 1283712
+          "name": "iBTC-enzoBTC",
+          "contractAddress": "0xbc498f89ef73ebcea67d5904fa5ae4f27f73b9bf",
+          "fromBlock": 1425834
         },
         {
-          "name": "weth-usdc.e-3000",
-          "contractAddress": "0x9580d4519c9f27642e21085e763e761a74ef3735",
-          "fromBlock": 865336
+          "name": "iBTC-enzoBTC",
+          "contractAddress": "0xa8b529c7d9b19035e3ccad95f45481d4788b030e",
+          "fromBlock": 1442695
         },
         {
-          "name": "hemibtc-usdc.e",
-          "contractAddress": "0x57dac018e4c5f12dc917e4b4f77706f12fd1652b",
-          "fromBlock": 1458961
+          "name": "uBTC-enzoBTC",
+          "contractAddress": "0x0a32784236c9df65ea8aed01388cb1b03ec9d384",
+          "fromBlock": 1337460
         },
         {
-          "name": "vusd-usdc.e",
-          "contractAddress": "0xda44564df732decfd93ba8539803c5a8df241954",
-          "fromBlock": 1335361
+          "name": "hemiBTC-USDC.e",
+          "contractAddress": "0xda1a85765c54185a5fce1b2802ce01de43b7a692",
+          "fromBlock": 1718330
         },
         {
-          "name": "vusd-usdc.e-500",
-          "contractAddress": "0x3ecabba99bef583b58b8f0af6dd853cd9ed75ce3",
-          "fromBlock": 1271042
-        },
-        {
-          "name": "vusd-usdc.e-3000",
-          "contractAddress": "0x3e014a9ef5f45454d9bddb15741ce8a04e7d96f5",
-          "fromBlock": 1342356
-        },
-        {
-          "name": "vusd-usdc.e-10000",
-          "contractAddress": "0x8025ba536e4ed403acb87ec939d8b8b45527b3ce",
-          "fromBlock": 1413533
-        },
-        {
-          "name": "hemibtc-usdt-100",
-          "contractAddress": "0xd0c7fa41cd5079cf9c89f6cf85147b6499c05990",
-          "fromBlock": 1420959
-        },
-        {
-          "name": "hemibtc-usdt-500",
-          "contractAddress": "0x2450def5f751c569339d458384b80c2e96185404",
-          "fromBlock": 1630644
-        },
-        {
-          "name": "hemibtc-usdt-3000",
-          "contractAddress": "0x0c07240c009469cbf4e393484f692064dfef15ed",
-          "fromBlock": 1518680
-        },
-        {
-          "name": "usdc.e-usdt-3000",
-          "contractAddress": "0xc36a310bd93e2927452de563faaa89a86822a21f",
-          "fromBlock": 1384088
-        },
-        {
-          "name": "usdc.e-usdt-500",
-          "contractAddress": "0x6ab24c166b4e0a2f6edab3a65a7c2d9cd6dc7a06",
-          "fromBlock": 1325792
-        },
-        {
-          "name": "usdc.e-usdt-100",
-          "contractAddress": "0x94504f06f31bf4224eba82c58b280400b85e6df3",
-          "fromBlock": 1341456
-        },
-        {
-          "name": "msusd-vusd-500",
-          "contractAddress": "0x9a0943b78004530557dc3f4aabcc4a67ebc0fbfb",
-          "fromBlock": 1336788
-        },
-        {
-          "name": "weth-mseth-500",
-          "contractAddress": "0x805ac209d1f84fbc11dcdd3956040b1a1a2d4b44",
-          "fromBlock": 1332745
-        },
-        {
-          "name": "hemibtc-usdc.e-10000",
-          "contractAddress": "0x92787e904d925662272f3776b8a7f0b8f92f9bb5",
-          "fromBlock": 1375049
-        },
-        {
-          "name": "hemibtc-usdc.e-3000",
-          "contractAddress": "0xf5819f1b4db39f78c2ca1758a89c70cbbafe3bd8",
-          "fromBlock": 1435746
-        },
-        {
-          "name": "hemibtc-usdc.e-500",
-          "contractAddress": "0x343d7f2ec94d56f74a78a4a20e6de892785cc2bc",
-          "fromBlock": 1421793
+          "name": "USDC.e-USDT",
+          "contractAddress": "0x40bd2362b7469252c003215a0b96b6c9d4e37381",
+          "fromBlock": 2109671
         }
       ]
     }

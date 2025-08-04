@@ -5,7 +5,7 @@ import {
   MULTICALL_PAGE_SIZE,
   WHITELIST_TOKENS,
   WHITELIST_TOKENS_WITH_COINGECKO_ID,
-  MULTICALL_ADDRESS_BASE,
+  MULTICALL_ADDRESS,
 } from '@absinthe/common';
 import * as poolAbi from '../abi/pool';
 import { Logger } from '@subsquid/logger';
@@ -128,7 +128,7 @@ export async function getOptimizedTokenPrices(
   const needPool = isTok0WL || isTok1WL; // we’ll always hit this in “both WL” too
   if (needPool) {
     try {
-      const multicall = new Multicall(ctx, MULTICALL_ADDRESS_BASE);
+      const multicall = new Multicall(ctx, MULTICALL_ADDRESS);
       const res = await multicall.tryAggregate(
         poolAbi.functions.slot0,
         poolId,
