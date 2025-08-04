@@ -7,12 +7,7 @@
     "build": "tsc -p .",
     "start": "node --env-file=../../.env lib/main.js",
     "dev": "pnpm --filter @absinthe/common build && pnpm build && node --env-file=../../.env lib/main.js",
-    "migration:clean": "npx rimraf ./db/migrations",
-    "migration:generate": "squid-typeorm-migration-generate",
-    "migration:apply": "squid-typeorm-migration apply",
-    "typegen": "squid-evm-typegen ./src/abi/ abi/*.json",
-    "codegen": "squid-typeorm-codegen",
-    "migration": "pnpm build && pnpm migration:clean && pnpm migration:generate && pnpm migration:apply"
+    "typegen": "squid-evm-typegen ./src/abi/ abi/*.json"
   },
   "dependencies": {
     "@absinthe/common": "workspace:*"

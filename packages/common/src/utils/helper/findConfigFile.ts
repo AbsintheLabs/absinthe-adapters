@@ -1,7 +1,6 @@
 import fs from 'fs';
 import path from 'path';
 
-// Helper function to find the config file
 export function findConfigFile(fileName: string): string {
   const possibleLocations = [
     fileName,

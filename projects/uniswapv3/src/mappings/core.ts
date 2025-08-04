@@ -61,21 +61,12 @@ export async function processPairs(
       );
       logger.info(`✅ Swap event processed in ${Date.now() - swapStartTime}ms`);
     }
-    // if (data.type === 'Initialize') {
-    //   await processInitializeData(ctx, block, data, positionStorageService);
-    // }
   }
 
   logger.info(
     `🎯 processPairs completed for block #${block.header.height} in ${Date.now() - startTime}ms`,
   );
 }
-
-//todo: research
-// await Promise.all([
-//   updatePoolFeeVars({ ...ctx, block: last(blocks).header }, ctx.entities.values(Pool)),
-//   updateTickFeeVars({ ...ctx, block: last(blocks).header }, ctx.entities.values(Tick)),
-// ]);
 
 async function processItems(ctx: ContextWithEntityManager, block: BlockData) {
   const startTime = Date.now();
@@ -393,63 +384,3 @@ function processSwap(log: EvmLog, transaction: any): SwapData {
     throw error;
   }
 }
-
-//todo: read this
-// export async function handleFlash(ctx: LogHandlerContext<Store>): Promise<void> {
-//   // update fee growth
-//   let pool = await ctx.store.get(Pool, ctx.evmLog.address).then(assertNotNull);
-//   let poolContract = new poolAbi.Contract(ctx, ctx.evmLog.address);
-//   let feeGrowthGlobal0X128 = await poolContract.feeGrowthGlobal0X128();
-//   let feeGrowthGlobal1X128 = await poolContract.feeGrowthGlobal1X128();
-//   pool.feeGrowthGlobal0X128 = feeGrowthGlobal0X128;
-//   pool.feeGrowthGlobal1X128 = feeGrowthGlobal1X128;
-//   await ctx.store.save(pool);
-// }
-
-//todo: read this
-// async function updateTickFeeVars(ctx: BlockHandlerContext<Store>, ticks: Tick[]): Promise<void> {
-//   // not all ticks are initialized so obtaining null is expected behavior
-//   let multicall = new Multicall(ctx, MULTICALL_ADDRESS);
-
-//   const tickResult = await multicall.aggregate(
-//     poolAbi.functions.ticks,
-//     ticks.map<[string, { tick: bigint }]>((t) => {
-//       return [
-//         t.poolId,
-//         {
-//           tick: t.tickIdx,
-//         },
-//       ];
-//     }),
-//     MULTICALL_PAGE_SIZE,
-//   );
-
-//   for (let i = 0; i < ticks.length; i++) {
-//     ticks[i].feeGrowthOutside0X128 = tickResult[i].feeGrowthOutside0X128;
-//     ticks[i].feeGrowthOutside1X128 = tickResult[i].feeGrowthOutside1X128;
-//   }
-// }
-
-// //todo: read this
-// async function updatePoolFeeVars(ctx: BlockHandlerContext<Store>, pools: Pool[]): Promise<void> {
-//   let multicall = new Multicall(ctx, MULTICALL_ADDRESS);
-
-//   const calls: [string, {}][] = pools.map((p) => {
-//     return [p.id, {}];
-//   });
-//   let fee0 = await multicall.aggregate(
-//     poolAbi.functions.feeGrowthGlobal0X128,
-//     calls,
-//     MULTICALL_PAGE_SIZE,
-//   );
-//   let fee1 = await multicall.aggregate(
-//     poolAbi.functions.feeGrowthGlobal1X128,
-//     calls,
-//     MULTICALL_PAGE_SIZE,
-//   );
-
-//   for (let i = 0; i < pools.length; i++) {
-//     pools[i].feeGrowthGlobal0X128 = fee0[i];
-//     pools[i].feeGrowthGlobal1X128 = fee1[i];
-//   }
-// }
