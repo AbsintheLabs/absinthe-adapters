@@ -9,7 +9,7 @@ const env = validateEnv();
 const apiClient = new AbsintheApiClient({
   baseUrl: env.baseConfig.absintheApiUrl,
   apiKey: env.baseConfig.absintheApiKey,
-  minTime: 90, // todo: remove this, it's temporary for testing
+  minTime: 90,
 });
 
 const printrBondingCurveProtocol = env.bondingCurveProtocols.find((bondingCurveProtocol) => {

@@ -9,7 +9,6 @@ const apiClient = new AbsintheApiClient({
   minTime: 90, // warn: remove this, it's temporary for testing
 });
 
-//todo: fix this - array
 const uniswapV3DexProtocol = env.univ3Protocols[0];
 if (!uniswapV3DexProtocol) {
   throw new Error('Uniswap V3 protocol not found');

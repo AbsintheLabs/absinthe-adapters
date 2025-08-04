@@ -67,7 +67,7 @@ export class PositionStorageService {
       const coingeckoPrice = await fetchHistoricalUsd(
         'ethereum',
         Date.now(),
-        process.env.COINGECKO_API_KEY || '', //todo: add this
+        process.env.COINGECKO_API_KEY || '',
       );
       if (coingeckoPrice > 0) {
         await this.storeEthUsdPrice(coingeckoPrice);

@@ -9,6 +9,7 @@ import {
   Transaction as _Transaction,
 } from '@subsquid/evm-processor';
 import { BondingCurveProtocol, validateEnv } from '@absinthe/common';
+import { FUNCTION_SELECTOR } from './utils/consts';
 
 const env = validateEnv();
 
@@ -23,19 +24,16 @@ if (!demosProtocol) {
 const contractAddresses = demosProtocol.contractAddress;
 const earliestFromBlock = demosProtocol.fromBlock;
 
-//todo: add this in the config file
-const functionSelector = '0xa4760a9e';
-
 export const processor = new EvmBatchProcessor()
   .setRpcEndpoint(demosProtocol.rpcUrl)
-  // .setGateway(vusdBridgeProtocol.gatewayUrl)
+  .setGateway('https://v2.archive.subsquid.io/network/hemi-mainnet')
   .setBlockRange({
     from: earliestFromBlock,
     ...(demosProtocol.toBlock !== 0 ? { to: Number(demosProtocol.toBlock) } : {}),
   })
   .setFinalityConfirmation(75)
   .addTransaction({
-    sighash: [functionSelector],
+    sighash: [FUNCTION_SELECTOR],
     to: [contractAddresses],
   })
   .setFields({

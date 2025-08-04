@@ -21,6 +21,7 @@ export class VoucherProcessor {
   private readonly apiClient: AbsintheApiClient;
   private readonly env: ValidatedEnvBase;
   private readonly chainConfig: Chain;
+  private readonly contractAddress: string;
 
   constructor(
     bondingCurveProtocol: ValidatedBondingCurveProtocolConfig,
@@ -29,6 +30,7 @@ export class VoucherProcessor {
     chainConfig: Chain,
   ) {
     this.bondingCurveProtocol = bondingCurveProtocol;
+    this.contractAddress = bondingCurveProtocol.contractAddress.toLowerCase();
     this.schemaName = this.generateSchemaName();
     this.apiClient = apiClient;
     this.env = env;
@@ -71,8 +73,7 @@ export class VoucherProcessor {
   private async initializeProtocolStates(ctx: any): Promise<Map<string, ProtocolStateVoucher>> {
     const protocolStates = new Map<string, ProtocolStateVoucher>();
 
-    const contractAddress = this.bondingCurveProtocol.contractAddress;
-    protocolStates.set(contractAddress, {
+    protocolStates.set(this.contractAddress, {
       transactions: [],
     });
 
@@ -82,19 +83,17 @@ export class VoucherProcessor {
   private async processBlock(batchContext: BatchContext): Promise<void> {
     const { ctx, block, protocolStates } = batchContext;
 
-    const contractAddress = this.bondingCurveProtocol.contractAddress;
-    const protocolState = protocolStates.get(contractAddress)!;
+    const protocolState = protocolStates.get(this.contractAddress)!;
 
-    await this.processLogsForProtocol(ctx, block, contractAddress, protocolState);
+    await this.processLogsForProtocol(ctx, block, protocolState);
   }
 
   private async processLogsForProtocol(
     ctx: any,
     block: any,
-    contractAddress: string,
     protocolState: ProtocolStateVoucher,
   ): Promise<void> {
-    const poolLogs = block.logs.filter((log: any) => log.address === contractAddress);
+    const poolLogs = block.logs.filter((log: any) => log.address === this.contractAddress);
     for (const log of poolLogs) {
       await this.processLog(ctx, block, log, protocolState);
     }
@@ -133,11 +132,7 @@ export class VoucherProcessor {
     }
     const gasFeeUsd = displayGasFee * ethPriceUsd;
 
-    const voucherContract = new erc20Abi.Contract(
-      ctx,
-      block.header,
-      this.bondingCurveProtocol.contractAddress,
-    );
+    const voucherContract = new erc20Abi.Contract(ctx, block.header, this.contractAddress);
     const baseCurrencyDecimals = await voucherContract.decimals();
     //for now we assume the base currency is ETH
     const displayCost = Number(value) / 10 ** baseCurrencyDecimals;
@@ -146,7 +141,7 @@ export class VoucherProcessor {
       eventName: 'Transfer',
       tokens: {
         token: {
-          value: this.bondingCurveProtocol.contractAddress,
+          value: this.contractAddress,
           type: 'string',
         },
       },
@@ -171,8 +166,7 @@ export class VoucherProcessor {
     ctx: any,
     protocolStates: Map<string, ProtocolStateVoucher>,
   ): Promise<void> {
-    const contractAddress = this.bondingCurveProtocol.contractAddress;
-    const protocolState = protocolStates.get(contractAddress)!;
+    const protocolState = protocolStates.get(this.contractAddress)!;
     const transactions = toTransaction(
       protocolState.transactions,
       this.bondingCurveProtocol,

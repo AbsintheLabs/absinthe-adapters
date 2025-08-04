@@ -144,60 +144,26 @@ function processValueChange({
   tokenPrice,
   tokenDecimals,
   tokens,
+  contractAddress,
 }: ProcessValueChangeParams): HistoryWindow[] {
   const historyWindows: HistoryWindow[] = [];
 
-  logger.info('Starting processValueChange', {
-    from,
-    to,
-    amount: amount.toString(),
-    usdValue,
-    blockTimestamp: blockTimestamp.toString(),
-    blockHeight: blockHeight.toString(),
-    txHash,
-    windowDurationMs,
-    tokenPrice,
-    tokenDecimals,
-    tokensCount: tokens?.length || 0,
-    activeBalancesSize: activeBalances.size,
-  });
-
   function snapshotAndUpdate(userAddress: string, updatedAmount: bigint) {
-    logger.debug('Processing snapshotAndUpdate', {
-      userAddress,
-      updatedAmount: updatedAmount.toString(),
-      isNegative: updatedAmount < 0n,
-    });
-
-    // Get the user's balance for this token
     let activeUserBalance = activeBalances.get(userAddress);
     if (!activeUserBalance) {
-      logger.debug('Creating new user balance', { userAddress });
-      // Create new user balance if it doesn't exist
       activeUserBalance = {
         balance: 0n,
         updatedBlockTs: blockTimestamp,
         updatedBlockHeight: blockHeight,
       };
       activeBalances.set(userAddress, activeUserBalance);
-    } else {
-      logger.debug('Found existing user balance', {
-        userAddress,
-        currentBalance: activeUserBalance.balance.toString(),
-        lastUpdatedTs: activeUserBalance.updatedBlockTs.toString(),
-        lastUpdatedBlock: activeUserBalance.updatedBlockHeight.toString(),
-      });
     }
-
-    // Create history window if there was a previous balance
     if (activeUserBalance.balance > 0n) {
-      logger.debug('Creating history window for existing balance', {
-        userAddress,
-        balanceBefore: activeUserBalance.balance.toString(),
-        balanceAfter: (activeUserBalance.balance + updatedAmount).toString(),
-      });
-
-      const balanceBefore = pricePosition(tokenPrice, activeUserBalance.balance, tokenDecimals);
+      const balanceBeforeInUSD = pricePosition(
+        tokenPrice,
+        activeUserBalance.balance,
+        tokenDecimals,
+      );
 
       const historyWindow = {
         userAddress: userAddress,
@@ -211,75 +177,33 @@ function processValueChange({
         windowDurationMs: windowDurationMs,
         tokenPrice: tokenPrice,
         tokenDecimals: tokenDecimals,
-        valueUsd: balanceBefore,
+        valueUsd: balanceBeforeInUSD,
         balanceBefore: activeUserBalance.balance.toString(),
         balanceAfter: (activeUserBalance.balance + updatedAmount).toString(),
         currency: Currency.USD,
         tokens: tokens,
       };
 
-      logger.debug('Created history window', {
-        userAddress,
-        balanceBefore: historyWindow.balanceBefore,
-        balanceAfter: historyWindow.balanceAfter,
-        valueUsd: historyWindow.valueUsd,
-        startTs: historyWindow.startTs.toString(),
-        endTs: historyWindow.endTs.toString(),
-      });
-
       historyWindows.push(historyWindow);
-    } else {
-      logger.debug('Skipping history window creation - no previous balance', {
-        userAddress,
-        currentBalance: activeUserBalance.balance.toString(),
-      });
     }
 
-    // Update the balance
-    const oldBalance = activeUserBalance.balance;
     activeUserBalance.balance += updatedAmount;
     activeUserBalance.updatedBlockTs = blockTimestamp;
     activeUserBalance.updatedBlockHeight = blockHeight;
-
-    logger.debug('Updated user balance', {
-      userAddress,
-      oldBalance: oldBalance.toString(),
-      newBalance: activeUserBalance.balance.toString(),
-      change: updatedAmount.toString(),
-      updatedBlockTs: activeUserBalance.updatedBlockTs.toString(),
-      updatedBlockHeight: activeUserBalance.updatedBlockHeight.toString(),
-    });
   }
 
   function processAddress(address: string, amount: bigint) {
-    logger.debug('Processing address', {
-      address,
-      amount: amount.toString(),
-      isZeroAddress: address === ZERO_ADDRESS,
-      isValidAddress: address && address !== ZERO_ADDRESS,
-    });
-
-    if (address && address !== ZERO_ADDRESS) {
+    if (
+      address &&
+      address !== ZERO_ADDRESS &&
+      (!contractAddress || address.toLowerCase() !== contractAddress.toLowerCase())
+    ) {
       snapshotAndUpdate(address, amount);
-    } else {
-      logger.debug('Skipping address processing', {
-        address,
-        reason: !address ? 'null/undefined address' : 'zero address',
-      });
     }
   }
 
-  logger.info('Processing from address', { from, amount: (-amount).toString() });
   processAddress(from, BigInt(-amount)); // from address loses amount
-
-  logger.info('Processing to address', { to, amount: amount.toString() });
   processAddress(to, amount); // to address gains amount
-
-  logger.info('Completed processValueChange', {
-    historyWindowsCreated: historyWindows.length,
-    finalActiveBalancesSize: activeBalances.size,
-    txHash,
-  });
 
   return historyWindows;
 }
@@ -302,18 +226,14 @@ function processValueChangeBalances({
   const historyWindows: HistoryWindow[] = [];
 
   function snapshotAndUpdate(userAddress: string, updatedAmount: bigint) {
-    // Get the token balances map for this token
     let tokenBalances = activeBalances.get(tokenAddress);
     if (!tokenBalances) {
-      // Create new token balances map if it doesn't exist
       tokenBalances = new Map();
       activeBalances.set(tokenAddress, tokenBalances);
     }
 
-    // Get the user's balance for this token
     let activeUserBalance = tokenBalances.get(userAddress);
     if (!activeUserBalance) {
-      // Create new user balance if it doesn't exist
       activeUserBalance = {
         balance: 0n,
         updatedBlockTs: blockTimestamp,
@@ -322,9 +242,7 @@ function processValueChangeBalances({
       tokenBalances.set(userAddress, activeUserBalance);
     }
 
-    // Create history window if there was a previous balance OR if it's the first time
     if (activeUserBalance.balance > 0n) {
-      // Existing balance - create history window from previous balance to current
       const balanceBeforeInUSD = pricePosition(
         tokenPrice,
         activeUserBalance.balance,
@@ -349,8 +267,6 @@ function processValueChangeBalances({
         tokens: tokens,
       });
     } else if (updatedAmount > 0n) {
-      // First time getting a balance - create history window with same start/end
-      const balanceAfterInUSD = pricePosition(tokenPrice, updatedAmount, tokenDecimals);
       historyWindows.push({
         userAddress: userAddress,
         deltaAmount: usdValue,
@@ -363,20 +279,13 @@ function processValueChangeBalances({
         windowDurationMs: windowDurationMs,
         tokenPrice: tokenPrice,
         tokenDecimals: tokenDecimals,
-        valueUsd: balanceAfterInUSD,
+        valueUsd: 0,
         balanceBefore: '0', // Previous balance was 0
         balanceAfter: updatedAmount.toString(),
         currency: Currency.USD,
         tokens: tokens,
       });
-    } else {
-      console.log('Skipping history window creation - no previous balance', {
-        userAddress,
-        currentBalance: activeUserBalance.balance.toString(),
-      });
     }
-
-    // Update the balance
     activeUserBalance.balance += updatedAmount;
     activeUserBalance.updatedBlockTs = blockTimestamp;
     activeUserBalance.updatedBlockHeight = blockHeight;
@@ -387,7 +296,7 @@ function processValueChangeBalances({
       snapshotAndUpdate(address, amount);
     }
   }
-
+  //todo: ensure consistency of from and to balances
   processAddress(from, amount); // from address loses amount
   processAddress(to, amount); // to address gains amount
   return historyWindows;
@@ -459,7 +368,6 @@ async function fetchHistoricalUsd(
     });
 
     if (!res.ok) {
-      // console.warn(`CoinGecko API error for ${id}: ${res.status} ${res.statusText}`);
       return 0;
     }
 
@@ -473,34 +381,6 @@ async function fetchHistoricalUsd(
   } catch (error) {
     console.warn(`Failed to fetch historical USD price for ${id}:`, error);
     return 0;
-  }
-}
-
-export async function getCoingeckoIdFromAddress(
-  chainPlatform: string,
-  tokenAddress: string,
-  coingeckoApiKey: string,
-): Promise<string | null> {
-  try {
-    const url = `https://pro-api.coingecko.com/api/v3/coins/${chainPlatform}/contract/${tokenAddress}`;
-
-    const response = await fetch(url, {
-      headers: { accept: 'application/json', 'x-cg-pro-api-key': coingeckoApiKey },
-    });
-
-    if (!response.ok) {
-      if (response.status === 404) {
-        console.warn(`Token ${tokenAddress} not found in CoinGecko`);
-        return null;
-      }
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    return data.id || null;
-  } catch (error) {
-    console.warn(`Failed to get CoinGecko ID for token ${tokenAddress}:`, error);
-    return null;
   }
 }
 
