@@ -163,8 +163,8 @@ export class HemiStakingProcessor {
     const usdValue = pricePosition(tokenPrice, amount, tokenMetadata.decimals);
 
     const newHistoryWindows = processValueChangeBalances({
-      from: depositor,
-      to: ZERO_ADDRESS,
+      from: ZERO_ADDRESS,
+      to: depositor,
       amount: amount,
       usdValue,
       blockTimestamp: block.header.timestamp,
@@ -226,9 +226,9 @@ export class HemiStakingProcessor {
     const usdValue = pricePosition(tokenPrice, amount, tokenMetadata.decimals);
 
     const newHistoryWindows = processValueChangeBalances({
-      from: ZERO_ADDRESS,
-      to: withdrawer,
-      amount: BigInt(-amount),
+      from: withdrawer,
+      to: ZERO_ADDRESS,
+      amount: amount,
       usdValue,
       blockTimestamp: block.header.timestamp,
       blockHeight: block.header.height,

@@ -297,7 +297,7 @@ function processValueChangeBalances({
     }
   }
   //todo: ensure consistency of from and to balances
-  processAddress(from, amount); // from address loses amount
+  processAddress(from, BigInt(-amount)); // from address loses amount
   processAddress(to, amount); // to address gains amount
   return historyWindows;
 }
