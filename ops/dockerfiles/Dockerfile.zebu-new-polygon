@@ -29,10 +29,6 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/packages/common/node_modules ./packages/common/node_modules
 COPY --from=deps /app/projects/zebu-new/node_modules ./projects/zebu-new/node_modules
 
-# Generate TypeScript clients for common package ABIs
-WORKDIR /app/packages/common
-RUN pnpm squid-evm-typegen ./src/abi/ abi/*.json
-
 # Generate TypeScript clients for zebu-new project ABIs 
 WORKDIR /app/projects/zebu-new
 RUN pnpm squid-evm-typegen ./src/abi/ abi/*.json
