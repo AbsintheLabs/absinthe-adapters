@@ -181,7 +181,6 @@ export class ZebuNewProcessor {
     const zebuNewContract = new mainAbi.Contract(ctx, block.header, contractAddress);
     const currencyId = await zebuNewContract.getSale_CurrencyID(saleID);
     const currencyAddress = await zebuNewContract.getSale_Currency_Address(currencyId);
-    //todo: run the script and then try to find everything
     const erc20Contract = new erc20Abi.Contract(ctx, block.header, currencyAddress);
 
     let currencySymbol = 'UNKNOWN';

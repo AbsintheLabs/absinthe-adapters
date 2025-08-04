@@ -13,8 +13,6 @@ import { processor } from './processor';
 import { BatchContext, ProtocolState } from '@absinthe/common';
 import * as vusdMintAbi from './abi/mint';
 import { fetchHistoricalUsd, toTransaction } from '@absinthe/common';
-
-//todo: storage in database
 export class VusdMintProcessor {
   private readonly bondingCurveProtocol: ValidatedBondingCurveProtocolConfig;
   private readonly schemaName: string;

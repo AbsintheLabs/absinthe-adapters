@@ -15,7 +15,6 @@ import * as mainAbi from './abi/main';
 import { fetchHistoricalUsd, toTransaction } from '@absinthe/common';
 import { ProtocolStateZebuLegacy } from './utils/types';
 
-//todo: storage in database
 export class ZebuLegacyProcessor {
   private readonly zebuNewProtocol: ZebuClientConfigWithChain[];
   private readonly schemaName: string;

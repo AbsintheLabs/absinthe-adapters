@@ -10,7 +10,7 @@ import {
   Chain,
   Currency,
   HistoryWindow,
-  MULTICALL_ADDRESS_HEMI,
+  MULTICALL_ADDRESS,
   TimeWindowTrigger,
   toTimeWeightedBalance,
   toTransaction,
@@ -59,7 +59,7 @@ export class UniswapV3Processor {
     this.schemaName = this.generateSchemaName();
     this.factoryAddress = uniswapV3DexProtocol.factoryAddress;
     this.positionsAddress = uniswapV3DexProtocol.positionsAddress;
-    this.multicallAddress = MULTICALL_ADDRESS_HEMI;
+    this.multicallAddress = MULTICALL_ADDRESS;
     this.positionStorageService = new PositionStorageService();
     this.positionTracker = new PositionTracker(this.positionStorageService, this.refreshWindow);
   }

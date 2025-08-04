@@ -530,6 +530,12 @@ export class UniswapV2Processor {
             currentTs,
           );
 
+          const lpTokenSwapUsdValue = pricePosition(
+            lpTokenPrice,
+            data.balance,
+            protocolState.config.lpToken.decimals,
+          );
+
           protocolState.balanceWindows.push({
             userAddress: userAddress,
             deltaAmount: 0,
@@ -545,7 +551,7 @@ export class UniswapV2Processor {
             balanceAfter: data.balance.toString(),
             txHash: null,
             currency: Currency.USD,
-            valueUsd: 0,
+            valueUsd: lpTokenSwapUsdValue,
             tokens: {
               token0Decimals: {
                 value: protocolState.config.token0.decimals.toString(),

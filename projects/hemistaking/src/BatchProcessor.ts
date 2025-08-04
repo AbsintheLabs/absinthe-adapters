@@ -358,7 +358,7 @@ export class HemiStakingProcessor {
       this.stakingProtocol,
       this.env,
       this.chainConfig,
-    ).filter((e: TimeWeightedBalanceEvent) => e.startUnixTimestampMs !== e.endUnixTimestampMs);
+    );
     await this.apiClient.send(balances);
 
     // Save to database
