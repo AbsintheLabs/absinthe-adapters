@@ -24,7 +24,5 @@ const chainConfig = {
   chainName: demosProtocol.chainName,
 };
 
-// todo: make the contract address lowercase throughout the codebase
-
 const demosProcessor = new DemosProcessor(demosProtocol, apiClient, env.baseConfig, chainConfig);
 demosProcessor.run();

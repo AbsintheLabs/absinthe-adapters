@@ -23,8 +23,6 @@ const chainConfig = {
   chainName: hemiStakingProtocol.chainName,
 };
 
-// todo: make the contract address lowercase throughout the codebase
-
 const WINDOW_DURATION_MS = env.baseConfig.balanceFlushIntervalHours * HOURS_TO_MS;
 const hemiStakingProcessor = new HemiStakingProcessor(
   hemiStakingProtocol,
