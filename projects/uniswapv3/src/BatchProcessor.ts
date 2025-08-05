@@ -87,10 +87,10 @@ export class UniswapV3Processor {
 
     return protocolStates;
   }
-
-  //todo: add the prefetch step over here, and we can then also add the processPair function in this file only.
-  //todo: we can first process all the ctx.blocks in one go for the position Events, and we would store all the things in memory, we would not process the events in this step
-  //todo: then when we will do each block processing, we would just use this from the memory and then process the events, and clear these events from the memory.
+  //todo: efficiency
+  //add the prefetch step over here, and we can then also add the processPair function in this file only.
+  //we can first process all the ctx.blocks in one go for the position Events, and we would store all the things in memory, we would not process the events in this step
+  //then when we will do each block processing, we would just use this from the memory and then process the events, and clear these events from the memory.
   async run(): Promise<void> {
     processor.run(
       new TypeormDatabase({ supportHotBlocks: false, stateSchema: this.schemaName }),
@@ -288,7 +288,7 @@ export class UniswapV3Processor {
           endBlockNumber: block.height,
           txHash: null,
           currency: Currency.USD,
-          valueUsd: 0,
+          valueUsd: Number(oldLiquidityUSD),
           balanceBefore: oldLiquidityUSD.toString(),
           balanceAfter: oldLiquidityUSD.toString(),
           tokenPrice: 0,

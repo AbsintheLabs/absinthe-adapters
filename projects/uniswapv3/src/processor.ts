@@ -22,7 +22,7 @@ export const processor = new EvmBatchProcessor()
   .setRpcEndpoint({
     url: uniswapV3DexProtocol.rpcUrl,
   })
-  .setGateway('https://v2.archive.subsquid.io/network/hemi-mainnet')
+  .setGateway(uniswapV3DexProtocol.gatewayUrl)
   .setFinalityConfirmation(75)
   .addLog({
     address: [uniswapV3DexProtocol.factoryAddress],

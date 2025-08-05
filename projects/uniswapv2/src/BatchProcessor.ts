@@ -67,7 +67,7 @@ export class UniswapV2Processor {
 
   private generateSchemaName(): string {
     const uniquePoolCombination = this.protocols
-      .reduce((acc, protocol) => acc + protocol.contractAddress, '')
+      .reduce((acc, protocol) => acc + protocol.contractAddress.toLowerCase(), '')
       .concat(this.chainConfig.networkId.toString());
 
     const hash = createHash('md5').update(uniquePoolCombination).digest('hex').slice(0, 8);
@@ -116,13 +116,11 @@ export class UniswapV2Processor {
       let poolProcessState = await loadPoolProcessStateFromDb(ctx, contractAddress);
       let activeBalances = await loadActiveBalancesFromDb(ctx, contractAddress);
 
-      // Only initialize if not already in DB
       if (!poolConfig?.id) {
         logger.info(
           `Pool config not found in DB for ${contractAddress}, checking if we can initialize`,
         );
 
-        // Check if startBlock is in the current batch
         const initBlock = this.findInitializationBlock(ctx.blocks, protocol.fromBlock);
 
         if (initBlock) {
@@ -137,13 +135,10 @@ export class UniswapV2Processor {
           logger.warn(
             `Cannot initialize ${contractAddress} - startBlock ${protocol.fromBlock} not in current batch (${ctx.blocks[0].header.height}-${ctx.blocks[ctx.blocks.length - 1].header.height})`,
           );
-          // poolConfig remains undefined, will be skipped in processing
         }
       }
 
-      // Only initialize pool state if we have a valid config
       if (!poolState?.id && poolConfig?.id) {
-        // Use the same logic for finding the right block
         const initBlock = this.findInitializationBlock(ctx.blocks, protocol.fromBlock);
 
         if (initBlock) {
@@ -183,14 +178,11 @@ export class UniswapV2Processor {
   }
 
   private findInitializationBlock(blocks: any[], startBlock: number): any | null {
-    // Find the first block that's >= startBlock
     for (const block of blocks) {
       if (block.header.height >= startBlock) {
         return block;
       }
     }
-
-    // If no block is >= startBlock, return null (don't initialize)
     return null;
   }
 
@@ -198,7 +190,7 @@ export class UniswapV2Processor {
     const { ctx, block, protocolStates } = batchContext;
 
     for (const protocol of this.protocols) {
-      const contractAddress = protocol.contractAddress;
+      const contractAddress = protocol.contractAddress.toLowerCase();
       const protocolState = protocolStates.get(contractAddress)!;
 
       try {
@@ -209,7 +201,7 @@ export class UniswapV2Processor {
           protocolState.config.token1
         ) {
           await this.processLogsForProtocol(ctx, block, contractAddress, protocol, protocolState);
-          await this.processPeriodicBalanceFlush(ctx, block, contractAddress, protocolState);
+          await this.processPeriodicBalanceFlush(ctx, block, protocolState);
         } else {
           logger.warn(`Skipping ${contractAddress} - config not properly initialized`);
         }
@@ -491,7 +483,6 @@ export class UniswapV2Processor {
   private async processPeriodicBalanceFlush(
     ctx: any,
     block: any,
-    contractAddress: string,
     protocolState: ProtocolStateUniv2,
   ): Promise<void> {
     const currentTs = block.header.timestamp;
@@ -639,7 +630,7 @@ export class UniswapV2Processor {
     logger.info('Finalizing batch...');
 
     for (const protocol of this.protocols) {
-      const protocolState = protocolStates.get(protocol.contractAddress)!;
+      const protocolState = protocolStates.get(protocol.contractAddress.toLowerCase())!;
 
       // Skip if config is not properly initialized
       if (
@@ -649,7 +640,7 @@ export class UniswapV2Processor {
         !protocolState.config.lpToken
       ) {
         logger.warn(
-          `Skipping finalize for ${protocol.contractAddress} - config not properly initialized`,
+          `Skipping finalize for ${protocol.contractAddress.toLowerCase()} - config not properly initialized`,
         );
         continue;
       }
@@ -692,7 +683,7 @@ export class UniswapV2Processor {
 
       await ctx.store.upsert(
         new ActiveBalances({
-          id: `${protocol.contractAddress}-active-balances`,
+          id: `${protocol.contractAddress.toLowerCase()}-active-balances`,
           activeBalancesMap: mapToJson(protocolState.activeBalances),
         }),
       );

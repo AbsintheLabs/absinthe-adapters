@@ -32,7 +32,6 @@ export class ZebuLegacyProcessor {
     this.env = env;
   }
 
-  //not needed hence its like this
   private generateSchemaName(): string {
     const uniquePoolCombination = this.zebuNewProtocol[0].contractAddress.concat(
       this.zebuNewProtocol[0].chainId.toString(),
@@ -135,9 +134,7 @@ export class ZebuLegacyProcessor {
     }
     const gasFeeUsd = displayGasFee * ethPriceUsd;
 
-    // const voucherContract = new mainAbi.Contract(ctx, block.header, contractAddress);
     const displayCost = Number(_bidAmount) / 10 ** 18;
-    //note: using eth price usd to get usd value
     const usdValue = displayCost * ethPriceUsd;
     const transactionSchema = {
       eventType: MessageType.TRANSACTION,
