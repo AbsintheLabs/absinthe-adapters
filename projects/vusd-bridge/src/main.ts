@@ -5,7 +5,6 @@ const env = validateEnv();
 const apiClient = new AbsintheApiClient({
   baseUrl: env.baseConfig.absintheApiUrl,
   apiKey: env.baseConfig.absintheApiKey,
-  minTime: 90, // warn: remove this, it's temporary for testing
 });
 
 const vusdBridgeProtocol = env.stakingProtocols.find((stakingProtocol) => {
@@ -22,9 +21,6 @@ const chainConfig = {
   chainShortName: vusdBridgeProtocol.chainShortName,
   chainName: vusdBridgeProtocol.chainName,
 };
-
-// todo: make the contract address lowercase throughout the codebase
-// todo: revamp needed
 
 const WINDOW_DURATION_MS = env.baseConfig.balanceFlushIntervalHours * HOURS_TO_MS;
 const vusdBridgeProcessor = new VUSDBridgeProcessor(

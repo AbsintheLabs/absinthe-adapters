@@ -2,7 +2,7 @@ import {
   TokenPreference,
   PriceFeed,
   ProtocolType,
-  BondingCurveProtocol,
+  TxnTrackingProtocol,
   ChainName,
   ChainShortName,
   ChainType,
@@ -19,13 +19,8 @@ interface Token {
   symbol: string;
 }
 
-interface SimpleToken {
-  symbol: string;
-  decimals: number;
-}
-
 interface BaseProtocolConfig {
-  type: ProtocolType | BondingCurveProtocol | StakingProtocol;
+  type: ProtocolType | TxnTrackingProtocol | StakingProtocol;
   contractAddress: string;
   fromBlock: number;
   name?: string;
@@ -46,8 +41,8 @@ interface DexProtocolConfig {
   protocols: ProtocolConfig[];
 }
 
-interface BondingCurveProtocolConfig {
-  type: BondingCurveProtocol;
+interface TxnTrackingProtocolConfig {
+  type: TxnTrackingProtocol;
   name: string;
   contractAddress: string;
   factoryAddress?: string;
@@ -112,19 +107,19 @@ interface ZebuClientConfigWithChain extends ZebuClientConfig {
   gatewayUrl: GatewayUrl;
 }
 
-interface ValidatedDexProtocolConfig extends DexProtocolConfig, BaseProtocolConfigWithChain {}
-interface ValidatedBondingCurveProtocolConfig
-  extends BondingCurveProtocolConfig,
-    BaseProtocolConfigWithChain {}
+interface ValidatedDexProtocolConfig extends DexProtocolConfig, BaseProtocolConfigWithChain { }
+interface ValidatedTxnTrackingProtocolConfig
+  extends TxnTrackingProtocolConfig,
+  BaseProtocolConfigWithChain { }
 interface ValidatedStakingProtocolConfig
   extends StakingProtocolConfig,
-    BaseProtocolConfigWithChain {}
+  BaseProtocolConfigWithChain { }
 
 interface ZebuProtocolConfigWithChain extends ZebuProtocolConfig {
   clients: ZebuClientConfigWithChain[];
 }
 
-interface ValidatedUniv3ProtocolConfig extends Univ3ProtocolConfig, BaseProtocolConfigWithChain {}
+interface ValidatedUniv3ProtocolConfig extends Univ3ProtocolConfig, BaseProtocolConfigWithChain { }
 interface ValidatedZebuProtocolConfig {
   type: ProtocolType;
   name: string;
@@ -135,7 +130,7 @@ interface ValidatedZebuProtocolConfig {
 interface ValidatedEnv {
   baseConfig: ValidatedEnvBase;
   dexProtocols: ValidatedDexProtocolConfig[];
-  bondingCurveProtocols: ValidatedBondingCurveProtocolConfig[];
+  txnTrackingProtocols: ValidatedTxnTrackingProtocolConfig[];
   stakingProtocols: ValidatedStakingProtocolConfig[];
   univ3Protocols: ValidatedUniv3ProtocolConfig[];
   zebuProtocols: ValidatedZebuProtocolConfig[];
@@ -149,11 +144,11 @@ export {
   ProtocolConfig,
   BaseProtocolConfig,
   DexProtocolConfig,
-  BondingCurveProtocolConfig,
+  TxnTrackingProtocolConfig,
   StakingProtocolConfig,
   ValidatedEnv,
   ValidatedDexProtocolConfig,
-  ValidatedBondingCurveProtocolConfig,
+  ValidatedTxnTrackingProtocolConfig,
   ValidatedStakingProtocolConfig,
   ValidatedUniv3ProtocolConfig,
   Token,

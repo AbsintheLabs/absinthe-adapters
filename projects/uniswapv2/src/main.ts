@@ -5,7 +5,6 @@ const env = validateEnv();
 const apiClient = new AbsintheApiClient({
   baseUrl: env.baseConfig.absintheApiUrl,
   apiKey: env.baseConfig.absintheApiKey,
-  minTime: 90, // warn: remove this, it's temporary for testing
 });
 
 const uniswapV2DexProtocol = env.dexProtocols.find((dexProtocol) => {

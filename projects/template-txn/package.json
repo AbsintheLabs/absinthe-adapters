@@ -1,0 +1,19 @@
+{
+  "name": "@absinthe/template-txn",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc -p .",
+    "start": "node --env-file=../../.env lib/main.js",
+    "dev": "pnpm --filter @absinthe/common build && pnpm build && node --env-file=../../.env lib/main.js",
+    "typegen": "squid-evm-typegen ./src/abi/ abi/*.json"
+  },
+  "dependencies": {
+    "@absinthe/common": "workspace:*"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.10.0"
+}

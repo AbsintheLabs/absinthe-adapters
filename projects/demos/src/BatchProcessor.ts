@@ -3,7 +3,7 @@ import {
   Chain,
   Currency,
   MessageType,
-  ValidatedBondingCurveProtocolConfig,
+  ValidatedTxnTrackingProtocolConfig,
   ValidatedEnvBase,
 } from '@absinthe/common';
 
@@ -15,7 +15,7 @@ import { fetchHistoricalUsd, toTransaction } from '@absinthe/common';
 import { FUNCTION_SELECTOR } from './utils/consts';
 
 export class DemosProcessor {
-  private readonly bondingCurveProtocol: ValidatedBondingCurveProtocolConfig;
+  private readonly bondingCurveProtocol: ValidatedTxnTrackingProtocolConfig;
   private readonly schemaName: string;
   private readonly apiClient: AbsintheApiClient;
   private readonly env: ValidatedEnvBase;
@@ -23,7 +23,7 @@ export class DemosProcessor {
   private readonly contractAddress: string;
 
   constructor(
-    bondingCurveProtocol: ValidatedBondingCurveProtocolConfig,
+    bondingCurveProtocol: ValidatedTxnTrackingProtocolConfig,
     apiClient: AbsintheApiClient,
     env: ValidatedEnvBase,
     chainConfig: Chain,
