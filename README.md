@@ -10,8 +10,7 @@
 6. [Configuration & Setup](#configuration--setup)
 7. [API Integration](#api-integration)
 8. [Development Guide](#development-guide)
-9. [Contributing](#contributing)
-10.[Troubleshooting](#troubleshooting)
+9. [Contributing](#contributing) 10.[Troubleshooting](#troubleshooting)
 
 ---
 
@@ -105,7 +104,6 @@
 - **Events Monitored**: `Deposit`, `Withdraw`
 - **Features**: Time-weighted balance tracking, reward calculations
 - **Supported Chains**: Hemi (43111)
-
 
 ### 3. Protocols which only track transaction data
 
@@ -817,18 +815,21 @@ For quick setup, choose the appropriate pre-built template based on your protoco
 **When to use**: For protocols that require tracking user balances over time for yield calculations, staking rewards, or liquidity mining programs.
 
 **Best for**:
+
 - Staking protocols (deposits/withdrawals with yield tracking)
 - Liquidity mining programs
 - Time-based reward distribution systems
 - Any protocol where "balance × time" matters for rewards
 
 1. **Copy the template**:
+
    ```bash
    cd projects
    cp -r template-twb your-staking-protocol-name
    ```
 
 2. **Update package.json**:
+
    ```json
    {
      "name": "@absinthe/your-staking-protocol-name",
@@ -837,6 +838,7 @@ For quick setup, choose the appropriate pre-built template based on your protoco
    ```
 
 3. **Add your contract ABIs**:
+
    ```bash
    # Replace hemi.json with your actual staking contract ABIs
    # Ensure you have Deposit and Withdraw events (or equivalent)
@@ -844,12 +846,13 @@ For quick setup, choose the appropriate pre-built template based on your protoco
 
 4. **Update configuration**:
    Add to `abs_config.json`:
+
    ```json
    {
      "stakingProtocols": [
        {
          "type": "your-staking-protocol-name",
-         "name": "your-protocol-instance", 
+         "name": "your-protocol-instance",
          "contractAddress": "0x...",
          "chainId": 1,
          "fromBlock": 12345678,
@@ -861,21 +864,23 @@ For quick setup, choose the appropriate pre-built template based on your protoco
 
 5. **Configure supported tokens**:
    Update `src/utils/conts.ts` with your supported tokens:
+
    ```typescript
    const TOKEN_METADATA = [
      {
        address: '0x...', // Token contract address
-       decimals: 18,      // Token decimals
-       coingeckoId: 'token-name' // CoinGecko ID for price data
+       decimals: 18, // Token decimals
+       coingeckoId: 'token-name', // CoinGecko ID for price data
      },
      // ... more tokens
    ];
    ```
 
 6. **Generate types and run**:
+
    ```bash
    pnpm typegen    # Generate ABI types
-   pnpm codegen    # Generate TypeORM models  
+   pnpm codegen    # Generate TypeORM models
    pnpm migration  # Run database migrations
    pnpm dev        # Start development
    ```
@@ -891,18 +896,21 @@ For quick setup, choose the appropriate pre-built template based on your protoco
 **When to use**: For protocols that only need to track individual transactions without balance state.
 
 **Best for**:
+
 - DEX swap tracking
 - Bonding curve protocols
 - Auction platforms
 - Simple transaction logging
 
 1. **Copy the template**:
+
    ```bash
    cd projects
    cp -r template-txn your-protocol-name
    ```
 
 2. **Update package.json**:
+
    ```json
    {
      "name": "@absinthe/your-protocol-name",
@@ -911,18 +919,21 @@ For quick setup, choose the appropriate pre-built template based on your protoco
    ```
 
 3. **Add your contract ABIs**:
+
    ```bash
    # Replace mint.json with your actual contract ABIs
    ```
 
 4. **Update configuration**:
    Add to `abs_config.json`:
+
    ```json
    {
-     "txnTrackingProtocols": [  // or appropriate protocol type
+     "txnTrackingProtocols": [
+       // or appropriate protocol type
        {
          "type": "your-protocol-name",
-         "name": "your-protocol-instance", 
+         "name": "your-protocol-instance",
          "contractAddress": "0x...",
          "chainId": 1,
          "fromBlock": 12345678,
@@ -933,9 +944,10 @@ For quick setup, choose the appropriate pre-built template based on your protoco
    ```
 
 5. **Generate types and run**:
+
    ```bash
    pnpm typegen    # Generate ABI types
-   pnpm codegen    # Generate TypeORM models  
+   pnpm codegen    # Generate TypeORM models
    pnpm migration  # Run database migrations
    pnpm dev        # Start development
    ```
@@ -947,16 +959,16 @@ For quick setup, choose the appropriate pre-built template based on your protoco
 
 #### Template Comparison 📋
 
-| Feature | Template-TWB | Template-TXN |
-|---------|-------------|-------------|
-| **Use Case** | Time-weighted balance tracking | Simple transaction logging |
-| **Data Storage** | Complex state with balance snapshots | Simple transaction records |
-| **Time Windows** | ✅ Configurable intervals | ❌ No time-based processing |
-| **Balance Tracking** | ✅ Continuous user balances | ❌ Event-based only |
-| **Yield Calculations** | ✅ Supports yield/reward tracking | ❌ Not applicable |
-| **Complexity** | Higher (state management) | Lower (stateless processing) |
-| **Memory Usage** | Higher (active balances) | Lower (no persistent state) |
-| **Recovery** | ✅ Full state recovery | ✅ Position-based recovery |
+| Feature                | Template-TWB                         | Template-TXN                 |
+| ---------------------- | ------------------------------------ | ---------------------------- |
+| **Use Case**           | Time-weighted balance tracking       | Simple transaction logging   |
+| **Data Storage**       | Complex state with balance snapshots | Simple transaction records   |
+| **Time Windows**       | ✅ Configurable intervals            | ❌ No time-based processing  |
+| **Balance Tracking**   | ✅ Continuous user balances          | ❌ Event-based only          |
+| **Yield Calculations** | ✅ Supports yield/reward tracking    | ❌ Not applicable            |
+| **Complexity**         | Higher (state management)            | Lower (stateless processing) |
+| **Memory Usage**       | Higher (active balances)             | Lower (no persistent state)  |
+| **Recovery**           | ✅ Full state recovery               | ✅ Position-based recovery   |
 
 #### Option 2: Manual Setup (Advanced)
 
@@ -971,6 +983,7 @@ For complete control or complex protocols:
 #### Template Features 📦
 
 **Template-TWB includes**:
+
 - ✅ **Time-weighted balance tracking** with configurable windows
 - ✅ **State persistence** for crash recovery
 - ✅ **Multi-token support** with price integration
@@ -983,6 +996,7 @@ For complete control or complex protocols:
 - ✅ **Price fetching** with CoinGecko integration
 
 **Template-TXN includes**:
+
 - ✅ **Simple transaction tracking** for event-based protocols
 - ✅ **Complete file structure** with all required files
 - ✅ **Comprehensive comments** explaining every step
@@ -991,7 +1005,7 @@ For complete control or complex protocols:
 - ✅ **Error handling** and logging
 - ✅ **API integration** with Absinthe backend
 - ✅ **Price fetching** with CoinGecko integration
-- ✅ **Gas fee calculations** 
+- ✅ **Gas fee calculations**
 - ✅ **USD value calculations**
 
 #### Naming Conventions 📝
@@ -1040,7 +1054,7 @@ If you need help while contributing:
 
 # Troubleshooting
 
-## FAQ: Rate Limiting and Data Flow in `adapters-api` 
+## FAQ: Rate Limiting and Data Flow in `adapters-api`
 
 ### What happens to data that is dropped with a 429 (rate-limited) response?
 

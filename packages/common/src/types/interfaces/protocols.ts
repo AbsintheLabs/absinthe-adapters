@@ -107,19 +107,19 @@ interface ZebuClientConfigWithChain extends ZebuClientConfig {
   gatewayUrl: GatewayUrl;
 }
 
-interface ValidatedDexProtocolConfig extends DexProtocolConfig, BaseProtocolConfigWithChain { }
+interface ValidatedDexProtocolConfig extends DexProtocolConfig, BaseProtocolConfigWithChain {}
 interface ValidatedTxnTrackingProtocolConfig
   extends TxnTrackingProtocolConfig,
-  BaseProtocolConfigWithChain { }
+    BaseProtocolConfigWithChain {}
 interface ValidatedStakingProtocolConfig
   extends StakingProtocolConfig,
-  BaseProtocolConfigWithChain { }
+    BaseProtocolConfigWithChain {}
 
 interface ZebuProtocolConfigWithChain extends ZebuProtocolConfig {
   clients: ZebuClientConfigWithChain[];
 }
 
-interface ValidatedUniv3ProtocolConfig extends Univ3ProtocolConfig, BaseProtocolConfigWithChain { }
+interface ValidatedUniv3ProtocolConfig extends Univ3ProtocolConfig, BaseProtocolConfigWithChain {}
 interface ValidatedZebuProtocolConfig {
   type: ProtocolType;
   name: string;
