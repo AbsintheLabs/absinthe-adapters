@@ -320,6 +320,12 @@
           "contractAddress": "0xd7829F0EFC16086a91Cf211CFbb0E4Ef29D16BEE",
           "chainId": 8453,
           "fromBlock": 27296063
+        },
+        {
+          "name": "aavegotchi",
+          "contractAddress": "0x80320A0000C7A6a34086E2ACAD6915Ff57FfDA31",
+          "chainId": 8453,
+          "fromBlock": 33276452
         }
       ]
     }

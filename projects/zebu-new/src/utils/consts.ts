@@ -31,4 +31,19 @@ const currencies = [
   },
 ];
 
-export { currencies };
+const nullCurrencyAddresses = [
+  {
+    name: 'xyz-7',
+    contractAddress: '0xDD4d9ae148b7c821b8157828806c78BD0FeCE8C4',
+    chainId: 137,
+    fromBlock: 73490308,
+  },
+  {
+    name: 'bify',
+    contractAddress: '0xBEBE4BaF1f02FA150D42A1Be9eD1B4707c5BE49B',
+    chainId: 8453,
+    fromBlock: 33033160,
+  },
+];
+
+export { currencies, nullCurrencyAddresses };
