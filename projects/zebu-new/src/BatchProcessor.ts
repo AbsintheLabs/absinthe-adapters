@@ -17,7 +17,7 @@ import * as mainAbi from './abi/main';
 import * as erc20Abi from './abi/erc20';
 import { fetchHistoricalUsd, toTransaction } from '@absinthe/common';
 import { ZebuNewProtocolState } from './utils/types';
-import { currencies } from './utils/consts';
+import { currencies, nullCurrencyAddresses } from './utils/consts';
 
 export class ZebuNewProcessor {
   private readonly zebuNewProtocol: ZebuClientConfigWithChain[];
@@ -294,11 +294,47 @@ export class ZebuNewProcessor {
 
     let usdToCurrencyValue = 0;
     if (!currency) {
-      logger.warn('Currency not found in supported list, using 0 USD value', {
-        currencySymbol,
-        currencyAddress,
-        saleID: saleID.toString(),
-      });
+      const nullCurrency = nullCurrencyAddresses.find(
+        (nullCurr) =>
+          nullCurr.contractAddress.toLowerCase() === currencyAddress.toLowerCase() &&
+          nullCurr.chainId === this.chainId,
+      );
+
+      if (nullCurrency) {
+        logger.info('Null currency found, pricing as ETH', {
+          currencySymbol,
+          currencyAddress,
+          nullCurrencyName: nullCurrency.name,
+          saleID: saleID.toString(),
+        });
+
+        try {
+          usdToCurrencyValue = await fetchHistoricalUsd(
+            'ethereum',
+            block.header.timestamp,
+            this.env.coingeckoApiKey,
+          );
+
+          logger.info('Null currency priced as ETH successfully', {
+            currencyAddress,
+            ethPrice: usdToCurrencyValue,
+            timestamp: block.header.timestamp,
+          });
+        } catch (error) {
+          logger.warn('Failed to fetch ETH price for null currency, using 0', {
+            currencyAddress,
+            error: error,
+            timestamp: block.header.timestamp,
+          });
+          usdToCurrencyValue = 0;
+        }
+      } else {
+        logger.warn('Currency not found in supported list, using 0 USD value', {
+          currencySymbol,
+          currencyAddress,
+          saleID: saleID.toString(),
+        });
+      }
     } else {
       try {
         logger.info('Fetching currency price', {
