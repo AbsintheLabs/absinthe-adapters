@@ -1,4 +1,4 @@
-import { AbsintheApiClient, BondingCurveProtocol, validateEnv } from '@absinthe/common';
+import { AbsintheApiClient, TxnTrackingProtocol, validateEnv } from '@absinthe/common';
 import dotenv from 'dotenv';
 import { PrintrProcessor } from './BatchProcessor';
 
@@ -12,8 +12,8 @@ const apiClient = new AbsintheApiClient({
   minTime: 90,
 });
 
-const printrBondingCurveProtocol = env.bondingCurveProtocols.find((bondingCurveProtocol) => {
-  return bondingCurveProtocol.type === BondingCurveProtocol.PRINTR;
+const printrBondingCurveProtocol = env.txnTrackingProtocols.find((txnTrackingProtocol) => {
+  return txnTrackingProtocol.type === TxnTrackingProtocol.PRINTR;
 });
 
 if (!printrBondingCurveProtocol) {

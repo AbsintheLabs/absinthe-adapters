@@ -29,10 +29,6 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/packages/common/node_modules ./packages/common/node_modules
 COPY --from=deps /app/projects/vusd-mint/node_modules ./projects/vusd-mint/node_modules
 
-# Generate TypeScript clients for common package ABIs
-WORKDIR /app/packages/common
-RUN pnpm squid-evm-typegen ./src/abi/ abi/*.json
-
 # Generate TypeScript clients for vusd-mint project ABIs 
 WORKDIR /app/projects/vusd-mint
 RUN pnpm squid-evm-typegen ./src/abi/ abi/*.json

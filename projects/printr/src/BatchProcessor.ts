@@ -4,7 +4,7 @@ import {
   Currency,
   MessageType,
   ProtocolState,
-  ValidatedBondingCurveProtocolConfig,
+  ValidatedTxnTrackingProtocolConfig,
   ValidatedEnvBase,
   ZERO_ADDRESS,
 } from '@absinthe/common';
@@ -22,7 +22,7 @@ import * as poolAbi from './abi/pool';
 import { LIQUIDITY_FEE_OLD, WETH_BASE_ADDRESS } from './utils/consts';
 import { loadTokensFromDb, loadPoolsFromDb, saveTokensToDb, savePoolsToDb } from './utils/database';
 export class PrintrProcessor {
-  private readonly bondingCurveProtocol: ValidatedBondingCurveProtocolConfig;
+  private readonly bondingCurveProtocol: ValidatedTxnTrackingProtocolConfig;
   private readonly schemaName: string;
   private readonly apiClient: AbsintheApiClient;
   private readonly env: ValidatedEnvBase;
@@ -32,7 +32,7 @@ export class PrintrProcessor {
   private stateLoaded: boolean;
 
   constructor(
-    bondingCurveProtocol: ValidatedBondingCurveProtocolConfig,
+    bondingCurveProtocol: ValidatedTxnTrackingProtocolConfig,
     apiClient: AbsintheApiClient,
     env: ValidatedEnvBase,
     chainConfig: Chain,

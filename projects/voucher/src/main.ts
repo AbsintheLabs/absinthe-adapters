@@ -1,4 +1,4 @@
-import { AbsintheApiClient, validateEnv, BondingCurveProtocol } from '@absinthe/common';
+import { AbsintheApiClient, validateEnv, TxnTrackingProtocol } from '@absinthe/common';
 import { VoucherProcessor } from './BatchProcessor';
 import dotenv from 'dotenv';
 
@@ -9,11 +9,10 @@ const env = validateEnv();
 const apiClient = new AbsintheApiClient({
   baseUrl: env.baseConfig.absintheApiUrl,
   apiKey: env.baseConfig.absintheApiKey,
-  minTime: 90, // warn: remove this, it's temporary for testing
 });
 
-const voucher = env.bondingCurveProtocols.find((bondingCurveProtocol) => {
-  return bondingCurveProtocol.type === BondingCurveProtocol.VOUCHER;
+const voucher = env.txnTrackingProtocols.find((txnTrackingProtocol) => {
+  return txnTrackingProtocol.type === TxnTrackingProtocol.VOUCHER;
 });
 
 if (!voucher) {
