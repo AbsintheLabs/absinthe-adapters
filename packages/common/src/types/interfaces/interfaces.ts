@@ -40,7 +40,7 @@ interface BatchContext {
   protocolStates: Map<string, any>;
 }
 
-interface ProcessValueChangeParams {
+interface BaseProcessValueChangeParams {
   from: string;
   to: string;
   amount: bigint;
@@ -48,28 +48,19 @@ interface ProcessValueChangeParams {
   blockTimestamp: number;
   blockHeight: number;
   txHash: string;
-  activeBalances: any; // todo: remove any
+  activeBalances: any;
   windowDurationMs: number;
   tokenPrice: number;
   tokenDecimals: number;
   tokens: { [key: string]: { value: string; type: string } };
+}
+
+interface ProcessValueChangeParams extends BaseProcessValueChangeParams {
   contractAddress?: string;
 }
 
-interface ProcessValueChangeBalancesParams {
-  from: string;
-  to: string;
-  amount: bigint;
-  usdValue: number;
-  blockTimestamp: number;
-  blockHeight: number;
-  txHash: string;
-  activeBalances: any; // todo: remove any
-  windowDurationMs: number;
-  tokenPrice: number;
-  tokenDecimals: number;
+interface ProcessValueChangeBalancesParams extends BaseProcessValueChangeParams {
   tokenAddress: string;
-  tokens: { [key: string]: { value: string; type: string } };
 }
 
 interface Runner {
@@ -177,6 +168,7 @@ export {
   ValidatedEnvBase,
   ProtocolState,
   BatchContext,
+  BaseProcessValueChangeParams,
   ProcessValueChangeParams,
   ProcessValueChangeBalancesParams,
 };

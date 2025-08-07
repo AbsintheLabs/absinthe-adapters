@@ -1,4 +1,4 @@
-import { AbsintheApiClient, validateEnv, BondingCurveProtocol } from '@absinthe/common';
+import { AbsintheApiClient, validateEnv, TxnTrackingProtocol } from '@absinthe/common';
 import { DemosProcessor } from './BatchProcessor';
 
 const env = validateEnv();
@@ -6,11 +6,10 @@ const env = validateEnv();
 const apiClient = new AbsintheApiClient({
   baseUrl: env.baseConfig.absintheApiUrl,
   apiKey: env.baseConfig.absintheApiKey,
-  minTime: 90, // warn: remove this, it's temporary for testing
 });
 
-const demosProtocol = env.bondingCurveProtocols.find((bondingCurveProtocol) => {
-  return bondingCurveProtocol.type === BondingCurveProtocol.DEMOS;
+const demosProtocol = env.txnTrackingProtocols.find((txnTrackingProtocol) => {
+  return txnTrackingProtocol.type === TxnTrackingProtocol.DEMOS;
 });
 
 if (!demosProtocol) {
@@ -23,8 +22,6 @@ const chainConfig = {
   chainShortName: demosProtocol.chainShortName,
   chainName: demosProtocol.chainName,
 };
-
-// todo: make the contract address lowercase throughout the codebase
 
 const demosProcessor = new DemosProcessor(demosProtocol, apiClient, env.baseConfig, chainConfig);
 demosProcessor.run();

@@ -1,10 +1,12 @@
 import {
   AbsintheApiClient,
   Currency,
+  logger,
   MessageType,
   ProtocolType,
   ValidatedEnvBase,
   ZebuClientConfigWithChain,
+  ZERO_ADDRESS,
 } from '@absinthe/common';
 
 import { createHash } from 'crypto';
@@ -12,6 +14,7 @@ import { TypeormDatabase } from '@subsquid/typeorm-store';
 import { createProcessor } from './processor';
 import { BatchContext } from '@absinthe/common';
 import * as mainAbi from './abi/main';
+import * as aavegotchiAbi from './abi/aavegotchi';
 import { fetchHistoricalUsd, toTransaction } from '@absinthe/common';
 import { ProtocolStateZebuLegacy } from './utils/types';
 
@@ -32,7 +35,6 @@ export class ZebuLegacyProcessor {
     this.env = env;
   }
 
-  //not needed hence its like this
   private generateSchemaName(): string {
     const uniquePoolCombination = this.zebuNewProtocol[0].contractAddress.concat(
       this.zebuNewProtocol[0].chainId.toString(),
@@ -110,6 +112,12 @@ export class ZebuLegacyProcessor {
     if (log.topics[0] === mainAbi.events.Auction_BidPlaced.topic) {
       await this.processTransferEvent(ctx, block, log, protocolState, contractAddress);
     }
+    if (log.topics[0] === aavegotchiAbi.events.Auction_BidPlaced.topic) {
+      await this.processTransferEvent(ctx, block, log, protocolState, contractAddress);
+    }
+    if (log.topics[0] === aavegotchiAbi.events.Auction_ItemClaimed.topic) {
+      await this.processClaimEvent(ctx, block, log, protocolState, contractAddress);
+    }
   }
 
   private async processTransferEvent(
@@ -123,29 +131,48 @@ export class ZebuLegacyProcessor {
     const { gasPrice, gasUsed } = log.transaction;
     const gasFee = Number(gasUsed) * Number(gasPrice);
     const displayGasFee = gasFee / 10 ** 18;
-    let ethPriceUsd = 0;
+
+    const ethPriceUsd = await fetchHistoricalUsd(
+      'ethereum',
+      block.header.timestamp,
+      this.env.coingeckoApiKey,
+    );
+    let price = 0;
+
     try {
-      ethPriceUsd = await fetchHistoricalUsd(
-        'ethereum',
-        block.header.timestamp,
-        this.env.coingeckoApiKey,
-      );
+      if (
+        contractAddress.toLowerCase() === '0x80320A0000C7A6a34086E2ACAD6915Ff57FfDA31'.toLowerCase()
+      ) {
+        price = await fetchHistoricalUsd(
+          'aavegotchi',
+          block.header.timestamp,
+          this.env.coingeckoApiKey,
+        );
+      } else {
+        price = await fetchHistoricalUsd(
+          'ethereum',
+          block.header.timestamp,
+          this.env.coingeckoApiKey,
+        );
+      }
     } catch (error) {
       console.warn('Could not fetch historical USD price, using 0:', error);
     }
     const gasFeeUsd = displayGasFee * ethPriceUsd;
 
-    // const voucherContract = new mainAbi.Contract(ctx, block.header, contractAddress);
     const displayCost = Number(_bidAmount) / 10 ** 18;
-    //note: using eth price usd to get usd value
-    const usdValue = displayCost * ethPriceUsd;
+    const usdValue = displayCost * price;
     const transactionSchema = {
       eventType: MessageType.TRANSACTION,
       eventName: 'Auction_BidPlaced',
       tokens: {
-        saleId: {
+        auctionId: {
           value: _auctionID.toString(),
           type: 'string',
+        },
+        winner: {
+          value: 'false',
+          type: 'boolean',
         },
       },
       rawAmount: _bidAmount.toString(),
@@ -159,6 +186,62 @@ export class ZebuLegacyProcessor {
       currency: Currency.USD,
       valueUsd: usdValue,
       gasUsed: Number(gasUsed),
+      gasFeeUsd: gasFeeUsd,
+    };
+
+    protocolState.transactions.push(transactionSchema);
+  }
+
+  private async processClaimEvent(
+    ctx: any,
+    block: any,
+    log: any,
+    protocolState: ProtocolStateZebuLegacy,
+    contractAddress: string,
+  ): Promise<void> {
+    const { _auctionID } = aavegotchiAbi.events.Auction_ItemClaimed.decode(log);
+
+    const { gasPrice, gasUsed } = log.transaction;
+    const gasFee = Number(gasUsed) * Number(gasPrice);
+    const gasUsedInEth = Number(gasUsed) / 10 ** 18;
+    const displayGasFee = gasFee / 10 ** 18;
+
+    let ethPriceUsd = 0;
+    try {
+      ethPriceUsd = await fetchHistoricalUsd(
+        'ethereum',
+        block.header.timestamp,
+        this.env.coingeckoApiKey,
+      );
+    } catch (error) {
+      console.warn('Could not fetch historical USD price, using 0:', error);
+    }
+    const gasFeeUsd = displayGasFee * ethPriceUsd;
+
+    const transactionSchema = {
+      eventType: MessageType.TRANSACTION,
+      eventName: 'Auction_Claimed',
+      tokens: {
+        auctionId: {
+          value: _auctionID.toString(),
+          type: 'string',
+        },
+        winner: {
+          value: 'true',
+          type: 'boolean',
+        },
+      },
+      rawAmount: '0',
+      displayAmount: 0,
+      unixTimestampMs: block.header.timestamp,
+      txHash: log.transactionHash,
+      logIndex: log.logIndex,
+      blockNumber: block.header.height,
+      blockHash: block.header.hash,
+      userId: ZERO_ADDRESS,
+      currency: Currency.USD,
+      valueUsd: 0,
+      gasUsed: gasUsedInEth,
       gasFeeUsd: gasFeeUsd,
     };
 

@@ -14,7 +14,7 @@ import {
 } from '../../types/interfaces/interfaces';
 import { createHash } from 'crypto';
 import {
-  ValidatedBondingCurveProtocolConfig,
+  ValidatedTxnTrackingProtocolConfig,
   ProtocolConfig,
   ValidatedStakingProtocolConfig,
   HelperProtocolConfig,
@@ -28,7 +28,7 @@ function toTimeWeightedBalance(
   historyWindows: HistoryWindow[],
   protocol:
     | ProtocolConfig
-    | ValidatedBondingCurveProtocolConfig
+    | ValidatedTxnTrackingProtocolConfig
     | ValidatedStakingProtocolConfig
     | HelperProtocolConfig,
   env: ValidatedEnvBase,
@@ -82,7 +82,7 @@ function toTransaction(
   transactions: Transaction[],
   protocol:
     | ProtocolConfig
-    | ValidatedBondingCurveProtocolConfig
+    | ValidatedTxnTrackingProtocolConfig
     | ValidatedStakingProtocolConfig
     | HelperProtocolConfig
     | (ZebuClientConfigWithChain & { type: ProtocolType }),
@@ -296,8 +296,7 @@ function processValueChangeBalances({
       snapshotAndUpdate(address, amount);
     }
   }
-  //todo: ensure consistency of from and to balances
-  processAddress(from, amount); // from address loses amount
+  processAddress(from, BigInt(-amount)); // from address loses amount
   processAddress(to, amount); // to address gains amount
   return historyWindows;
 }

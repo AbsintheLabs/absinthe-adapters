@@ -29,9 +29,6 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/packages/common/node_modules ./packages/common/node_modules
 COPY --from=deps /app/projects/uniswapv3/node_modules ./projects/uniswapv3/node_modules
 
-# Generate TypeScript clients for common package ABIs
-WORKDIR /app/packages/common
-RUN pnpm squid-evm-typegen ./src/abi/ abi/*.json
 
 WORKDIR /app/projects/uniswapv3
 RUN pnpm squid-evm-typegen ./src/abi/ abi/*.json

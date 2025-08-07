@@ -3,7 +3,7 @@ import {
   Chain,
   Currency,
   MessageType,
-  ValidatedBondingCurveProtocolConfig,
+  ValidatedTxnTrackingProtocolConfig,
   ValidatedEnvBase,
 } from '@absinthe/common';
 
@@ -14,14 +14,14 @@ import { BatchContext, ProtocolState } from '@absinthe/common';
 import * as vusdMintAbi from './abi/mint';
 import { fetchHistoricalUsd, toTransaction } from '@absinthe/common';
 export class VusdMintProcessor {
-  private readonly bondingCurveProtocol: ValidatedBondingCurveProtocolConfig;
+  private readonly bondingCurveProtocol: ValidatedTxnTrackingProtocolConfig;
   private readonly schemaName: string;
   private readonly apiClient: AbsintheApiClient;
   private readonly env: ValidatedEnvBase;
   private readonly chainConfig: Chain;
 
   constructor(
-    bondingCurveProtocol: ValidatedBondingCurveProtocolConfig,
+    bondingCurveProtocol: ValidatedTxnTrackingProtocolConfig,
     apiClient: AbsintheApiClient,
     env: ValidatedEnvBase,
     chainConfig: Chain,

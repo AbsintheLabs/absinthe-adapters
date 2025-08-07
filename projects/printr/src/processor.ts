@@ -8,11 +8,11 @@ import {
 } from '@subsquid/evm-processor';
 import * as printrAbi from './abi/printr';
 import * as poolAbi from './abi/pool';
-import { BondingCurveProtocol, validateEnv } from '@absinthe/common';
+import { TxnTrackingProtocol, validateEnv } from '@absinthe/common';
 
 const env = validateEnv();
-const printrBondingCurveProtocol = env.bondingCurveProtocols.find((bondingCurveProtocol) => {
-  return bondingCurveProtocol.type === BondingCurveProtocol.PRINTR;
+const printrBondingCurveProtocol = env.txnTrackingProtocols.find((txnTrackingProtocol) => {
+  return txnTrackingProtocol.type === TxnTrackingProtocol.PRINTR;
 });
 
 if (!printrBondingCurveProtocol) {

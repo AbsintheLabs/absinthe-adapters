@@ -8,13 +8,13 @@ import {
   Log as _Log,
   Transaction as _Transaction,
 } from '@subsquid/evm-processor';
-import { BondingCurveProtocol, validateEnv } from '@absinthe/common';
+import { TxnTrackingProtocol, validateEnv } from '@absinthe/common';
 import { FUNCTION_SELECTOR } from './utils/consts';
 
 const env = validateEnv();
 
-const demosProtocol = env.bondingCurveProtocols.find((bondingCurveProtocol) => {
-  return bondingCurveProtocol.type === BondingCurveProtocol.DEMOS;
+const demosProtocol = env.txnTrackingProtocols.find((txnTrackingProtocol) => {
+  return txnTrackingProtocol.type === TxnTrackingProtocol.DEMOS;
 });
 
 if (!demosProtocol) {
@@ -26,7 +26,7 @@ const earliestFromBlock = demosProtocol.fromBlock;
 
 export const processor = new EvmBatchProcessor()
   .setRpcEndpoint(demosProtocol.rpcUrl)
-  .setGateway('https://v2.archive.subsquid.io/network/hemi-mainnet')
+  .setGateway(demosProtocol.gatewayUrl)
   .setBlockRange({
     from: earliestFromBlock,
     ...(demosProtocol.toBlock !== 0 ? { to: Number(demosProtocol.toBlock) } : {}),

@@ -33,7 +33,7 @@ const dexProtocolSchema = z.object({
   protocols: z.array(protocolConfigSchema),
 });
 
-const bondingCurveProtocolSchema = z.object({
+const txnTrackingProtocolSchema = z.object({
   type: z.string(),
   name: z.string(),
   contractAddress: z
@@ -92,7 +92,7 @@ const zebuProtocolSchema = z.object({
 const configSchema = z.object({
   balanceFlushIntervalHours: z.number(),
   dexProtocols: z.array(dexProtocolSchema),
-  bondingCurveProtocols: z.array(bondingCurveProtocolSchema),
+  txnTrackingProtocols: z.array(txnTrackingProtocolSchema),
   stakingProtocols: z.array(stakingProtocolSchema),
   univ3Protocols: z.array(univ3ProtocolSchema),
   zebuProtocols: z.array(zebuProtocolSchema),

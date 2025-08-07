@@ -32,6 +32,7 @@ export class HemiStakingProcessor {
   private readonly apiClient: AbsintheApiClient;
   private readonly chainConfig: Chain;
   private readonly env: ValidatedEnvBase;
+  private readonly contractAddress: string;
 
   constructor(
     stakingProtocol: ValidatedStakingProtocolConfig,
@@ -46,10 +47,11 @@ export class HemiStakingProcessor {
     this.env = env;
     this.chainConfig = chainConfig;
     this.schemaName = this.generateSchemaName();
+    this.contractAddress = stakingProtocol.contractAddress.toLowerCase();
   }
 
   private generateSchemaName(): string {
-    const uniquePoolCombination = this.stakingProtocol.contractAddress.concat(
+    const uniquePoolCombination = this.contractAddress.concat(
       this.chainConfig.networkId.toString(),
     );
 
@@ -84,16 +86,14 @@ export class HemiStakingProcessor {
   private async initializeProtocolStates(ctx: any): Promise<Map<string, ProtocolStateHemi>> {
     const protocolStates = new Map<string, ProtocolStateHemi>();
 
-    const contractAddress = this.stakingProtocol.contractAddress;
-
-    protocolStates.set(contractAddress, {
+    protocolStates.set(this.contractAddress, {
       activeBalances:
-        (await loadActiveBalancesFromDb(ctx, contractAddress)) ||
+        (await loadActiveBalancesFromDb(ctx, this.contractAddress)) ||
         new Map<string, Map<string, ActiveBalance>>(),
       balanceWindows: [],
       transactions: [],
       processState:
-        (await loadPoolProcessStateFromDb(ctx, contractAddress)) || new PoolProcessState({}),
+        (await loadPoolProcessStateFromDb(ctx, this.contractAddress)) || new PoolProcessState({}),
     });
 
     return protocolStates;
@@ -101,20 +101,18 @@ export class HemiStakingProcessor {
 
   private async processBlock(batchContext: BatchContext): Promise<void> {
     const { ctx, block, protocolStates } = batchContext;
-    const contractAddress = this.stakingProtocol.contractAddress;
-    const protocolState = protocolStates.get(contractAddress)!;
-    await this.processLogsForProtocol(ctx, block, contractAddress, protocolState);
+    const protocolState = protocolStates.get(this.contractAddress)!;
+    await this.processLogsForProtocol(ctx, block, protocolState);
     await this.processPeriodicBalanceFlush(ctx, block, protocolState);
   }
 
   private async processLogsForProtocol(
     ctx: any,
     block: any,
-    contractAddress: string,
     protocolState: ProtocolStateHemi,
   ): Promise<void> {
     const poolLogs = block.logs.filter(
-      (log: any) => log.address.toLowerCase() === contractAddress.toLowerCase(),
+      (log: any) => log.address.toLowerCase() === this.contractAddress,
     );
     for (const log of poolLogs) {
       await this.processLog(ctx, block, log, protocolState);
@@ -165,8 +163,8 @@ export class HemiStakingProcessor {
     const usdValue = pricePosition(tokenPrice, amount, tokenMetadata.decimals);
 
     const newHistoryWindows = processValueChangeBalances({
-      from: depositor,
-      to: ZERO_ADDRESS,
+      from: ZERO_ADDRESS,
+      to: depositor,
       amount: amount,
       usdValue,
       blockTimestamp: block.header.timestamp,
@@ -228,9 +226,9 @@ export class HemiStakingProcessor {
     const usdValue = pricePosition(tokenPrice, amount, tokenMetadata.decimals);
 
     const newHistoryWindows = processValueChangeBalances({
-      from: ZERO_ADDRESS,
-      to: withdrawer,
-      amount: BigInt(-amount),
+      from: withdrawer,
+      to: ZERO_ADDRESS,
+      amount: amount,
       usdValue,
       blockTimestamp: block.header.timestamp,
       blockHeight: block.header.height,
@@ -351,8 +349,7 @@ export class HemiStakingProcessor {
     ctx: any,
     protocolStates: Map<string, ProtocolStateHemi>,
   ): Promise<void> {
-    const contractAddress = this.stakingProtocol.contractAddress;
-    const protocolState = protocolStates.get(contractAddress)!;
+    const protocolState = protocolStates.get(this.contractAddress)!;
     const balances = toTimeWeightedBalance(
       protocolState.balanceWindows,
       this.stakingProtocol,
@@ -364,13 +361,13 @@ export class HemiStakingProcessor {
     // Save to database
     await ctx.store.upsert(
       new PoolProcessState({
-        id: `${this.stakingProtocol.contractAddress}-process-state`,
+        id: `${this.contractAddress}-process-state`,
         lastInterpolatedTs: protocolState.processState.lastInterpolatedTs,
       }),
     );
     await ctx.store.upsert(
       new ActiveBalances({
-        id: `${this.stakingProtocol.contractAddress}-active-balances`,
+        id: `${this.contractAddress}-active-balances`,
         activeBalancesMap: mapToJson(flattenNestedMap(protocolState.activeBalances)),
       }),
     );

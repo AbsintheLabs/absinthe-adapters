@@ -80,7 +80,7 @@ export class PositionStorageService {
     return 0;
   }
 
-  //todo: make it efficient - redis pipeline
+  //todo: efficiency
   async storePosition(position: PositionData): Promise<void> {
     if (!this.isConnected) {
       throw new Error('Redis not connected');
@@ -169,7 +169,7 @@ export class PositionStorageService {
     });
   }
 
-  //todo: make it efficient
+  //todo: efficiency
   async getAllPositionsByPoolId(poolId: string): Promise<PositionData[]> {
     const positionIds = await this.redis.sMembers(`pool:${poolId}:positions`);
     const positions: PositionData[] = [];

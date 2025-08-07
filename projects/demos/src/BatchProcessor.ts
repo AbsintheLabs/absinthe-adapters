@@ -3,7 +3,7 @@ import {
   Chain,
   Currency,
   MessageType,
-  ValidatedBondingCurveProtocolConfig,
+  ValidatedTxnTrackingProtocolConfig,
   ValidatedEnvBase,
 } from '@absinthe/common';
 
@@ -15,14 +15,15 @@ import { fetchHistoricalUsd, toTransaction } from '@absinthe/common';
 import { FUNCTION_SELECTOR } from './utils/consts';
 
 export class DemosProcessor {
-  private readonly bondingCurveProtocol: ValidatedBondingCurveProtocolConfig;
+  private readonly bondingCurveProtocol: ValidatedTxnTrackingProtocolConfig;
   private readonly schemaName: string;
   private readonly apiClient: AbsintheApiClient;
   private readonly env: ValidatedEnvBase;
   private readonly chainConfig: Chain;
+  private readonly contractAddress: string;
 
   constructor(
-    bondingCurveProtocol: ValidatedBondingCurveProtocolConfig,
+    bondingCurveProtocol: ValidatedTxnTrackingProtocolConfig,
     apiClient: AbsintheApiClient,
     env: ValidatedEnvBase,
     chainConfig: Chain,
@@ -32,10 +33,11 @@ export class DemosProcessor {
     this.apiClient = apiClient;
     this.env = env;
     this.chainConfig = chainConfig;
+    this.contractAddress = bondingCurveProtocol.contractAddress.toLowerCase();
   }
 
   private generateSchemaName(): string {
-    const uniquePoolCombination = this.bondingCurveProtocol.contractAddress
+    const uniquePoolCombination = this.contractAddress
       .toLowerCase()
       .concat(this.bondingCurveProtocol.chainId.toString());
 
@@ -70,8 +72,7 @@ export class DemosProcessor {
   private async initializeProtocolStates(ctx: any): Promise<Map<string, ProtocolState>> {
     const protocolStates = new Map<string, ProtocolState>();
 
-    const contractAddress = this.bondingCurveProtocol.contractAddress.toLowerCase();
-    protocolStates.set(contractAddress, {
+    protocolStates.set(this.contractAddress, {
       balanceWindows: [],
       transactions: [],
     });
@@ -82,16 +83,14 @@ export class DemosProcessor {
   private async processBlock(batchContext: BatchContext): Promise<void> {
     const { ctx, block, protocolStates } = batchContext;
 
-    const contractAddress = this.bondingCurveProtocol.contractAddress.toLowerCase();
-    const protocolState = protocolStates.get(contractAddress)!;
+    const protocolState = protocolStates.get(this.contractAddress)!;
 
-    await this.processLogsForProtocol(ctx, block, contractAddress, protocolState);
+    await this.processLogsForProtocol(ctx, block, protocolState);
   }
 
   private async processLogsForProtocol(
     ctx: any,
     block: any,
-    contractAddress: string,
     protocolState: ProtocolState,
   ): Promise<void> {
     const transactions = block.transactions;
@@ -118,7 +117,7 @@ export class DemosProcessor {
       const gasFeeUsd = displayGasFee * ethPriceUsd;
       const transactionSchema = {
         eventType: MessageType.TRANSACTION,
-        eventName: 'func_0xa4760a9e',
+        eventName: `func_${FUNCTION_SELECTOR}`,
         tokens: {
           gasFee: {
             value: gasFee.toString(),
@@ -147,8 +146,7 @@ export class DemosProcessor {
   }
 
   private async finalizeBatch(ctx: any, protocolStates: Map<string, ProtocolState>): Promise<void> {
-    const contractAddress = this.bondingCurveProtocol.contractAddress.toLowerCase();
-    const protocolState = protocolStates.get(contractAddress)!;
+    const protocolState = protocolStates.get(this.contractAddress)!;
     const transactions = toTransaction(
       protocolState.transactions,
       this.bondingCurveProtocol,

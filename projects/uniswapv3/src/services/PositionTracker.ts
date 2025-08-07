@@ -57,7 +57,7 @@ export class PositionTracker {
       position.isActive = 'false';
       position.currentTick = currentTick;
       let balanceWindow: HistoryWindow | null = null;
-      await this.positionStorageService.updatePosition(position); //todo: check-double
+      await this.positionStorageService.updatePosition(position); //todo: efficiency - double call
 
       const token0 = await this.positionStorageService.getToken(position.token0Id);
       const token1 = await this.positionStorageService.getToken(position.token1Id);
@@ -104,7 +104,7 @@ export class PositionTracker {
           endBlockNumber: block.height,
           txHash: null,
           currency: Currency.USD,
-          valueUsd: 0,
+          valueUsd: Number(oldLiquidityUSD),
           balanceBefore: oldLiquidityUSD.toString(),
           balanceAfter: oldLiquidityUSD.toString(),
           tokenPrice: 0,
@@ -209,7 +209,7 @@ export class PositionTracker {
     );
     const amountMintedUSD = Number(amountMinted0) * price0 + Number(amountMinted1) * price1;
 
-    await this.positionStorageService.updatePosition(position); //todo: reduce double calls
+    await this.positionStorageService.updatePosition(position); //todo: efficiency - double call
     logger.info(`💰 [Tracker] handleIncreaseLiquidity`, {
       price0,
       price1,
@@ -345,7 +345,7 @@ export class PositionTracker {
 
     const amountBurnedUSD = Number(amountBurned0) * price0 + Number(amountBurned1) * price1;
 
-    await this.positionStorageService.updatePosition(position); //todo: reduce double calls
+    await this.positionStorageService.updatePosition(position); //todo: efficiency - double call
 
     logger.info(`💰 [Tracker] handleDecreaseLiquidity`, {
       oldLiquidityUSD,
@@ -518,7 +518,7 @@ export class PositionTracker {
         'transfer',
       );
       position.owner = data.to;
-      await this.positionStorageService.updatePosition(position); //todo: remove two separate updatePosition calls
+      await this.positionStorageService.updatePosition(position); //todo: efficiency - double call
       return historyWindow;
     } else {
       position.lastUpdatedBlockTs = block.timestamp;
@@ -604,7 +604,7 @@ export class PositionTracker {
       endBlockNumber: blockHeight,
       txHash: transactionHash,
       windowDurationMs: this.windowDurationMs,
-      valueUsd: deltaAmountUSD,
+      valueUsd: Number(oldLiquidityUSD),
       balanceBefore: oldLiquidityUSD,
       balanceAfter: newLiquidityUSD,
       currency: Currency.USD,

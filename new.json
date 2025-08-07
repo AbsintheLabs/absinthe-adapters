@@ -106,7 +106,7 @@
       ]
     }
   ],
-  "bondingCurveProtocols": [
+  "txnTrackingProtocols": [
     {
       "type": "printr",
       "name": "printr-base",

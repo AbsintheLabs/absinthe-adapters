@@ -10,8 +10,7 @@
 6. [Configuration & Setup](#configuration--setup)
 7. [API Integration](#api-integration)
 8. [Development Guide](#development-guide)
-9. [Deployment](#deployment)
-10. [Troubleshooting](#troubleshooting)
+9. [Contributing](#contributing) 10.[Troubleshooting](#troubleshooting)
 
 ---
 
@@ -88,14 +87,14 @@
 - **Purpose**: Track LP token transfers, swaps, and liquidity events
 - **Events Monitored**: `Transfer`, `Sync`, `Swap`
 - **Features**: Time-weighted balance tracking, price calculations
-- **Supported Chains**: Ethereum, Base
+- **Supported Chains**: Ethereum, Base, Hemi, Polygon
 
 #### Uniswap V3
 
 - **Purpose**: Advanced position tracking with NFT positions
-- **Events Monitored**: `PoolCreated`, `Swap`, `IncreaseLiquidity`, `DecreaseLiquidity`, `Collect`, `Transfer`
+- **Events Monitored**: `Swap`, `IncreaseLiquidity`, `DecreaseLiquidity`, `Transfer`
 - **Features**: Position management, fee tier tracking, concentrated liquidity
-- **Supported Chains**: Ethereum
+- **Supported Chains**: Ethereum, Hemi, Base, Polygon
 
 ### 2. Staking Protocols
 
@@ -106,13 +105,7 @@
 - **Features**: Time-weighted balance tracking, reward calculations
 - **Supported Chains**: Hemi (43111)
 
-#### VUSD Bridge
-
-- **Purpose**: Cross-chain staking bridge tracking
-- **Events Monitored**: Bridge events, staking activities
-- **Supported Chains**: Ethereum
-
-### 3. Bonding Curve Protocols
+### 3. Protocols which only track transaction data
 
 #### Printr
 
@@ -196,25 +189,13 @@ Each protocol extends the base models with protocol-specific fields:
 
 - **DEX Models**: Pool states, swap events, liquidity positions
 - **Staking Models**: Staking positions, reward tracking
-- **Bonding Curve Models**: Curve parameters, trade history
+- **Txn Tracking Models**: Curve parameters, trade history
 
 ### 3. Price Engine
 
 #### Price Sources
 
 - **CoinGecko API**: Primary price data source
-- **Codex**: Alternative price feed
-- **Internal TWAP**: Time-weighted average price calculations
-
-#### Price Calculation Logic
-
-```typescript
-// LP Token Price Calculation
-const lpTokenPrice = (reserve0 * price0 + reserve1 * price1) / totalSupply;
-
-// Time-Weighted Balance Calculation
-const timeWeightedBalance = (balance * (endTime - startTime)) / windowDuration;
-```
 
 ### 4. API Client
 
@@ -228,16 +209,36 @@ const timeWeightedBalance = (balance * (endTime - startTime)) / windowDuration;
 #### Data Transmission
 
 ```typescript
+interface TimeWeightedBalanceEvent {
+  base: BaseEventFields;
+  eventType: MessageType;
+  tokenPrice: number;
+  tokenDecimals: number;
+  balanceBefore: string;
+  balanceAfter: string;
+  timeWindowTrigger: TimeWindowTrigger;
+  startUnixTimestampMs: number;
+  endUnixTimestampMs: number;
+  windowDurationMs: number;
+  startBlockNumber: number;
+  endBlockNumber: number;
+  txHash: string | null;
+}
+```
+
+```typescript
 interface TransactionEvent {
-  eventType: MessageType.TRANSACTION;
-  eventName: string;
-  tokens: Record<string, { value: string; type: string }>;
+  base: BaseEventFields;
+  eventType: MessageType;
   rawAmount: string;
   displayAmount: number;
-  valueUsd: number;
+  unixTimestampMs: number;
+  txHash: string;
+  logIndex: number;
   gasUsed: number;
   gasFeeUsd: number;
-  // ... other fields
+  blockNumber: number;
+  blockHash: string;
 }
 ```
 
@@ -311,9 +312,9 @@ RPC_URL_OPTIMISM=https://opt-mainnet.g.alchemy.com/v2/YOUR-API-KEY
 RPC_URL_HEMI=https://hemi-mainnet.g.alchemy.com/v2/YOUR-API-KEY
 
 # API Configuration
-ABSINTHE_API_URL=https://adapters-dev.absinthe.network
+ABSINTHE_API_URL=https://adapters.absinthe.network
 ABSINTHE_API_KEY=your-absinthe-api-key
-ABS_CONFIG='{"balanceFlushIntervalHours":6,"dexProtocols":[{"type":"uniswap-v2","chainId":1,"toBlock":0,"protocols":[{"name":"pepe-weth","contractAddress":"0xa43fe16908251ee70ef74718545e4fe6c5ccec9f","fromBlock":17046833,"pricingStrategy":"coingecko","token0":{"coingeckoId":"pepe","decimals":18},"token1":{"coingeckoId":"weth","decimals":18},"preferredTokenCoingeckoId":"token1"}]},{"type":"izumi","chainId":42161,"toBlock":0,"protocols":[{"name":"weth-hemitbtc","contractAddress":"0xa43fe16908251ee70ef74718545e4fe6c5ccec9f","fromBlock":1276815,"pricingStrategy":"coingecko","token0":{"coingeckoId":"weth","decimals":18},"token1":{"coingeckoId":"btc","decimals":8},"preferredTokenCoingeckoId":"token1"},{"name":"vusd-weth","contractAddress":"0xa43fe16908251ee70ef74718545e4fe6c5ccec9f","fromBlock":1274620,"pricingStrategy":"coingecko","token0":{"coingeckoId":"vesper-vdollar","decimals":18},"token1":{"coingeckoId":"weth","decimals":18},"preferredTokenCoingeckoId":"token1"}]}],"bondingCurveProtocols":[{"type":"printr","name":"printr-base","contractAddress":"0xbdc9a5b600e9a10609b0613b860b660342a6d4c0","factoryAddress":"0x33128a8fc17869897dce68ed026d694621f6fdfd","chainId":8453,"toBlock":0,"fromBlock":30000000},{"type":"vusd-mint","name":"vusd-mint","contractAddress":"0xFd22Bcf90d63748288913336Cd38BBC0e681e298","chainId":1,"toBlock":0,"fromBlock":22017054},{"type":"demos","name":"demos","contractAddress":"0x70468f06cf32b776130e2da4c0d7dd08983282ec","chainId":43111,"toBlock":0,"fromBlock":1993447},{"type":"voucher","name":"voucher","contractAddress":"0xa26b04b41162b0d7c2e1e2f9a33b752e28304a49","chainId":1,"toBlock":0,"fromBlock":21557766}],"stakingProtocols":[{"type":"hemi","name":"hemi-staking","contractAddress":"0x4f5e928763cbfaf5ffd8907ebbb0dabd5f78ba83","chainId":43111,"toBlock":0,"fromBlock":2025621},{"type":"vusd-bridge","name":"vusd-bridge","contractAddress":"0x5eaa10F99e7e6D177eF9F74E519E319aa49f191e","chainId":1,"toBlock":0,"fromBlock":22695105}],"univ3Protocols":[{"type":"uniswap-v3","chainId":1,"factoryAddress":"0x1f98431c8ad98523631ae4a59f267346ea31f984","factoryDeployedAt":12369621,"positionsAddress":"0xc36442b4a4522e871399cd717abdd847ab11fe88","toBlock":0,"poolDiscovery":true,"trackPositions":true,"trackSwaps":true,"pools":[{"name":"pepe-weth-0.3","contractAddress":"0x11950d141ecb863f01007add7d1a342041227b58","fromBlock":13609065,"feeTier":3000,"pricingStrategy":"internal-twap","token0":{"symbol":"PEPE","decimals":18},"token1":{"symbol":"WETH","decimals":18},"preferredTokenCoingeckoId":"token1"},{"name":"wepe-weth-0.3","contractAddress":"0xa3c2076eb97d573cc8842f1db1ecdf7b6f77ba27","fromBlock":12376729,"feeTier":3000,"pricingStrategy":"internal-twap","token0":{"symbol":"WEPE","decimals":18},"token1":{"symbol":"WETH","decimals":18},"preferredTokenCoingeckoId":"token1"},{"name":"usdc-weth-0.3","contractAddress":"0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640","fromBlock":1620250931,"feeTier":3000,"pricingStrategy":"internal-twap","token0":{"symbol":"USDC","decimals":6},"token1":{"symbol":"WETH","decimals":18},"preferredTokenCoingeckoId":"token1"}]}],"zebuProtocols":[{"type":"zebu","name":"zebu-new","toBlock":0,"clients":[{"name":"xyz-1","contractAddress":"0xD71954165a026924cA771C53164FB0a781c54C83","chainId":137,"fromBlock":61059459},{"name":"xyz-2","contractAddress":"0x3e4768dB375094b753929B7A540121d970fcb24e","chainId":137,"fromBlock":61059459},{"name":"xyz-3","contractAddress":"0x5859Ff44A3BDCD00c7047E68B94e93d34aF0fd71","chainId":8453,"fromBlock":15286409},{"name":"xyz-4","contractAddress":"0xE3EB2347bAE4E2C6905D7B832847E7848Ff6938c","chainId":137,"fromBlock":61695150},{"name":"xyz-5","contractAddress":"0x19633c8006236f6c016a34B9ca48e98AD10418B4","chainId":137,"fromBlock":64199277},{"name":"xyz-6","contractAddress":"0x0c18F35EcfF53b7c587bD754fc070b683cB9063B","chainId":8453,"fromBlock":20328800},{"name":"xyz-7","contractAddress":"0xDD4d9ae148b7c821b8157828806c78BD0FeCE8C4","chainId":137,"fromBlock":73490308}]},{"type":"zebu","name":"zebu-legacy","toBlock":0,"clients":[{"name":"xyz-1","contractAddress":"0xd7829F0EFC16086a91Cf211CFbb0E4Ef29D16BEE","chainId":8453,"fromBlock":27296063}]}]}'
+ABS_CONFIG='{"balanceFlushIntervalHours":6,"dexProtocols":[{"type":"uniswap-v2","chainId":1,"toBlock":0,"protocols":[{"name":"pepe-weth","contractAddress":"0xa43fe16908251ee70ef74718545e4fe6c5ccec9f","fromBlock":17046833,"pricingStrategy":"coingecko","token0":{"coingeckoId":"pepe","decimals":18},"token1":{"coingeckoId":"weth","decimals":18},"preferredTokenCoingeckoId":"token1"}]},{"type":"izumi","chainId":42161,"toBlock":0,"protocols":[{"name":"weth-hemitbtc","contractAddress":"0xa43fe16908251ee70ef74718545e4fe6c5ccec9f","fromBlock":1276815,"pricingStrategy":"coingecko","token0":{"coingeckoId":"weth","decimals":18},"token1":{"coingeckoId":"btc","decimals":8},"preferredTokenCoingeckoId":"token1"},{"name":"vusd-weth","contractAddress":"0xa43fe16908251ee70ef74718545e4fe6c5ccec9f","fromBlock":1274620,"pricingStrategy":"coingecko","token0":{"coingeckoId":"vesper-vdollar","decimals":18},"token1":{"coingeckoId":"weth","decimals":18},"preferredTokenCoingeckoId":"token1"}]}],"txnTrackingProtocols":[{"type":"printr","name":"printr-base","contractAddress":"0xbdc9a5b600e9a10609b0613b860b660342a6d4c0","factoryAddress":"0x33128a8fc17869897dce68ed026d694621f6fdfd","chainId":8453,"toBlock":0,"fromBlock":30000000},{"type":"vusd-mint","name":"vusd-mint","contractAddress":"0xFd22Bcf90d63748288913336Cd38BBC0e681e298","chainId":1,"toBlock":0,"fromBlock":22017054},{"type":"demos","name":"demos","contractAddress":"0x70468f06cf32b776130e2da4c0d7dd08983282ec","chainId":43111,"toBlock":0,"fromBlock":1993447},{"type":"voucher","name":"voucher","contractAddress":"0xa26b04b41162b0d7c2e1e2f9a33b752e28304a49","chainId":1,"toBlock":0,"fromBlock":21557766}],"stakingProtocols":[{"type":"hemi","name":"hemi-staking","contractAddress":"0x4f5e928763cbfaf5ffd8907ebbb0dabd5f78ba83","chainId":43111,"toBlock":0,"fromBlock":2025621},{"type":"vusd-bridge","name":"vusd-bridge","contractAddress":"0x5eaa10F99e7e6D177eF9F74E519E319aa49f191e","chainId":1,"toBlock":0,"fromBlock":22695105}],"univ3Protocols":[{"type":"uniswap-v3","chainId":1,"factoryAddress":"0x1f98431c8ad98523631ae4a59f267346ea31f984","factoryDeployedAt":12369621,"positionsAddress":"0xc36442b4a4522e871399cd717abdd847ab11fe88","toBlock":0,"poolDiscovery":true,"trackPositions":true,"trackSwaps":true,"pools":[{"name":"pepe-weth-0.3","contractAddress":"0x11950d141ecb863f01007add7d1a342041227b58","fromBlock":13609065,"feeTier":3000,"pricingStrategy":"internal-twap","token0":{"symbol":"PEPE","decimals":18},"token1":{"symbol":"WETH","decimals":18},"preferredTokenCoingeckoId":"token1"},{"name":"wepe-weth-0.3","contractAddress":"0xa3c2076eb97d573cc8842f1db1ecdf7b6f77ba27","fromBlock":12376729,"feeTier":3000,"pricingStrategy":"internal-twap","token0":{"symbol":"WEPE","decimals":18},"token1":{"symbol":"WETH","decimals":18},"preferredTokenCoingeckoId":"token1"},{"name":"usdc-weth-0.3","contractAddress":"0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640","fromBlock":1620250931,"feeTier":3000,"pricingStrategy":"internal-twap","token0":{"symbol":"USDC","decimals":6},"token1":{"symbol":"WETH","decimals":18},"preferredTokenCoingeckoId":"token1"}]}],"zebuProtocols":[{"type":"zebu","name":"zebu-new","toBlock":0,"clients":[{"name":"xyz-1","contractAddress":"0xD71954165a026924cA771C53164FB0a781c54C83","chainId":137,"fromBlock":61059459},{"name":"xyz-2","contractAddress":"0x3e4768dB375094b753929B7A540121d970fcb24e","chainId":137,"fromBlock":61059459},{"name":"xyz-3","contractAddress":"0x5859Ff44A3BDCD00c7047E68B94e93d34aF0fd71","chainId":8453,"fromBlock":15286409},{"name":"xyz-4","contractAddress":"0xE3EB2347bAE4E2C6905D7B832847E7848Ff6938c","chainId":137,"fromBlock":61695150},{"name":"xyz-5","contractAddress":"0x19633c8006236f6c016a34B9ca48e98AD10418B4","chainId":137,"fromBlock":64199277},{"name":"xyz-6","contractAddress":"0x0c18F35EcfF53b7c587bD754fc070b683cB9063B","chainId":8453,"fromBlock":20328800},{"name":"xyz-7","contractAddress":"0xDD4d9ae148b7c821b8157828806c78BD0FeCE8C4","chainId":137,"fromBlock":73490308}]},{"type":"zebu","name":"zebu-legacy","toBlock":0,"clients":[{"name":"xyz-1","contractAddress":"0xd7829F0EFC16086a91Cf211CFbb0E4Ef29D16BEE","chainId":8453,"fromBlock":27296063}]}]}'
 
 # Price Data
 COINGECKO_API_KEY=your-coingecko-api-key
@@ -322,8 +323,6 @@ COINGECKO_API_KEY=your-coingecko-api-key
 DB_URL=postgresql://username:password@localhost:5432/database
 REDIS_URL="redis://localhost:6379"
 
-# Logging
-LOG_FILE_PATH=./logs/indexer.log
 ```
 
 #### Environment Variable Sources
@@ -344,7 +343,7 @@ LOG_FILE_PATH=./logs/indexer.log
 {
   "balanceFlushIntervalHours": 6,
   "dexProtocols": [...],
-  "bondingCurveProtocols": [...],
+  "txnTrackingProtocols": [...],
   "stakingProtocols": [...],
   "univ3Protocols": [...],
   "zebuProtocols": [...]
@@ -422,7 +421,7 @@ cp .env.example .env
 3. **Configuration Setup**
 
 ```bash
-ABS_CONFIG='{"balanceFlushIntervalHours":6,"dexProtocols":[{"type":"uniswap-v2","chainId":1,"toBlock":0,"protocols":[{"name":"pepe-weth","contractAddress":"0xa43fe16908251ee70ef74718545e4fe6c5ccec9f","fromBlock":17046833,"pricingStrategy":"coingecko","token0":{"coingeckoId":"pepe","decimals":18},"token1":{"coingeckoId":"weth","decimals":18},"preferredTokenCoingeckoId":"token1"}]},{"type":"izumi","chainId":42161,"toBlock":0,"protocols":[{"name":"weth-hemitbtc","contractAddress":"0xa43fe16908251ee70ef74718545e4fe6c5ccec9f","fromBlock":1276815,"pricingStrategy":"coingecko","token0":{"coingeckoId":"weth","decimals":18},"token1":{"coingeckoId":"btc","decimals":8},"preferredTokenCoingeckoId":"token1"},{"name":"vusd-weth","contractAddress":"0xa43fe16908251ee70ef74718545e4fe6c5ccec9f","fromBlock":1274620,"pricingStrategy":"coingecko","token0":{"coingeckoId":"vesper-vdollar","decimals":18},"token1":{"coingeckoId":"weth","decimals":18},"preferredTokenCoingeckoId":"token1"}]}],"bondingCurveProtocols":[{"type":"printr","name":"printr-base","contractAddress":"0xbdc9a5b600e9a10609b0613b860b660342a6d4c0","factoryAddress":"0x33128a8fc17869897dce68ed026d694621f6fdfd","chainId":8453,"toBlock":0,"fromBlock":30000000},{"type":"vusd-mint","name":"vusd-mint","contractAddress":"0xFd22Bcf90d63748288913336Cd38BBC0e681e298","chainId":1,"toBlock":0,"fromBlock":22017054},{"type":"demos","name":"demos","contractAddress":"0x70468f06cf32b776130e2da4c0d7dd08983282ec","chainId":43111,"toBlock":0,"fromBlock":1993447},{"type":"voucher","name":"voucher","contractAddress":"0xa26b04b41162b0d7c2e1e2f9a33b752e28304a49","chainId":1,"toBlock":0,"fromBlock":21557766}],"stakingProtocols":[{"type":"hemi","name":"hemi-staking","contractAddress":"0x4f5e928763cbfaf5ffd8907ebbb0dabd5f78ba83","chainId":43111,"toBlock":0,"fromBlock":2025621},{"type":"vusd-bridge","name":"vusd-bridge","contractAddress":"0x5eaa10F99e7e6D177eF9F74E519E319aa49f191e","chainId":1,"toBlock":0,"fromBlock":22695105}],"univ3Protocols":[{"type":"uniswap-v3","chainId":1,"factoryAddress":"0x1f98431c8ad98523631ae4a59f267346ea31f984","factoryDeployedAt":12369621,"positionsAddress":"0xc36442b4a4522e871399cd717abdd847ab11fe88","toBlock":0,"poolDiscovery":true,"trackPositions":true,"trackSwaps":true,"pools":[{"name":"pepe-weth-0.3","contractAddress":"0x11950d141ecb863f01007add7d1a342041227b58","fromBlock":13609065,"feeTier":3000,"pricingStrategy":"internal-twap","token0":{"symbol":"PEPE","decimals":18},"token1":{"symbol":"WETH","decimals":18},"preferredTokenCoingeckoId":"token1"},{"name":"wepe-weth-0.3","contractAddress":"0xa3c2076eb97d573cc8842f1db1ecdf7b6f77ba27","fromBlock":12376729,"feeTier":3000,"pricingStrategy":"internal-twap","token0":{"symbol":"WEPE","decimals":18},"token1":{"symbol":"WETH","decimals":18},"preferredTokenCoingeckoId":"token1"},{"name":"usdc-weth-0.3","contractAddress":"0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640","fromBlock":1620250931,"feeTier":3000,"pricingStrategy":"internal-twap","token0":{"symbol":"USDC","decimals":6},"token1":{"symbol":"WETH","decimals":18},"preferredTokenCoingeckoId":"token1"}]}],"zebuProtocols":[{"type":"zebu","name":"zebu-new","toBlock":0,"clients":[{"name":"xyz-1","contractAddress":"0xD71954165a026924cA771C53164FB0a781c54C83","chainId":137,"fromBlock":61059459},{"name":"xyz-2","contractAddress":"0x3e4768dB375094b753929B7A540121d970fcb24e","chainId":137,"fromBlock":61059459},{"name":"xyz-3","contractAddress":"0x5859Ff44A3BDCD00c7047E68B94e93d34aF0fd71","chainId":8453,"fromBlock":15286409},{"name":"xyz-4","contractAddress":"0xE3EB2347bAE4E2C6905D7B832847E7848Ff6938c","chainId":137,"fromBlock":61695150},{"name":"xyz-5","contractAddress":"0x19633c8006236f6c016a34B9ca48e98AD10418B4","chainId":137,"fromBlock":64199277},{"name":"xyz-6","contractAddress":"0x0c18F35EcfF53b7c587bD754fc070b683cB9063B","chainId":8453,"fromBlock":20328800},{"name":"xyz-7","contractAddress":"0xDD4d9ae148b7c821b8157828806c78BD0FeCE8C4","chainId":137,"fromBlock":73490308}]},{"type":"zebu","name":"zebu-legacy","toBlock":0,"clients":[{"name":"xyz-1","contractAddress":"0xd7829F0EFC16086a91Cf211CFbb0E4Ef29D16BEE","chainId":8453,"fromBlock":27296063}]}]}'
+ABS_CONFIG='{"balanceFlushIntervalHours":6,"dexProtocols":[{"type":"uniswap-v2","chainId":1,"toBlock":0,"protocols":[{"name":"pepe-weth","contractAddress":"0xa43fe16908251ee70ef74718545e4fe6c5ccec9f","fromBlock":17046833,"pricingStrategy":"coingecko","token0":{"coingeckoId":"pepe","decimals":18},"token1":{"coingeckoId":"weth","decimals":18},"preferredTokenCoingeckoId":"token1"}]},{"type":"izumi","chainId":42161,"toBlock":0,"protocols":[{"name":"weth-hemitbtc","contractAddress":"0xa43fe16908251ee70ef74718545e4fe6c5ccec9f","fromBlock":1276815,"pricingStrategy":"coingecko","token0":{"coingeckoId":"weth","decimals":18},"token1":{"coingeckoId":"btc","decimals":8},"preferredTokenCoingeckoId":"token1"},{"name":"vusd-weth","contractAddress":"0xa43fe16908251ee70ef74718545e4fe6c5ccec9f","fromBlock":1274620,"pricingStrategy":"coingecko","token0":{"coingeckoId":"vesper-vdollar","decimals":18},"token1":{"coingeckoId":"weth","decimals":18},"preferredTokenCoingeckoId":"token1"}]}],"txnTrackingProtocols":[{"type":"printr","name":"printr-base","contractAddress":"0xbdc9a5b600e9a10609b0613b860b660342a6d4c0","factoryAddress":"0x33128a8fc17869897dce68ed026d694621f6fdfd","chainId":8453,"toBlock":0,"fromBlock":30000000},{"type":"vusd-mint","name":"vusd-mint","contractAddress":"0xFd22Bcf90d63748288913336Cd38BBC0e681e298","chainId":1,"toBlock":0,"fromBlock":22017054},{"type":"demos","name":"demos","contractAddress":"0x70468f06cf32b776130e2da4c0d7dd08983282ec","chainId":43111,"toBlock":0,"fromBlock":1993447},{"type":"voucher","name":"voucher","contractAddress":"0xa26b04b41162b0d7c2e1e2f9a33b752e28304a49","chainId":1,"toBlock":0,"fromBlock":21557766}],"stakingProtocols":[{"type":"hemi","name":"hemi-staking","contractAddress":"0x4f5e928763cbfaf5ffd8907ebbb0dabd5f78ba83","chainId":43111,"toBlock":0,"fromBlock":2025621},{"type":"vusd-bridge","name":"vusd-bridge","contractAddress":"0x5eaa10F99e7e6D177eF9F74E519E319aa49f191e","chainId":1,"toBlock":0,"fromBlock":22695105}],"univ3Protocols":[{"type":"uniswap-v3","chainId":1,"factoryAddress":"0x1f98431c8ad98523631ae4a59f267346ea31f984","factoryDeployedAt":12369621,"positionsAddress":"0xc36442b4a4522e871399cd717abdd847ab11fe88","toBlock":0,"poolDiscovery":true,"trackPositions":true,"trackSwaps":true,"pools":[{"name":"pepe-weth-0.3","contractAddress":"0x11950d141ecb863f01007add7d1a342041227b58","fromBlock":13609065,"feeTier":3000,"pricingStrategy":"internal-twap","token0":{"symbol":"PEPE","decimals":18},"token1":{"symbol":"WETH","decimals":18},"preferredTokenCoingeckoId":"token1"},{"name":"wepe-weth-0.3","contractAddress":"0xa3c2076eb97d573cc8842f1db1ecdf7b6f77ba27","fromBlock":12376729,"feeTier":3000,"pricingStrategy":"internal-twap","token0":{"symbol":"WEPE","decimals":18},"token1":{"symbol":"WETH","decimals":18},"preferredTokenCoingeckoId":"token1"},{"name":"usdc-weth-0.3","contractAddress":"0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640","fromBlock":1620250931,"feeTier":3000,"pricingStrategy":"internal-twap","token0":{"symbol":"USDC","decimals":6},"token1":{"symbol":"WETH","decimals":18},"preferredTokenCoingeckoId":"token1"}]}],"zebuProtocols":[{"type":"zebu","name":"zebu-new","toBlock":0,"clients":[{"name":"xyz-1","contractAddress":"0xD71954165a026924cA771C53164FB0a781c54C83","chainId":137,"fromBlock":61059459},{"name":"xyz-2","contractAddress":"0x3e4768dB375094b753929B7A540121d970fcb24e","chainId":137,"fromBlock":61059459},{"name":"xyz-3","contractAddress":"0x5859Ff44A3BDCD00c7047E68B94e93d34aF0fd71","chainId":8453,"fromBlock":15286409},{"name":"xyz-4","contractAddress":"0xE3EB2347bAE4E2C6905D7B832847E7848Ff6938c","chainId":137,"fromBlock":61695150},{"name":"xyz-5","contractAddress":"0x19633c8006236f6c016a34B9ca48e98AD10418B4","chainId":137,"fromBlock":64199277},{"name":"xyz-6","contractAddress":"0x0c18F35EcfF53b7c587bD754fc070b683cB9063B","chainId":8453,"fromBlock":20328800},{"name":"xyz-7","contractAddress":"0xDD4d9ae148b7c821b8157828806c78BD0FeCE8C4","chainId":137,"fromBlock":73490308}]},{"type":"zebu","name":"zebu-legacy","toBlock":0,"clients":[{"name":"xyz-1","contractAddress":"0xd7829F0EFC16086a91Cf211CFbb0E4Ef29D16BEE","chainId":8453,"fromBlock":27296063}]}]}'
 
 ```
 
@@ -805,15 +804,216 @@ chore(deps): update dependencies
 
 ### Adding New Protocol Support
 
-When adding support for a new protocol:
+When adding support for a new protocol, you have two options:
+
+#### Option 1: Use the Adapter Template (Recommended) 🚀
+
+For quick setup, choose the appropriate pre-built template based on your protocol type:
+
+##### **Template-TWB (Time-Weighted Balance)** 📊
+
+**When to use**: For protocols that require tracking user balances over time for yield calculations, staking rewards, or liquidity mining programs.
+
+**Best for**:
+
+- Staking protocols (deposits/withdrawals with yield tracking)
+- Liquidity mining programs
+- Time-based reward distribution systems
+- Any protocol where "balance × time" matters for rewards
+
+1. **Copy the template**:
+
+   ```bash
+   cd projects
+   cp -r template-twb your-staking-protocol-name
+   ```
+
+2. **Update package.json**:
+
+   ```json
+   {
+     "name": "@absinthe/your-staking-protocol-name",
+     "description": "Absinthe adapter for YourStakingProtocol"
+   }
+   ```
+
+3. **Add your contract ABIs**:
+
+   ```bash
+   # Replace hemi.json with your actual staking contract ABIs
+   # Ensure you have Deposit and Withdraw events (or equivalent)
+   ```
+
+4. **Update configuration**:
+   Add to `abs_config.json`:
+
+   ```json
+   {
+     "stakingProtocols": [
+       {
+         "type": "your-staking-protocol-name",
+         "name": "your-protocol-instance",
+         "contractAddress": "0x...",
+         "chainId": 1,
+         "fromBlock": 12345678,
+         "toBlock": 0
+       }
+     ]
+   }
+   ```
+
+5. **Configure supported tokens**:
+   Update `src/utils/conts.ts` with your supported tokens:
+
+   ```typescript
+   const TOKEN_METADATA = [
+     {
+       address: '0x...', // Token contract address
+       decimals: 18, // Token decimals
+       coingeckoId: 'token-name', // CoinGecko ID for price data
+     },
+     // ... more tokens
+   ];
+   ```
+
+6. **Generate types and run**:
+
+   ```bash
+   pnpm typegen    # Generate ABI types
+   pnpm codegen    # Generate TypeORM models
+   pnpm migration  # Run database migrations
+   pnpm dev        # Start development
+   ```
+
+7. **Customize the logic**:
+   - Update `src/BatchProcessor.ts` with your protocol's event handling
+   - Modify `src/processor.ts` with correct events and contract addresses
+   - Adjust time window duration in configuration (balanceFlushIntervalHours)
+   - Implement your specific staking/reward logic
+
+##### **Template-TXN (Transaction Tracking)** 📈
+
+**When to use**: For protocols that only need to track individual transactions without balance state.
+
+**Best for**:
+
+- DEX swap tracking
+- Bonding curve protocols
+- Auction platforms
+- Simple transaction logging
+
+1. **Copy the template**:
+
+   ```bash
+   cd projects
+   cp -r template-txn your-protocol-name
+   ```
+
+2. **Update package.json**:
+
+   ```json
+   {
+     "name": "@absinthe/your-protocol-name",
+     "description": "Absinthe adapter for YourProtocol"
+   }
+   ```
+
+3. **Add your contract ABIs**:
+
+   ```bash
+   # Replace mint.json with your actual contract ABIs
+   ```
+
+4. **Update configuration**:
+   Add to `abs_config.json`:
+
+   ```json
+   {
+     "txnTrackingProtocols": [
+       // or appropriate protocol type
+       {
+         "type": "your-protocol-name",
+         "name": "your-protocol-instance",
+         "contractAddress": "0x...",
+         "chainId": 1,
+         "fromBlock": 12345678,
+         "toBlock": 0
+       }
+     ]
+   }
+   ```
+
+5. **Generate types and run**:
+
+   ```bash
+   pnpm typegen    # Generate ABI types
+   pnpm codegen    # Generate TypeORM models
+   pnpm migration  # Run database migrations
+   pnpm dev        # Start development
+   ```
+
+6. **Customize the logic**:
+   - Update `src/BatchProcessor.ts` with your protocol's event handling
+   - Modify `src/processor.ts` with correct events and contract addresses
+   - Implement your specific business logic
+
+#### Template Comparison 📋
+
+| Feature                | Template-TWB                         | Template-TXN                 |
+| ---------------------- | ------------------------------------ | ---------------------------- |
+| **Use Case**           | Time-weighted balance tracking       | Simple transaction logging   |
+| **Data Storage**       | Complex state with balance snapshots | Simple transaction records   |
+| **Time Windows**       | ✅ Configurable intervals            | ❌ No time-based processing  |
+| **Balance Tracking**   | ✅ Continuous user balances          | ❌ Event-based only          |
+| **Yield Calculations** | ✅ Supports yield/reward tracking    | ❌ Not applicable            |
+| **Complexity**         | Higher (state management)            | Lower (stateless processing) |
+| **Memory Usage**       | Higher (active balances)             | Lower (no persistent state)  |
+| **Recovery**           | ✅ Full state recovery               | ✅ Position-based recovery   |
+
+#### Option 2: Manual Setup (Advanced)
+
+For complete control or complex protocols:
 
 1. **Create project directory**: `projects/{protocol-name}/`
 2. **Define schema**: Create `schema.graphql` with required entities
 3. **Generate models**: Run `pnpm typegen` and `pnpm codegen`
 4. **Implement processor**: Create indexing logic in `src/`
 5. **Add configuration**: Update protocol configurations
-6. **Add tests**: Include unit tests for new functionality
-7. **Update documentation**: Document the new protocol support
+
+#### Template Features 📦
+
+**Template-TWB includes**:
+
+- ✅ **Time-weighted balance tracking** with configurable windows
+- ✅ **State persistence** for crash recovery
+- ✅ **Multi-token support** with price integration
+- ✅ **Periodic balance snapshots** for yield calculations
+- ✅ **Comprehensive comments** explaining time-weighted logic
+- ✅ **TypeScript types** and interfaces pre-configured
+- ✅ **Database setup** with TypeORM models
+- ✅ **Error handling** and logging
+- ✅ **API integration** with Absinthe backend
+- ✅ **Price fetching** with CoinGecko integration
+
+**Template-TXN includes**:
+
+- ✅ **Simple transaction tracking** for event-based protocols
+- ✅ **Complete file structure** with all required files
+- ✅ **Comprehensive comments** explaining every step
+- ✅ **TypeScript types** and interfaces pre-configured
+- ✅ **Database setup** with TypeORM models
+- ✅ **Error handling** and logging
+- ✅ **API integration** with Absinthe backend
+- ✅ **Price fetching** with CoinGecko integration
+- ✅ **Gas fee calculations**
+- ✅ **USD value calculations**
+
+#### Naming Conventions 📝
+
+- **Folder names**: `protocol-name` (kebab-case)
+- **Package names**: `@absinthe/protocol-name`
+- **Class names**: `ProtocolNameProcessor` (PascalCase)
+- **File names**: `main.ts`, `processor.ts`, `BatchProcessor.ts`
 
 ### Database Changes
 
@@ -851,6 +1051,8 @@ If you need help while contributing:
 - **Discussions**: Use GitHub Discussions for questions
 - **Documentation**: Reference this README and inline code documentation
 - **Community**: Reach out to maintainers for guidance
+
+# Troubleshooting
 
 ## FAQ: Rate Limiting and Data Flow in `adapters-api`
 

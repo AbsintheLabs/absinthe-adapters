@@ -43,7 +43,7 @@ enum PriceFeed {
   INTERNAL_TWAP = 'internal-twap',
 }
 
-enum BondingCurveProtocol {
+enum TxnTrackingProtocol {
   PRINTR = 'printr',
   VUSD_MINT = 'vusd-mint',
   DEMOS = 'demos',
@@ -128,7 +128,7 @@ export {
   EventType,
   MessageType,
   TimeWindowTrigger,
-  BondingCurveProtocol,
+  TxnTrackingProtocol,
   StakingProtocol,
   GatewayUrl,
 };

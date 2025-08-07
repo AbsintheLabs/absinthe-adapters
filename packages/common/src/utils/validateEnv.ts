@@ -6,19 +6,19 @@ import { findConfigFile } from './helper/findConfigFile';
 import { EXAMPLE_FILE_NAME } from './consts';
 import { FILE_NAME } from './consts';
 import {
-  BondingCurveProtocol,
   ChainId,
   ChainName,
   ChainShortName,
   ChainType,
   GatewayUrl,
   StakingProtocol,
+  TxnTrackingProtocol,
 } from '../types/enums';
 import { getChainEnumKey } from './helper/helper';
 import {
   ProtocolConfig,
   Univ3PoolConfig,
-  ValidatedBondingCurveProtocolConfig,
+  ValidatedTxnTrackingProtocolConfig,
   ValidatedDexProtocolConfig,
   ValidatedEnv,
   ValidatedStakingProtocolConfig,
@@ -105,9 +105,9 @@ export function validateEnv(): ValidatedEnv {
       throw new Error(`Config validation failed:\n${errorMessages}`);
     }
 
-    const bondingCurveProtocols: ValidatedBondingCurveProtocolConfig[] =
-      configResult.data.bondingCurveProtocols.map((bondingCurveProtocol) => {
-        const chainId = bondingCurveProtocol.chainId;
+    const txnTrackingProtocols: ValidatedTxnTrackingProtocolConfig[] =
+      configResult.data.txnTrackingProtocols.map((txnTrackingProtocol) => {
+        const chainId = txnTrackingProtocol.chainId;
         const chainKey = getChainEnumKey(chainId);
         if (!chainKey) {
           throw new Error(`${chainId} is not a supported chainId.`);
@@ -117,23 +117,23 @@ export function validateEnv(): ValidatedEnv {
         const chainArch = ChainType.EVM;
         const gatewayUrl = GatewayUrl[chainKey];
         return {
-          type: bondingCurveProtocol.type as BondingCurveProtocol,
-          toBlock: bondingCurveProtocol.toBlock,
-          fromBlock: bondingCurveProtocol.fromBlock,
-          name: bondingCurveProtocol.name,
-          contractAddress: bondingCurveProtocol.contractAddress,
-          factoryAddress: bondingCurveProtocol.factoryAddress,
+          type: txnTrackingProtocol.type as TxnTrackingProtocol,
+          toBlock: txnTrackingProtocol.toBlock,
+          fromBlock: txnTrackingProtocol.fromBlock,
+          name: txnTrackingProtocol.name,
+          contractAddress: txnTrackingProtocol.contractAddress,
+          factoryAddress: txnTrackingProtocol.factoryAddress,
           chainArch: chainArch,
           chainId: chainId,
           gatewayUrl: gatewayUrl,
           chainShortName: chainShortName,
           chainName: chainName,
           rpcUrl:
-            bondingCurveProtocol.chainId === ChainId.HEMI
+            txnTrackingProtocol.chainId === ChainId.HEMI
               ? (envResult.data.RPC_URL_HEMI as string)
-              : bondingCurveProtocol.chainId === ChainId.BASE
+              : txnTrackingProtocol.chainId === ChainId.BASE
                 ? (envResult.data.RPC_URL_BASE as string)
-                : ChainId.ETHEREUM === bondingCurveProtocol.chainId
+                : ChainId.ETHEREUM === txnTrackingProtocol.chainId
                   ? (envResult.data.RPC_URL_MAINNET as string)
                   : (envResult.data.RPC_URL_POLYGON as string),
         };
@@ -273,7 +273,7 @@ export function validateEnv(): ValidatedEnv {
     return {
       baseConfig,
       dexProtocols,
-      bondingCurveProtocols,
+      txnTrackingProtocols,
       stakingProtocols,
       univ3Protocols,
       zebuProtocols,

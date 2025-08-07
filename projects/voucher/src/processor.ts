@@ -9,12 +9,12 @@ import {
   Transaction as _Transaction,
 } from '@subsquid/evm-processor';
 import * as erc20Abi from './abi/erc20';
-import { BondingCurveProtocol, validateEnv } from '@absinthe/common';
+import { TxnTrackingProtocol, validateEnv } from '@absinthe/common';
 
 const env = validateEnv();
 
-const voucher = env.bondingCurveProtocols.find((bondingCurveProtocol) => {
-  return bondingCurveProtocol.type === BondingCurveProtocol.VOUCHER;
+const voucher = env.txnTrackingProtocols.find((txnTrackingProtocol) => {
+  return txnTrackingProtocol.type === TxnTrackingProtocol.VOUCHER;
 });
 
 if (!voucher) {
