@@ -389,6 +389,25 @@ function getChainEnumKey(chainId: number): keyof typeof ChainId | null {
   return found ? found[0] : null;
 }
 
+function getRpcUrlForChain(chainId: number, envData: any): string {
+  switch (chainId) {
+    case ChainId.ETHEREUM:
+      return envData.RPC_URL_MAINNET as string;
+    case ChainId.POLYGON:
+      return envData.RPC_URL_POLYGON as string;
+    case ChainId.ARBITRUM:
+      return envData.RPC_URL_ARBITRUM as string;
+    case ChainId.BASE:
+      return envData.RPC_URL_BASE as string;
+    case ChainId.OPTIMISM:
+      return envData.RPC_URL_OPTIMISM as string;
+    case ChainId.HEMI:
+      return envData.RPC_URL_HEMI as string;
+    default:
+      throw new Error(`Unsupported chain ID: ${chainId}`);
+  }
+}
+
 export {
   mapToJson,
   jsonToMap,
@@ -399,4 +418,5 @@ export {
   pricePosition,
   fetchHistoricalUsd,
   getChainEnumKey,
+  getRpcUrlForChain,
 };
