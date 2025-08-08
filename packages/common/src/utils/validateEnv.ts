@@ -14,7 +14,7 @@ import {
   StakingProtocol,
   TxnTrackingProtocol,
 } from '../types/enums';
-import { getChainEnumKey } from './helper/helper';
+import { getChainEnumKey, getRpcUrlForChain } from './helper/helper';
 import {
   ProtocolConfig,
   Univ3PoolConfig,
@@ -116,6 +116,7 @@ export function validateEnv(): ValidatedEnv {
         const chainShortName = ChainShortName[chainKey];
         const chainArch = ChainType.EVM;
         const gatewayUrl = GatewayUrl[chainKey];
+        const rpcUrl = getRpcUrlForChain(chainId, envResult.data);
         return {
           type: txnTrackingProtocol.type as TxnTrackingProtocol,
           toBlock: txnTrackingProtocol.toBlock,
@@ -128,14 +129,7 @@ export function validateEnv(): ValidatedEnv {
           gatewayUrl: gatewayUrl,
           chainShortName: chainShortName,
           chainName: chainName,
-          rpcUrl:
-            txnTrackingProtocol.chainId === ChainId.HEMI
-              ? (envResult.data.RPC_URL_HEMI as string)
-              : txnTrackingProtocol.chainId === ChainId.BASE
-                ? (envResult.data.RPC_URL_BASE as string)
-                : ChainId.ETHEREUM === txnTrackingProtocol.chainId
-                  ? (envResult.data.RPC_URL_MAINNET as string)
-                  : (envResult.data.RPC_URL_POLYGON as string),
+          rpcUrl: rpcUrl,
         };
       });
 
@@ -150,7 +144,7 @@ export function validateEnv(): ValidatedEnv {
         const chainShortName = ChainShortName[chainKey];
         const chainArch = ChainType.EVM;
         const gatewayUrl = GatewayUrl[chainKey];
-
+        const rpcUrl = getRpcUrlForChain(chainId, envResult.data);
         return {
           type: dexProtocol.type,
           gatewayUrl: gatewayUrl,
@@ -160,10 +154,7 @@ export function validateEnv(): ValidatedEnv {
           chainId: chainId,
           chainShortName: chainShortName,
           chainName: chainName,
-          rpcUrl:
-            dexProtocol.chainId === ChainId.ETHEREUM
-              ? (envResult.data.RPC_URL_MAINNET as string)
-              : (envResult.data.RPC_URL_HEMI as string),
+          rpcUrl: rpcUrl,
         };
       },
     );
@@ -179,6 +170,7 @@ export function validateEnv(): ValidatedEnv {
         const chainShortName = ChainShortName[chainKey];
         const chainArch = ChainType.EVM;
         const gatewayUrl = GatewayUrl[chainKey];
+        const rpcUrl = getRpcUrlForChain(chainId, envResult.data);
         return {
           type: univ3Protocol.type,
           chainId: chainId,
@@ -186,10 +178,7 @@ export function validateEnv(): ValidatedEnv {
           chainShortName: chainShortName,
           chainName: chainName,
           gatewayUrl: gatewayUrl,
-          rpcUrl:
-            univ3Protocol.chainId === ChainId.ETHEREUM
-              ? (envResult.data.RPC_URL_MAINNET as string)
-              : (envResult.data.RPC_URL_HEMI as string),
+          rpcUrl: rpcUrl,
           factoryAddress: univ3Protocol.factoryAddress,
           factoryDeployedAt: univ3Protocol.factoryDeployedAt,
           positionsAddress: univ3Protocol.positionsAddress,
@@ -210,6 +199,7 @@ export function validateEnv(): ValidatedEnv {
         const chainShortName = ChainShortName[chainKey];
         const chainArch = ChainType.EVM;
         const gatewayUrl = GatewayUrl[chainKey];
+        const rpcUrl = getRpcUrlForChain(chainId, envResult.data);
         return {
           type: stakingProtocol.type as StakingProtocol,
           gatewayUrl: gatewayUrl,
@@ -221,10 +211,7 @@ export function validateEnv(): ValidatedEnv {
           chainId: chainId,
           chainShortName: chainShortName,
           chainName: chainName,
-          rpcUrl:
-            stakingProtocol.chainId === ChainId.HEMI
-              ? (envResult.data.RPC_URL_HEMI as string)
-              : (envResult.data.RPC_URL_MAINNET as string),
+          rpcUrl: rpcUrl,
         };
       });
 
@@ -232,6 +219,7 @@ export function validateEnv(): ValidatedEnv {
       (zebuProtocol) => {
         const enhancedClients: ZebuClientConfigWithChain[] = zebuProtocol.clients.map((client) => {
           const clientChainKey = getChainEnumKey(client.chainId);
+          const rpcUrl = getRpcUrlForChain(client.chainId, envResult.data);
           if (!clientChainKey) {
             throw new Error(
               `${client.chainId} is not a supported chainId for client ${client.name}`,
@@ -246,10 +234,7 @@ export function validateEnv(): ValidatedEnv {
             chainArch: ChainType.EVM,
             chainShortName: ChainShortName[clientChainKey],
             chainName: ChainName[clientChainKey],
-            rpcUrl:
-              client.chainId === ChainId.BASE
-                ? (envResult.data.RPC_URL_BASE as string)
-                : (envResult.data.RPC_URL_POLYGON as string),
+            rpcUrl: rpcUrl,
             gatewayUrl: GatewayUrl[clientChainKey],
           };
         });
