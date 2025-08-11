@@ -29,10 +29,6 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/packages/common/node_modules ./packages/common/node_modules
 COPY --from=deps /app/projects/printr/node_modules ./projects/printr/node_modules
 
-# Generate TypeScript clients for common package ABIs
-WORKDIR /app/packages/common
-RUN pnpm squid-evm-typegen ./src/abi/ abi/*.json
-
 WORKDIR /app/projects/printr
 RUN pnpm squid-evm-typegen ./src/abi/ abi/*.json
 RUN pnpm squid-typeorm-codegen

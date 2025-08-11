@@ -7,12 +7,13 @@ import {
   DataHandlerContext,
 } from '@subsquid/evm-processor';
 import * as mainAbi from './abi/main';
+import * as aavegotchiAbi from './abi/aavegotchi';
 import { ZebuClientConfigWithChain } from '@absinthe/common';
 
 export function createProcessor(clients: ZebuClientConfigWithChain[]) {
   const contractAddresses = clients.map((client) => client.contractAddress);
   const fromBlock = Math.min(...clients.map((client) => client.fromBlock));
-
+  console.log(contractAddresses, fromBlock);
   return new EvmBatchProcessor()
     .setGateway(clients[0].gatewayUrl)
     .setRpcEndpoint(clients[0].rpcUrl)
@@ -22,7 +23,11 @@ export function createProcessor(clients: ZebuClientConfigWithChain[]) {
     .setFinalityConfirmation(75)
     .addLog({
       address: contractAddresses,
-      topic0: [mainAbi.events.Auction_BidPlaced.topic],
+      topic0: [
+        mainAbi.events.Auction_BidPlaced.topic,
+        mainAbi.events.Auction_BidRemoved.topic,
+        aavegotchiAbi.events.Auction_ItemClaimed.topic,
+      ],
       transaction: true,
     })
     .setFields({

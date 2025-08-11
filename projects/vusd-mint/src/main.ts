@@ -1,4 +1,4 @@
-import { AbsintheApiClient, BondingCurveProtocol, validateEnv } from '@absinthe/common';
+import { AbsintheApiClient, TxnTrackingProtocol, validateEnv } from '@absinthe/common';
 import { VusdMintProcessor } from './BatchProcessor';
 
 const env = validateEnv();
@@ -9,8 +9,8 @@ const apiClient = new AbsintheApiClient({
   minTime: 90,
 });
 
-const vusdMintBondingCurveProtocol = env.bondingCurveProtocols.find((bondingCurveProtocol) => {
-  return bondingCurveProtocol.type === BondingCurveProtocol.VUSD_MINT;
+const vusdMintBondingCurveProtocol = env.txnTrackingProtocols.find((txnTrackingProtocol) => {
+  return txnTrackingProtocol.type === TxnTrackingProtocol.VUSD_MINT;
 });
 
 if (!vusdMintBondingCurveProtocol) {

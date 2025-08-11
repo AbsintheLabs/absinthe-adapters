@@ -32,6 +32,7 @@ export class VUSDBridgeProcessor {
   private readonly apiClient: AbsintheApiClient;
   private readonly chainConfig: Chain;
   private readonly env: ValidatedEnvBase;
+  private readonly contractAddress: string;
 
   constructor(
     stakingProtocol: ValidatedStakingProtocolConfig,
@@ -40,48 +41,32 @@ export class VUSDBridgeProcessor {
     env: ValidatedEnvBase,
     chainConfig: Chain,
   ) {
-    logger.info(
-      `🔧 [VUSDBridgeProcessor] Initializing processor for contract: ${stakingProtocol.contractAddress}`,
-    );
-    logger.info(
-      `🔧 [VUSDBridgeProcessor] Chain: ${chainConfig.chainName} (${chainConfig.networkId})`,
-    );
-    logger.info(`🔧 [VUSDBridgeProcessor] Refresh window: ${refreshWindow}ms`);
-
     this.stakingProtocol = stakingProtocol;
     this.refreshWindow = refreshWindow;
     this.apiClient = apiClient;
     this.env = env;
     this.chainConfig = chainConfig;
     this.schemaName = this.generateSchemaName();
-
-    logger.info(`🔧 [VUSDBridgeProcessor] Generated schema name: ${this.schemaName}`);
+    this.contractAddress = stakingProtocol.contractAddress.toLowerCase();
   }
 
   private generateSchemaName(): string {
-    const uniquePoolCombination = this.stakingProtocol.contractAddress.concat(
+    const uniquePoolCombination = this.contractAddress.concat(
       this.chainConfig.networkId.toString(),
     );
 
     const hash = createHash('md5').update(uniquePoolCombination).digest('hex').slice(0, 8);
     const schemaName = `vusd-bridge-${hash}`;
-    logger.info(
-      `🔧 [VUSDBridgeProcessor] Generated schema name: ${schemaName} from combination: ${uniquePoolCombination}`,
-    );
     return schemaName;
   }
 
   async run(): Promise<void> {
-    logger.info(`🚀 [VUSDBridgeProcessor] Starting processor with schema: ${this.schemaName}`);
-
     processor.run(
       new TypeormDatabase({ supportHotBlocks: false, stateSchema: this.schemaName }),
       async (ctx) => {
         try {
-          logger.info(`📦 [VUSDBridgeProcessor] Processing batch with ${ctx.blocks.length} blocks`);
           await this.processBatch(ctx);
         } catch (error) {
-          logger.error(`❌ [VUSDBridgeProcessor] Error processing batch:`, error);
           throw error;
         }
       },
@@ -89,42 +74,22 @@ export class VUSDBridgeProcessor {
   }
 
   private async processBatch(ctx: any): Promise<void> {
-    logger.info(`🔄 [VUSDBridgeProcessor] Initializing protocol states...`);
     const protocolStates = await this.initializeProtocolStates(ctx);
-    logger.info(
-      `✅ [VUSDBridgeProcessor] Protocol states initialized for ${protocolStates.size} contracts`,
-    );
 
     for (const block of ctx.blocks) {
-      logger.info(
-        `📦 [VUSDBridgeProcessor] Processing block ${block.header.height} with ${block.logs.length} logs`,
-      );
       await this.processBlock({ ctx, block, protocolStates });
     }
 
-    logger.info(`🏁 [VUSDBridgeProcessor] Finalizing batch...`);
     await this.finalizeBatch(ctx, protocolStates);
-    logger.info(`✅ [VUSDBridgeProcessor] Batch processing completed successfully`);
   }
 
   private async initializeProtocolStates(ctx: any): Promise<Map<string, ProtocolStateHemi>> {
-    logger.info(`🔧 [VUSDBridgeProcessor] Initializing protocol states...`);
     const protocolStates = new Map<string, ProtocolStateHemi>();
 
-    const contractAddress = this.stakingProtocol.contractAddress.toLowerCase();
-    logger.info(`🔧 [VUSDBridgeProcessor] Loading state for contract: ${contractAddress}`);
+    const activeBalances = await loadActiveBalancesFromDb(ctx, this.contractAddress);
+    const processState = await loadPoolProcessStateFromDb(ctx, this.contractAddress);
 
-    const activeBalances = await loadActiveBalancesFromDb(ctx, contractAddress);
-    const processState = await loadPoolProcessStateFromDb(ctx, contractAddress);
-
-    logger.info(
-      `📊 [VUSDBridgeProcessor] Loaded active balances: ${activeBalances ? 'found' : 'not found'}`,
-    );
-    logger.info(
-      `📊 [VUSDBridgeProcessor] Loaded process state: ${processState ? 'found' : 'not found'}`,
-    );
-
-    protocolStates.set(contractAddress, {
+    protocolStates.set(this.contractAddress, {
       activeBalances: activeBalances || new Map<string, ActiveBalance>(),
       balanceWindows: [],
       transactions: [],
@@ -138,32 +103,23 @@ export class VUSDBridgeProcessor {
   private async processBlock(batchContext: BatchContext): Promise<void> {
     const { ctx, block, protocolStates } = batchContext;
 
-    const contractAddress = this.stakingProtocol.contractAddress.toLowerCase();
-    const protocolState = protocolStates.get(contractAddress.toLowerCase())!;
+    const protocolState = protocolStates.get(this.contractAddress)!;
 
-    logger.info(`🔍 [VUSDBridgeProcessor] Processing logs for contract: ${contractAddress}`);
-    await this.processLogsForProtocol(ctx, block, contractAddress, protocolState);
+    await this.processLogsForProtocol(ctx, block, protocolState);
 
-    logger.info(`⏰ [VUSDBridgeProcessor] Processing periodic balance flush...`);
     await this.processPeriodicBalanceFlush(ctx, block, protocolState);
   }
 
   private async processLogsForProtocol(
     ctx: any,
     block: any,
-    contractAddress: string,
     protocolState: ProtocolStateHemi,
   ): Promise<void> {
     const poolLogs = block.logs.filter((log: any) => {
-      return log.address.toLowerCase() === contractAddress.toLowerCase();
+      return log.address.toLowerCase() === this.contractAddress;
     });
 
-    logger.info(
-      `📋 [VUSDBridgeProcessor] Found ${poolLogs.length} logs for contract ${contractAddress} out of ${block.logs.length} total logs`,
-    );
-
     for (const log of poolLogs) {
-      logger.info(`🔍 [VUSDBridgeProcessor] Processing log with topic: ${log.topics[0]}`);
       await this.processLog(ctx, block, log, protocolState);
     }
   }
@@ -343,55 +299,34 @@ export class VUSDBridgeProcessor {
     ctx: any,
     protocolStates: Map<string, ProtocolStateHemi>,
   ): Promise<void> {
-    const contractAddress = this.stakingProtocol.contractAddress.toLowerCase();
-    const protocolState = protocolStates.get(contractAddress);
+    const protocolState = protocolStates.get(this.contractAddress);
 
     if (!protocolState) {
-      logger.error(
-        `❌ [VUSDBridgeProcessor] Protocol state not found for contract: ${contractAddress}`,
-      );
       return;
     }
 
-    logger.info(
-      `📊 [VUSDBridgeProcessor] Finalizing batch with ${protocolState.balanceWindows.length} balance windows`,
-    );
-
-    // Send data to Absinthe API
-    logger.info(
-      `📤 [VUSDBridgeProcessor] Converting balance windows to time-weighted balance events...`,
-    );
     const balances = toTimeWeightedBalance(
       protocolState.balanceWindows,
       this.stakingProtocol,
       this.env,
       this.chainConfig,
-    ).filter((e: TimeWeightedBalanceEvent) => e.startUnixTimestampMs !== e.endUnixTimestampMs);
-
-    logger.info(
-      `📤 [VUSDBridgeProcessor] Sending ${balances.length} balance events to Absinthe API`,
     );
-    console.log(JSON.stringify(balances));
+
     await this.apiClient.send(balances);
-    logger.info(`✅ [VUSDBridgeProcessor] Successfully sent data to Absinthe API`);
 
     // Save to database
-    logger.info(`💾 [VUSDBridgeProcessor] Saving process state to database...`);
     await ctx.store.upsert(
       new PoolProcessState({
-        id: `${contractAddress.toLowerCase()}-process-state`,
+        id: `${this.contractAddress}-process-state`,
         lastInterpolatedTs: protocolState.processState.lastInterpolatedTs,
       }),
     );
 
-    logger.info(`💾 [VUSDBridgeProcessor] Saving active balances to database...`);
     await ctx.store.upsert(
       new ActiveBalances({
-        id: `${contractAddress.toLowerCase()}-active-balances`,
+        id: `${this.contractAddress}-active-balances`,
         activeBalancesMap: mapToJson(protocolState.activeBalances),
       }),
     );
-
-    logger.info(`✅ [VUSDBridgeProcessor] Successfully saved state to database`);
   }
 }

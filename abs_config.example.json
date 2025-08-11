@@ -67,46 +67,9 @@
           "preferredTokenCoingeckoId": "token1"
         }
       ]
-    },
-    {
-      "type": "izumi",
-      "chainId": 42161,
-      "toBlock": 0,
-      "protocols": [
-        {
-          "name": "hemibtc-usdc.e",
-          "contractAddress": "0x0621bae969de9c153835680f158f481424c0720a",
-          "fromBlock": 1451314,
-          "pricingStrategy": "coingecko",
-          "token0": {
-            "coingeckoId": "bitcoin",
-            "decimals": 18
-          },
-          "token1": {
-            "coingeckoId": "usd-coin",
-            "decimals": 6
-          },
-          "preferredTokenCoingeckoId": "token1"
-        },
-        {
-          "name": "vusd-weth",
-          "contractAddress": "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f",
-          "fromBlock": 1274620,
-          "pricingStrategy": "coingecko",
-          "token0": {
-            "coingeckoId": "vesper-vdollar",
-            "decimals": 18
-          },
-          "token1": {
-            "coingeckoId": "weth",
-            "decimals": 18
-          },
-          "preferredTokenCoingeckoId": "token1"
-        }
-      ]
     }
   ],
-  "bondingCurveProtocols": [
+  "txnTrackingProtocols": [
     {
       "type": "printr",
       "name": "printr-base",
@@ -123,6 +86,14 @@
       "chainId": 1,
       "toBlock": 0,
       "fromBlock": 22017054
+    },
+    {
+      "type": "vusd-bridge",
+      "name": "vusd-bridge",
+      "contractAddress": "0x5eaa10f99e7e6d177ef9f74e519e319aa49f191e",
+      "chainId": 1,
+      "toBlock": 0,
+      "fromBlock": 22033013
     },
     {
       "type": "demos",
@@ -149,14 +120,6 @@
       "chainId": 43111,
       "toBlock": 0,
       "fromBlock": 1226394
-    },
-    {
-      "type": "vusd-bridge",
-      "name": "vusd-bridge",
-      "contractAddress": "0x5eaa10f99e7e6d177ef9f74e519e319aa49f191e",
-      "chainId": 1,
-      "toBlock": 0,
-      "fromBlock": 22033013
     }
   ],
   "univ3Protocols": [
@@ -338,6 +301,12 @@
           "contractAddress": "0xDD4d9ae148b7c821b8157828806c78BD0FeCE8C4",
           "chainId": 137,
           "fromBlock": 73490308
+        },
+        {
+          "name": "bify",
+          "contractAddress": "0xBEBE4BaF1f02FA150D42A1Be9eD1B4707c5BE49B",
+          "chainId": 8453,
+          "fromBlock": 33033160
         }
       ]
     },
@@ -351,6 +320,12 @@
           "contractAddress": "0xd7829F0EFC16086a91Cf211CFbb0E4Ef29D16BEE",
           "chainId": 8453,
           "fromBlock": 27296063
+        },
+        {
+          "name": "aavegotchi",
+          "contractAddress": "0x80320A0000C7A6a34086E2ACAD6915Ff57FfDA31",
+          "chainId": 8453,
+          "fromBlock": 33276452
         }
       ]
     }

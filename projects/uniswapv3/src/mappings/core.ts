@@ -69,23 +69,10 @@ export async function processPairs(
 }
 
 async function processItems(ctx: ContextWithEntityManager, block: BlockData) {
-  const startTime = Date.now();
-  logger.info(`🔍 Starting processItems for block #${block.header.height}`, {
-    totalLogs: block.logs.length,
-  });
-
   let eventsData: EventData[] = [];
-  let swapCount = 0;
 
   for (let i = 0; i < block.logs.length; i++) {
     const log = block.logs[i];
-    logger.info(`📋 Processing log ${i + 1}/${block.logs.length}:`, {
-      address: log.address,
-      topics: log.topics,
-      logIndex: log.logIndex,
-      transactionHash: log.transaction?.hash,
-    });
-
     let evmLog = {
       logIndex: log.logIndex,
       transactionIndex: log.transactionIndex,
@@ -96,26 +83,11 @@ async function processItems(ctx: ContextWithEntityManager, block: BlockData) {
     };
 
     if (log.topics[0] === poolAbi.events.Swap.topic) {
-      logger.info(`🔄 Found Swap event in log ${i + 1}`, {
-        poolAddress: log.address,
-        transactionHash: log.transaction?.hash,
-        logIndex: log.logIndex,
-      });
-
       try {
         let data = processSwap(evmLog, log.transaction);
         eventsData.push({
           type: 'Swap',
           ...data,
-        });
-        swapCount++;
-        logger.info(`✅ Swap event decoded successfully:`, {
-          poolId: data.poolId,
-          amount0: data.amount0.toString(),
-          amount1: data.amount1.toString(),
-          tick: data.tick,
-          sender: data.sender,
-          recipient: data.recipient,
         });
       } catch (error) {
         logger.error(`❌ Failed to decode Swap event:`, {
@@ -127,27 +99,8 @@ async function processItems(ctx: ContextWithEntityManager, block: BlockData) {
     }
   }
 
-  logger.info(`🎯 processItems completed in ${Date.now() - startTime}ms:`, {
-    totalLogs: block.logs.length,
-    swapEvents: swapCount,
-    totalEvents: eventsData.length,
-  });
-
   return eventsData;
 }
-
-// async function processInitializeData(
-//   ctx: ContextWithEntityManager,
-//   block: BlockHeader,
-//   data: InitializeData,
-//   positionStorageService: PositionStorageService,
-// ) {
-//   const poolMetadata = {
-//     sqrtPriceX96: data.sqrtPrice.toString(),
-//     tick: data.tick,
-//   };
-//   await positionStorageService.storePoolMetadata(data.poolId, poolMetadata);
-// }
 
 async function processSwapData(
   ctx: ContextWithEntityManager,

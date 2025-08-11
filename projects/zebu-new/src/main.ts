@@ -26,7 +26,6 @@ if (!chainId) {
 const apiClient = new AbsintheApiClient({
   baseUrl: env.baseConfig.absintheApiUrl,
   apiKey: env.baseConfig.absintheApiKey,
-  minTime: 90, // warn: remove this, it's temporary for testing
 });
 
 const zebuNew = env.zebuProtocols.find((zebuProtocol) => {
