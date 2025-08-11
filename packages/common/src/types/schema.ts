@@ -89,6 +89,20 @@ const zebuProtocolSchema = z.object({
   clients: z.array(zebuClientSchema),
 });
 
+const solanaTokenSchema = z.object({
+  coingeckoId: z.string(),
+  decimals: z.number(),
+  symbol: z.string().optional(),
+});
+
+const solanaSplProtocolSchema = z.object({
+  type: z.enum([ProtocolType.SOLANA_SPL]).optional(),
+  name: z.string(),
+  mintAddress: z.string(),
+  fromBlock: z.number(),
+  token: solanaTokenSchema,
+});
+
 const configSchema = z.object({
   balanceFlushIntervalHours: z.number(),
   dexProtocols: z.array(dexProtocolSchema),
@@ -96,6 +110,7 @@ const configSchema = z.object({
   stakingProtocols: z.array(stakingProtocolSchema),
   univ3Protocols: z.array(univ3ProtocolSchema),
   zebuProtocols: z.array(zebuProtocolSchema),
+  solanaSplProtocols: z.array(solanaSplProtocolSchema).optional(),
 });
 
 export { configSchema, dexProtocolSchema, protocolConfigSchema };

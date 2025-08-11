@@ -132,6 +132,20 @@ interface ValidatedZebuProtocolConfig {
   clients: ZebuClientConfigWithChain[];
 }
 
+interface SolanaSplProtocolConfig {
+  type: ProtocolType;
+  name: string;
+  mintAddress: string; // (base58)
+  fromBlock: number;
+  contractAddress?: string; // reuse common shape, set as mint address
+}
+
+interface ValidatedSolanaSplProtocolConfig
+  extends SolanaSplProtocolConfig,
+    BaseProtocolConfigWithChain {
+  token: { coingeckoId: string; decimals: number; symbol?: string };
+}
+
 interface ValidatedEnv {
   baseConfig: ValidatedEnvBase;
   dexProtocols: ValidatedDexProtocolConfig[];
@@ -139,6 +153,7 @@ interface ValidatedEnv {
   stakingProtocols: ValidatedStakingProtocolConfig[];
   univ3Protocols: ValidatedUniv3ProtocolConfig[];
   zebuProtocols: ValidatedZebuProtocolConfig[];
+  solanaSplProtocols?: ValidatedSolanaSplProtocolConfig[];
 }
 
 interface HelperProtocolConfig extends Univ3PoolConfig {
@@ -166,4 +181,6 @@ export {
   ZebuClientConfigWithChain,
   ZebuProtocolConfigWithChain,
   ValidatedZebuProtocolConfig,
+  SolanaSplProtocolConfig,
+  ValidatedSolanaSplProtocolConfig,
 };

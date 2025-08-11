@@ -1,0 +1,24 @@
+{
+  "name": "@absinthe/solana-spl",
+  "version": "0.0.1",
+  "private": true,
+  "main": "lib/main.js",
+  "types": "lib/main.d.ts",
+  "scripts": {
+    "build": "tsc -p .",
+    "start": "node --env-file=../../.env lib/main.js",
+    "dev": "pnpm --filter @absinthe/common build && pnpm build && node --env-file=../../.env lib/main.js"
+  },
+  "packageManager": "pnpm@10.1.0",
+  "dependencies": {
+    "@absinthe/common": "workspace:*",
+    "@subsquid/solana-normalization": "^0.1.1",
+    "@subsquid/solana-objects": "^0.0.4",
+    "@subsquid/solana-stream": "^0.3.1",
+    "@subsquid/typeorm-store": "^1.5.1"
+  },
+  "devDependencies": {
+    "@types/big.js": "^6.2.2",
+    "@types/node": "20.17.30"
+  }
+}

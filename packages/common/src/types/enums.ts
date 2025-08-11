@@ -16,6 +16,7 @@ enum ChainId {
   BASE = 8453,
   OPTIMISM = 10,
   HEMI = 43111,
+  SOLANA = 1000000,
 }
 
 // coingecko chain platform
@@ -26,6 +27,7 @@ enum ChainName {
   BASE = 'base',
   OPTIMISM = 'optimism',
   HEMI = 'hemi',
+  SOLANA = 'solana',
 }
 
 enum ChainShortName {
@@ -35,6 +37,7 @@ enum ChainShortName {
   BASE = 'base',
   OPTIMISM = 'optimism',
   HEMI = 'hemi',
+  SOLANA = 'sol',
 }
 
 enum PriceFeed {
@@ -62,6 +65,7 @@ enum GatewayUrl {
   BASE = 'https://v2.archive.subsquid.io/network/base-mainnet',
   OPTIMISM = 'https://v2.archive.subsquid.io/network/optimism-mainnet',
   HEMI = 'https://v2.archive.subsquid.io/network/hemi-mainnet',
+  SOLANA = 'https://v2.archive.subsquid.io/network/solana-mainnet',
 }
 
 enum ProtocolType {
@@ -80,10 +84,12 @@ enum ProtocolType {
   COMPOUND = 'compound',
   IZUMI = 'izumi',
   ZEBU = 'zebu',
+  SOLANA_SPL = 'solana-spl',
 }
 
 enum ChainType {
   EVM = 'evm',
+  SOLANA = 'solana',
 }
 
 enum TokenPreference {
