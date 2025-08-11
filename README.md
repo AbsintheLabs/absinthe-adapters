@@ -139,6 +139,20 @@
 - **Events Monitored**: Voucher creation, redemption
 - **Supported Chains**: Ethereum
 
+### 4. Solana SPL Tokens
+
+#### Solana SPL Balance Tracker
+
+- **Purpose**: Track time-weighted balances for selected SPL token mints on Solana
+- **Signals Monitored**: Token account balance changes (per mint)
+- **Features**: Time-weighted balance windows, hourly price caching via CoinGecko, optional wallet blacklist, graceful shutdown state flush
+- **Supported Chains**: Solana
+
+Notes:
+
+- Configure tracked mints in `solanaSplProtocols` within your config. Prices are fetched using the configured `token.coingeckoId` and cached per-hour bucket.
+- You can optionally set `SPL_STATE_PATH` to customize the on-disk state file location used for recovery and periodic persistence.
+
 ### 5. Specialized Protocols
 
 #### Zebu (New & Legacy)
@@ -324,6 +338,9 @@ REDIS_URL="redis://localhost:6379"
 
 # Logging
 LOG_FILE_PATH=./logs/indexer.log
+
+# Optional (Solana SPL)
+SPL_STATE_PATH=/absolute/path/to/state.json
 ```
 
 #### Environment Variable Sources
@@ -393,6 +410,28 @@ LOG_FILE_PATH=./logs/indexer.log
 }
 ```
 
+**Solana SPL Configuration**
+
+```json
+{
+  "solanaSplProtocols": [
+    {
+      "name": "usdc",
+      "mintAddress": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "fromBlock": 329717480,
+      "token": { "coingeckoId": "usd-coin", "decimals": 6 }
+    },
+    {
+      "name": "sol",
+      "mintAddress": "So11111111111111111111111111111111111111112",
+      "fromBlock": 329717480,
+      "token": { "coingeckoId": "solana", "decimals": 9 }
+    }
+  ],
+  "solanaSplWalletBlacklist": ["6n9VhCwQ7EwK6NqFDjnHPzEk6wZdRBTfh43RFgHQWHuQ"]
+}
+```
+
 ### 3. Setup Instructions
 
 #### Prerequisites
@@ -422,7 +461,7 @@ cp .env.example .env
 3. **Configuration Setup**
 
 ```bash
-ABS_CONFIG='{"balanceFlushIntervalHours":6,"dexProtocols":[{"type":"uniswap-v2","chainId":1,"toBlock":0,"protocols":[{"name":"pepe-weth","contractAddress":"0xa43fe16908251ee70ef74718545e4fe6c5ccec9f","fromBlock":17046833,"pricingStrategy":"coingecko","token0":{"coingeckoId":"pepe","decimals":18},"token1":{"coingeckoId":"weth","decimals":18},"preferredTokenCoingeckoId":"token1"}]},{"type":"izumi","chainId":42161,"toBlock":0,"protocols":[{"name":"weth-hemitbtc","contractAddress":"0xa43fe16908251ee70ef74718545e4fe6c5ccec9f","fromBlock":1276815,"pricingStrategy":"coingecko","token0":{"coingeckoId":"weth","decimals":18},"token1":{"coingeckoId":"btc","decimals":8},"preferredTokenCoingeckoId":"token1"},{"name":"vusd-weth","contractAddress":"0xa43fe16908251ee70ef74718545e4fe6c5ccec9f","fromBlock":1274620,"pricingStrategy":"coingecko","token0":{"coingeckoId":"vesper-vdollar","decimals":18},"token1":{"coingeckoId":"weth","decimals":18},"preferredTokenCoingeckoId":"token1"}]}],"bondingCurveProtocols":[{"type":"printr","name":"printr-base","contractAddress":"0xbdc9a5b600e9a10609b0613b860b660342a6d4c0","factoryAddress":"0x33128a8fc17869897dce68ed026d694621f6fdfd","chainId":8453,"toBlock":0,"fromBlock":30000000},{"type":"vusd-mint","name":"vusd-mint","contractAddress":"0xFd22Bcf90d63748288913336Cd38BBC0e681e298","chainId":1,"toBlock":0,"fromBlock":22017054},{"type":"demos","name":"demos","contractAddress":"0x70468f06cf32b776130e2da4c0d7dd08983282ec","chainId":43111,"toBlock":0,"fromBlock":1993447},{"type":"voucher","name":"voucher","contractAddress":"0xa26b04b41162b0d7c2e1e2f9a33b752e28304a49","chainId":1,"toBlock":0,"fromBlock":21557766}],"stakingProtocols":[{"type":"hemi","name":"hemi-staking","contractAddress":"0x4f5e928763cbfaf5ffd8907ebbb0dabd5f78ba83","chainId":43111,"toBlock":0,"fromBlock":2025621},{"type":"vusd-bridge","name":"vusd-bridge","contractAddress":"0x5eaa10F99e7e6D177eF9F74E519E319aa49f191e","chainId":1,"toBlock":0,"fromBlock":22695105}],"univ3Protocols":[{"type":"uniswap-v3","chainId":1,"factoryAddress":"0x1f98431c8ad98523631ae4a59f267346ea31f984","factoryDeployedAt":12369621,"positionsAddress":"0xc36442b4a4522e871399cd717abdd847ab11fe88","toBlock":0,"poolDiscovery":true,"trackPositions":true,"trackSwaps":true,"pools":[{"name":"pepe-weth-0.3","contractAddress":"0x11950d141ecb863f01007add7d1a342041227b58","fromBlock":13609065,"feeTier":3000,"pricingStrategy":"internal-twap","token0":{"symbol":"PEPE","decimals":18},"token1":{"symbol":"WETH","decimals":18},"preferredTokenCoingeckoId":"token1"},{"name":"wepe-weth-0.3","contractAddress":"0xa3c2076eb97d573cc8842f1db1ecdf7b6f77ba27","fromBlock":12376729,"feeTier":3000,"pricingStrategy":"internal-twap","token0":{"symbol":"WEPE","decimals":18},"token1":{"symbol":"WETH","decimals":18},"preferredTokenCoingeckoId":"token1"},{"name":"usdc-weth-0.3","contractAddress":"0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640","fromBlock":1620250931,"feeTier":3000,"pricingStrategy":"internal-twap","token0":{"symbol":"USDC","decimals":6},"token1":{"symbol":"WETH","decimals":18},"preferredTokenCoingeckoId":"token1"}]}],"zebuProtocols":[{"type":"zebu","name":"zebu-new","toBlock":0,"clients":[{"name":"xyz-1","contractAddress":"0xD71954165a026924cA771C53164FB0a781c54C83","chainId":137,"fromBlock":61059459},{"name":"xyz-2","contractAddress":"0x3e4768dB375094b753929B7A540121d970fcb24e","chainId":137,"fromBlock":61059459},{"name":"xyz-3","contractAddress":"0x5859Ff44A3BDCD00c7047E68B94e93d34aF0fd71","chainId":8453,"fromBlock":15286409},{"name":"xyz-4","contractAddress":"0xE3EB2347bAE4E2C6905D7B832847E7848Ff6938c","chainId":137,"fromBlock":61695150},{"name":"xyz-5","contractAddress":"0x19633c8006236f6c016a34B9ca48e98AD10418B4","chainId":137,"fromBlock":64199277},{"name":"xyz-6","contractAddress":"0x0c18F35EcfF53b7c587bD754fc070b683cB9063B","chainId":8453,"fromBlock":20328800},{"name":"xyz-7","contractAddress":"0xDD4d9ae148b7c821b8157828806c78BD0FeCE8C4","chainId":137,"fromBlock":73490308}]},{"type":"zebu","name":"zebu-legacy","toBlock":0,"clients":[{"name":"xyz-1","contractAddress":"0xd7829F0EFC16086a91Cf211CFbb0E4Ef29D16BEE","chainId":8453,"fromBlock":27296063}]}]}'
+ABS_CONFIG='{"balanceFlushIntervalHours":6,"dexProtocols":[{"type":"uniswap-v2","chainId":1,"toBlock":0,"protocols":[{"name":"pepe-weth","contractAddress":"0xa43fe16908251ee70ef74718545e4fe6c5ccec9f","fromBlock":17046833,"pricingStrategy":"coingecko","token0":{"coingeckoId":"pepe","decimals":18},"token1":{"coingeckoId":"weth","decimals":18},"preferredTokenCoingeckoId":"token1"}]},{"type":"izumi","chainId":42161,"toBlock":0,"protocols":[{"name":"weth-hemitbtc","contractAddress":"0xa43fe16908251ee70ef74718545e4fe6c5ccec9f","fromBlock":1276815,"pricingStrategy":"coingecko","token0":{"coingeckoId":"weth","decimals":18},"token1":{"coingeckoId":"btc","decimals":8},"preferredTokenCoingeckoId":"token1"},{"name":"vusd-weth","contractAddress":"0xa43fe16908251ee70ef74718545e4fe6c5ccec9f","fromBlock":1274620,"pricingStrategy":"coingecko","token0":{"coingeckoId":"vesper-vdollar","decimals":18},"token1":{"coingeckoId":"weth","decimals":18},"preferredTokenCoingeckoId":"token1"}]}],"bondingCurveProtocols":[{"type":"printr","name":"printr-base","contractAddress":"0xbdc9a5b600e9a10609b0613b860b660342a6d4c0","factoryAddress":"0x33128a8fc17869897dce68ed026d694621f6fdfd","chainId":8453,"toBlock":0,"fromBlock":30000000},{"type":"vusd-mint","name":"vusd-mint","contractAddress":"0xFd22Bcf90d63748288913336Cd38BBC0e681e298","chainId":1,"toBlock":0,"fromBlock":22017054},{"type":"demos","name":"demos","contractAddress":"0x70468f06cf32b776130e2da4c0d7dd08983282ec","chainId":43111,"toBlock":0,"fromBlock":1993447},{"type":"voucher","name":"voucher","contractAddress":"0xa26b04b41162b0d7c2e1e2f9a33b752e28304a49","chainId":1,"toBlock":0,"fromBlock":21557766}],"stakingProtocols":[{"type":"hemi","name":"hemi-staking","contractAddress":"0x4f5e928763cbfaf5ffd8907ebbb0dabd5f78ba83","chainId":43111,"toBlock":0,"fromBlock":2025621},{"type":"vusd-bridge","name":"vusd-bridge","contractAddress":"0x5eaa10F99e7e6D177eF9F74E519E319aa49f191e","chainId":1,"toBlock":0,"fromBlock":22695105}],"univ3Protocols":[{"type":"uniswap-v3","chainId":1,"factoryAddress":"0x1f98431c8ad98523631ae4a59f267346ea31f984","factoryDeployedAt":12369621,"positionsAddress":"0xc36442b4a4522e871399cd717abdd847ab11fe88","toBlock":0,"poolDiscovery":true,"trackPositions":true,"trackSwaps":true,"pools":[{"name":"pepe-weth-0.3","contractAddress":"0x11950d141ecb863f01007add7d1a342041227b58","fromBlock":13609065,"feeTier":3000,"pricingStrategy":"internal-twap","token0":{"symbol":"PEPE","decimals":18},"token1":{"symbol":"WETH","decimals":18},"preferredTokenCoingeckoId":"token1"},{"name":"wepe-weth-0.3","contractAddress":"0xa3c2076eb97d573cc8842f1db1ecdf7b6f77ba27","fromBlock":12376729,"feeTier":3000,"pricingStrategy":"internal-twap","token0":{"symbol":"WEPE","decimals":18},"token1":{"symbol":"WETH","decimals":18},"preferredTokenCoingeckoId":"token1"},{"name":"usdc-weth-0.3","contractAddress":"0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640","fromBlock":1620250931,"feeTier":3000,"pricingStrategy":"internal-twap","token0":{"symbol":"USDC","decimals":6},"token1":{"symbol":"WETH","decimals":18},"preferredTokenCoingeckoId":"token1"}]}],"zebuProtocols":[{"type":"zebu","name":"zebu-new","toBlock":0,"clients":[{"name":"xyz-1","contractAddress":"0xD71954165a026924cA771C53164FB0a781c54C83","chainId":137,"fromBlock":61059459},{"name":"xyz-2","contractAddress":"0x3e4768dB375094b753929B7A540121d970fcb24e","chainId":137,"fromBlock":61059459},{"name":"xyz-3","contractAddress":"0x5859Ff44A3BDCD00c7047E68B94e93d34aF0fd71","chainId":8453,"fromBlock":15286409},{"name":"xyz-4","contractAddress":"0xE3EB2347bAE4E2C6905D7B832847E7848Ff6938c","chainId":137,"fromBlock":61695150},{"name":"xyz-5","contractAddress":"0x19633c8006236f6c016a34B9ca48e98AD10418B4","chainId":137,"fromBlock":64199277},{"name":"xyz-6","contractAddress":"0x0c18F35EcfF53b7c587bD754fc070b683cB9063B","chainId":8453,"fromBlock":20328800},{"name":"xyz-7","contractAddress":"0xDD4d9ae148b7c821b8157828806c78BD0FeCE8C4","chainId":137,"fromBlock":73490308}]},{"type":"zebu","name":"zebu-legacy","toBlock":0,"clients":[{"name":"xyz-1","contractAddress":"0xd7829F0EFC16086a91Cf211CFbb0E4Ef29D16BEE","chainId":8453,"fromBlock":27296063}]}],"solanaSplProtocols":[{"name":"usdc","mintAddress":"EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v","fromBlock":329717480,"token":{"coingeckoId":"usd-coin","decimals":6}},{"name":"sol","mintAddress":"So11111111111111111111111111111111111111112","fromBlock":329717480,"token":{"coingeckoId":"solana","decimals":9}}],"solanaSplWalletBlacklist":["6n9VhCwQ7EwK6NqFDjnHPzEk6wZdRBTfh43RFgHQWHuQ"]}'
 
 ```
 

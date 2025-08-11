@@ -323,7 +323,6 @@ export class SolanaSplProcessor {
     tokenInfo: TokenMetadata,
   ): Promise<TimeWeightedBalanceEvent[]> {
     try {
-      // Extract relevant data
       const preOwner = tokenBalance.preOwner;
       const postOwner = tokenBalance.postOwner;
       const preAmount = tokenBalance.preAmount;
@@ -351,7 +350,7 @@ export class SolanaSplProcessor {
         balanceChange > 0n ? 'INCREASE' : balanceChange < 0n ? 'DECREASE' : 'NO_CHANGE';
       const changeDirection = balanceChange > 0n ? '↗️' : balanceChange < 0n ? '↘️' : '➡️';
 
-      logger.info(
+      logger.debug(
         `${tokenInfo.symbol} balance change at block ${blockNumber}: ${changeDirection} ${changeType} ` +
           `${preOwner} -> ${postOwner}, ${preFormatted} -> ${postFormatted} (Δ: ${changeFormatted})`,
       );
