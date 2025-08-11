@@ -1,31 +1,27 @@
-import { AbsintheApiClient } from '@absinthe/common';
 import {
+  AbsintheApiClient,
   ActiveBalance,
+  BATCH_SIZE,
   Chain,
-  HistoryWindow,
-  TimeWeightedBalanceEvent,
-  ValidatedEnvBase,
-} from '@absinthe/common';
-import { ValidatedSolanaSplProtocolConfig } from '@absinthe/common';
-import {
   ChainId,
   ChainName,
   ChainShortName,
   ChainType,
-  ProtocolType,
   Currency,
-  TimeWindowTrigger,
-} from '@absinthe/common';
-import {
   fetchHistoricalUsd,
-  processValueChangeBalances,
-  toTimeWeightedBalance,
-  mapToJson,
+  HistoryWindow,
   jsonToMap,
+  logger,
+  mapToJson,
   pricePosition,
+  processValueChangeBalances,
+  ProtocolType,
+  TimeWeightedBalanceEvent,
+  TimeWindowTrigger,
+  toTimeWeightedBalance,
+  ValidatedEnvBase,
+  ValidatedSolanaSplProtocolConfig,
 } from '@absinthe/common';
-import { BATCH_SIZE } from '@absinthe/common';
-import { logger } from '@absinthe/common';
 import { dataSource, SolanaBlock } from './processor';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -407,8 +403,7 @@ export class SolanaSplProcessor {
         name: this.protocol.name,
         contractAddress: mintAddress,
       } as any;
-      const events = toTimeWeightedBalance(filtered, protocolForEvent, this.baseConfig, this.chain);
-      return events;
+      return toTimeWeightedBalance(filtered, protocolForEvent, this.baseConfig, this.chain);
     } catch (error) {
       logger.error(
         `Error processing ${tokenInfo.symbol} token balance change at block ${blockNumber}:`,
@@ -488,17 +483,5 @@ export class SolanaSplProcessor {
     } catch (e) {
       logger.warn('Failed to initialize wallet blacklist:', e);
     }
-  }
-
-  getTokenInfo(mintAddress: string): TokenMetadata | undefined {
-    return this.tokenMetadata.get(mintAddress);
-  }
-
-  getTrackedTokenSymbols(): string[] {
-    return Array.from(this.tokenMetadata.values()).map((t) => t.symbol);
-  }
-
-  isTrackingToken(mintAddress: string): boolean {
-    return this.tokenMetadata.has(mintAddress);
   }
 }
