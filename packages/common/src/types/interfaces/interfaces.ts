@@ -19,10 +19,10 @@ interface BaseEventFields {
   version: string;
   eventId: string;
   userId: string;
-  chain: Chain;
-  contractAddress: string;
-  protocolName: string;
-  protocolType: string;
+  chain: Chain; //
+  contractAddress: string; //
+  protocolName: string; //
+  protocolType: string; //
   runner: Runner;
   protocolMetadata: { [key: string]: { value: string; type: string } };
   currency: Currency;
