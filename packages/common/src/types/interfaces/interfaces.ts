@@ -139,6 +139,7 @@ interface HistoryWindow {
 interface TimeWeightedBalanceEvent {
   base: BaseEventFields;
   eventType: MessageType;
+  indexedTimeMs: number;
   tokenPrice: number;
   tokenDecimals: number;
   balanceBefore: string;

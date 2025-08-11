@@ -354,5 +354,58 @@
         }
       ]
     }
-  ]
+  ],
+  "solanaSplProtocols": [
+    {
+      "type": "jupiter",
+      "name": "usdc",
+      "mintAddress": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "fromBlock": 329717480,
+      "token": {
+        "coingeckoId": "usd-coin",
+        "decimals": 6
+      }
+    },
+    {
+      "type": "jupiter",
+      "name": "usdt",
+      "mintAddress": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+      "fromBlock": 329717480,
+      "token": {
+        "coingeckoId": "tether",
+        "decimals": 6
+      }
+    },
+    {
+      "type": "jupiter",
+      "name": "sol",
+      "mintAddress": "So11111111111111111111111111111111111111112",
+      "fromBlock": 329717480,
+      "token": {
+        "coingeckoId": "solana",
+        "decimals": 9
+      }
+    },
+    {
+      "type": "jupiter",
+      "name": "bonk",
+      "mintAddress": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+      "fromBlock": 329717480,
+      "token": {
+        "coingeckoId": "bonk",
+        "decimals": 5
+      }
+    },
+    {
+      "type": "jupiter",
+      "name": "jup",
+      "mintAddress": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "fromBlock": 329717480,
+      "token": {
+        "coingeckoId": "jupiter",
+        "decimals": 6
+      }
+    }
+  ],
+  "solanaSplWalletBlacklist": ["6n9VhCwQ7EwK6NqFDjnHPzEk6wZdRBTfh43RFgHQWHuQ"]
 }

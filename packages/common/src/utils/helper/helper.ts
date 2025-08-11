@@ -40,16 +40,17 @@ function toTimeWeightedBalance(
 
     const apiKeyHash = createHash('md5').update(env.absintheApiKey).digest('hex').slice(0, 8);
 
+    const isSolana = protocol.type === ProtocolType.SOLANA_SPL;
     const baseSchema = {
       version: VERSION,
       eventId: hash,
       userId: e.userAddress,
       chain: chainConfig,
-      contractAddress: protocol.contractAddress.toLowerCase(),
+      contractAddress: isSolana ? protocol.contractAddress : protocol.contractAddress.toLowerCase(),
       protocolName: protocol.name.toLowerCase(),
       protocolType: protocol.type.toLowerCase(),
       runner: {
-        runnerId: 'uniswapv2_indexer_001', //todo: get the current PID/ docker-containerId
+        runnerId: isSolana ? 'solana_spl_indexer_001' : 'uniswapv2_indexer_001', //todo: get the current PID/ docker-containerId
         apiKeyHash,
       },
       protocolMetadata: e.tokens,
@@ -94,16 +95,17 @@ function toTransaction(
     const hash = createHash('md5').update(hashMessage).digest('hex').slice(0, 8);
 
     const apiKeyHash = createHash('md5').update(env.absintheApiKey).digest('hex').slice(0, 8);
+    const isSolana = (protocol as any).type === ProtocolType.SOLANA_SPL;
     const baseSchema = {
       version: VERSION,
       eventId: hash,
       userId: e.userId,
       chain: chainConfig,
-      contractAddress: protocol.contractAddress.toLowerCase(),
+      contractAddress: isSolana ? protocol.contractAddress : protocol.contractAddress.toLowerCase(),
       protocolName: protocol.name.toLowerCase(),
       protocolType: protocol.type.toLowerCase(),
       runner: {
-        runnerId: 'uniswapv2_indexer_001', //todo: get the current PID/ docker-containerId
+        runnerId: isSolana ? 'solana_spl_indexer_001' : 'uniswapv2_indexer_001', //todo: get the current PID/ docker-containerId
         apiKeyHash,
       },
       protocolMetadata: e.tokens,
@@ -297,8 +299,8 @@ function processValueChangeBalances({
     }
   }
   //todo: ensure consistency of from and to balances
-  processAddress(from, amount); // from address loses amount
-  processAddress(to, amount); // to address gains amount
+  if (from) processAddress(from, BigInt(-amount)); // from address loses amount
+  if (to) processAddress(to, amount); // to address gains amount
   return historyWindows;
 }
 

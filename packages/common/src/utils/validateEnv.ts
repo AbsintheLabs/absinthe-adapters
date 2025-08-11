@@ -12,6 +12,7 @@ import {
   ChainShortName,
   ChainType,
   GatewayUrl,
+  ProtocolType,
   StakingProtocol,
 } from '../types/enums';
 import { getChainEnumKey } from './helper/helper';
@@ -25,6 +26,7 @@ import {
   ValidatedUniv3ProtocolConfig,
   ValidatedZebuProtocolConfig,
   ZebuClientConfigWithChain,
+  ValidatedSolanaSplProtocolConfig,
 } from '../types/interfaces/protocols';
 
 export function validateEnv(): ValidatedEnv {
@@ -270,6 +272,36 @@ export function validateEnv(): ValidatedEnv {
       coingeckoApiKey: envResult.data.COINGECKO_API_KEY,
     };
 
+    // Optionally parse Solana SPL adapters if present
+    let solanaSplProtocols: ValidatedSolanaSplProtocolConfig[] | undefined = undefined;
+    if (Array.isArray(configResult.data.solanaSplProtocols)) {
+      solanaSplProtocols = configResult.data.solanaSplProtocols.map((p: any) => {
+        const chainId = ChainId.SOLANA;
+        const chainKey = getChainEnumKey(chainId);
+        if (!chainKey) {
+          throw new Error(`${chainId} is not a supported chainId.`);
+        }
+        const chainName = ChainName[chainKey];
+        const chainShortName = ChainShortName[chainKey];
+        const chainArch = ChainType.SOLANA;
+        const gatewayUrl = GatewayUrl[chainKey];
+        return {
+          type: ProtocolType.SOLANA_SPL,
+          name: p.name,
+          mintAddress: p.mintAddress,
+          fromBlock: p.fromBlock,
+          chainId,
+          chainArch,
+          chainShortName,
+          chainName,
+          rpcUrl: 'https://api.mainnet-beta.solana.com',
+          gatewayUrl,
+          contractAddress: p.mintAddress,
+          token: p.token,
+        } as ValidatedSolanaSplProtocolConfig;
+      });
+    }
+
     return {
       baseConfig,
       dexProtocols,
@@ -277,6 +309,7 @@ export function validateEnv(): ValidatedEnv {
       stakingProtocols,
       univ3Protocols,
       zebuProtocols,
+      ...(solanaSplProtocols ? { solanaSplProtocols } : {}),
     };
   } catch (error) {
     if (error instanceof Error) {
