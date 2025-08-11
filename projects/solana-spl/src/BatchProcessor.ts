@@ -48,6 +48,16 @@ export class SolanaSplProcessor {
   private lastPersistHourBucket: number = -1;
   private priceCache: Map<string, Map<number, number>> = new Map();
   private walletBlacklist: Set<string> = new Set();
+  private readonly chain: Chain = {
+    chainArch: ChainType.SOLANA,
+    networkId: ChainId.SOLANA,
+    chainShortName: ChainShortName.SOLANA,
+    chainName: ChainName.SOLANA,
+  };
+  private readonly flushIntervalMs: number;
+  private pendingEvents: TimeWeightedBalanceEvent[] = [];
+  private lastApiFlushMs = 0;
+  private readonly batchFlushIntervalMs = 2000; // flush at least every 2s
 
   constructor(
     protocol: ValidatedSolanaSplProtocolConfig,
@@ -66,6 +76,7 @@ export class SolanaSplProcessor {
       'state.json',
     );
     this.stateFilePath = process.env.SPL_STATE_PATH || defaultStatePath;
+    this.flushIntervalMs = this.baseConfig.balanceFlushIntervalHours * 60 * 60 * 1000;
     this.initializeTokenMetadata();
     this.initializeWalletBlacklist();
     this.loadState();
@@ -79,14 +90,7 @@ export class SolanaSplProcessor {
   }
 
   private async flushExhaustedAt(nowMs: number, blockNumber: number): Promise<void> {
-    const flushMs = this.baseConfig.balanceFlushIntervalHours * 60 * 60 * 1000;
-
-    const chain: Chain = {
-      chainArch: ChainType.SOLANA,
-      networkId: ChainId.SOLANA,
-      chainShortName: ChainShortName.SOLANA,
-      chainName: ChainName.SOLANA,
-    };
+    const flushMs = this.flushIntervalMs;
 
     const allEvents: TimeWeightedBalanceEvent[] = [];
 
@@ -94,14 +98,8 @@ export class SolanaSplProcessor {
       const tokenInfo = this.tokenMetadata.get(mintAddress);
       if (!tokenInfo) continue;
 
-      const tokenPrice = tokenInfo.coingeckoId
-        ? await this.getCachedUsd(tokenInfo.coingeckoId, nowMs)
-        : 0;
-
-      const tokens = {
-        symbol: { value: tokenInfo.symbol, type: 'string' },
-        mint: { value: mintAddress, type: 'string' },
-      } as any;
+      const tokenPrice = await this.getTokenPrice(tokenInfo, nowMs);
+      const tokens = this.buildTokenFields(tokenInfo, mintAddress);
 
       const windows: HistoryWindow[] = [];
       for (const [user, state] of balances.entries()) {
@@ -140,13 +138,18 @@ export class SolanaSplProcessor {
           name: this.protocol.name,
           contractAddress: mintAddress,
         } as any;
-        const events = toTimeWeightedBalance(windows, protocolForEvent, this.baseConfig, chain);
+        const events = toTimeWeightedBalance(
+          windows,
+          protocolForEvent,
+          this.baseConfig,
+          this.chain,
+        );
         allEvents.push(...events);
       }
     }
 
-    if (allEvents.length >= BATCH_SIZE) {
-      await this.apiClient.send(allEvents);
+    if (allEvents.length > 0) {
+      this.enqueueAndMaybeFlush(allEvents, nowMs);
     }
   }
 
@@ -155,6 +158,7 @@ export class SolanaSplProcessor {
     const blockNumber = this.lastBlockNumber || 0;
     try {
       await this.flushExhaustedAt(nowMs, blockNumber);
+      await this.flushPending(true);
     } catch (e) {
       logger.warn('Error while flushing on shutdown', e);
     }
@@ -300,8 +304,8 @@ export class SolanaSplProcessor {
       }
     }
 
-    if (allEvents.length >= BATCH_SIZE) {
-      await this.apiClient.send(allEvents);
+    if (allEvents.length > 0) {
+      this.enqueueAndMaybeFlush(allEvents, blockTimestampMs);
     }
   }
 
@@ -330,7 +334,7 @@ export class SolanaSplProcessor {
       const balanceChange = postBalance - preBalance;
 
       const formatAmount = (amount: bigint, decimals: number) => {
-        const divisor = BigInt(10 ** decimals);
+        const divisor = BigInt(10) ** BigInt(decimals);
         const whole = amount / divisor;
         const fraction = amount % divisor;
         return `${whole}.${fraction.toString().padStart(decimals, '0')}`;
@@ -372,14 +376,8 @@ export class SolanaSplProcessor {
         }
       }
 
-      const tokenPrice = tokenInfo.coingeckoId
-        ? await this.getCachedUsd(tokenInfo.coingeckoId, blockTimestampMs)
-        : 0;
-
-      const tokens = {
-        symbol: { value: tokenInfo.symbol, type: 'string' },
-        mint: { value: mintAddress, type: 'string' },
-      } as any;
+      const tokenPrice = await this.getTokenPrice(tokenInfo, blockTimestampMs);
+      const tokens = this.buildTokenFields(tokenInfo, mintAddress);
 
       const windows = processValueChangeBalances({
         from,
@@ -390,7 +388,7 @@ export class SolanaSplProcessor {
         blockHeight: blockNumber,
         txHash: '',
         activeBalances: this.activeBalances,
-        windowDurationMs: this.baseConfig.balanceFlushIntervalHours * 60 * 60 * 1000,
+        windowDurationMs: this.flushIntervalMs,
         tokenPrice,
         tokenDecimals: tokenInfo.decimals,
         tokenAddress: mintAddress,
@@ -405,18 +403,12 @@ export class SolanaSplProcessor {
       }
 
       if (filtered.length === 0) return [];
-      const chain: Chain = {
-        chainArch: ChainType.SOLANA,
-        networkId: ChainId.SOLANA,
-        chainShortName: ChainShortName.SOLANA,
-        chainName: ChainName.SOLANA,
-      };
       const protocolForEvent = {
         type: ProtocolType.SOLANA_SPL,
         name: this.protocol.name,
         contractAddress: mintAddress,
       } as any;
-      const events = toTimeWeightedBalance(filtered, protocolForEvent, this.baseConfig, chain);
+      const events = toTimeWeightedBalance(filtered, protocolForEvent, this.baseConfig, this.chain);
       return events;
     } catch (error) {
       logger.error(
@@ -448,6 +440,35 @@ export class SolanaSplProcessor {
     const price = await fetchHistoricalUsd(coingeckoId, tsMs, this.baseConfig.coingeckoApiKey);
     byHour.set(hourBucket, price);
     return price;
+  }
+
+  private async getTokenPrice(tokenInfo: TokenMetadata, tsMs: number): Promise<number> {
+    if (!tokenInfo.coingeckoId) return 0;
+    return this.getCachedUsd(tokenInfo.coingeckoId, tsMs);
+  }
+
+  private buildTokenFields(tokenInfo: TokenMetadata, mintAddress: string) {
+    return {
+      symbol: { value: tokenInfo.symbol, type: 'string' },
+      mint: { value: mintAddress, type: 'string' },
+    } as any;
+  }
+
+  private enqueueAndMaybeFlush(events: TimeWeightedBalanceEvent[], nowMs: number): void {
+    this.pendingEvents.push(...events);
+    const shouldFlushBySize = this.pendingEvents.length >= BATCH_SIZE;
+    const shouldFlushByTime = nowMs - this.lastApiFlushMs >= this.batchFlushIntervalMs;
+    if (shouldFlushBySize || shouldFlushByTime) {
+      this.flushPending().catch((e) => logger.warn('Failed to flush pending events', e));
+      this.lastApiFlushMs = nowMs;
+    }
+  }
+
+  private async flushPending(force = false): Promise<void> {
+    if (!force && this.pendingEvents.length === 0) return;
+    const toSend = this.pendingEvents.splice(0, this.pendingEvents.length);
+    if (toSend.length === 0) return;
+    await this.apiClient.send(toSend);
   }
 
   private initializeWalletBlacklist(): void {
