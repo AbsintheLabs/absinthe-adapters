@@ -1,12 +1,10 @@
-import { z } from 'zod';
 import fs from 'fs';
 import { ValidatedEnvBase } from '../types/interfaces/interfaces';
-import { configSchema } from '../types/schema';
+import { configSchema, envSchema } from '../types/schema';
 import { findConfigFile } from './helper/findConfigFile';
 import { EXAMPLE_FILE_NAME } from './consts';
 import { FILE_NAME } from './consts';
 import {
-  ChainId,
   ChainName,
   ChainShortName,
   ChainType,
@@ -14,7 +12,7 @@ import {
   StakingProtocol,
   TxnTrackingProtocol,
 } from '../types/enums';
-import { getChainEnumKey } from './helper/helper';
+import { getChainEnumKey, getRpcUrlForChain } from './helper/helper';
 import {
   ProtocolConfig,
   Univ3PoolConfig,
@@ -29,32 +27,6 @@ import {
 
 export function validateEnv(): ValidatedEnv {
   try {
-    const envSchema = z.object({
-      DB_URL: z.string().min(1, 'DB_URL is required'),
-      RPC_URL_MAINNET: z
-        .string()
-        .url('RPC_URL_MAINNET must be a valid URL')
-        .refine((val) => val.startsWith('https://'), 'RPC_URL_MAINNET must be https:// not wss://')
-        .optional(),
-      RPC_URL_BASE: z
-        .string()
-        .url('RPC_URL_BASE must be a valid URL')
-        .refine((val) => val.startsWith('https://'), 'RPC_URL_BASE must be https:// not wss://')
-        .optional(),
-      RPC_URL_HEMI: z
-        .string()
-        .url('RPC_URL_HEMI must be a valid URL')
-        .refine((val) => val.startsWith('https://'), 'RPC_URL_HEMI must be https:// not wss://')
-        .optional(),
-      ABS_CONFIG: z.string(),
-      RPC_URL_POLYGON: z.string().url('RPC_URL_POLYGON must be a valid URL').optional(),
-      RPC_URL_ARBITRUM: z.string().url('RPC_URL_ARBITRUM must be a valid URL').optional(),
-      RPC_URL_OPTIMISM: z.string().url('RPC_URL_OPTIMISM must be a valid URL').optional(),
-      ABSINTHE_API_URL: z.string().url('ABSINTHE_API_URL must be a valid URL'),
-      ABSINTHE_API_KEY: z.string().min(1, 'ABSINTHE_API_KEY is required'),
-      COINGECKO_API_KEY: z.string().min(1, 'COINGECKO_API_KEY is required'),
-    });
-
     const envResult = envSchema.safeParse(process.env);
 
     if (!envResult.success) {
@@ -79,7 +51,6 @@ export function validateEnv(): ValidatedEnv {
         configFilePath = findConfigFile(FILE_NAME);
       } catch (error) {
         console.error('Error finding config file', error);
-        // If abs_config.json is not found, try abs_config.example.json
         try {
           configFilePath = findConfigFile(EXAMPLE_FILE_NAME);
         } catch (exampleError) {
@@ -116,6 +87,7 @@ export function validateEnv(): ValidatedEnv {
         const chainShortName = ChainShortName[chainKey];
         const chainArch = ChainType.EVM;
         const gatewayUrl = GatewayUrl[chainKey];
+        const rpcUrl = getRpcUrlForChain(chainId, envResult.data);
         return {
           type: txnTrackingProtocol.type as TxnTrackingProtocol,
           toBlock: txnTrackingProtocol.toBlock,
@@ -128,14 +100,7 @@ export function validateEnv(): ValidatedEnv {
           gatewayUrl: gatewayUrl,
           chainShortName: chainShortName,
           chainName: chainName,
-          rpcUrl:
-            txnTrackingProtocol.chainId === ChainId.HEMI
-              ? (envResult.data.RPC_URL_HEMI as string)
-              : txnTrackingProtocol.chainId === ChainId.BASE
-                ? (envResult.data.RPC_URL_BASE as string)
-                : ChainId.ETHEREUM === txnTrackingProtocol.chainId
-                  ? (envResult.data.RPC_URL_MAINNET as string)
-                  : (envResult.data.RPC_URL_POLYGON as string),
+          rpcUrl: rpcUrl,
         };
       });
 
@@ -150,7 +115,7 @@ export function validateEnv(): ValidatedEnv {
         const chainShortName = ChainShortName[chainKey];
         const chainArch = ChainType.EVM;
         const gatewayUrl = GatewayUrl[chainKey];
-
+        const rpcUrl = getRpcUrlForChain(chainId, envResult.data);
         return {
           type: dexProtocol.type,
           gatewayUrl: gatewayUrl,
@@ -160,10 +125,7 @@ export function validateEnv(): ValidatedEnv {
           chainId: chainId,
           chainShortName: chainShortName,
           chainName: chainName,
-          rpcUrl:
-            dexProtocol.chainId === ChainId.ETHEREUM
-              ? (envResult.data.RPC_URL_MAINNET as string)
-              : (envResult.data.RPC_URL_HEMI as string),
+          rpcUrl: rpcUrl,
         };
       },
     );
@@ -179,6 +141,7 @@ export function validateEnv(): ValidatedEnv {
         const chainShortName = ChainShortName[chainKey];
         const chainArch = ChainType.EVM;
         const gatewayUrl = GatewayUrl[chainKey];
+        const rpcUrl = getRpcUrlForChain(chainId, envResult.data);
         return {
           type: univ3Protocol.type,
           chainId: chainId,
@@ -186,10 +149,7 @@ export function validateEnv(): ValidatedEnv {
           chainShortName: chainShortName,
           chainName: chainName,
           gatewayUrl: gatewayUrl,
-          rpcUrl:
-            univ3Protocol.chainId === ChainId.ETHEREUM
-              ? (envResult.data.RPC_URL_MAINNET as string)
-              : (envResult.data.RPC_URL_HEMI as string),
+          rpcUrl: rpcUrl,
           factoryAddress: univ3Protocol.factoryAddress,
           factoryDeployedAt: univ3Protocol.factoryDeployedAt,
           positionsAddress: univ3Protocol.positionsAddress,
@@ -210,6 +170,7 @@ export function validateEnv(): ValidatedEnv {
         const chainShortName = ChainShortName[chainKey];
         const chainArch = ChainType.EVM;
         const gatewayUrl = GatewayUrl[chainKey];
+        const rpcUrl = getRpcUrlForChain(chainId, envResult.data);
         return {
           type: stakingProtocol.type as StakingProtocol,
           gatewayUrl: gatewayUrl,
@@ -221,10 +182,7 @@ export function validateEnv(): ValidatedEnv {
           chainId: chainId,
           chainShortName: chainShortName,
           chainName: chainName,
-          rpcUrl:
-            stakingProtocol.chainId === ChainId.HEMI
-              ? (envResult.data.RPC_URL_HEMI as string)
-              : (envResult.data.RPC_URL_MAINNET as string),
+          rpcUrl: rpcUrl,
         };
       });
 
@@ -232,6 +190,7 @@ export function validateEnv(): ValidatedEnv {
       (zebuProtocol) => {
         const enhancedClients: ZebuClientConfigWithChain[] = zebuProtocol.clients.map((client) => {
           const clientChainKey = getChainEnumKey(client.chainId);
+          const rpcUrl = getRpcUrlForChain(client.chainId, envResult.data);
           if (!clientChainKey) {
             throw new Error(
               `${client.chainId} is not a supported chainId for client ${client.name}`,
@@ -246,10 +205,7 @@ export function validateEnv(): ValidatedEnv {
             chainArch: ChainType.EVM,
             chainShortName: ChainShortName[clientChainKey],
             chainName: ChainName[clientChainKey],
-            rpcUrl:
-              client.chainId === ChainId.BASE
-                ? (envResult.data.RPC_URL_BASE as string)
-                : (envResult.data.RPC_URL_POLYGON as string),
+            rpcUrl: rpcUrl,
             gatewayUrl: GatewayUrl[clientChainKey],
           };
         });
