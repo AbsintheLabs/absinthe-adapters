@@ -77,7 +77,7 @@
       "factoryAddress": "0x33128a8fc17869897dce68ed026d694621f6fdfd",
       "chainId": 8453,
       "toBlock": 0,
-      "fromBlock": 30000000
+      "fromBlock": 29885463
     },
     {
       "type": "vusd-mint",

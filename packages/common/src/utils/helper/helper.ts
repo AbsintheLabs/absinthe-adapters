@@ -385,8 +385,6 @@ async function fetchHistoricalUsd(
 
 function getChainEnumKey(chainId: number): keyof typeof ChainId | null {
   const chainIdEntries = Object.entries(ChainId) as [keyof typeof ChainId, number][];
-  console.log(chainIdEntries);
-  console.log(chainId);
   const found = chainIdEntries.find(([, value]) => value === chainId);
   return found ? found[0] : null;
 }
