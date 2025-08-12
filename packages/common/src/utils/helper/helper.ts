@@ -385,6 +385,8 @@ async function fetchHistoricalUsd(
 
 function getChainEnumKey(chainId: number): keyof typeof ChainId | null {
   const chainIdEntries = Object.entries(ChainId) as [keyof typeof ChainId, number][];
+  console.log(chainIdEntries);
+  console.log(chainId);
   const found = chainIdEntries.find(([, value]) => value === chainId);
   return found ? found[0] : null;
 }
@@ -403,6 +405,8 @@ function getRpcUrlForChain(chainId: number, envData: any): string {
       return envData.RPC_URL_OPTIMISM as string;
     case ChainId.HEMI:
       return envData.RPC_URL_HEMI as string;
+    case ChainId.SOLANA:
+      return envData.RPC_URL_SOLANA as string;
     default:
       throw new Error(`Unsupported chain ID: ${chainId}`);
   }

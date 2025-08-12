@@ -5,6 +5,7 @@ import {
   ProtocolType,
   ChainName,
   GatewayUrl,
+  ValidatedEnvBase,
 } from '@absinthe/common';
 
 interface TokenBalance {
@@ -34,4 +35,9 @@ interface SplTransfersProtocol {
   name: string;
   contractAddress: string;
 }
-export type { TokenBalance, SplTransfersProtocol };
+
+interface ValidatedEnv {
+  baseConfig: ValidatedEnvBase;
+  splTransfersProtocol: SplTransfersProtocol;
+}
+export type { TokenBalance, SplTransfersProtocol, ValidatedEnv };

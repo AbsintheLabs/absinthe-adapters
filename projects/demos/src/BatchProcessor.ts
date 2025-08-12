@@ -135,7 +135,7 @@ export class DemosProcessor {
         gasFeeUsd: gasFeeUsd,
         unixTimestampMs: block.header.timestamp,
         txHash: transaction.hash,
-        logIndex: 10000, // todo: make this null value in the schema too
+        logIndex: null,
         blockNumber: block.header.height,
         blockHash: block.header.hash,
         userId: from,
