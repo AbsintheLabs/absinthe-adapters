@@ -1,0 +1,9 @@
+{
+  "balanceFlushIntervalHours": 48,
+  "type": "spl-transfers",
+  "name": "spl-transfers",
+  "toBlock": 0,
+  "contractAddress": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+  "chainId": 1000,
+  "fromBlock": 331145334
+}
