@@ -17,6 +17,8 @@ enum ChainId {
   OPTIMISM = 10,
   HEMI = 43111,
   SOLANA = 1000,
+  BSC = 56,
+  AVALANCHE = 43114,
 }
 
 // coingecko chain platform
@@ -28,6 +30,8 @@ enum ChainName {
   OPTIMISM = 'optimism',
   HEMI = 'hemi',
   SOLANA = 'solana',
+  BSC = 'bsc',
+  AVALANCHE = 'avalanche',
 }
 
 enum ChainShortName {
@@ -38,6 +42,8 @@ enum ChainShortName {
   OPTIMISM = 'optimism',
   HEMI = 'hemi',
   SOLANA = 'solana',
+  BSC = 'bsc',
+  AVALANCHE = 'avalanche',
 }
 
 enum PriceFeed {
@@ -67,6 +73,8 @@ enum GatewayUrl {
   OPTIMISM = 'https://v2.archive.subsquid.io/network/optimism-mainnet',
   HEMI = 'https://v2.archive.subsquid.io/network/hemi-mainnet',
   SOLANA = 'https://v2.archive.subsquid.io/network/solana-mainnet',
+  BSC = 'https://v2.archive.subsquid.io/network/binance-mainnet',
+  AVALANCHE = 'https://v2.archive.subsquid.io/network/avalanche-mainnet',
 }
 
 enum ProtocolType {
