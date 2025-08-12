@@ -11,18 +11,30 @@ import {
 import * as hemiAbi from './abi/hemi';
 import { StakingProtocol, validateEnv } from '@absinthe/common';
 
-const env = validateEnv();
+// const env = validateEnv();
 
-const hemiStakingProtocol = env.stakingProtocols.find((stakingProtocol) => {
-  return stakingProtocol.type === StakingProtocol.HEMI;
-});
+// const hemiStakingProtocol = env.stakingProtocols.find((stakingProtocol) => {
+//   return stakingProtocol.type === StakingProtocol.HEMI;
+// });
 
-if (!hemiStakingProtocol) {
-  throw new Error('Hemi staking protocol not found');
-}
+// if (!hemiStakingProtocol) {
+//   throw new Error('Hemi staking protocol not found');
+// }
 
-const contractAddresses = hemiStakingProtocol.contractAddress;
-const earliestFromBlock = hemiStakingProtocol.fromBlock;
+// const contractAddresses = hemiStakingProtocol.contractAddress;
+// const earliestFromBlock = hemiStakingProtocol.fromBlock;
+
+// temporary to make this work:
+const hemiStakingProtocol = {
+  gatewayUrl: 'https://v2.archive.subsquid.io/network/hemi-mainnet',
+  rpcUrl: 'https://rpc.hemi.network/rpc',
+  // toBlock: 2100000,
+  toBlock: 0,
+};
+
+const earliestFromBlock = 1330000;
+
+const contractAddresses = '0x4f5e928763cbfaf5ffd8907ebbb0dabd5f78ba83';
 
 export const processor = new EvmBatchProcessor()
   .setGateway(hemiStakingProtocol.gatewayUrl)
