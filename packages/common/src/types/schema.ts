@@ -6,6 +6,33 @@ const tokenSchema = z.object({
   decimals: z.number(),
 });
 
+const envSchema = z.object({
+  DB_URL: z.string().min(1, 'DB_URL is required'),
+  RPC_URL_MAINNET: z
+    .string()
+    .url('RPC_URL_MAINNET must be a valid URL')
+    .refine((val) => val.startsWith('https://'), 'RPC_URL_MAINNET must be https:// not wss://')
+    .optional(),
+  RPC_URL_BASE: z
+    .string()
+    .url('RPC_URL_BASE must be a valid URL')
+    .refine((val) => val.startsWith('https://'), 'RPC_URL_BASE must be https:// not wss://')
+    .optional(),
+  RPC_URL_HEMI: z
+    .string()
+    .url('RPC_URL_HEMI must be a valid URL')
+    .refine((val) => val.startsWith('https://'), 'RPC_URL_HEMI must be https:// not wss://')
+    .optional(),
+  ABS_CONFIG: z.string(),
+  RPC_URL_POLYGON: z.string().url('RPC_URL_POLYGON must be a valid URL').optional(),
+  RPC_URL_ARBITRUM: z.string().url('RPC_URL_ARBITRUM must be a valid URL').optional(),
+  RPC_URL_OPTIMISM: z.string().url('RPC_URL_OPTIMISM must be a valid URL').optional(),
+  RPC_URL_SOLANA: z.string().url('RPC_URL_SOLANA must be a valid URL').optional(),
+  ABSINTHE_API_URL: z.string().url('ABSINTHE_API_URL must be a valid URL'),
+  ABSINTHE_API_KEY: z.string().min(1, 'ABSINTHE_API_KEY is required'),
+  COINGECKO_API_KEY: z.string().min(1, 'COINGECKO_API_KEY is required'),
+});
+
 const protocolConfigSchema = z.object({
   name: z.string(),
   contractAddress: z
@@ -98,4 +125,4 @@ const configSchema = z.object({
   zebuProtocols: z.array(zebuProtocolSchema),
 });
 
-export { configSchema, dexProtocolSchema, protocolConfigSchema };
+export { configSchema, dexProtocolSchema, protocolConfigSchema, envSchema };

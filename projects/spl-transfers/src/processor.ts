@@ -1,21 +1,24 @@
 import { DataSourceBuilder, SolanaRpcClient } from '@subsquid/solana-stream';
-import { startBlock } from './utils/conts';
 import * as tokenProgram from './abi/TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
+import { validateEnv } from './utils/validateEnv';
+
+const env = validateEnv();
+const { splTransfersProtocol } = env;
 
 export const processor = new DataSourceBuilder()
-  .setGateway('https://v2.archive.subsquid.io/network/solana-mainnet')
+  .setGateway(splTransfersProtocol.gatewayUrl)
   .setRpc(
-    process.env.SOLANA_NODE == null
+    splTransfersProtocol.rpcUrl == null
       ? undefined
       : {
           client: new SolanaRpcClient({
-            url: process.env.SOLANA_NODE,
+            url: splTransfersProtocol.rpcUrl,
             // rateLimit: 100 // requests per sec
           }),
           strideConcurrency: 10,
         },
   )
-  .setBlockRange({ from: startBlock })
+  .setBlockRange({ from: splTransfersProtocol.fromBlock })
   .setFields({
     block: {
       // block header fields

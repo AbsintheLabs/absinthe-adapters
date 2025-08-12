@@ -9,6 +9,7 @@ export * from './utils/multicall';
 export { fetchWithRetry } from './utils/helper/fetchWithRetry';
 // Export services
 export { AbsintheApiClient } from './services/ApiClientService';
-
+export { envSchema } from './types/schema';
+export { findConfigFile } from './utils/helper/findConfigFile';
 // Logging
 export { LogLevel, Logger, createLogger, logger } from './utils/logger';

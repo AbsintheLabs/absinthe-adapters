@@ -18,7 +18,7 @@ import { TypeormDatabase } from '@subsquid/typeorm-store';
 
 import { SplTransfersProtocol } from './utils/types';
 import { augmentBlock } from '@subsquid/solana-objects';
-import { TRACKED_TOKENS } from './utils/conts';
+import { TRACKED_TOKENS } from './utils/consts';
 import { TokenBalance } from './utils/types';
 
 export class SplTransfersProcessor {
@@ -50,21 +50,14 @@ export class SplTransfersProcessor {
   }
 
   async run(): Promise<void> {
-    run(
-      processor,
-      new TypeormDatabase({
-        supportHotBlocks: false,
-        stateSchema: this.schemaName,
-      }),
-      async (ctx) => {
-        try {
-          await this.processBatch(ctx);
-        } catch (error) {
-          console.error('Error processing batch:', (error as Error).message);
-          throw error;
-        }
-      },
-    );
+    run(processor, new TypeormDatabase(), async (ctx) => {
+      try {
+        await this.processBatch(ctx);
+      } catch (error) {
+        console.error('Error processing batch:', (error as Error).message);
+        throw error;
+      }
+    });
   }
 
   private async processBatch(ctx: any): Promise<void> {
