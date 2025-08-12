@@ -103,8 +103,8 @@ export class SplTransfersProcessor {
         const transactions = this.processTokenTransfers(
           tokenBalances,
           tx,
-          0, //todo: fix logIndex
-          '', //todo: fix blockHash
+          null,
+          '',
           block.header.slot,
           block.header.timestamp,
         );
@@ -119,7 +119,7 @@ export class SplTransfersProcessor {
   private processTokenTransfers(
     tokenBalances: TokenBalance[],
     tx: string,
-    logIndex: number,
+    logIndex: number | null,
     blockHash: string,
     blockNumber: number,
     timestamp: number,
