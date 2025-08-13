@@ -68,7 +68,7 @@ enum StakingProtocol {
 enum GatewayUrl {
   ETHEREUM = 'https://v2.archive.subsquid.io/network/ethereum-mainnet',
   POLYGON = 'https://v2.archive.subsquid.io/network/polygon-mainnet',
-  ARBITRUM = 'https://v2.archive.subsquid.io/network/arbitrum-mainnet',
+  ARBITRUM = 'https://v2.archive.subsquid.io/network/arbitrum-one',
   BASE = 'https://v2.archive.subsquid.io/network/base-mainnet',
   OPTIMISM = 'https://v2.archive.subsquid.io/network/optimism-mainnet',
   HEMI = 'https://v2.archive.subsquid.io/network/hemi-mainnet',
