@@ -31,14 +31,14 @@ class TwbEngine {
   // Each containerized indexer instance uses the same local path since they run in isolation
   // The actual file will be 'status.txt' containing block height and hash for crash recovery
   protected static readonly STATE_FILE_PATH = './state';
-  // fixme: prepend the redis prefix with a unique id to avoid conflicts if multiple containerized indexers are running and using the same redis instance
 
+  // fixme: prepend the redis prefix with a unique id to avoid conflicts if multiple containerized indexers are running and using the same redis instance
   // todo: change number to bigint/something that encodes token info
   protected redis: Redis;
   protected windows: any[] = [];
 
   constructor(
-    protected cfg: { flushMs: number; useRedis: boolean; enablePriceCache: boolean },
+    protected cfg: { flushMs: number; enablePriceCache: boolean },
     protected sqdProcessor: any,
     adapter: TwbAdapter,
   ) {
@@ -48,7 +48,7 @@ class TwbEngine {
       chunkSizeMb: 16, // irrelevant here; we force-flush
     });
     this.adapter = adapter;
-    // note: for now, we always enable redis
+    // note: redis is always enabled for now
     this.redis = new Redis();
   }
 
@@ -58,7 +58,15 @@ class TwbEngine {
         for (const log of block.logs) {
           await this.ingestLog(block, log);
         }
-        await this.flushPeriodic(block.header.timestamp, block.header.height);
+
+        // note: easy optimization to only flush balances once we're done backfilling
+        // will need to average price over all the durations to get the average price before properly creating a row for this
+        // this can be generalizable so that we can flush technically at any time, even with degenerate cases
+        const blockTimestamp = new Date(block.header.timestamp);
+        const now = new Date();
+        if (Math.abs(now.getTime() - blockTimestamp.getTime()) <= 60 * 60 * 1000) {
+          await this.flushPeriodic(block.header.timestamp, block.header.height);
+        }
       }
       // todo: this.sendToAbsintheApi();
       this.sqdBatchEnd(ctx);
@@ -74,6 +82,7 @@ class TwbEngine {
           height: block.header.height,
           txHash: log.transactionHash,
         }),
+      // todo: invoke the pricing function on the balances here
     });
   }
 
@@ -82,14 +91,10 @@ class TwbEngine {
   }
 
   protected async applyBalanceDelta(e: BalanceDelta, blockData: any): Promise<void> {
-    // const key = `balances:${e.user}`;
-    // const prev = await this.redis.hget(key, e.asset);
-    // const newAmount = new Big(prev ?? 0).plus(e.amount);
-    // await this.redis.hset(key, e.asset, newAmount.toString());
-
     const ts = blockData.ts;
     const height = blockData.height;
-    const key = `balances:${e.user}`;
+    // const key = `account:${e.user}`;
+    const key = `bal:${e.asset}:${e.user}`;
 
     // Load current state (single HMGET with pipeline if you batch)
     const [amountStr, updatedTsStr, updatedHeightStr] = await this.redis.hmget(
@@ -117,23 +122,20 @@ class TwbEngine {
       updatedTs: ts.toString(),
       updatedHeight: height.toString(),
     });
+    // this is an optimization to track balances that are gt 0
     if (newAmt.gt(0)) {
-      multi.sadd('ab:active', key); // track as active balance
+      multi.sadd('ab:gt0', key); // track as active balance
     } else {
-      multi.srem('ab:active', key); // not active anymore
+      multi.srem('ab:gt0', key); // not active anymore
     }
 
-    // fixme: get the right key to go in here
-    // multi.sadd(this.batchDirtyKey, key)      // touched in this batch
-    multi.sadd('ab:dirty', key); // touched in this batch
     await multi.exec();
   }
 
   // Periodic EXHAUSTED windows up to boundaries
   private async flushPeriodic(nowMs: number, height: number) {
-    // Minimal approach: only iterate active keys
-    // Use SSCAN if the set grows large
-    const activeKeys = await this.redis.smembers('ab:active'); // for scale, use SSCAN
+    // Only iterate keys with valid balances
+    const activeKeys = await this.redis.smembers('ab:gt0'); // for scale, use SSCAN with cursor
     if (activeKeys.length === 0) return;
 
     const window = this.cfg.flushMs;
@@ -148,13 +150,14 @@ class TwbEngine {
       if (!vals) return;
       const [amountStr, updatedTsStr, updatedHeightStr] = vals as [string, string, string];
       const amt = new Big(amountStr || '0');
-      if (amt.lte(0)) return;
+      if (amt.lte(0)) return; // don't create windows for balances that are lte 0
 
       let startTs = Number(updatedTsStr || nowMs);
       let startHeight = Number(updatedHeightStr || height);
 
       // advance in fixed windows
       while (startTs + window <= nowMs) {
+        // FIXME: rather than advancing in fixed windows, we should advance to the nearest clamped time-window duration and move in this step
         const endTs = startTs + window;
         this.windows.push({
           user: activeKeys[i]!.split(':').pop()!, // last segment is user
@@ -217,8 +220,9 @@ const sampleAdapter: TwbAdapter = {
 // Will probably load the config from the env anyway so it might even stay the same for all indexers.
 // ------------------------------------------------------------
 import { processor } from './processor';
+// todo: add a feature to not actually send data to the api to allow for testing
 const engine = new TwbEngine(
-  { flushMs: 1000 * 60 * 10, useRedis: false, enablePriceCache: false },
+  { flushMs: 1000 * 60 * 10, enablePriceCache: false },
   processor,
   sampleAdapter,
 );
