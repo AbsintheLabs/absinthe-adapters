@@ -405,6 +405,10 @@ function getRpcUrlForChain(chainId: number, envData: any): string {
       return envData.RPC_URL_HEMI as string;
     case ChainId.SOLANA:
       return envData.RPC_URL_SOLANA as string;
+    case ChainId.BSC:
+      return envData.RPC_URL_BSC as string;
+    case ChainId.AVALANCHE:
+      return envData.RPC_URL_AVALANCHE as string;
     default:
       throw new Error(`Unsupported chain ID: ${chainId}`);
   }
