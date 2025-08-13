@@ -1,6 +1,7 @@
 import { Database, LocalDest } from '@subsquid/file-store';
 import Big from 'big.js';
 import Redis from 'ioredis';
+import fs from 'fs';
 
 // Engine contracts
 type BalanceDelta = {
@@ -36,6 +37,7 @@ class TwbEngine {
   // todo: change number to bigint/something that encodes token info
   protected redis: Redis;
   protected windows: any[] = [];
+  private lastFlushBoundary = -1; // memoizes last time-aligned boundary flushed
 
   constructor(
     protected cfg: { flushMs: number; enablePriceCache: boolean },
@@ -64,11 +66,15 @@ class TwbEngine {
         // this can be generalizable so that we can flush technically at any time, even with degenerate cases
         const blockTimestamp = new Date(block.header.timestamp);
         const now = new Date();
-        if (Math.abs(now.getTime() - blockTimestamp.getTime()) <= 60 * 60 * 1000) {
-          await this.flushPeriodic(block.header.timestamp, block.header.height);
-        }
+        // if (Math.abs(now.getTime() - blockTimestamp.getTime()) <= 60 * 60 * 1000) {
+        await this.flushPeriodic(block.header.timestamp, block.header.height);
+        // }
       }
       // todo: this.sendToAbsintheApi();
+
+      // temp: write windows to a file
+      const fw = this.windows.filter((w) => w.user.toLowerCase() === '0xad123329c12ac5b13d80070f968ceb0447c97b3d');
+      fs.appendFileSync('windows.json', JSON.stringify(fw, null, 2));
       this.sqdBatchEnd(ctx);
     });
   }
@@ -87,6 +93,8 @@ class TwbEngine {
   }
 
   protected sqdBatchEnd(ctx: any) {
+    // clear the windows array until the next batch
+    this.windows = [];
     ctx.store.setForceFlush(true);
   }
 
@@ -107,13 +115,24 @@ class TwbEngine {
     const oldTs = updatedTsStr ? Number(updatedTsStr) : ts;
     const oldHeight = updatedHeightStr ? Number(updatedHeightStr) : height;
 
+    // Apply delta
+    const newAmt = oldAmt.plus(e.amount);
+
     // create a new window
     if (oldAmt.gt(0) && oldTs < ts) {
       // todo: add a new window to a list of windows to send to the absinthe api
-      // nop
+      this.windows.push({
+        user: e.user.toLowerCase(),
+        asset: e.asset,
+        startTs: oldTs,
+        endTs: ts,
+        startHeight: oldHeight,
+        endHeight: height,
+        trigger: 'BALANCE_CHANGE',
+        amountAfter: newAmt.toString(),
+      });
+      // console.log('windows', this.windows.filter((w) => w.user.toLowerCase() === '0xad123329c12ac5b13d80070f968ceb0447c97b3d'));
     }
-    // Apply delta
-    const newAmt = oldAmt.plus(e.amount);
 
     // Persist
     const multi = this.redis.multi();
@@ -132,52 +151,70 @@ class TwbEngine {
     await multi.exec();
   }
 
-  // Periodic EXHAUSTED windows up to boundaries
   private async flushPeriodic(nowMs: number, height: number) {
-    // Only iterate keys with valid balances
-    const activeKeys = await this.redis.smembers('ab:gt0'); // for scale, use SSCAN with cursor
+    const w = this.cfg.flushMs;
+
+    // Snap "now" to the aligned boundary (tumbling window grid)
+    const nowBoundary = Math.floor(nowMs / w) * w;
+    if (nowBoundary === this.lastFlushBoundary) return;  // nothing closed yet
+    this.lastFlushBoundary = nowBoundary;
+
+    // ---- everything below stays the same, but use `processUntil` instead of `nowMs`
+    const processUntil = nowBoundary;
+
+    // Only look at keys with a positive balance
+    const activeKeys = await this.redis.smembers('ab:gt0');
     if (activeKeys.length === 0) return;
 
-    const window = this.cfg.flushMs;
-    const pipeline = this.redis.pipeline();
-
-    // read all states in one round trip
-    for (const k of activeKeys) pipeline.hmget(k, 'amount', 'updatedTs', 'updatedHeight');
-    const rows = await pipeline.exec();
+    // Bulk read state
+    const read = this.redis.pipeline();
+    for (const k of activeKeys) read.hmget(k, 'amount', 'updatedTs', 'updatedHeight');
+    const rows = await read.exec();
 
     const writes = this.redis.pipeline();
+
     rows?.forEach(([, vals], i) => {
       if (!vals) return;
       const [amountStr, updatedTsStr, updatedHeightStr] = vals as [string, string, string];
       const amt = new Big(amountStr || '0');
-      if (amt.lte(0)) return; // don't create windows for balances that are lte 0
+      if (amt.lte(0)) return;
 
-      let startTs = Number(updatedTsStr || nowMs);
-      let startHeight = Number(updatedHeightStr || height);
+      const key = activeKeys[i]!;
+      const [_, asset, user] = key.split(':'); // 'bal:{asset}:{user}'
 
-      // advance in fixed windows
-      while (startTs + window <= nowMs) {
-        // FIXME: rather than advancing in fixed windows, we should advance to the nearest clamped time-window duration and move in this step
-        const endTs = startTs + window;
-        this.windows.push({
-          user: activeKeys[i]!.split(':').pop()!, // last segment is user
-          asset: activeKeys[i]!.split(':').slice(-2, -1)[0]!, // second last segment is asset
-          startTs,
-          endTs,
-          startHeight,
-          endHeight: height,
-          trigger: 'EXHAUSTED',
-          amountAfter: amt.toString(),
-        });
-        startTs = endTs;
-        startHeight = height;
+      let cursorTs = Number(updatedTsStr || processUntil);
+      let cursorHeight = Number(updatedHeightStr || height);
+
+      // Align to the grid
+      let prevBoundary = Math.floor(cursorTs / w) * w;
+      let boundary = prevBoundary + w;
+
+      // Emit fully elapsed, aligned windows up to the boundary we’re processing
+      while (boundary <= processUntil) {
+        const winStart = Math.max(cursorTs, prevBoundary);
+        const endTs = boundary;
+
+        // fixme: make sure that this is the correct window that is being returned
+        if (winStart < endTs) {
+          this.windows.push({
+            user,
+            asset,
+            startTs: winStart,
+            endTs,
+            startHeight: cursorHeight,
+            endHeight: height,
+            trigger: 'EXHAUSTED',
+            amountAfter: amt.toString(),
+          });
+        }
+
+        cursorTs = boundary;
+        cursorHeight = height;
+        prevBoundary = boundary;
+        boundary += w;
       }
 
-      // write back advanced cursor
-      writes.hset(activeKeys[i]!, {
-        updatedTs: startTs.toString(),
-        updatedHeight: startHeight.toString(),
-      });
+      writes.hset(key, { updatedTs: String(cursorTs), updatedHeight: String(cursorHeight) });
     });
 
     await writes.exec();
@@ -222,8 +259,7 @@ const sampleAdapter: TwbAdapter = {
 import { processor } from './processor';
 // todo: add a feature to not actually send data to the api to allow for testing
 const engine = new TwbEngine(
-  { flushMs: 1000 * 60 * 10, enablePriceCache: false },
-  processor,
+  { flushMs: 1000 * 60 * 60 * 48, enablePriceCache: false }, processor,
   sampleAdapter,
 );
 engine.run();
