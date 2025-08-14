@@ -1,5 +1,7 @@
-const TOKEN_METADATA = [
-  //hemi-bitcoing
+import { TokenMetadata } from './types';
+
+const TOKEN_METADATA: TokenMetadata[] = [
+  //hemi-bitcoin
   {
     address: '0xaa40c0c7644e0b2b224509571e10ad20d9c4ef28',
     decimals: 8,
@@ -104,4 +106,6 @@ const TOKEN_METADATA = [
   },
 ];
 
-export { TOKEN_METADATA };
+const FILE_NAME = 'config.json';
+
+export { TOKEN_METADATA, FILE_NAME };

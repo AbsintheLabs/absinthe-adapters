@@ -73,7 +73,9 @@ class TwbEngine {
       // todo: this.sendToAbsintheApi();
 
       // temp: write windows to a file
-      const fw = this.windows.filter((w) => w.user.toLowerCase() === '0xad123329c12ac5b13d80070f968ceb0447c97b3d');
+      const fw = this.windows.filter(
+        (w) => w.user.toLowerCase() === '0xad123329c12ac5b13d80070f968ceb0447c97b3d',
+      );
       fs.appendFileSync('windows.json', JSON.stringify(fw, null, 2));
       this.sqdBatchEnd(ctx);
     });
@@ -156,7 +158,7 @@ class TwbEngine {
 
     // Snap "now" to the aligned boundary (tumbling window grid)
     const nowBoundary = Math.floor(nowMs / w) * w;
-    if (nowBoundary === this.lastFlushBoundary) return;  // nothing closed yet
+    if (nowBoundary === this.lastFlushBoundary) return; // nothing closed yet
     this.lastFlushBoundary = nowBoundary;
 
     // ---- everything below stays the same, but use `processUntil` instead of `nowMs`
@@ -259,7 +261,8 @@ const sampleAdapter: TwbAdapter = {
 import { processor } from './processor';
 // todo: add a feature to not actually send data to the api to allow for testing
 const engine = new TwbEngine(
-  { flushMs: 1000 * 60 * 60 * 48, enablePriceCache: false }, processor,
+  { flushMs: 1000 * 60 * 60 * 48, enablePriceCache: false },
+  processor,
   sampleAdapter,
 );
 engine.run();

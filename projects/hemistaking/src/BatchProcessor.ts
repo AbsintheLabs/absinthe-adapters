@@ -7,10 +7,8 @@ import {
   Chain,
   Currency,
   processValueChangeBalances,
-  TimeWeightedBalanceEvent,
   TimeWindowTrigger,
   ValidatedEnvBase,
-  ValidatedStakingProtocolConfig,
   ZERO_ADDRESS,
 } from '@absinthe/common';
 
@@ -18,7 +16,7 @@ import { processor } from './processor';
 import { createHash } from 'crypto';
 import { TypeormDatabase } from '@subsquid/typeorm-store';
 import { loadActiveBalancesFromDb, loadPoolProcessStateFromDb } from './utils/pool';
-import { ProtocolStateHemi } from './utils/types';
+import { HemiStakingProtocol, ProtocolStateHemi } from './utils/types';
 import * as hemiAbi from './abi/hemi';
 import { fetchHistoricalUsd } from '@absinthe/common';
 import { mapToJson, toTimeWeightedBalance, pricePosition } from '@absinthe/common';
@@ -26,7 +24,7 @@ import { PoolProcessState } from './model';
 import { checkToken, flattenNestedMap } from './utils/helper';
 
 export class HemiStakingProcessor {
-  private readonly stakingProtocol: ValidatedStakingProtocolConfig;
+  private readonly stakingProtocol: HemiStakingProtocol;
   private readonly schemaName: string;
   private readonly refreshWindow: number;
   private readonly apiClient: AbsintheApiClient;
@@ -35,7 +33,7 @@ export class HemiStakingProcessor {
   private readonly contractAddress: string;
 
   constructor(
-    stakingProtocol: ValidatedStakingProtocolConfig,
+    stakingProtocol: HemiStakingProtocol,
     refreshWindow: number,
     apiClient: AbsintheApiClient,
     env: ValidatedEnvBase,

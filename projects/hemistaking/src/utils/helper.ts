@@ -1,5 +1,5 @@
 import { ActiveBalance } from '@absinthe/common';
-import { TOKEN_METADATA } from './conts';
+import { TOKEN_METADATA } from './consts';
 import { TokenMetadata } from './types';
 
 function flattenNestedMap(
@@ -15,7 +15,9 @@ function flattenNestedMap(
 }
 
 function checkToken(token: string): TokenMetadata | null {
-  let tokenMetadata = TOKEN_METADATA.find((t) => t.address.toLowerCase() === token.toLowerCase());
+  let tokenMetadata = TOKEN_METADATA.find(
+    (t: TokenMetadata) => t.address.toLowerCase() === token.toLowerCase(),
+  );
   if (!tokenMetadata) {
     console.warn(`Ignoring deposit for unsupported token: ${token}`);
     return null;
