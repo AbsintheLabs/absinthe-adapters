@@ -1,19 +1,32 @@
 import { Database, LocalDest } from '@subsquid/file-store';
 import Big from 'big.js';
+// fixme: we should move to the original redis package (docs say that's the better one)
 import Redis from 'ioredis';
-import fs from 'fs';
 
 // Engine contracts
 type BalanceDelta = {
   user: string;
   asset: string;
   amount: Big;
+  // fixme: we should adapt this to follow the name, value, type format that we expect. aka; disallow nested objects, it should be flat by intention
   meta?: Record<string, unknown>;
+};
+
+type PositionToggle = {
+  // implement me!
 };
 
 // Adapter interface (you implement this per protocol)
 export interface TwbAdapter {
-  onEvent(block: any, log: any, emit: { balanceDelta: (e: BalanceDelta) => void }): Promise<void>;
+  onEvent(
+    block: any,
+    log: any,
+    emit: {
+      balanceDelta: (e: BalanceDelta) => void;
+      positionToggle: (e: PositionToggle) => void;
+      // add more here as scope grows
+    },
+  ): Promise<void>;
   priceAsset?: (
     input: { atMs: number; asset: any },
     providers: {
@@ -23,6 +36,41 @@ export interface TwbAdapter {
       ) => Promise<Record<string, number>>;
     },
   ) => Promise<number>;
+}
+
+type Price = {
+  value: number;
+  atMs: number;
+  source: 'coingecko' | 'uniV3' | 'nav' | 'offchain' | 'defillama' | 'codex';
+};
+
+export interface PriceStore {
+  get(asset: string, bucketMs: number, atMs: number): Promise<Price | null>;
+  put(asset: string, bucketMs: number, atMs: number, price: Price): Promise<void>;
+}
+
+export interface PriceProvider {
+  // Called only when cache miss; you implement the method (Chainlink, UniV3 TWAP, NAV math, etc.)
+  compute(asset: string, atMs: number, ctx: { block: any }): Promise<Price>;
+}
+
+class PriceService {
+  constructor(
+    private store: PriceStore,
+    private provider: PriceProvider,
+    private priceResolutionMs: number, // e.g., 3_600_000 for hourly, 86_400_000 for daily
+  ) {}
+
+  async getOrCompute(asset: string, atMs: number, ctx: { block: any }): Promise<Price> {
+    const bucket = Math.floor(atMs / this.priceResolutionMs) * this.priceResolutionMs;
+    const cached = await this.store.get(asset, this.priceResolutionMs, bucket);
+    if (cached) return cached;
+
+    // Only compute once per bucket across concurrent workers (use Redis SETNX)
+    const price = await this.provider.compute(asset, bucket, ctx);
+    await this.store.put(asset, this.priceResolutionMs, bucket, price);
+    return price;
+  }
 }
 
 class TwbEngine {
@@ -37,6 +85,7 @@ class TwbEngine {
   // todo: change number to bigint/something that encodes token info
   protected redis: Redis;
   protected windows: any[] = [];
+  // fixme: store this persistently so that we can recover from crashes
   private lastFlushBoundary = -1; // memoizes last time-aligned boundary flushed
 
   constructor(
@@ -45,18 +94,20 @@ class TwbEngine {
     adapter: TwbAdapter,
   ) {
     this.db = new Database({
-      tables: {}, // no data tables at all
+      tables: {}, // no data tables at all. We use redis, process memory to keep state. Absn api is the final sink.
       dest: new LocalDest(TwbEngine.STATE_FILE_PATH), // where status.txt (or your custom file) lives
-      chunkSizeMb: 16, // irrelevant here; we force-flush
     });
+
     this.adapter = adapter;
     // note: redis is always enabled for now
+    // todo: add namespace to the keys for redis?
     this.redis = new Redis();
   }
 
   async run() {
     this.sqdProcessor.run(this.db, async (ctx: any) => {
       for (const block of ctx.blocks) {
+        await this.indexPriceData(block);
         for (const log of block.logs) {
           await this.ingestLog(block, log);
         }
@@ -64,21 +115,30 @@ class TwbEngine {
         // note: easy optimization to only flush balances once we're done backfilling
         // will need to average price over all the durations to get the average price before properly creating a row for this
         // this can be generalizable so that we can flush technically at any time, even with degenerate cases
+        // fixme: ensure that this checks if the toBlock is set. it should also check if the block is the last block
+        // to know when to flush the whole thing
         const blockTimestamp = new Date(block.header.timestamp);
         const now = new Date();
         // if (Math.abs(now.getTime() - blockTimestamp.getTime()) <= 60 * 60 * 1000) {
         await this.flushPeriodic(block.header.timestamp, block.header.height);
         // }
       }
-      // todo: this.sendToAbsintheApi();
-
-      // temp: write windows to a file
-      const fw = this.windows.filter(
-        (w) => w.user.toLowerCase() === '0xad123329c12ac5b13d80070f968ceb0447c97b3d',
-      );
-      fs.appendFileSync('windows.json', JSON.stringify(fw, null, 2));
       this.sqdBatchEnd(ctx);
     });
+  }
+
+  async indexPriceData(block: any) {
+    // 1. given the block timestamp, do we have a price for this last timestamp duration? (ex: 1hr or 1day)
+    // 2. if yes, skip
+    // 3. if no, invoke the pricing function to get the price for the timestamp
+    // 4. store the price in the price store
+
+    // todo: implement me
+    // check if we already have the price for a particular time segment
+    // something like...
+    // const price = await this.adapter.priceAsset(block);
+    // return price;
+    return 1;
   }
 
   // Subsquid hands logs to this
@@ -90,12 +150,28 @@ class TwbEngine {
           height: block.header.height,
           txHash: log.transactionHash,
         }),
+      positionToggle: () => {
+        /* todo: implement me */
+      },
       // todo: invoke the pricing function on the balances here
     });
   }
 
-  protected sqdBatchEnd(ctx: any) {
-    // clear the windows array until the next batch
+  protected async sqdBatchEnd(ctx: any) {
+    // enrich all windows before sending to the sink
+    if (this.windows.length > 0) {
+      const enrichedWindows = await pipeline(
+        enrichWithCommonBaseEventFields,
+        enrichWithRunnerInfo,
+        buildTimeWeightedBalanceEvents,
+        enrichWithPrice,
+      )(this.windows, ctx);
+
+      // Send to Absinthe API
+      // todo: uncomment this when it's ready to send stuff to the api
+      // await this.sendToAbsintheApi(enrichedWindows);
+    }
+    // todo: send to the absinthe api here
     this.windows = [];
     ctx.store.setForceFlush(true);
   }
@@ -128,12 +204,13 @@ class TwbEngine {
         asset: e.asset,
         startTs: oldTs,
         endTs: ts,
-        startHeight: oldHeight,
-        endHeight: height,
+        startBlockNumber: oldHeight,
+        endBlockNumber: height,
         trigger: 'BALANCE_CHANGE',
-        amountAfter: newAmt.toString(),
+        balanceBefore: oldAmt.toString(),
+        balanceAfter: newAmt.toString(),
+        txHash: blockData.txHash,
       });
-      // console.log('windows', this.windows.filter((w) => w.user.toLowerCase() === '0xad123329c12ac5b13d80070f968ceb0447c97b3d'));
     }
 
     // Persist
@@ -203,10 +280,10 @@ class TwbEngine {
             asset,
             startTs: winStart,
             endTs,
-            startHeight: cursorHeight,
-            endHeight: height,
+            // startHeight: cursorHeight,
+            // endHeight: height,
             trigger: 'EXHAUSTED',
-            amountAfter: amt.toString(),
+            balance: amt.toString(),
           });
         }
 
@@ -250,6 +327,9 @@ const sampleAdapter: TwbAdapter = {
     }
   },
   priceAsset: async (input, providers) => {
+    // todo: need to figure out how to abstract away the tokens from the intracacies of each pricing module
+    // todo: ex: getting codex implemented is going to be very different from getting something like coingecko
+    // todo: since they both require different things to work
     return 0;
   },
 };
@@ -259,7 +339,11 @@ const sampleAdapter: TwbAdapter = {
 // Will probably load the config from the env anyway so it might even stay the same for all indexers.
 // ------------------------------------------------------------
 import { processor } from './processor';
+import { buildTimeWeightedBalanceEvents, enrichWithRunnerInfo, pipeline } from './enrichers';
+import { enrichWithCommonBaseEventFields } from './enrichers';
+import { enrichWithPrice } from './enrichers';
 // todo: add a feature to not actually send data to the api to allow for testing
+// todo: what does testing and validation look like before actually hooking it up to the api?
 const engine = new TwbEngine(
   { flushMs: 1000 * 60 * 60 * 48, enablePriceCache: false },
   processor,
