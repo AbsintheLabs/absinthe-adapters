@@ -1,11 +1,12 @@
-import { DataSourceBuilder, Block } from '@subsquid/solana-stream';
+import { DataSourceBuilder, Block, SolanaRpcClient } from '@subsquid/solana-stream';
 import { validateEnv } from '@absinthe/common';
+
+const env = validateEnv();
+const protocols = env.solanaSplProtocols ?? [];
 
 function buildTrackedTokensFromEnv(): Record<string, string> {
   try {
-    const env = validateEnv();
     const tokens: Record<string, string> = {};
-    const protocols = env.solanaSplProtocols ?? [];
 
     for (const p of protocols) {
       if (p.mintAddress && p.name) {
@@ -32,9 +33,9 @@ const TRACKED_TOKENS: Record<string, string> = buildTrackedTokensFromEnv();
 
 function getGatewayFromEnv(): string {
   try {
-    const env = validateEnv();
-    const protocol = env.solanaSplProtocols?.[0];
-    if (protocol?.gatewayUrl) return protocol.gatewayUrl;
+    if (protocols.length > 0) {
+      return protocols[0].gatewayUrl ?? 'https://v2.archive.subsquid.io/network/solana-mainnet';
+    }
   } catch (_) {
     // ignore and return default
   }
@@ -43,6 +44,9 @@ function getGatewayFromEnv(): string {
 
 export const dataSource = new DataSourceBuilder()
   .setGateway(getGatewayFromEnv())
+  .setRpc({
+    client: new SolanaRpcClient({ url: protocols[0].rpcUrl }),
+  })
   .setFields({
     tokenBalance: {
       preOwner: true,
