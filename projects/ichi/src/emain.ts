@@ -14,15 +14,19 @@ type BalanceDelta = {
 
 type PositionToggle = {
   // implement me!
-}
+};
 
 // Adapter interface (you implement this per protocol)
 export interface TwbAdapter {
-  onEvent(block: any, log: any, emit: {
-    balanceDelta: (e: BalanceDelta) => void;
-    positionToggle: (e: PositionToggle) => void;
-    // add more here as scope grows
-  }): Promise<void>;
+  onEvent(
+    block: any,
+    log: any,
+    emit: {
+      balanceDelta: (e: BalanceDelta) => void;
+      positionToggle: (e: PositionToggle) => void;
+      // add more here as scope grows
+    },
+  ): Promise<void>;
   priceAsset?: (
     input: { atMs: number; asset: any },
     providers: {
@@ -32,6 +36,41 @@ export interface TwbAdapter {
       ) => Promise<Record<string, number>>;
     },
   ) => Promise<number>;
+}
+
+type Price = {
+  value: number;
+  atMs: number;
+  source: 'coingecko' | 'uniV3' | 'nav' | 'offchain' | 'defillama' | 'codex';
+};
+
+export interface PriceStore {
+  get(asset: string, bucketMs: number, atMs: number): Promise<Price | null>;
+  put(asset: string, bucketMs: number, atMs: number, price: Price): Promise<void>;
+}
+
+export interface PriceProvider {
+  // Called only when cache miss; you implement the method (Chainlink, UniV3 TWAP, NAV math, etc.)
+  compute(asset: string, atMs: number, ctx: { block: any }): Promise<Price>;
+}
+
+class PriceService {
+  constructor(
+    private store: PriceStore,
+    private provider: PriceProvider,
+    private priceResolutionMs: number, // e.g., 3_600_000 for hourly, 86_400_000 for daily
+  ) {}
+
+  async getOrCompute(asset: string, atMs: number, ctx: { block: any }): Promise<Price> {
+    const bucket = Math.floor(atMs / this.priceResolutionMs) * this.priceResolutionMs;
+    const cached = await this.store.get(asset, this.priceResolutionMs, bucket);
+    if (cached) return cached;
+
+    // Only compute once per bucket across concurrent workers (use Redis SETNX)
+    const price = await this.provider.compute(asset, bucket, ctx);
+    await this.store.put(asset, this.priceResolutionMs, bucket, price);
+    return price;
+  }
 }
 
 class TwbEngine {
@@ -76,6 +115,8 @@ class TwbEngine {
         // note: easy optimization to only flush balances once we're done backfilling
         // will need to average price over all the durations to get the average price before properly creating a row for this
         // this can be generalizable so that we can flush technically at any time, even with degenerate cases
+        // fixme: ensure that this checks if the toBlock is set. it should also check if the block is the last block
+        // to know when to flush the whole thing
         const blockTimestamp = new Date(block.header.timestamp);
         const now = new Date();
         // if (Math.abs(now.getTime() - blockTimestamp.getTime()) <= 60 * 60 * 1000) {
@@ -87,6 +128,11 @@ class TwbEngine {
   }
 
   async indexPriceData(block: any) {
+    // 1. given the block timestamp, do we have a price for this last timestamp duration? (ex: 1hr or 1day)
+    // 2. if yes, skip
+    // 3. if no, invoke the pricing function to get the price for the timestamp
+    // 4. store the price in the price store
+
     // todo: implement me
     // check if we already have the price for a particular time segment
     // something like...
@@ -104,7 +150,9 @@ class TwbEngine {
           height: block.header.height,
           txHash: log.transactionHash,
         }),
-      positionToggle: () => { /* todo: implement me */ }
+      positionToggle: () => {
+        /* todo: implement me */
+      },
       // todo: invoke the pricing function on the balances here
     });
   }
@@ -116,10 +164,11 @@ class TwbEngine {
         enrichWithCommonBaseEventFields,
         enrichWithRunnerInfo,
         buildTimeWeightedBalanceEvents,
-        enrichWithPrice
+        enrichWithPrice,
       )(this.windows, ctx);
 
       // Send to Absinthe API
+      // todo: uncomment this when it's ready to send stuff to the api
       // await this.sendToAbsintheApi(enrichedWindows);
     }
     // todo: send to the absinthe api here
