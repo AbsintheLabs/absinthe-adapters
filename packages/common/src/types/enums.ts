@@ -16,6 +16,9 @@ enum ChainId {
   BASE = 8453,
   OPTIMISM = 10,
   HEMI = 43111,
+  SOLANA = 1000,
+  BSC = 56,
+  AVALANCHE = 43114,
 }
 
 // coingecko chain platform
@@ -26,6 +29,9 @@ enum ChainName {
   BASE = 'base',
   OPTIMISM = 'optimism',
   HEMI = 'hemi',
+  SOLANA = 'solana',
+  BSC = 'bsc',
+  AVALANCHE = 'avalanche',
 }
 
 enum ChainShortName {
@@ -35,6 +41,9 @@ enum ChainShortName {
   BASE = 'base',
   OPTIMISM = 'optimism',
   HEMI = 'hemi',
+  SOLANA = 'solana',
+  BSC = 'bsc',
+  AVALANCHE = 'avalanche',
 }
 
 enum PriceFeed {
@@ -48,6 +57,7 @@ enum TxnTrackingProtocol {
   VUSD_MINT = 'vusd-mint',
   DEMOS = 'demos',
   VOUCHER = 'voucher',
+  SPL_TRANSFERS = 'spl-transfers',
 }
 
 enum StakingProtocol {
@@ -58,10 +68,13 @@ enum StakingProtocol {
 enum GatewayUrl {
   ETHEREUM = 'https://v2.archive.subsquid.io/network/ethereum-mainnet',
   POLYGON = 'https://v2.archive.subsquid.io/network/polygon-mainnet',
-  ARBITRUM = 'https://v2.archive.subsquid.io/network/arbitrum-mainnet',
+  ARBITRUM = 'https://v2.archive.subsquid.io/network/arbitrum-one',
   BASE = 'https://v2.archive.subsquid.io/network/base-mainnet',
   OPTIMISM = 'https://v2.archive.subsquid.io/network/optimism-mainnet',
   HEMI = 'https://v2.archive.subsquid.io/network/hemi-mainnet',
+  SOLANA = 'https://v2.archive.subsquid.io/network/solana-mainnet',
+  BSC = 'https://v2.archive.subsquid.io/network/binance-mainnet',
+  AVALANCHE = 'https://v2.archive.subsquid.io/network/avalanche-mainnet',
 }
 
 enum ProtocolType {
@@ -80,10 +93,12 @@ enum ProtocolType {
   COMPOUND = 'compound',
   IZUMI = 'izumi',
   ZEBU = 'zebu',
+  SPL_TRANSFERS = 'spl-transfers',
 }
 
 enum ChainType {
   EVM = 'evm',
+  SOLANA = 'solana',
 }
 
 enum TokenPreference {

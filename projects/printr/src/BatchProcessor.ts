@@ -53,6 +53,7 @@ export class PrintrProcessor {
     const uniquePoolCombination = this.bondingCurveProtocol.contractAddress.concat(
       this.bondingCurveProtocol.chainId.toString(),
     );
+    console.log(this.bondingCurveProtocol.chainId);
 
     const hash = createHash('md5').update(uniquePoolCombination).digest('hex').slice(0, 8);
     return `printr-${hash}`;
@@ -467,7 +468,7 @@ export class PrintrProcessor {
   }
 
   private async finalizeBatch(ctx: any, protocolStates: Map<string, ProtocolState>): Promise<void> {
-    const contractAddress = this.bondingCurveProtocol.contractAddress;
+    const contractAddress = this.bondingCurveProtocol.contractAddress.toLowerCase();
     const protocolState = protocolStates.get(contractAddress)!;
     const transactions = toTransaction(
       protocolState.transactions,

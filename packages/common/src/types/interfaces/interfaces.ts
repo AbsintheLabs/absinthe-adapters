@@ -19,10 +19,10 @@ interface BaseEventFields {
   version: string;
   eventId: string;
   userId: string;
-  chain: Chain;
-  contractAddress: string;
-  protocolName: string;
-  protocolType: string;
+  chain: Chain; //
+  contractAddress: string; //
+  protocolName: string; //
+  protocolType: string; //
   runner: Runner;
   protocolMetadata: { [key: string]: { value: string; type: string } };
   currency: Currency;
@@ -83,7 +83,7 @@ interface Transaction {
   displayAmount: number;
   unixTimestampMs: number;
   txHash: string;
-  logIndex: number;
+  logIndex: number | null;
   blockNumber: number;
   blockHash: string;
   userId: string;
@@ -100,7 +100,7 @@ interface TransactionEvent {
   displayAmount: number;
   unixTimestampMs: number;
   txHash: string;
-  logIndex: number;
+  logIndex: number | null;
   gasUsed: number;
   gasFeeUsd: number;
   blockNumber: number;

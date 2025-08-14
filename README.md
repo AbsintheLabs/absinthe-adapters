@@ -20,8 +20,8 @@
 
 ### Key Capabilities
 
-- **Multi-Protocol Support**: Indexes 15+ different DeFi protocols including DEXs, staking platforms, and bonding curves
-- **Cross-Chain Compatibility**: Supports 6 major blockchain networks (Ethereum, Polygon, Arbitrum, Base, Optimism, Hemi)
+- **Multi-Protocol Support**: Indexes 10+ different DeFi protocols including DEXs, staking platforms, and bonding curves
+- **Cross-Chain Compatibility**: Supports 4 major blockchain networks (Ethereum, Polygon, Base, Hemi)
 - **Real-Time Processing**: Processes blockchain events in real-time with configurable batch processing
 - **Time-Weighted Analytics**: Calculates time-weighted balances for accurate position tracking
 - **Price Integration**: Integrates with CoinGecko API for real-time price data
@@ -122,7 +122,7 @@
 
 #### Demos
 
-- **Purpose**: Demo bonding curve implementation
+- **Purpose**: Tracking userVerify function call
 - **Events Monitored**: Custom demo events
 - **Supported Chains**: Hemi
 
