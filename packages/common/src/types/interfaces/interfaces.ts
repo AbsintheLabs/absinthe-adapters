@@ -157,6 +157,12 @@ interface ValidatedEnvBase {
   sendToApiFromTimestamp?: number; // Unix timestamp in milliseconds
 }
 
+interface TokenMetadata {
+  address: string;
+  decimals: number;
+  coingeckoId: string;
+}
+
 export {
   Chain,
   TokenDetails,
@@ -171,4 +177,5 @@ export {
   BaseProcessValueChangeParams,
   ProcessValueChangeParams,
   ProcessValueChangeBalancesParams,
+  TokenMetadata,
 };

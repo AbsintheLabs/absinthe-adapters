@@ -1,5 +1,3 @@
-// https://github.com/subsquid-labs/showcase05-dex-pair-creation-and-swaps/blob/master/src/processor.ts
-
 import {
   BlockHeader,
   DataHandlerContext,
@@ -9,17 +7,9 @@ import {
   Transaction as _Transaction,
 } from '@subsquid/evm-processor';
 import * as hemiAbi from './abi/hemi';
-import { StakingProtocol, validateEnv } from '@absinthe/common';
+import { validateEnv } from './utils/validateEnv';
 
-const env = validateEnv();
-
-const hemiStakingProtocol = env.stakingProtocols.find((stakingProtocol) => {
-  return stakingProtocol.type === StakingProtocol.HEMI;
-});
-
-if (!hemiStakingProtocol) {
-  throw new Error('Hemi staking protocol not found');
-}
+const { hemiStakingProtocol } = validateEnv();
 
 const contractAddresses = hemiStakingProtocol.contractAddress;
 const earliestFromBlock = hemiStakingProtocol.fromBlock;

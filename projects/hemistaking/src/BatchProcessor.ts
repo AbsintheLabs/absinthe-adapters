@@ -204,7 +204,6 @@ export class HemiStakingProcessor {
   ): Promise<void> {
     const { withdrawer, token, amount } = hemiAbi.events.Withdraw.decode(log);
     if (withdrawer.toLowerCase() !== '0x3a28c6735d9ffa75ad625b6af41d47ce476cde94'.toLowerCase()) {
-      // return;
       console.log('Right now on the withdraw event for address: ', withdrawer);
       console.log(`Processing withdraw event for token: ${token}`, {
         withdrawer: withdrawer,
