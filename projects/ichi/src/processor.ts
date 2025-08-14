@@ -1,3 +1,5 @@
+// https://github.com/subsquid-labs/showcase05-dex-pair-creation-and-swaps/blob/master/src/processor.ts
+
 import {
   BlockHeader,
   DataHandlerContext,
@@ -7,12 +9,32 @@ import {
   Transaction as _Transaction,
 } from '@subsquid/evm-processor';
 import * as hemiAbi from './abi/hemi';
-import { validateEnv } from './utils/validateEnv';
+import { StakingProtocol, validateEnv } from '@absinthe/common';
 
-const { hemiStakingProtocol } = validateEnv();
+// const env = validateEnv();
 
-const contractAddresses = hemiStakingProtocol.contractAddress;
-const earliestFromBlock = hemiStakingProtocol.fromBlock;
+// const hemiStakingProtocol = env.stakingProtocols.find((stakingProtocol) => {
+//   return stakingProtocol.type === StakingProtocol.HEMI;
+// });
+
+// if (!hemiStakingProtocol) {
+//   throw new Error('Hemi staking protocol not found');
+// }
+
+// const contractAddresses = hemiStakingProtocol.contractAddress;
+// const earliestFromBlock = hemiStakingProtocol.fromBlock;
+
+// temporary to make this work:
+const hemiStakingProtocol = {
+  gatewayUrl: 'https://v2.archive.subsquid.io/network/hemi-mainnet',
+  rpcUrl: 'https://rpc.hemi.network/rpc',
+  // toBlock: 2100000,
+  toBlock: 0,
+};
+
+const earliestFromBlock = 1330000;
+
+const contractAddresses = '0x4f5e928763cbfaf5ffd8907ebbb0dabd5f78ba83';
 
 export const processor = new EvmBatchProcessor()
   .setGateway(hemiStakingProtocol.gatewayUrl)

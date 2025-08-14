@@ -9,7 +9,11 @@ export * from './utils/multicall';
 export { fetchWithRetry } from './utils/helper/fetchWithRetry';
 // Export services
 export { AbsintheApiClient } from './services/ApiClientService';
+export { RedisService } from './services/RedisService';
+export { RedisClientType } from 'redis';
+export { PriceService } from './services/PricingService';
 export { envSchema } from './types/schema';
 export { findConfigFile } from './utils/helper/findConfigFile';
+export { BalanceDelta, PositionToggle, TwbAdapter } from './types/interfaces/twbAdapter';
 // Logging
 export { LogLevel, Logger, createLogger, logger } from './utils/logger';
