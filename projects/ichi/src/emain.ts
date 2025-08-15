@@ -81,6 +81,8 @@ class TwbEngine {
   // The actual file will be 'status.txt' containing block height and hash for crash recovery
   protected static readonly STATE_FILE_PATH = './state';
 
+  // private lastUpatedTime =
+
   // fixme: prepend the redis prefix with a unique id to avoid conflicts if multiple containerized indexers are running and using the same redis instance
   // todo: change number to bigint/something that encodes token info
   protected redis: Redis;
@@ -100,14 +102,18 @@ class TwbEngine {
 
     this.adapter = adapter;
     // note: redis is always enabled for now
-    // todo: add namespace to the keys for redis?
+    // todo: add namespace to the keys for redis so there are no collisions?
     this.redis = new Redis();
   }
 
+  // note: we probably want to be able to pass other types of processors in here, not just evm ones, but solana too!
+  // can make a builder class for evm + solana that gently wraps over the subsquid methods to make sure that we're exposing the right ones
+  // this will likely be a simple wrapper on top of the sqd methods on the sqd processor class
   async run() {
     this.sqdProcessor.run(this.db, async (ctx: any) => {
       for (const block of ctx.blocks) {
-        await this.indexPriceData(block);
+        // the reason we are pricing data per block is so that we can make rpc calls for that block if we need to
+        // await this.indexPriceData(block);
         for (const log of block.logs) {
           await this.ingestLog(block, log);
         }
@@ -115,23 +121,32 @@ class TwbEngine {
         // note: easy optimization to only flush balances once we're done backfilling
         // will need to average price over all the durations to get the average price before properly creating a row for this
         // this can be generalizable so that we can flush technically at any time, even with degenerate cases
-        // fixme: ensure that this checks if the toBlock is set. it should also check if the block is the last block
+        // fixme: ensure that this checks if the toBlock is set.
+        // it should also check if the block is the last block (aka: toBlock) in the case we're ONLY backfilling
         // to know when to flush the whole thing
+        // todo: move these conditional checks into the flushPeriodic method so it's easier to read
         const blockTimestamp = new Date(block.header.timestamp);
         const now = new Date();
         // if (Math.abs(now.getTime() - blockTimestamp.getTime()) <= 60 * 60 * 1000) {
         await this.flushPeriodic(block.header.timestamp, block.header.height);
         // }
       }
+      // we only need to get the timestamp at the end of the batch, rather than every single block
+      await this.backfillPriceDataForBatch(ctx.blocks);
       this.sqdBatchEnd(ctx);
+      // replace this.sqdBatchEnd with:
+      // this.enrichWindows(ctx);
+      // this.sendDataToSink(ctx); <-- this method gets overloaded with the AbsintheApi strategy but can also be the parquet/csv strategy
     });
   }
 
-  async indexPriceData(block: any) {
-    // 1. given the block timestamp, do we have a price for this last timestamp duration? (ex: 1hr or 1day)
-    // 2. if yes, skip
-    // 3. if no, invoke the pricing function to get the price for the timestamp
-    // 4. store the price in the price store
+  // async indexPriceData(block: any) {
+  async backfillPriceDataForBatch(blocks: any[]) {
+    // this needs to be done in parallel so that we have a more efficient price backfill than doing it per-block
+    // 1. get the first blocks of every window duration (ex: 1hr or 1day)
+    // 2. get all the valid assets that we need to price (it's okay if we price more than we actually need to)
+    // 3. for each of these blocks, promise.all the price data by invoking the priceAsset function
+    // 4. store the price data in the price store
 
     // todo: implement me
     // check if we already have the price for a particular time segment
@@ -308,6 +323,10 @@ class TwbEngine {
 // todo: use builder pattern to only add the gateway, rpc, and logs. transaction should not be modified since we need the txhash
 
 import * as hemiAbi from './abi/hemi';
+// fixme: pricing strategy could be different between twb and transaction events
+// example univ2 lp is diff from volume pricing of swaps
+// should this be two separate pricing strategies transactions / twb?
+// or any for the 2 types of events: twb and transaction they both intake a pricing function? <-- this seems like the better option
 const sampleAdapter: TwbAdapter = {
   onEvent: async (block, log, emit) => {
     if (log.topics[0] === hemiAbi.events.Deposit.topic) {
