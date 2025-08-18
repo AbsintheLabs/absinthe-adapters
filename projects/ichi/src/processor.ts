@@ -28,11 +28,12 @@ import { StakingProtocol, validateEnv } from '@absinthe/common';
 const hemiStakingProtocol = {
   gatewayUrl: 'https://v2.archive.subsquid.io/network/hemi-mainnet',
   rpcUrl: 'https://rpc.hemi.network/rpc',
-  // toBlock: 2100000,
+  // toBlock: 1619450,
   toBlock: 0,
 };
 
-const earliestFromBlock = 1330000;
+const earliestFromBlock = 1240000;
+// const earliestFromBlock = 1434250;
 
 const contractAddresses = '0x4f5e928763cbfaf5ffd8907ebbb0dabd5f78ba83';
 
@@ -41,8 +42,11 @@ export const processor = new EvmBatchProcessor()
   .setRpcEndpoint(hemiStakingProtocol.rpcUrl)
   .setBlockRange({
     from: earliestFromBlock,
-    ...(hemiStakingProtocol.toBlock !== 0 ? { to: Number(hemiStakingProtocol.toBlock) } : {}),
+    ...(hemiStakingProtocol.toBlock && hemiStakingProtocol.toBlock !== 0
+      ? { to: Number(hemiStakingProtocol.toBlock) }
+      : {}),
   })
+  .includeAllBlocks()
   .setFinalityConfirmation(75)
   .addLog({
     address: [contractAddresses],

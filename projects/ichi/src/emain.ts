@@ -2,6 +2,7 @@ import { Database, LocalDest } from '@subsquid/file-store';
 import Big from 'big.js';
 // fixme: we should move to the original redis package (docs say that's the better one)
 import Redis from 'ioredis';
+import fs from 'fs';
 
 // Engine contracts
 type BalanceDelta = {
@@ -22,20 +23,21 @@ export interface TwbAdapter {
     block: any,
     log: any,
     emit: {
-      balanceDelta: (e: BalanceDelta) => void;
-      positionToggle: (e: PositionToggle) => void;
+      balanceDelta: (e: BalanceDelta) => Promise<void>;
+      positionToggle: (e: PositionToggle) => Promise<void>;
       // add more here as scope grows
     },
   ): Promise<void>;
-  priceAsset?: (
-    input: { atMs: number; asset: any },
-    providers: {
-      usdPrimitive: (
-        atHourMs: number,
-        reqs: Array<{ key: string; coingeckoId?: string; address?: string; chain?: string }>,
-      ) => Promise<Record<string, number>>;
-    },
-  ) => Promise<number>;
+  priceAsset: (timestampMs: number, asset: string) => Promise<number>;
+  // priceAsset?: (
+  //   input: { atMs: number; asset: any },
+  //   providers: {
+  //     usdPrimitive: (
+  //       atHourMs: number,
+  //       reqs: Array<{ key: string; coingeckoId?: string; address?: string; chain?: string }>,
+  //     ) => Promise<Record<string, number>>;
+  //   },
+  // ) => Promise<number>;
 }
 
 type Price = {
@@ -118,42 +120,90 @@ class TwbEngine {
           await this.ingestLog(block, log);
         }
 
-        // note: easy optimization to only flush balances once we're done backfilling
-        // will need to average price over all the durations to get the average price before properly creating a row for this
-        // this can be generalizable so that we can flush technically at any time, even with degenerate cases
         // fixme: ensure that this checks if the toBlock is set.
-        // it should also check if the block is the last block (aka: toBlock) in the case we're ONLY backfilling
-        // to know when to flush the whole thing
-        // todo: move these conditional checks into the flushPeriodic method so it's easier to read
-        const blockTimestamp = new Date(block.header.timestamp);
-        const now = new Date();
-        // if (Math.abs(now.getTime() - blockTimestamp.getTime()) <= 60 * 60 * 1000) {
-        await this.flushPeriodic(block.header.timestamp, block.header.height);
-        // }
+        // question: why is this not after the block range?
       }
       // we only need to get the timestamp at the end of the batch, rather than every single block
+      const lastBlock = ctx.blocks[ctx.blocks.length - 1];
+      await this.flushPeriodic(lastBlock.header.timestamp, lastBlock.header.height);
       await this.backfillPriceDataForBatch(ctx.blocks);
+      await this.enrichWindows(ctx);
+      await this.sendDataToSink(ctx);
       this.sqdBatchEnd(ctx);
-      // replace this.sqdBatchEnd with:
-      // this.enrichWindows(ctx);
-      // this.sendDataToSink(ctx); <-- this method gets overloaded with the AbsintheApi strategy but can also be the parquet/csv strategy
     });
   }
 
-  // async indexPriceData(block: any) {
   async backfillPriceDataForBatch(blocks: any[]) {
-    // this needs to be done in parallel so that we have a more efficient price backfill than doing it per-block
-    // 1. get the first blocks of every window duration (ex: 1hr or 1day)
-    // 2. get all the valid assets that we need to price (it's okay if we price more than we actually need to)
-    // 3. for each of these blocks, promise.all the price data by invoking the priceAsset function
-    // 4. store the price data in the price store
+    // 1. Get the first blocks of every window duration (ex: 1hr or 1day)
+    const windowToFirstBlock = new Map<number, any>();
 
-    // todo: implement me
-    // check if we already have the price for a particular time segment
-    // something like...
-    // const price = await this.adapter.priceAsset(block);
-    // return price;
-    return 1;
+    for (const block of blocks) {
+      const windowStart = Math.floor(block.header.timestamp / this.cfg.flushMs) * this.cfg.flushMs;
+
+      // Only keep the first block we see for each window
+      if (!windowToFirstBlock.has(windowStart)) {
+        windowToFirstBlock.set(windowStart, block);
+      }
+    }
+
+    const blocksOfWindowStarts = Array.from(windowToFirstBlock.values());
+
+    // 2. Get all assets that we need to price
+    // fixme: this will need to change in the future based on how we support these multiple assets
+    const assets = await this.redis.smembers('assets:tracked');
+    // attempt to create timeseries for each of these assets
+    // for (const asset of assets) {
+    //   await this.redis.call('TS.CREATE', [`price:${asset}`, 'LABELS', 'asset', asset]);
+    //   // fixme: need to create a rule for each of the assets so that twa happens automatically and quickly
+    // }
+
+    // 3. for each of these blocks, promise.all the price data by invoking the priceAsset function
+    const allPricePromises = blocksOfWindowStarts.flatMap((block) =>
+      assets.map(async (asset) => {
+        const price = await this.adapter.priceAsset(block.header.timestamp, asset);
+        return {
+          block: block.header.timestamp,
+          asset,
+          price,
+        };
+      }),
+    );
+
+    const priceData = await Promise.all(allPricePromises);
+
+    // 4. store the price data in the price store
+    for (const price of priceData) {
+      // pricing with hashes
+      // await this.redis.hset(`price:${price.asset}:${price.block}`, 'price', price.price.toString());
+      // todo: change this to use the official redis package and the @redis/time-series package
+      await this.redis.call('TS.ADD', [
+        `price:${price.asset}`,
+        String(price.block),
+        String(price.price),
+        'ON_DUPLICATE',
+        'LAST',
+      ]);
+    }
+  }
+
+  async enrichWindows(ctx: any) {
+    if (this.windows.length > 0) {
+      const enrichedWindows = await pipeline(
+        enrichWithCommonBaseEventFields,
+        enrichWithRunnerInfo,
+        buildTimeWeightedBalanceEvents,
+        enrichWithPrice,
+      )(this.windows, this.redis);
+      // set the windows to be the enriched windows
+      this.windows = enrichedWindows;
+    }
+  }
+
+  async sendDataToSink(ctx: any) {
+    // todo: this needs to be passed in as a parameter in the adapter class
+    // potentially, you can choose from an enum and then the class will be instantiated based on that from a factory (another class)
+    console.log(this.windows.length);
+    fs.appendFileSync('windows.json', JSON.stringify(this.windows, null, 2));
   }
 
   // Subsquid hands logs to this
@@ -165,7 +215,7 @@ class TwbEngine {
           height: block.header.height,
           txHash: log.transactionHash,
         }),
-      positionToggle: () => {
+      positionToggle: async (e: PositionToggle) => {
         /* todo: implement me */
       },
       // todo: invoke the pricing function on the balances here
@@ -173,20 +223,6 @@ class TwbEngine {
   }
 
   protected async sqdBatchEnd(ctx: any) {
-    // enrich all windows before sending to the sink
-    if (this.windows.length > 0) {
-      const enrichedWindows = await pipeline(
-        enrichWithCommonBaseEventFields,
-        enrichWithRunnerInfo,
-        buildTimeWeightedBalanceEvents,
-        enrichWithPrice,
-      )(this.windows, ctx);
-
-      // Send to Absinthe API
-      // todo: uncomment this when it's ready to send stuff to the api
-      // await this.sendToAbsintheApi(enrichedWindows);
-    }
-    // todo: send to the absinthe api here
     this.windows = [];
     ctx.store.setForceFlush(true);
   }
@@ -238,6 +274,7 @@ class TwbEngine {
     // this is an optimization to track balances that are gt 0
     if (newAmt.gt(0)) {
       multi.sadd('ab:gt0', key); // track as active balance
+      multi.sadd('assets:tracked', e.asset.toLowerCase()); // Track unique assets
     } else {
       multi.srem('ab:gt0', key); // not active anymore
     }
@@ -245,18 +282,124 @@ class TwbEngine {
     await multi.exec();
   }
 
+  // private async flushPeriodic(nowMs: number, height: number) {
+  //   // Don't flush if we're not on the final block and the block is more than 1 hour old
+  //   // fixme: this is not picking up the proper toBlock
+  //   // const isFinalBlock = height === this.sqdProcessor.toBlock;
+  //   const isFinalBlock = height === 1619450;
+  //   const isRecent = (Date.now() - nowMs) <= 60 * 60 * 1000;
+  //   if (!isFinalBlock && !isRecent) {
+  //     return;
+  //   }
+
+  //   const w = this.cfg.flushMs;
+
+  //   // Snap "now" to the aligned boundary (tumbling window grid)
+  //   const nowBoundary = Math.floor(nowMs / w) * w;
+  //   if (nowBoundary === this.lastFlushBoundary) return; // nothing closed yet
+  //   this.lastFlushBoundary = nowBoundary;
+
+  //   // ---- everything below stays the same, but use `processUntil` instead of `nowMs`
+  //   const processUntil = nowBoundary;
+
+  //   // Only look at keys with a positive balance
+  //   const activeKeys = await this.redis.smembers('ab:gt0');
+  //   if (activeKeys.length === 0) return;
+
+  //   // Bulk read state
+  //   const read = this.redis.pipeline();
+  //   for (const k of activeKeys) read.hmget(k, 'amount', 'updatedTs', 'updatedHeight');
+  //   const rows = await read.exec();
+
+  //   const writes = this.redis.pipeline();
+
+  //   rows?.forEach(([, vals], i) => {
+  //     if (!vals) return;
+  //     const [amountStr, updatedTsStr, updatedHeightStr] = vals as [string, string, string];
+  //     const amt = new Big(amountStr || '0');
+  //     if (amt.lte(0)) return;
+
+  //     const key = activeKeys[i]!;
+  //     const [_, asset, user] = key.split(':'); // 'bal:{asset}:{user}'
+
+  //     let cursorTs = Number(updatedTsStr || processUntil);
+  //     let cursorHeight = Number(updatedHeightStr || height);
+
+  //     // Align to the grid
+  //     let prevBoundary = Math.floor(cursorTs / w) * w;
+  //     let boundary = prevBoundary + w;
+
+  //     // Emit fully elapsed, aligned windows up to the boundary we’re processing
+  //     while (boundary <= processUntil) {
+  //       const winStart = Math.max(cursorTs, prevBoundary);
+  //       const endTs = boundary;
+
+  //       // fixme: make sure that this is the correct window that is being returned
+  //       if (winStart < endTs) {
+  //         this.windows.push({
+  //           user,
+  //           asset,
+  //           startTs: winStart,
+  //           endTs,
+  //           // startHeight: cursorHeight,
+  //           // endHeight: height,
+  //           trigger: 'EXHAUSTED',
+  //           balance: amt.toString(),
+  //         });
+  //       }
+
+  //       cursorTs = boundary;
+  //       cursorHeight = height;
+  //       prevBoundary = boundary;
+  //       boundary += w;
+  //     }
+
+  //     writes.hset(key, { updatedTs: String(cursorTs), updatedHeight: String(cursorHeight) });
+  //   });
+
+  //   await writes.exec();
+  // }
+
+  // behavior:
+  /*
+  if we are backfilling, we don't periodically flush as an optimization as we fast forward through time.
+  once we stop backfilling, we are in 1 of 2 cases:
+    1. we reached have an end time on the final block. This just requires us to flush the data once from the prev updated block to the most final block. This is simply emitting a window from the last updated ts to the final block ts.
+    2. there is no final block which implies that we are indexing continuously.
+    For each active balance, if the last updated ts is not in the current window, we should emit a window from the last updated ts to the current window.
+  */
+
+  // behavior:
+  // If we're backfilling (finalBlock is set and height < finalBlock): skip flushing for speed.
+  // When we reach finalBlock: flush everything INCLUDING the last partial window.
+  // In live mode (no finalBlock): only flush fully closed windows, never the current one.
   private async flushPeriodic(nowMs: number, height: number) {
     const w = this.cfg.flushMs;
 
-    // Snap "now" to the aligned boundary (tumbling window grid)
-    const nowBoundary = Math.floor(nowMs / w) * w;
-    if (nowBoundary === this.lastFlushBoundary) return; // nothing closed yet
-    this.lastFlushBoundary = nowBoundary;
+    // TODO: wire this dynamically from the processor
+    const finalBlock: number | null = 1619450;
+    const reachedFinal = finalBlock != null && height === finalBlock;
+    const backfilling = finalBlock != null && height < finalBlock;
 
-    // ---- everything below stays the same, but use `processUntil` instead of `nowMs`
-    const processUntil = nowBoundary;
+    // If still backfilling, skip for speed
+    if (backfilling) return;
 
-    // Only look at keys with a positive balance
+    // In live mode, only act when we're within a "recent" horizon
+    if (!reachedFinal) {
+      const recencyMs = 60 * 60 * 1000; // 1h
+      if (Date.now() - nowMs > recencyMs) return;
+    }
+
+    // Align to window grid; this is the start of the *current* window
+    const currentWindowStart = Math.floor(nowMs / w) * w;
+
+    // Avoid duplicate work per boundary in live mode
+    // (For final block we allow a last pass even if the boundary repeats)
+    if (!reachedFinal) {
+      if (currentWindowStart === this.lastFlushBoundary) return;
+      this.lastFlushBoundary = currentWindowStart;
+    }
+
     const activeKeys = await this.redis.smembers('ab:gt0');
     if (activeKeys.length === 0) return;
 
@@ -270,45 +413,47 @@ class TwbEngine {
     rows?.forEach(([, vals], i) => {
       if (!vals) return;
       const [amountStr, updatedTsStr, updatedHeightStr] = vals as [string, string, string];
+
       const amt = new Big(amountStr || '0');
-      if (amt.lte(0)) return;
+      if (amt.lte(0)) return; // only flush active balances
 
       const key = activeKeys[i]!;
       const [_, asset, user] = key.split(':'); // 'bal:{asset}:{user}'
+      const lastUpdatedTs = Number(updatedTsStr || 0);
 
-      let cursorTs = Number(updatedTsStr || processUntil);
-      let cursorHeight = Number(updatedHeightStr || height);
-
-      // Align to the grid
-      let prevBoundary = Math.floor(cursorTs / w) * w;
-      let boundary = prevBoundary + w;
-
-      // Emit fully elapsed, aligned windows up to the boundary we’re processing
-      while (boundary <= processUntil) {
-        const winStart = Math.max(cursorTs, prevBoundary);
-        const endTs = boundary;
-
-        // fixme: make sure that this is the correct window that is being returned
-        if (winStart < endTs) {
+      if (reachedFinal) {
+        // Case 1: final block — emit once from lastUpdatedTs to final block timestamp
+        const finalTs = nowMs; // the block timestamp of the final block
+        if (lastUpdatedTs < finalTs) {
           this.windows.push({
             user,
             asset,
-            startTs: winStart,
-            endTs,
-            // startHeight: cursorHeight,
-            // endHeight: height,
+            startTs: lastUpdatedTs,
+            endTs: finalTs,
+            trigger: 'FINAL',
+            balance: amt.toString(),
+          });
+          writes.hset(key, { updatedTs: String(finalTs), updatedHeight: String(height) });
+        }
+      } else {
+        // Case 2: live mode — emit once from lastUpdatedTs to currentWindowStart if lastUpdatedTs is NOT in the current window
+        if (lastUpdatedTs < currentWindowStart) {
+          this.windows.push({
+            user,
+            asset,
+            startTs: lastUpdatedTs,
+            endTs: currentWindowStart,
             trigger: 'EXHAUSTED',
             balance: amt.toString(),
           });
+          // Advance cursor to the start of the current window (we didn't emit the live window)
+          writes.hset(key, {
+            updatedTs: String(currentWindowStart),
+            updatedHeight: String(height),
+          });
         }
-
-        cursorTs = boundary;
-        cursorHeight = height;
-        prevBoundary = boundary;
-        boundary += w;
+        // else: lastUpdatedTs is inside the current window, so skip emitting
       }
-
-      writes.hset(key, { updatedTs: String(cursorTs), updatedHeight: String(cursorHeight) });
     });
 
     await writes.exec();
@@ -331,25 +476,35 @@ const sampleAdapter: TwbAdapter = {
   onEvent: async (block, log, emit) => {
     if (log.topics[0] === hemiAbi.events.Deposit.topic) {
       const { depositor, token, amount } = hemiAbi.events.Deposit.decode(log);
-      emit.balanceDelta({
+      // make sure to await!!
+      await emit.balanceDelta({
         user: depositor,
         asset: token,
         amount: new Big(amount.toString()),
       });
     } else if (log.topics[0] === hemiAbi.events.Withdraw.topic) {
       const { withdrawer, token, amount } = hemiAbi.events.Withdraw.decode(log);
-      emit.balanceDelta({
+      // make sure to await!!
+      await emit.balanceDelta({
         user: withdrawer,
         asset: token,
         amount: new Big(amount.toString()).neg(),
       });
     }
   },
-  priceAsset: async (input, providers) => {
+  priceAsset: async (timestampMs, asset) => {
     // todo: need to figure out how to abstract away the tokens from the intracacies of each pricing module
     // todo: ex: getting codex implemented is going to be very different from getting something like coingecko
     // todo: since they both require different things to work
-    return 0;
+    if (asset === '0x4200000000000000000000000000000000000006') {
+      return Math.random() > 0.5 ? 4000 : 5000;
+    } else if (asset === '0x9bfa177621119e64cecbeabe184ab9993e2ef727') {
+      return Math.random() > 0.5 ? 110000 : 120000;
+    } else if (asset === '0xaa40c0c7644e0b2b224509571e10ad20d9c4ef28') {
+      return Math.random() > 0.5 ? 110000 : 120000;
+    } else {
+      return 1; // either hardcoded to 1 or assume that its a stablecoin
+    }
   },
 };
 
@@ -369,3 +524,8 @@ const engine = new TwbEngine(
   sampleAdapter,
 );
 engine.run();
+
+// NAV might be the same
+// however, underlying price might be different
+// coingecko vs defillama vs codex vs univ3
+// not to mention that they need to provide configuration per asset or could try to optimistically price everything
