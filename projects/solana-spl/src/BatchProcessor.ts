@@ -358,7 +358,7 @@ export class SolanaSplProcessor {
 
       logger.debug(
         `${tokenInfo.symbol} balance change at block ${blockNumber}: ${changeDirection} ${changeType} ` +
-        `${preOwner} -> ${postOwner}, ${preFormatted} -> ${postFormatted} (Δ: ${changeFormatted})`,
+          `${preOwner} -> ${postOwner}, ${preFormatted} -> ${postFormatted} (Δ: ${changeFormatted})`,
       );
 
       if (balanceChange === 0n) return [];
