@@ -1,0 +1,495 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.SolanaSplProcessor = void 0;
+const common_1 = require("@absinthe/common");
+const processor_1 = require("./processor");
+const fs = require("fs");
+const path = require("path");
+const pg_1 = require("pg");
+class SolanaSplProcessor {
+    constructor(protocol, apiClient, baseConfig) {
+        this.activeBalances = new Map();
+        this.lastBlockNumber = 0;
+        this.lastBlockTimeMs = 0;
+        this.lastPersistHourBucket = -1;
+        this.priceCache = new Map();
+        this.walletBlacklist = new Set();
+        this.chain = {
+            chainArch: common_1.ChainType.SOLANA,
+            networkId: common_1.ChainId.SOLANA,
+            chainShortName: common_1.ChainShortName.SOLANA,
+            chainName: common_1.ChainName.SOLANA,
+        };
+        this.pendingEvents = [];
+        this.lastApiFlushMs = 0;
+        this.batchFlushIntervalMs = 2000; // flush at least every 2s
+        this.protocol = protocol;
+        this.apiClient = apiClient;
+        this.baseConfig = baseConfig;
+        this.tokenMetadata = new Map();
+        const defaultStatePath = path.join(process.cwd(), 'projects', 'solana-spl', 'logs', 'state.json');
+        this.stateFilePath = process.env.SPL_STATE_PATH || defaultStatePath;
+        this.flushIntervalMs = this.baseConfig.balanceFlushIntervalHours * 60 * 60 * 1000;
+        this.initializeTokenMetadata();
+        this.initializeWalletBlacklist();
+    }
+    async flushExhausted(block) {
+        const blockNumber = block.header.slot;
+        const blockTimeSec = block.header.blockTime ?? block.timestamp;
+        const nowMs = blockTimeSec ? Number(blockTimeSec) * 1000 : Date.now();
+        await this.flushExhaustedAt(nowMs, blockNumber);
+    }
+    async flushExhaustedAt(nowMs, blockNumber) {
+        const flushMs = this.flushIntervalMs;
+        const allEvents = [];
+        for (const [mintAddress, balances] of this.activeBalances.entries()) {
+            const tokenInfo = this.tokenMetadata.get(mintAddress);
+            if (!tokenInfo)
+                continue;
+            const tokenPrice = await this.getTokenPrice(tokenInfo, nowMs);
+            const tokens = this.buildTokenFields(tokenInfo, mintAddress);
+            const windows = [];
+            for (const [user, state] of balances.entries()) {
+                const isBlacklisted = this.walletBlacklist.has(user);
+                if (state.balance > 0n && nowMs - state.updatedBlockTs >= flushMs) {
+                    const windowCandidate = {
+                        userAddress: user,
+                        deltaAmount: 0,
+                        trigger: common_1.TimeWindowTrigger.EXHAUSTED,
+                        startTs: state.updatedBlockTs,
+                        endTs: nowMs,
+                        startBlockNumber: state.updatedBlockHeight,
+                        endBlockNumber: blockNumber,
+                        txHash: null,
+                        windowDurationMs: flushMs,
+                        tokenPrice: tokenPrice,
+                        tokenDecimals: tokenInfo.decimals,
+                        valueUsd: (0, common_1.pricePosition)(tokenPrice, state.balance, tokenInfo.decimals),
+                        balanceBefore: state.balance.toString(),
+                        balanceAfter: state.balance.toString(),
+                        currency: common_1.Currency.USD,
+                        tokens,
+                        type: 'exhausted',
+                    };
+                    if (!isBlacklisted) {
+                        windows.push(windowCandidate);
+                    }
+                    state.updatedBlockTs = nowMs;
+                    state.updatedBlockHeight = blockNumber;
+                }
+            }
+            if (windows.length > 0) {
+                const protocolForEvent = {
+                    type: common_1.ProtocolType.SOLANA_SPL,
+                    name: this.protocol.name,
+                    contractAddress: mintAddress,
+                };
+                const events = (0, common_1.toTimeWeightedBalance)(windows, protocolForEvent, this.baseConfig, this.chain);
+                allEvents.push(...events);
+            }
+        }
+        if (allEvents.length > 0) {
+            this.enqueueAndMaybeFlush(allEvents, nowMs);
+        }
+    }
+    async flushOnShutdown() {
+        const nowMs = Date.now();
+        const blockNumber = this.lastBlockNumber || 0;
+        try {
+            await this.flushExhaustedAt(nowMs, blockNumber);
+            await this.flushPending(true);
+        }
+        catch (e) {
+            common_1.logger.warn('Error while flushing on shutdown', e);
+        }
+        this.persistStateSafely();
+    }
+    loadState() {
+        try {
+            if (fs.existsSync(this.stateFilePath)) {
+                const raw = fs.readFileSync(this.stateFilePath, 'utf8');
+                const json = JSON.parse(raw);
+                for (const [mint, mapJson] of Object.entries(json)) {
+                    const perToken = (0, common_1.jsonToMap)(mapJson);
+                    this.activeBalances.set(mint, perToken);
+                }
+                common_1.logger.info('Restored active balances state from disk');
+            }
+        }
+        catch (e) {
+            common_1.logger.warn('Failed to restore state; starting fresh', e);
+        }
+    }
+    persistStateSafely() {
+        if (this.db) {
+            // Persist to Postgres
+            this.persistStateToDb().catch((e) => common_1.logger.warn('Failed to persist state to DB', e));
+            return;
+        }
+        // Fallback to file persistence
+        try {
+            const out = {};
+            for (const [mint, map] of this.activeBalances.entries()) {
+                out[mint] = (0, common_1.mapToJson)(map);
+            }
+            const dir = path.dirname(this.stateFilePath);
+            if (!fs.existsSync(dir))
+                fs.mkdirSync(dir, { recursive: true });
+            fs.writeFileSync(this.stateFilePath, JSON.stringify(out));
+        }
+        catch (e) {
+            common_1.logger.warn('Failed to persist state to disk', e);
+        }
+    }
+    initializeTokenMetadata() {
+        try {
+            // Read token metadata from abs_config.json
+            const configPath = path.join(process.cwd(), 'abs_config.json');
+            const configContent = fs.readFileSync(configPath, 'utf8');
+            const config = JSON.parse(configContent);
+            // Initialize metadata strictly from config
+            if (config.solanaSplProtocols && Array.isArray(config.solanaSplProtocols)) {
+                config.solanaSplProtocols.forEach((protocol) => {
+                    if (protocol.mintAddress && protocol.name && protocol.token) {
+                        this.tokenMetadata.set(protocol.mintAddress, {
+                            symbol: protocol.name.toUpperCase(),
+                            decimals: protocol.token.decimals || 6,
+                            coingeckoId: protocol.token.coingeckoId,
+                        });
+                    }
+                });
+            }
+            common_1.logger.info(`Initialized metadata for ${this.tokenMetadata.size} tokens`);
+        }
+        catch (error) {
+            common_1.logger.warn('Failed to load token metadata from config; no tokens will be tracked here:', error);
+        }
+    }
+    async run() {
+        common_1.logger.info(`Starting Solana SPL processor for ${this.protocol.name}`);
+        common_1.logger.info(`Tracking ${this.tokenMetadata.size} tokens: ${Array.from(this.tokenMetadata.values())
+            .map((t) => t.symbol)
+            .join(', ')}`);
+        try {
+            // Initialize DB (if configured) and restore state before processing
+            await this.bootstrapState();
+            // Get the current finalized height
+            const finalizedHeight = await processor_1.dataSource.getFinalizedHeight();
+            common_1.logger.info(`Current finalized height: ${finalizedHeight}`);
+            // Start processing from the configured block
+            const fromBlock = this.protocol.fromBlock;
+            common_1.logger.info(`Processing from block ${fromBlock} to ${finalizedHeight}`);
+            // Get block stream and process
+            const blockStream = processor_1.dataSource.getBlockStream(fromBlock);
+            for await (const blocks of blockStream) {
+                await this.processBlocks(blocks);
+                await this.flushExhausted(blocks[blocks.length - 1]);
+                await this.maybePersistHourly(this.lastBlockTimeMs || Date.now());
+            }
+        }
+        catch (error) {
+            common_1.logger.error('Error in Solana SPL processor:', error);
+            throw error;
+        }
+    }
+    async processBlocks(blocks) {
+        for (const block of blocks) {
+            await this.processBlock(block);
+        }
+    }
+    async processBlock(block) {
+        const blockNumber = block.header.slot;
+        const blockTimeSec = block.header.blockTime ?? block.timestamp;
+        const blockTimestampMs = blockTimeSec ? Number(blockTimeSec) * 1000 : Date.now();
+        this.lastBlockNumber = blockNumber;
+        this.lastBlockTimeMs = blockTimestampMs;
+        const tokenBalanceCount = block.tokenBalances.length;
+        if (tokenBalanceCount === 0)
+            return;
+        common_1.logger.info(`Processing block ${blockNumber} with ${tokenBalanceCount} token balance changes`);
+        // Group token balance changes by token for better organization
+        const tokenChanges = new Map();
+        for (const tokenBalance of block.tokenBalances) {
+            if (this.isRelevantTokenBalance(tokenBalance)) {
+                const mint = tokenBalance.postMint || tokenBalance.preMint;
+                if (mint && !tokenChanges.has(mint)) {
+                    tokenChanges.set(mint, []);
+                }
+                if (mint) {
+                    tokenChanges.get(mint).push(tokenBalance);
+                }
+            }
+        }
+        const allEvents = [];
+        for (const [mint, changes] of tokenChanges) {
+            const tokenInfo = this.tokenMetadata.get(mint);
+            if (!tokenInfo)
+                continue;
+            common_1.logger.info(`Processing ${changes.length} changes for ${tokenInfo.symbol} (${mint})`);
+            for (const change of changes) {
+                const events = await this.processTokenBalanceChange(change, blockNumber, blockTimestampMs, mint, tokenInfo);
+                allEvents.push(...events);
+            }
+        }
+        if (allEvents.length > 0) {
+            this.enqueueAndMaybeFlush(allEvents, blockTimestampMs);
+        }
+    }
+    isRelevantTokenBalance(tokenBalance) {
+        // Check if this token balance change is for any of our tracked tokens
+        const mint = tokenBalance.postMint || tokenBalance.preMint;
+        return mint && this.tokenMetadata.has(mint);
+    }
+    async processTokenBalanceChange(tokenBalance, blockNumber, blockTimestampMs, mintAddress, tokenInfo) {
+        try {
+            const preOwner = tokenBalance.preOwner;
+            const postOwner = tokenBalance.postOwner;
+            const preAmount = tokenBalance.preAmount;
+            const postAmount = tokenBalance.postAmount;
+            const preBalance = BigInt(preAmount || '0');
+            const postBalance = BigInt(postAmount || '0');
+            const balanceChange = postBalance - preBalance;
+            const formatAmount = (amount, decimals) => {
+                const divisor = BigInt(10) ** BigInt(decimals);
+                const whole = amount / divisor;
+                const fraction = amount % divisor;
+                return `${whole}.${fraction.toString().padStart(decimals, '0')}`;
+            };
+            const preFormatted = formatAmount(preBalance, tokenInfo.decimals);
+            const postFormatted = formatAmount(postBalance, tokenInfo.decimals);
+            const changeFormatted = formatAmount(balanceChange > 0n ? balanceChange : -balanceChange, tokenInfo.decimals);
+            const changeType = balanceChange > 0n ? 'INCREASE' : balanceChange < 0n ? 'DECREASE' : 'NO_CHANGE';
+            const changeDirection = balanceChange > 0n ? '↗️' : balanceChange < 0n ? '↘️' : '➡️';
+            common_1.logger.debug(`${tokenInfo.symbol} balance change at block ${blockNumber}: ${changeDirection} ${changeType} ` +
+                `${preOwner} -> ${postOwner}, ${preFormatted} -> ${postFormatted} (Δ: ${changeFormatted})`);
+            if (balanceChange === 0n)
+                return [];
+            let from = '';
+            let to = '';
+            if (preOwner && postOwner && preOwner !== postOwner) {
+                if (balanceChange > 0n) {
+                    to = postOwner;
+                    from = preOwner;
+                }
+                else {
+                    to = preOwner;
+                    from = postOwner;
+                }
+            }
+            else if (postOwner) {
+                if (balanceChange > 0n) {
+                    to = postOwner;
+                }
+                else {
+                    from = postOwner;
+                }
+            }
+            const tokenPrice = await this.getTokenPrice(tokenInfo, blockTimestampMs);
+            const tokens = this.buildTokenFields(tokenInfo, mintAddress);
+            const windows = (0, common_1.processValueChangeBalances)({
+                from,
+                to,
+                amount: balanceChange < 0n ? -balanceChange : balanceChange,
+                usdValue: 0,
+                blockTimestamp: blockTimestampMs,
+                blockHeight: blockNumber,
+                txHash: '',
+                activeBalances: this.activeBalances,
+                windowDurationMs: this.flushIntervalMs,
+                tokenPrice,
+                tokenDecimals: tokenInfo.decimals,
+                tokenAddress: mintAddress,
+                tokens,
+            });
+            // Adjust valueUsd for each window based on active balance and tokenPrice
+            const filtered = windows.filter((w) => !this.walletBlacklist.has(w.userAddress));
+            for (const w of filtered) {
+                const balance = BigInt(w.balanceBefore);
+                w.valueUsd = (0, common_1.pricePosition)(tokenPrice, balance, tokenInfo.decimals);
+            }
+            if (filtered.length === 0)
+                return [];
+            const protocolForEvent = {
+                type: common_1.ProtocolType.SOLANA_SPL,
+                name: this.protocol.name,
+                contractAddress: mintAddress,
+            };
+            return (0, common_1.toTimeWeightedBalance)(filtered, protocolForEvent, this.baseConfig, this.chain);
+        }
+        catch (error) {
+            common_1.logger.error(`Error processing ${tokenInfo.symbol} token balance change at block ${blockNumber}:`, error);
+            return [];
+        }
+    }
+    async maybePersistHourly(nowMs) {
+        const currentHourBucket = Math.floor(nowMs / (60 * 60 * 1000));
+        if (currentHourBucket !== this.lastPersistHourBucket) {
+            this.persistStateSafely();
+            this.lastPersistHourBucket = currentHourBucket;
+        }
+    }
+    async getCachedUsd(coingeckoId, tsMs) {
+        const hourBucket = Math.floor(tsMs / (60 * 60 * 1000));
+        let byHour = this.priceCache.get(coingeckoId);
+        if (!byHour) {
+            byHour = new Map();
+            this.priceCache.set(coingeckoId, byHour);
+        }
+        const cached = byHour.get(hourBucket);
+        if (typeof cached === 'number')
+            return cached;
+        const price = await (0, common_1.fetchHistoricalUsd)(coingeckoId, tsMs, this.baseConfig.coingeckoApiKey);
+        byHour.set(hourBucket, price);
+        return price;
+    }
+    async getTokenPrice(tokenInfo, tsMs) {
+        if (!tokenInfo.coingeckoId)
+            return 0;
+        return this.getCachedUsd(tokenInfo.coingeckoId, tsMs);
+    }
+    buildTokenFields(tokenInfo, mintAddress) {
+        return {
+            symbol: { value: tokenInfo.symbol, type: 'string' },
+            mint: { value: mintAddress, type: 'string' },
+        };
+    }
+    enqueueAndMaybeFlush(events, nowMs) {
+        this.pendingEvents.push(...events);
+        const shouldFlushBySize = this.pendingEvents.length >= common_1.BATCH_SIZE;
+        const shouldFlushByTime = nowMs - this.lastApiFlushMs >= this.batchFlushIntervalMs;
+        if (shouldFlushBySize || shouldFlushByTime) {
+            this.flushPending().catch((e) => common_1.logger.warn('Failed to flush pending events', e));
+            this.lastApiFlushMs = nowMs;
+        }
+    }
+    async flushPending(force = false) {
+        if (!force && this.pendingEvents.length === 0)
+            return;
+        const toSend = this.pendingEvents.splice(0, this.pendingEvents.length);
+        if (toSend.length === 0)
+            return;
+        await this.apiClient.send(toSend);
+    }
+    initializeWalletBlacklist() {
+        try {
+            const configPath = path.join(process.cwd(), 'abs_config.json');
+            if (!fs.existsSync(configPath))
+                return;
+            const configContent = fs.readFileSync(configPath, 'utf8');
+            const config = JSON.parse(configContent);
+            const list = Array.isArray(config.solanaSplWalletBlacklist)
+                ? config.solanaSplWalletBlacklist
+                : [];
+            this.walletBlacklist = new Set(list);
+            if (this.walletBlacklist.size > 0) {
+                common_1.logger.info(`Initialized Solana SPL wallet blacklist with ${this.walletBlacklist.size} addresses`);
+            }
+        }
+        catch (e) {
+            common_1.logger.warn('Failed to initialize wallet blacklist:', e);
+        }
+    }
+    async bootstrapState() {
+        await this.initializeDb();
+        if (this.db) {
+            await this.loadStateFromDb();
+        }
+        else {
+            this.loadState();
+        }
+    }
+    async initializeDb() {
+        try {
+            const connectionString = process.env.DB_URL;
+            const dbPassword = process.env.DB_PASSWORD;
+            const dbName = process.env.POSTGRES_DB;
+            if (!connectionString)
+                return;
+            this.db = new pg_1.Pool({ connectionString, user: dbUser, password: dbPassword, host: dbHost, port: dbPort, database: dbName });
+            const createSql = `
+        CREATE TABLE IF NOT EXISTS spl_active_balances (
+          mint_address text NOT NULL,
+          user_address text NOT NULL,
+          balance numeric(78,0) NOT NULL,
+          updated_block_ts bigint NOT NULL,
+          updated_block_height bigint NOT NULL,
+          PRIMARY KEY (mint_address, user_address)
+        )`;
+            await this.db.query(createSql);
+            common_1.logger.info('Initialized Postgres table spl_active_balances');
+        }
+        catch (e) {
+            common_1.logger.warn('Failed to initialize Postgres, falling back to file state', e);
+            this.db = undefined;
+        }
+    }
+    async loadStateFromDb() {
+        if (!this.db)
+            return;
+        try {
+            const trackedMints = Array.from(this.tokenMetadata.keys());
+            if (trackedMints.length === 0)
+                return;
+            const sql = `
+        SELECT mint_address, user_address, balance, updated_block_ts, updated_block_height
+        FROM spl_active_balances
+        WHERE mint_address = ANY($1::text[])`;
+            const res = await this.db.query(sql, [trackedMints]);
+            for (const row of res.rows) {
+                const mint = row.mint_address;
+                let perToken = this.activeBalances.get(mint);
+                if (!perToken) {
+                    perToken = new Map();
+                    this.activeBalances.set(mint, perToken);
+                }
+                perToken.set(row.user_address, {
+                    balance: BigInt(row.balance),
+                    updatedBlockTs: Number(row.updated_block_ts),
+                    updatedBlockHeight: Number(row.updated_block_height),
+                });
+            }
+            if (res.rows.length > 0) {
+                common_1.logger.info(`Restored ${res.rows.length} active balance rows from Postgres`);
+            }
+        }
+        catch (e) {
+            common_1.logger.warn('Failed to load state from Postgres', e);
+        }
+    }
+    async persistStateToDb() {
+        if (!this.db)
+            return;
+        const client = await this.db.connect();
+        try {
+            await client.query('BEGIN');
+            const sql = `
+        INSERT INTO spl_active_balances (
+          mint_address, user_address, balance, updated_block_ts, updated_block_height
+        ) VALUES ($1,$2,$3,$4,$5)
+        ON CONFLICT (mint_address, user_address)
+        DO UPDATE SET balance = EXCLUDED.balance,
+                      updated_block_ts = EXCLUDED.updated_block_ts,
+                      updated_block_height = EXCLUDED.updated_block_height`;
+            for (const [mint, holders] of this.activeBalances.entries()) {
+                for (const [user, state] of holders.entries()) {
+                    await client.query(sql, [
+                        mint,
+                        user,
+                        state.balance.toString(),
+                        state.updatedBlockTs,
+                        state.updatedBlockHeight,
+                    ]);
+                }
+            }
+            await client.query('COMMIT');
+        }
+        catch (e) {
+            await client.query('ROLLBACK');
+            throw e;
+        }
+        finally {
+            client.release();
+        }
+    }
+}
+exports.SolanaSplProcessor = SolanaSplProcessor;

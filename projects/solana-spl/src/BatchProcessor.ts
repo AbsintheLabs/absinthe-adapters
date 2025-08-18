@@ -25,6 +25,7 @@ import {
 import { dataSource, SolanaBlock } from './processor';
 import * as fs from 'fs';
 import * as path from 'path';
+import { Pool } from 'pg';
 
 interface TokenMetadata {
   symbol: string;
@@ -44,6 +45,7 @@ export class SolanaSplProcessor {
   private lastPersistHourBucket: number = -1;
   private priceCache: Map<string, Map<number, number>> = new Map();
   private walletBlacklist: Set<string> = new Set();
+  private db?: Pool;
   private readonly chain: Chain = {
     chainArch: ChainType.SOLANA,
     networkId: ChainId.SOLANA,
@@ -75,7 +77,6 @@ export class SolanaSplProcessor {
     this.flushIntervalMs = this.baseConfig.balanceFlushIntervalHours * 60 * 60 * 1000;
     this.initializeTokenMetadata();
     this.initializeWalletBlacklist();
-    this.loadState();
   }
 
   private async flushExhausted(block: SolanaBlock): Promise<void> {
@@ -178,6 +179,12 @@ export class SolanaSplProcessor {
   }
 
   private persistStateSafely(): void {
+    if (this.db) {
+      // Persist to Postgres
+      this.persistStateToDb().catch((e) => logger.warn('Failed to persist state to DB', e));
+      return;
+    }
+    // Fallback to file persistence
     try {
       const out: Record<string, any> = {};
       for (const [mint, map] of this.activeBalances.entries()) {
@@ -228,6 +235,9 @@ export class SolanaSplProcessor {
     );
 
     try {
+      // Initialize DB (if configured) and restore state before processing
+      await this.bootstrapState();
+
       // Get the current finalized height
       const finalizedHeight = await dataSource.getFinalizedHeight();
       logger.info(`Current finalized height: ${finalizedHeight}`);
@@ -266,7 +276,7 @@ export class SolanaSplProcessor {
 
     if (tokenBalanceCount === 0) return;
 
-    logger.info(`Processing block ${blockNumber} with ${tokenBalanceCount} token balance changes`);
+    logger.debug(`Processing block ${blockNumber} with ${tokenBalanceCount} token balance changes`);
 
     // Group token balance changes by token for better organization
     const tokenChanges = new Map<string, any[]>();
@@ -287,7 +297,7 @@ export class SolanaSplProcessor {
     for (const [mint, changes] of tokenChanges) {
       const tokenInfo = this.tokenMetadata.get(mint);
       if (!tokenInfo) continue;
-      logger.info(`Processing ${changes.length} changes for ${tokenInfo.symbol} (${mint})`);
+      logger.debug(`Processing ${changes.length} changes for ${tokenInfo.symbol} (${mint})`);
       for (const change of changes) {
         const events = await this.processTokenBalanceChange(
           change,
@@ -348,7 +358,7 @@ export class SolanaSplProcessor {
 
       logger.debug(
         `${tokenInfo.symbol} balance change at block ${blockNumber}: ${changeDirection} ${changeType} ` +
-          `${preOwner} -> ${postOwner}, ${preFormatted} -> ${postFormatted} (Δ: ${changeFormatted})`,
+        `${preOwner} -> ${postOwner}, ${preFormatted} -> ${postFormatted} (Δ: ${changeFormatted})`,
       );
 
       if (balanceChange === 0n) return [];
@@ -482,6 +492,101 @@ export class SolanaSplProcessor {
       }
     } catch (e) {
       logger.warn('Failed to initialize wallet blacklist:', e);
+    }
+  }
+
+  private async bootstrapState(): Promise<void> {
+    await this.initializeDb();
+    if (this.db) {
+      await this.loadStateFromDb();
+    } else {
+      this.loadState();
+    }
+  }
+
+  private async initializeDb(): Promise<void> {
+    try {
+      const connectionString = process.env.DB_URL;
+      if (!connectionString) return;
+      this.db = new Pool({ connectionString });
+      const createSql = `
+        CREATE TABLE IF NOT EXISTS spl_active_balances (
+          mint_address text NOT NULL,
+          user_address text NOT NULL,
+          balance numeric(78,0) NOT NULL,
+          updated_block_ts bigint NOT NULL,
+          updated_block_height bigint NOT NULL,
+          PRIMARY KEY (mint_address, user_address)
+        )`;
+      await this.db.query(createSql);
+      logger.info('Initialized Postgres table spl_active_balances');
+    } catch (e) {
+      logger.warn('Failed to initialize Postgres, falling back to file state', e);
+      this.db = undefined;
+    }
+  }
+
+  private async loadStateFromDb(): Promise<void> {
+    if (!this.db) return;
+    try {
+      const trackedMints = Array.from(this.tokenMetadata.keys());
+      if (trackedMints.length === 0) return;
+      const sql = `
+        SELECT mint_address, user_address, balance, updated_block_ts, updated_block_height
+        FROM spl_active_balances
+        WHERE mint_address = ANY($1::text[])`;
+      const res = await this.db.query(sql, [trackedMints]);
+      for (const row of res.rows) {
+        const mint = row.mint_address as string;
+        let perToken = this.activeBalances.get(mint);
+        if (!perToken) {
+          perToken = new Map<string, ActiveBalance>();
+          this.activeBalances.set(mint, perToken);
+        }
+        perToken.set(row.user_address as string, {
+          balance: BigInt(row.balance as string),
+          updatedBlockTs: Number(row.updated_block_ts),
+          updatedBlockHeight: Number(row.updated_block_height),
+        });
+      }
+      if (res.rows.length > 0) {
+        logger.info(`Restored ${res.rows.length} active balance rows from Postgres`);
+      }
+    } catch (e) {
+      logger.warn('Failed to load state from Postgres', e);
+    }
+  }
+
+  private async persistStateToDb(): Promise<void> {
+    if (!this.db) return;
+    const client = await this.db.connect();
+    try {
+      await client.query('BEGIN');
+      const sql = `
+        INSERT INTO spl_active_balances (
+          mint_address, user_address, balance, updated_block_ts, updated_block_height
+        ) VALUES ($1,$2,$3,$4,$5)
+        ON CONFLICT (mint_address, user_address)
+        DO UPDATE SET balance = EXCLUDED.balance,
+                      updated_block_ts = EXCLUDED.updated_block_ts,
+                      updated_block_height = EXCLUDED.updated_block_height`;
+      for (const [mint, holders] of this.activeBalances.entries()) {
+        for (const [user, state] of holders.entries()) {
+          await client.query(sql, [
+            mint,
+            user,
+            state.balance.toString(),
+            state.updatedBlockTs,
+            state.updatedBlockHeight,
+          ]);
+        }
+      }
+      await client.query('COMMIT');
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
     }
   }
 }

@@ -44,6 +44,7 @@
   "devDependencies": {
     "@subsquid/evm-typegen": "^4.2.0",
     "@subsquid/typeorm-codegen": "^2.0.1",
+    "@types/pg": "^8.10.4",
     "@types/big.js": "^6.2.2",
     "@types/node": "^20.14.8",
     "@typescript-eslint/eslint-plugin": "^8.33.1",

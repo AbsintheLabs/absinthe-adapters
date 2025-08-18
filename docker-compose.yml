@@ -5,8 +5,11 @@ services:
     image: postgres:17
     container_name: postgres
     environment:
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: squid
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: absinthe
+      POSTGRES_USER: username
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
     ports:
       - '5432:5432'
     volumes:
@@ -15,7 +18,7 @@ services:
     networks:
       - app-network
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      test: [ 'CMD-SHELL', 'pg_isready -U postgres' ]
   redis:
     image: redis:latest
     container_name: redis

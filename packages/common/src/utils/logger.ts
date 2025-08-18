@@ -11,10 +11,12 @@ export enum LogLevel {
 export class Logger {
   private context?: string;
   private logFile?: string;
+  private minLevel: LogLevel;
 
-  constructor(context?: string, logFile?: string) {
+  constructor(context?: string, logFile?: string, minLevel?: LogLevel) {
     this.context = context;
     this.logFile = logFile;
+    this.minLevel = typeof minLevel === 'number' ? minLevel : Logger.resolveMinLevel();
 
     if (this.logFile) {
       const dir = path.dirname(this.logFile);
@@ -41,6 +43,7 @@ export class Logger {
   }
 
   private log(level: LogLevel, message: string, data?: any): void {
+    if (level < this.minLevel) return;
     const timestamp = new Date().toISOString();
     const levelName = LogLevel[level];
     const contextStr = this.context ? `[${this.context}] ` : '';
@@ -80,6 +83,23 @@ export class Logger {
       return result;
     }
     return obj;
+  }
+
+  private static resolveMinLevel(): LogLevel {
+    const raw = (process.env.LOG_LEVEL || '').toString().trim().toUpperCase();
+    switch (raw) {
+      case 'DEBUG':
+        return LogLevel.DEBUG;
+      case 'INFO':
+        return LogLevel.INFO;
+      case 'WARN':
+      case 'WARNING':
+        return LogLevel.WARN;
+      case 'ERROR':
+        return LogLevel.ERROR;
+      default:
+        return LogLevel.INFO;
+    }
   }
 }
 

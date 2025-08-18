@@ -1,0 +1,54 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Debug Solana SPL",
+      "skipFiles": ["<node_internals>/**"],
+      "program": "${workspaceFolder}/projects/solana-spl/src/main.ts",
+      "outFiles": ["${workspaceFolder}/projects/solana-spl/lib/**/*.js"],
+      "env": {
+        "NODE_ENV": "development"
+      },
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal",
+      "sourceMaps": true,
+      "resolveSourceMapLocations": ["${workspaceFolder}/**", "!**/node_modules/**"]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Debug Common Package",
+      "skipFiles": ["<node_internals>/**"],
+      "program": "${workspaceFolder}/packages/common/src/index.ts",
+      "outFiles": ["${workspaceFolder}/packages/common/lib/**/*.js"],
+      "console": "integratedTerminal",
+      "sourceMaps": true
+    },
+    {
+      "type": "node",
+      "request": "attach",
+      "name": "Attach to Process",
+      "port": 9229,
+      "restart": true,
+      "localRoot": "${workspaceFolder}",
+      "remoteRoot": "${workspaceFolder}"
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Debug with Breakpoints",
+      "program": "${workspaceFolder}/projects/solana-spl/src/main.ts",
+      "outFiles": ["${workspaceFolder}/projects/solana-spl/lib/**/*.js"],
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal",
+      "sourceMaps": true,
+      "stopOnEntry": false,
+      "skipFiles": ["<node_internals>/**"]
+    }
+  ]
+}

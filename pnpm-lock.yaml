@@ -73,6 +73,9 @@ importers:
       '@types/node':
         specifier: ^20.14.8
         version: 20.17.30
+      '@types/pg':
+        specifier: ^8.10.4
+        version: 8.15.5
       '@typescript-eslint/eslint-plugin':
         specifier: ^8.33.1
         version: 8.33.1(@typescript-eslint/parser@8.33.1(eslint@9.28.0)(typescript@5.5.4))(eslint@9.28.0)(typescript@5.5.4)
@@ -1456,6 +1459,9 @@ packages:
 
   '@types/node@20.17.30':
     resolution: {integrity: sha512-7zf4YyHA+jvBNfVrk2Gtvs6x7E8V+YDW05bNfG2XkWDJfYRXrTiP/DsB2zSYTaHX0bGIujTBQdMVAhb+j7mwpg==}
+
+  '@types/pg@8.15.5':
+    resolution: {integrity: sha512-LF7lF6zWEKxuT3/OR8wAZGzkg4ENGXFNyiV/JeOt9z5B+0ZVwbql9McqX5c/WStFq1GaGso7H1AzP/qSzmlCKQ==}
 
   '@types/qs@6.14.0':
     resolution: {integrity: sha512-eOunJqu0K1923aExK6y8p6fsihYEn/BYuQ4g0CxAAgFc4b/ZLN4CrsRZ55srTdqoiLzU2B2evC+apEIxprEzkQ==}
@@ -4824,6 +4830,12 @@ snapshots:
   '@types/node@20.17.30':
     dependencies:
       undici-types: 6.19.8
+
+  '@types/pg@8.15.5':
+    dependencies:
+      '@types/node': 20.17.30
+      pg-protocol: 1.10.0
+      pg-types: 2.2.0
 
   '@types/qs@6.14.0': {}
 
