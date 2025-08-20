@@ -1,0 +1,9 @@
+type ActiveBalances @entity {
+  id: ID!
+  activeBalancesMap: JSON!
+}
+
+type PoolProcessState @entity {
+  id: ID!
+  lastInterpolatedTs: BigInt
+}

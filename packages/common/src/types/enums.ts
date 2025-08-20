@@ -94,6 +94,7 @@ enum ProtocolType {
   IZUMI = 'izumi',
   ZEBU = 'zebu',
   SPL_TRANSFERS = 'spl-transfers',
+  HEMISTAKING = 'hemi-staking',
 }
 
 enum ChainType {

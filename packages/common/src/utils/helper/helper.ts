@@ -4,6 +4,7 @@ import {
   Chain,
   ProcessValueChangeBalancesParams,
   ProcessValueChangeParams,
+  TokenMetadata,
   TransactionEvent,
   ValidatedEnvBase,
 } from '../../types/interfaces/interfaces';
@@ -414,6 +415,42 @@ function getRpcUrlForChain(chainId: number, envData: any): string {
   }
 }
 
+function getContainerIdFromCgroup(): string | null {
+  try {
+    const fs = require('fs');
+    const cgroup = fs.readFileSync('/proc/self/cgroup', 'utf8');
+
+    // Look for docker container ID in cgroup
+    const dockerMatch = cgroup.match(/\/docker\/([a-f0-9]{64})/);
+    if (dockerMatch) {
+      return dockerMatch[1].substring(0, 12); // Return short container ID
+    }
+
+    // For newer Docker versions or different container runtimes
+    const containerMatch = cgroup.match(/\/([a-f0-9]{64})/);
+    if (containerMatch) {
+      return containerMatch[1].substring(0, 12);
+    }
+
+    return null;
+  } catch (error) {
+    console.warn('Failed to read container ID from cgroup:', error);
+    return null;
+  }
+}
+
+function checkToken(token: string, tokenMetadataList: TokenMetadata[]): TokenMetadata | null {
+  let tokenMetadata = tokenMetadataList.find(
+    (t: TokenMetadata) => t.address.toLowerCase() === token.toLowerCase(),
+  );
+  if (!tokenMetadata) {
+    console.warn(`Ignoring deposit for unsupported token: ${token}`);
+    return null;
+  }
+
+  return tokenMetadata;
+}
+
 export {
   mapToJson,
   jsonToMap,
@@ -425,4 +462,6 @@ export {
   fetchHistoricalUsd,
   getChainEnumKey,
   getRpcUrlForChain,
+  getContainerIdFromCgroup,
+  checkToken,
 };
