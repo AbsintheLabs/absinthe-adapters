@@ -392,6 +392,34 @@ export class ZebuNewProcessor {
           value: 'false',
           type: 'boolean',
         },
+        currency: {
+          value: currencySymbol,
+          type: 'string',
+        },
+        currencyAddress: {
+          value: currencyAddress,
+          type: 'string',
+        },
+        currencyDecimals: {
+          value: (currency?.decimals ?? 18).toString(),
+          type: 'string',
+        },
+        currencyPrice: {
+          value: usdToCurrencyValue.toString(),
+          type: 'string',
+        },
+        currencySymbol: {
+          value: currencySymbol,
+          type: 'string',
+        },
+        currencyName: {
+          value: currency?.name ?? 'UNKNOWN',
+          type: 'string',
+        },
+        currencyId: {
+          value: currencyId.toString(),
+          type: 'string',
+        },
       },
       rawAmount: bidamount.toString(),
       displayAmount: displayCost,
