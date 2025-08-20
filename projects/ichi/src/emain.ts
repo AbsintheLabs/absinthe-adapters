@@ -23,7 +23,8 @@ export type SinkConfig =
 export class SinkFactory {
   static create(cfg: SinkConfig): Sink {
     switch (cfg.kind) {
-      case 'csv': return new CsvSink(cfg.path);
+      case 'csv':
+        return new CsvSink(cfg.path);
       case 'absinthe':
         throw new Error('Absinthe sink not implemented yet');
       default:
@@ -60,7 +61,7 @@ class CsvSink implements Sink {
   }
 
   async write(batch: any[]) {
-    const flattenedBatch = batch.map(row => this.flattenObject(row));
+    const flattenedBatch = batch.map((row) => this.flattenObject(row));
     for (const row of flattenedBatch) {
       this.stream.write(row);
     }
@@ -74,8 +75,8 @@ type AssetKey = string; // e.g., EVM address lowercased or "chain:addr"
 
 // Deterministic implementer-supplied mapping
 type FeedSelector =
-  | { kind: 'coingecko'; id: string }                 // e.g., "ethereum"
-  | { kind: 'pegged'; usdPegValue: number }
+  | { kind: 'coingecko'; id: string } // e.g., "ethereum"
+  | { kind: 'pegged'; usdPegValue: number };
 // | { kind: 'coingeckoToken'; platformId: string; address: string } // /simple/token_price/{platform}
 // | { kind: 'defillama'; chain: string; address: string } // "ethereum:0x..."
 // | { kind: 'coinpaprika'; id: string }               // e.g., "btc-bitcoin"
@@ -95,8 +96,8 @@ abstract class PriceCache {
   constructor(
     protected redis: Redis,
     protected providerName: string,
-    protected windowMs = 86_400_000             // 24 h
-  ) { }
+    protected windowMs = 86_400_000, // 24 h
+  ) {}
 
   // ---------- public API ----------
   async setPrice(asset: AssetKey, atMs: number, price: number): Promise<void> {
@@ -107,13 +108,7 @@ abstract class PriceCache {
     await this.ensureSeries(key, asset);
 
     // idempotent add/overwrite
-    await this.redis.call("TS.ADD", [
-      key,
-      String(bucket),
-      String(price),
-      "ON_DUPLICATE",
-      "LAST"
-    ]);
+    await this.redis.call('TS.ADD', [key, String(bucket), String(price), 'ON_DUPLICATE', 'LAST']);
   }
 
   async getPrice(asset: AssetKey, atMs: number): Promise<number | null> {
@@ -121,21 +116,21 @@ abstract class PriceCache {
     const key = this.seriesKey(asset);
 
     // try exact bucket
-    const exact = (await this.redis.call("TS.RANGE", [
+    const exact = (await this.redis.call('TS.RANGE', [
       key,
       String(bucket),
-      String(bucket)
+      String(bucket),
     ])) as any[];
 
     if (exact.length) return parseFloat(exact[0][1]);
 
     // fallback – latest sample not after requested bucket
-    const prev = (await this.redis.call("TS.REVRANGE", [
+    const prev = (await this.redis.call('TS.REVRANGE', [
       key,
-      "0",
+      '0',
       String(bucket),
-      "COUNT",
-      "1"
+      'COUNT',
+      '1',
     ])) as any[];
 
     return prev.length ? parseFloat(prev[0][1]) : null;
@@ -152,19 +147,19 @@ abstract class PriceCache {
 
   private async ensureSeries(key: string, asset: string) {
     try {
-      await this.redis.call("TS.CREATE", [
+      await this.redis.call('TS.CREATE', [
         key,
-        "DUPLICATE_POLICY",
-        "LAST",
-        "LABELS",
-        "provider",
+        'DUPLICATE_POLICY',
+        'LAST',
+        'LABELS',
+        'provider',
         this.providerName,
-        "asset",
-        asset
+        'asset',
+        asset,
       ]);
     } catch (e: any) {
       // ignore "key exists" error
-      if (!String(e?.message).includes("key already exists")) throw e;
+      if (!String(e?.message).includes('key already exists')) throw e;
     }
   }
 }
@@ -199,12 +194,12 @@ class CoinGeckoFeed extends PriceCache {
       const url = `https://pro-api.coingecko.com/api/v3/coins/${id}/history`;
       const headers = {
         accept: 'application/json',
-        ...(this.apiKey && { 'x-cg-pro-api-key': this.apiKey })
+        ...(this.apiKey && { 'x-cg-pro-api-key': this.apiKey }),
       };
 
       const r = await axios.get(url, {
         params: { date, localization: 'false' },
-        headers
+        headers,
       });
 
       if (!r.data?.market_data?.current_price?.usd) {
@@ -278,7 +273,7 @@ class PriceService {
     private store: PriceStore,
     private provider: PriceProvider,
     private priceResolutionMs: number, // e.g., 3_600_000 for hourly, 86_400_000 for daily
-  ) { }
+  ) {}
 
   async getOrCompute(asset: string, atMs: number, ctx: { block: any }): Promise<Price> {
     const bucket = Math.floor(atMs / this.priceResolutionMs) * this.priceResolutionMs;
@@ -675,13 +670,16 @@ const sampleAdapter: TwbAdapter = {
 // note: both univ2nav and pricefeed should implement cachable (which means that values that have already
 // been found should be returned immediately rather than requerying)
 
-
 // case 1: we need to fetch an underlying price (which we already have that day) which means it will be re-cached
 // case 2: we need to fetch the pricing of univ2 nav to price the LP token. We will price the lp token each day as well for simplicity.
 
 // UNIV2 NAV PRICING
 class UniV2Nav {
-  constructor(private feed: PriceFeed, private ctx: any, private assetMap: Record<string, AssetKey>) { }
+  constructor(
+    private feed: PriceFeed,
+    private ctx: any,
+    private assetMap: Record<string, AssetKey>,
+  ) {}
 
   /** Total pool USD value at time `atMs` */
   async poolValueUSD(lp: string, atMs: number): Promise<number> {
@@ -722,8 +720,6 @@ class UniV2Nav {
   }
 }
 
-
-
 // END UNIV2 NAV PRICING
 
 // ------------------------------------------------------------
@@ -751,7 +747,6 @@ engine.run();
 // however, underlying price might be different
 // coingecko vs defillama vs codex vs univ3
 // not to mention that they need to provide configuration per asset or could try to optimistically price everything
-
 
 /*
 mapping our price wiring:
