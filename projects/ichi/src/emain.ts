@@ -2,7 +2,16 @@ import { Database, LocalDest } from '@subsquid/file-store';
 import Big from 'big.js';
 import { createClient, RedisClientType } from 'redis';
 import { Sink, CsvSink } from './esink';
-import { AssetKey, AssetFeedConfig, FeedSelector, HandlerRegistry, RedisTSCache, RedisMetadataCache, ResolveContext, PricingEngine } from './eprice';
+import {
+  AssetKey,
+  AssetFeedConfig,
+  FeedSelector,
+  HandlerRegistry,
+  RedisTSCache,
+  RedisMetadataCache,
+  ResolveContext,
+  PricingEngine,
+} from './eprice';
 import { coinGeckoFactory } from './feeds/coingecko';
 import { peggedHandler } from './feeds/pegged';
 
@@ -24,7 +33,7 @@ type OnChainEvent = {
   asset?: string;
   amount: Big;
   meta?: Record<string, MetadataValue>;
-}
+};
 
 // Adapter interface (you implement this per protocol)
 export interface Adapter {
@@ -256,10 +265,11 @@ class Engine {
     const key = `bal:${e.asset}:${e.user}`;
 
     // Load current state (single HMGET with pipeline if you batch)
-    const [amountStr, updatedTsStr, updatedHeightStr] = await this.redis.hmGet(
-      key,
-      ['amount', 'updatedTs', 'updatedHeight'],
-    );
+    const [amountStr, updatedTsStr, updatedHeightStr] = await this.redis.hmGet(key, [
+      'amount',
+      'updatedTs',
+      'updatedHeight',
+    ]);
     const oldAmt = new Big(amountStr || '0');
     const oldTs = updatedTsStr ? Number(updatedTsStr) : ts;
     const oldHeight = updatedHeightStr ? Number(updatedHeightStr) : height;
@@ -285,10 +295,12 @@ class Engine {
     }
 
     await Promise.all([
-      this.redis.hSet(key, { amount: newAmt.toString(), updatedTs: String(ts), updatedHeight: String(height) }),
-      newAmt.gt(0)
-        ? this.redis.sAdd('ab:gt0', key)
-        : this.redis.sRem('ab:gt0', key),
+      this.redis.hSet(key, {
+        amount: newAmt.toString(),
+        updatedTs: String(ts),
+        updatedHeight: String(height),
+      }),
+      newAmt.gt(0) ? this.redis.sAdd('ab:gt0', key) : this.redis.sRem('ab:gt0', key),
       this.redis.sAdd('assets:tracked', e.asset.toLowerCase()),
     ]);
   }
@@ -329,7 +341,7 @@ class Engine {
 
     // ---- READ PHASE (auto-pipelined) ----
     const rows = await Promise.all(
-      activeKeys.map((k) => this.redis.hmGet(k, ['amount', 'updatedTs', 'updatedHeight']))
+      activeKeys.map((k) => this.redis.hmGet(k, ['amount', 'updatedTs', 'updatedHeight'])),
     );
 
     // ---- WRITE PHASE (collect promises; auto-pipelined non-atomically) ----
@@ -359,7 +371,7 @@ class Engine {
             balance: amt.toString(),
           });
           writePromises.push(
-            this.redis.hSet(key, { updatedTs: String(finalTs), updatedHeight: String(height) })
+            this.redis.hSet(key, { updatedTs: String(finalTs), updatedHeight: String(height) }),
           );
         }
       } else {
@@ -378,7 +390,7 @@ class Engine {
             this.redis.hSet(key, {
               updatedTs: String(currentWindowStart),
               updatedHeight: String(height),
-            })
+            }),
           );
         }
         // else: lastUpdatedTs is inside the current window, so skip emitting
@@ -401,8 +413,8 @@ const feedCfg: AssetFeedConfig = {
     assetType: 'erc20',
     priceFeed: {
       kind: 'coingecko',
-      id: 'ethereum'
-    }
+      id: 'ethereum',
+    },
   },
   // // spl example
   // 'jupSoLaHXQiZZTSfEWMTRRgpnyFm8f6sZdosWBjx93v': {
@@ -459,7 +471,6 @@ const sampleAdapter: Adapter = {
 // case 1: we need to fetch an underlying price (which we already have that day) which means it will be re-cached
 // case 2: we need to fetch the pricing of univ2 nav to price the LP token. We will price the lp token each day as well for simplicity.
 
-
 // ------------------------------------------------------------
 // Final! Running the engine. This is just the driver.
 // Will probably load the config from the env anyway so it might even stay the same for all indexers.
@@ -479,7 +490,6 @@ const sink = new CsvSink('windows.csv');
 - we can't determine by asset address (since they might both be erc20s)
 - dynamic pricing is hard. let's not do that. pass in everything in the config.
 */
-
 
 // const univ2Adapter: Adapter = {
 //   async onLog(block, log, transaction, emit) {
@@ -525,21 +535,6 @@ const engine = new Engine(
 );
 engine.run();
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // ------------------------------------------------------------
 // ------------------------------------------------------------
 // ------------------------------------------------------------
@@ -547,8 +542,6 @@ engine.run();
 // ------------------------------------------------------------
 // ------------------------------------------------------------
 // ------------------------------------------------------------
-
-
 
 /* behavior:
 1. set a price (from somewhere) into the timeseries

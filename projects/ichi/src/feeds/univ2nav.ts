@@ -1,6 +1,5 @@
 // scratch notes
 
-
 // NAV might be the same
 // however, underlying price might be different
 // coingecko vs defillama vs codex vs univ3
@@ -18,8 +17,6 @@ mapping our price wiring:
   2.
 
 */
-
-
 
 /*
 order of operations for pricing:
@@ -54,7 +51,6 @@ assset: address
 user: address
 
 */
-
 
 // OLD IMPLEMENTATION
 // // UNIV2 NAV PRICING
