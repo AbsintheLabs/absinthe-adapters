@@ -2,6 +2,7 @@
 
 import {
   BlockHeader,
+  BlockData,
   DataHandlerContext,
   EvmBatchProcessor,
   EvmBatchProcessorFields,
@@ -67,7 +68,7 @@ export const processor = new EvmBatchProcessor()
   });
 
 export type Fields = EvmBatchProcessorFields<typeof processor>;
-export type Block = BlockHeader<Fields>;
+export type Block = BlockData<Fields>;
 export type Log = _Log<Fields>;
 export type Transaction = _Transaction<Fields>;
-export type ProcessorContext<Store> = DataHandlerContext<Store, Fields>;
+export type ProcessorContext<S> = DataHandlerContext<S, Fields>;
