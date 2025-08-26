@@ -135,25 +135,6 @@ export class RedisTSCache implements PriceCacheTS {
     });
   }
 
-  // // fixme: need to ensure that the bucketing logic is actually sound
-  // async get(seriesKey: string, timestampMs: number, bucketMs: number): Promise<number | null> {
-  //     const key = this.key(seriesKey);
-  //     // exact bucket
-  //     if (!(await this.redis.exists(key))) return null;
-
-  //     const exact = await this.redis.ts.range(key, timestampMs, timestampMs);
-  //     if (Array.isArray(exact) && exact.length)
-  //         return parseFloat(exact[0].value as unknown as string);
-  //     // previous sample <= bucket
-  //     const prev = await this.redis.ts.revRange(key, 0, bucketMs, { COUNT: 1 });
-  //     return Array.isArray(prev) && prev.length
-  //         ? parseFloat(prev[0].value as unknown as string)
-  //         : null;
-  // }
-  // Returns the price that applies to the bucket which contains `atMs`.
-  // – If there is a sample whose timestamp falls **inside** that bucket, we use it.
-  // – Otherwise we fall back to the last sample **before** that bucket.
-  // – If the series does not exist or we can’t find any sample, we return null.
   async get(
     seriesKey: string,
     atMs: number, // any ts inside the bucket you care about

@@ -120,6 +120,7 @@ export const enrichWithPrice: Enricher = async (windows, context) => {
         EMPTY: true, // make sure buckets without values still get a value
       },
       ALIGN: '0', // aligns buckets to 0 (aka: on the hour)
+      COUNT: 1,
     });
 
     // get metadata as well

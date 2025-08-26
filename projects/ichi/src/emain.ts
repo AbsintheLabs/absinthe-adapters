@@ -179,70 +179,50 @@ class Engine {
   }
 
   async backfillPriceDataForBatch(blocks: any[]) {
-    // 1. Get the first blocks of every window duration (ex: 1hr or 1day)
+    // 1) dedupe to the first block per window
     const windowToFirstBlock = new Map<number, any>();
-
     for (const block of blocks) {
       const windowStart = Math.floor(block.header.timestamp / this.cfg.flushMs) * this.cfg.flushMs;
-
-      // Only keep the first block we see for each window
-      if (!windowToFirstBlock.has(windowStart)) {
-        windowToFirstBlock.set(windowStart, block);
-      }
+      if (!windowToFirstBlock.has(windowStart)) windowToFirstBlock.set(windowStart, block);
     }
-
     const blocksOfWindowStarts = Array.from(windowToFirstBlock.values());
 
-    // 2. Get all assets that we need to price
-    // fixme: this will need to change in the future based on how we support these multiple assets
-    // const assets = await this.redis.sMembers('assets:tracked');
-    const raw = await this.redis.hGetAll('assets:tracked'); // HASH, not SET
+    // 2) collect assets
+    // fixme: this will need to change in the future based on how we support these multiple assets on diff chains
+    const raw = await this.redis.hGetAll('assets:tracked');
     const assets = Object.entries(raw).map(([asset, h]) => ({
       asset,
-      birth: Number(h) || 0, // ensure numeric
+      birth: Number(h) || 0,
     }));
 
-    // attempt to create timeseries for each of these assets
-    // for (const asset of assets) {
-    //   await this.redis.call('TS.CREATE', [`price:${asset}`, 'LABELS', 'asset', asset]);
-    //   // fixme: need to create a rule for each of the assets so that twa happens automatically and quickly
-    // }
-
-    // 3. for each of these blocks, promise.all the price data by invoking the priceAsset function
-    // const allPricePromises = blocksOfWindowStarts.flatMap((block) =>
-    //   assets.map(async (asset) => {
-    //     const price = await this.priceAsset(asset, block.header.timestamp, block);
-    //     return {
-    //       block: block.header.timestamp,
-    //       asset,
-    //       price,
-    //     };
-    //   }),
-    // );
-
-    // // const priceData = await Promise.all(allPricePromises);
-    // // note: not doing concurrency since this adds a lot of complexity especially with caching
-    // const priceData: Array<{ asset: string; block: number; price: number }> = [];
-    // for (const promise of allPricePromises) {
-    //   const result = await promise;
-    //   priceData.push(result);
-    // }
-
-    const priceData = [];
-    console.log('blocks count:', blocksOfWindowStarts.length);
+    // 3) build tasks
+    type Task = { block: any; ts: number; asset: string };
+    const tasks: Task[] = [];
     for (const block of blocksOfWindowStarts) {
-      const assetsAtThisBlock = assets.filter((assetInfo) => {
-        return assetInfo.birth <= block.header.height; // Compare block numbers
-      });
-      for (const asset of assetsAtThisBlock) {
-        const price = await this.priceAsset(asset.asset, block.header.timestamp, block);
-        priceData.push({
-          block: block.header.timestamp,
-          asset,
-          price,
-        });
-      }
+      const ts = block.header.timestamp;
+      const eligible = assets.filter((a) => a.birth <= block.header.height);
+      for (const a of eligible) tasks.push({ block, ts, asset: a.asset });
     }
+
+    // 4) simple worker pool (no deps)
+    const MAX_CONCURRENCY = 8; // tweak based on your IO headroom
+    let idx = 0;
+
+    const worker = async () => {
+      while (idx < tasks.length) {
+        const i = idx++;
+        const t = tasks[i];
+        try {
+          await this.priceAsset(t.asset, t.ts, t.block);
+          // If you need to collect results:
+          // priceData.push({ block: t.ts, asset: t.asset, price });
+        } catch (err) {
+          console.error(`priceAsset failed for ${t.asset} @ ${t.ts}`, err);
+        }
+      }
+    };
+
+    await Promise.all(Array.from({ length: Math.min(MAX_CONCURRENCY, tasks.length) }, worker));
   }
 
   async priceAsset(asset: string, atMs: number, block: any): Promise<number> {
