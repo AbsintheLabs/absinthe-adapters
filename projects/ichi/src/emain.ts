@@ -37,6 +37,7 @@ type OnChainEvent = {
 // Adapter interface (you implement this per protocol)
 export interface Adapter {
   onLog(
+    // todo: tighten up the types here
     block: any,
     log: any,
     emit: {
@@ -48,7 +49,14 @@ export interface Adapter {
       // add more here as scope grows
     },
   ): Promise<void>;
-  // onTransaction(...)
+  // note: transaction tracking only supports event-based tracking, not time-weighted
+  onTransaction(
+    block: any,
+    transaction: any,
+    emit: {
+      event: (e: OnChainEvent) => Promise<void>;
+    },
+  ): Promise<void>;
   // priceFeeds?: FeedSelector[];
   // priceAsset?: (timestampMs: number, asset: string, redis: RedisClientType) => Promise<number>;
   feedConfig: AssetFeedConfig;
@@ -163,6 +171,7 @@ class Engine {
         for (const transaction of block.transactions) {
           // only process successful function calls
           if (transaction.status === 1) {
+            console.log('ingesting transaction');
             await this.ingestTransaction(block, transaction);
           }
         }
@@ -303,16 +312,17 @@ class Engine {
     }
   }
 
-  // FIXME: this is a placeholder for now. we need to implement this in the adapter class
   async ingestTransaction(block: any, transaction: any) {
-    // await this.adapter.onTransaction(block, transaction, {
-    //   event: (e: OnChainEvent) => this.applyEvent(e, {
-    //     ts: block.header.timestamp,
-    //     height: block.header.height,
-    //     txHash: transaction.hash,
-    //   }),
-    // });
-    // todo: implement me
+    console.log('transaction', transaction);
+    await this.adapter.onTransaction(block, transaction, {
+      event: (e: OnChainEvent) =>
+        this.applyEvent(e, transaction, {
+          ts: block.header.timestamp,
+          height: block.header.height,
+          txHash: transaction.hash,
+          blockHash: block.header.hash,
+        }),
+    });
   }
 
   // Subsquid hands logs to this
@@ -664,6 +674,30 @@ const ichiAdapter: Adapter = {
       //   amount: new Big(value.toString()),
       // });
     }
+  },
+  onTransaction: async (block, transaction, emit) => {
+    // Track transactions with gas fees similar to BatchProcessor pattern
+    const { input, from, to, gasPrice, gasUsed } = transaction;
+
+    // Track all successful transactions for gas fee analysis
+    // if (gasUsed && gasPrice) {
+    const gasFee = BigInt(gasUsed) * BigInt(gasPrice);
+    const displayGasFee = Number(gasFee) / 10 ** 18;
+
+    await emit.event({
+      // amount: new Big(gasFee.toString()),
+      amount: new Big(100),
+      user: from,
+      // meta: {
+      //   to: to,
+      //   gasPrice: gasPrice.toString(),
+      //   gasUsed: gasUsed.toString(),
+      //   displayGasFee: displayGasFee,
+      //   blockNumber: block.header.height,
+      //   input: input ? input.slice(0, 10) : null, // first 4 bytes of function selector
+      // },
+    });
+    // }
   },
   feedConfig: feedCfg,
 };

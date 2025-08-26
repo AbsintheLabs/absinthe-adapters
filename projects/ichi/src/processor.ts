@@ -11,6 +11,7 @@ import {
 } from '@subsquid/evm-processor';
 import * as hemiAbi from './abi/hemi';
 import * as ichiAbi from './abi/ichi';
+import * as demosAbi from './abi/demos';
 import { StakingProtocol, validateEnv } from '@absinthe/common';
 
 // const env = validateEnv();
@@ -28,17 +29,23 @@ import { StakingProtocol, validateEnv } from '@absinthe/common';
 
 // PARAMS
 // todo: SET BLOCK RANGES AND CONRACT ADDRESS!
-const fromBlock = 1685017;
+// TEST NUM 2 - DEMOS
+
+const fromBlock = 1931630;
 export const toBlock = 2481775;
-// export const toBlock = 1690000;
-// const contractAddresses = '0xa18a0fC8bF43A18227742B4bf8F2813b467804c6';
-// const contractAddresses = '0xDb7608614dfdD9feBFC1b82A7609420fa7B3Bc34'
-const contractAddresses = [
-  '0xa18a0fC8bF43A18227742B4bf8F2813b467804c6',
-  '0x983Ef679f2913C0FA447DD7518404b7D07198291',
-  '0x423Fc440A2b61fc1e81ECc406fdF70d36929C680',
-  '0xF399dafCB98f958474E736147d9D35b2A3caE3e0',
-];
+const contractAddresses = '0x70468f06cf32b776130e2da4c0d7dd08983282ec';
+
+// const fromBlock = 1685017;
+// // export const toBlock = 2481775;
+// export const toBlock = 1800000;
+// // const contractAddresses = '0xa18a0fC8bF43A18227742B4bf8F2813b467804c6';
+// // const contractAddresses = '0xDb7608614dfdD9feBFC1b82A7609420fa7B3Bc34'
+// const contractAddresses = [
+//   '0xa18a0fC8bF43A18227742B4bf8F2813b467804c6',
+//   '0x983Ef679f2913C0FA447DD7518404b7D07198291',
+//   '0x423Fc440A2b61fc1e81ECc406fdF70d36929C680',
+//   '0xF399dafCB98f958474E736147d9D35b2A3caE3e0',
+// ];
 // END PARAMS
 // 1931630, 1931606, 1685020, 1685017
 
@@ -64,13 +71,17 @@ export const processor = new EvmBatchProcessor()
   })
   .includeAllBlocks()
   .setFinalityConfirmation(75)
-  .addLog({
-    // todo: SET CONTRACT ADDRESS + TOPIC0
-    address: [...contractAddresses],
-    // topic0: [hemiAbi.events.Deposit.topic, hemiAbi.events.Withdraw.topic],
-    topic0: [ichiAbi.events.Transfer.topic],
-    transaction: true,
+  .addTransaction({
+    sighash: [demosAbi.functions.userVerify.sighash],
+    to: [contractAddresses],
   })
+  // .addLog({
+  //   // todo: SET CONTRACT ADDRESS + TOPIC0
+  //   address: [...contractAddresses],
+  //   // topic0: [hemiAbi.events.Deposit.topic, hemiAbi.events.Withdraw.topic],
+  //   topic0: [ichiAbi.events.Transfer.topic],
+  //   transaction: true,
+  // })
   .setFields({
     log: {
       transactionHash: true,
@@ -81,6 +92,7 @@ export const processor = new EvmBatchProcessor()
       gas: true,
       gasPrice: true,
       gasUsed: true,
+      status: true,
     },
   });
 
