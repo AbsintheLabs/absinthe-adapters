@@ -9,6 +9,7 @@ import {
   RedisMetadataCache,
   ResolveContext,
   PricingEngine,
+  AssetConfig,
 } from './eprice';
 
 import dotenv from 'dotenv';
@@ -54,6 +55,8 @@ export interface Adapter {
   feedConfig: AssetFeedConfig;
 }
 
+type IndexerMode = 'evm' | 'solana';
+
 class Engine {
   protected db: Database<any, any>;
   // fixme: why is adapter typed with !
@@ -72,7 +75,7 @@ class Engine {
   // fixme: store this persistently so that we can recover from crashes
   private lastFlushBoundary = -1; // memoizes last time-aligned boundary flushed
   private sink: Sink;
-  private feedRegistry = new HandlerRegistry();
+  private indexerMode: IndexerMode;
 
   // caches
   private priceCache: RedisTSCache;
@@ -86,12 +89,34 @@ class Engine {
     adapter: Adapter,
     sink: Sink,
   ) {
+    // todo, later have this choose based on the adapter type from config
+    this.indexerMode = 'evm';
+
     this.db = new Database({
       tables: {}, // no data tables at all. We use redis, process memory to keep state.
       dest: new LocalDest(Engine.STATE_FILE_PATH), // where status.txt (or your custom file) lives
     });
 
+    // todo: this could later be done during the adapter environment / init step
+    // todo: rather than the engine constructor
+    if (this.indexerMode === 'evm') {
+      // Create a new feedConfig with lowercased keys
+      const normalizedFeedConfig: Record<string, AssetConfig> = {};
+      for (const [asset, config] of Object.entries(adapter.feedConfig)) {
+        normalizedFeedConfig[asset.toLowerCase()] = config;
+      }
+
+      // Create a new adapter with normalized config
+      this.adapter = {
+        ...adapter,
+        feedConfig: normalizedFeedConfig,
+      };
+    } else {
+      this.adapter = adapter;
+    }
+
     this.adapter = adapter;
+
     // note: redis is always enabled for now
     // todo: add namespace to the keys for redis so there are no collisions?
     this.redis = createClient();
@@ -318,7 +343,13 @@ class Engine {
   protected async applyBalanceDelta(e: BalanceDelta, blockData: any): Promise<void> {
     const ts = blockData.ts;
     const height = blockData.height;
-    // const key = `account:${e.user}`;
+
+    // data cleaning:
+    if (this.indexerMode === 'evm') {
+      e.user = e.user.toLowerCase();
+      e.asset = e.asset.toLowerCase();
+    }
+
     const key = `bal:${e.asset}:${e.user}`;
 
     // Load current state (single HMGET with pipeline if you batch)
@@ -657,87 +688,3 @@ const engine = new Engine(
   sink,
 );
 engine.run();
-
-// ------------------------------------------------------------
-// ------------------------------------------------------------
-// ------------------------------------------------------------
-// SCRATCH WORK
-// ------------------------------------------------------------
-// ------------------------------------------------------------
-// ------------------------------------------------------------
-
-/* behavior:
-1. set a price (from somewhere) into the timeseries
-2. fetch a price from the timeseries (while accounting for null buckets etc)
-*/
-// abstract class PriceCache {
-//   constructor(
-//     protected redis: RedisClientType,
-//     protected providerName: string,
-//     protected windowMs = 86_400_000, // 24 h
-//   ) { }
-
-//   // ---------- public API ----------
-//   async setPrice(asset: AssetKey, atMs: number, price: number): Promise<void> {
-//     const bucket = this.bucketStart(atMs);
-//     const key = this.seriesKey(asset);
-
-//     // create series once with DUPLICATE_POLICY LAST
-//     await this.ensureSeries(key, asset);
-
-//     // idempotent add/overwrite
-//     await this.redis.call('TS.ADD', [key, String(bucket), String(price), 'ON_DUPLICATE', 'LAST']);
-//   }
-
-//   async getPrice(asset: AssetKey, atMs: number): Promise<number | null> {
-//     const bucket = this.bucketStart(atMs);
-//     const key = this.seriesKey(asset);
-
-//     // try exact bucket
-//     const exact = (await this.redis.call('TS.RANGE', [
-//       key,
-//       String(bucket),
-//       String(bucket),
-//     ])) as any[];
-
-//     if (exact.length) return parseFloat(exact[0][1]);
-
-//     // fallback – latest sample not after requested bucket
-//     const prev = (await this.redis.call('TS.REVRANGE', [
-//       key,
-//       '0',
-//       String(bucket),
-//       'COUNT',
-//       '1',
-//     ])) as any[];
-
-//     return prev.length ? parseFloat(prev[0][1]) : null;
-//   }
-
-//   // ---------- helpers ----------
-//   private bucketStart(ts: number): number {
-//     return Math.floor(ts / this.windowMs) * this.windowMs;
-//   }
-
-//   private seriesKey(asset: string): string {
-//     return `price:${asset.toLowerCase()}`;
-//   }
-
-//   private async ensureSeries(key: string, asset: string) {
-//     try {
-//       await this.redis.call('TS.CREATE', [
-//         key,
-//         'DUPLICATE_POLICY',
-//         'LAST',
-//         'LABELS',
-//         'provider',
-//         this.providerName,
-//         'asset',
-//         asset,
-//       ]);
-//     } catch (e: any) {
-//       // ignore "key exists" error
-//       if (!String(e?.message).includes('key already exists')) throw e;
-//     }
-//   }
-// }
