@@ -4,7 +4,6 @@ import { createClient, RedisClientType } from 'redis';
 import { Sink, CsvSink } from './esink';
 import {
   AssetFeedConfig,
-  HandlerRegistry,
   RedisTSCache,
   RedisMetadataCache,
   ResolveContext,
@@ -72,6 +71,8 @@ class Engine {
   // todo: change number to bigint/something that encodes token info
   protected redis: RedisClientType;
   protected windows: any[] = [];
+  private events: any[] = [];
+
   // fixme: store this persistently so that we can recover from crashes
   private lastFlushBoundary = -1; // memoizes last time-aligned boundary flushed
   private sink: Sink;
@@ -173,6 +174,7 @@ class Engine {
       await this.flushPeriodic(lastBlock.header.timestamp, lastBlock.header.height);
       await this.backfillPriceDataForBatch(ctx.blocks);
       await this.enrichWindows(ctx);
+      await this.enrichEvents(ctx);
       await this.sendDataToSink(ctx);
       this.sqdBatchEnd(ctx);
     });
@@ -252,23 +254,38 @@ class Engine {
     return await this.pricingEngine.priceAsset(assetConfig, ctx);
   }
 
-  async enrichWindows(ctx: any) {
+  private async enrichEvents(ctx: any) {
+    if (this.events.length === 0) return;
+
     const enrichCtx: any = {
       priceCache: this.priceCache,
       metadataCache: this.metadataCache,
       redis: this.redis,
     };
 
-    if (this.windows.length > 0) {
-      const enrichedWindows = await pipeline(
-        enrichWithCommonBaseEventFields,
-        enrichWithRunnerInfo,
-        buildTimeWeightedBalanceEvents,
-        enrichWithPrice,
-      )(this.windows, enrichCtx);
-      // set the windows to be the enriched windows
-      this.windows = enrichedWindows;
-    }
+    const enrichedEvents = await pipeline()(this.events, enrichCtx);
+    // todo: add event enrichers here
+
+    // set the events to the enriched events
+    this.events = enrichedEvents;
+  }
+
+  private async enrichWindows(ctx: any) {
+    if (this.windows.length === 0) return;
+    const enrichCtx: any = {
+      priceCache: this.priceCache,
+      metadataCache: this.metadataCache,
+      redis: this.redis,
+    };
+
+    const enrichedWindows = await pipeline(
+      enrichWithCommonBaseEventFields,
+      enrichWithRunnerInfo,
+      buildTimeWeightedBalanceEvents,
+      enrichWithPrice,
+    )(this.windows, enrichCtx);
+    // set the windows to be the enriched windows
+    this.windows = enrichedWindows;
   }
 
   async sendDataToSink(ctx: any) {
@@ -304,20 +321,42 @@ class Engine {
         /* todo: implement me */
         return Promise.resolve();
       },
-      event: (e: OnChainEvent) => Promise.resolve(),
-      // event: (e: OnChainEvent) => this.applyEvent(e, {
-      // ts: block.header.timestamp,
-      // height: block.header.height,
-      // txHash: transaction.hash,
-      // }),
+      event: (e: OnChainEvent) =>
+        this.applyEvent(e, {
+          ts: block.header.timestamp,
+          height: block.header.height,
+          txHash: log.transactionHash,
+        }),
     });
   }
 
   protected async sqdBatchEnd(ctx: any) {
     // clear windows at the end of the batch
     this.windows = [];
-    // force flush to update the processor status. necessary for file based processor
+    // clear events at the end of the batch
+    this.events = [];
+    // Force flush to update the processor status for file-based processors.
     ctx.store.setForceFlush(true);
+  }
+
+  private async applyEvent(e: OnChainEvent, blockData: any): Promise<void> {
+    let { user, asset, amount, meta } = e;
+
+    // data cleaning:
+    if (this.indexerMode === 'evm') {
+      user = user.toLowerCase();
+      asset = asset?.toLowerCase();
+    }
+
+    this.events.push({
+      user,
+      asset,
+      amount: amount.toString(),
+      meta,
+      ts: blockData.ts,
+      height: blockData.height,
+      txHash: blockData.txHash,
+    });
   }
 
   protected async applyBalanceDelta(e: BalanceDelta, blockData: any): Promise<void> {
@@ -503,14 +542,9 @@ const feedCfg: AssetFeedConfig = {
   //   },
   // },
 
-  /*
-  asset
-
-  */
   '0xa18a0fc8bf43a18227742b4bf8f2813b467804c6': {
     assetType: 'erc20',
     priceFeed: {
-      // xxx: feedhandler broken since we should be getting the token metadata from the resolver but the address is not being passed in anywhere
       kind: 'ichinav',
       token0: { assetType: 'erc20', priceFeed: { kind: 'coingecko', id: 'bitcoin' } },
       token1: { assetType: 'erc20', priceFeed: { kind: 'coingecko', id: 'bitcoin' } },
@@ -519,7 +553,6 @@ const feedCfg: AssetFeedConfig = {
   '0x983ef679f2913c0fa447dd7518404b7d07198291': {
     assetType: 'erc20',
     priceFeed: {
-      // xxx: feedhandler broken since we should be getting the token metadata from the resolver but the address is not being passed in anywhere
       kind: 'ichinav',
       token0: { assetType: 'erc20', priceFeed: { kind: 'coingecko', id: 'bitcoin' } },
       token1: { assetType: 'erc20', priceFeed: { kind: 'coingecko', id: 'bitcoin' } },
@@ -528,7 +561,6 @@ const feedCfg: AssetFeedConfig = {
   '0x423fc440a2b61fc1e81ecc406fdf70d36929c680': {
     assetType: 'erc20',
     priceFeed: {
-      // xxx: feedhandler broken since we should be getting the token metadata from the resolver but the address is not being passed in anywhere
       kind: 'ichinav',
       token0: { assetType: 'erc20', priceFeed: { kind: 'coingecko', id: 'ethereum' } },
       token1: { assetType: 'erc20', priceFeed: { kind: 'pegged', usdPegValue: 1 } },
@@ -537,7 +569,6 @@ const feedCfg: AssetFeedConfig = {
   '0xf399dafcb98f958474e736147d9d35b2a3cae3e0': {
     assetType: 'erc20',
     priceFeed: {
-      // xxx: feedhandler broken since we should be getting the token metadata from the resolver but the address is not being passed in anywhere
       kind: 'ichinav',
       token0: { assetType: 'erc20', priceFeed: { kind: 'coingecko', id: 'ethereum' } },
       token1: { assetType: 'erc20', priceFeed: { kind: 'pegged', usdPegValue: 1 } },
@@ -599,14 +630,14 @@ const ichiAdapter: Adapter = {
       const { from, to, value } = ichiAbi.events.Transfer.decode(log);
       await emit.balanceDelta({
         // fixme: we should make sure that users for evm logs are always lowercased in the engine
-        user: from.toLowerCase(),
+        user: from,
         // fixme: we should make sure that assets for evm logs are always lowercased in the engine
-        asset: log.address.toLowerCase(),
+        asset: log.address,
         amount: new Big(value.toString()).neg(),
       });
       await emit.balanceDelta({
-        user: to.toLowerCase(),
-        asset: log.address.toLowerCase(),
+        user: to,
+        asset: log.address,
         amount: new Big(value.toString()),
       });
     }
