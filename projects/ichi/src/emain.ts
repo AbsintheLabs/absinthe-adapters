@@ -333,14 +333,16 @@ class Engine {
     const key = `bal:${e.asset}:${e.user}`;
 
     // Load current state (single HMGET with pipeline if you batch)
-    const [amountStr, updatedTsStr, updatedHeightStr] = await this.redis.hmGet(key, [
+    const [amountStr, updatedTsStr, updatedHeightStr, prevTxHashStr] = await this.redis.hmGet(key, [
       'amount',
       'updatedTs',
       'updatedHeight',
+      'txHash',
     ]);
     const oldAmt = new Big(amountStr || '0');
     const oldTs = updatedTsStr ? Number(updatedTsStr) : ts;
     const oldHeight = updatedHeightStr ? Number(updatedHeightStr) : height;
+    const prevTxHash = prevTxHashStr || null;
 
     // Apply delta
     const newAmt = oldAmt.plus(e.amount);
@@ -358,6 +360,7 @@ class Engine {
         trigger: 'BALANCE_CHANGE',
         balanceBefore: oldAmt.toString(),
         balanceAfter: newAmt.toString(),
+        prevTxHash: prevTxHash,
         txHash: blockData.txHash,
       });
     }
@@ -367,6 +370,7 @@ class Engine {
         amount: newAmt.toString(),
         updatedTs: String(ts),
         updatedHeight: String(height),
+        txHash: blockData.txHash,
       }),
       newAmt.gt(0) ? this.redis.sAdd('ab:gt0', key) : this.redis.sRem('ab:gt0', key),
       // this.redis.sAdd('assets:tracked', e.asset.toLowerCase()),
@@ -410,7 +414,9 @@ class Engine {
 
     // ---- READ PHASE (auto-pipelined) ----
     const rows = await Promise.all(
-      activeKeys.map((k) => this.redis.hmGet(k, ['amount', 'updatedTs', 'updatedHeight'])),
+      activeKeys.map((k) =>
+        this.redis.hmGet(k, ['amount', 'updatedTs', 'updatedHeight', 'txHash']),
+      ),
     );
 
     // ---- WRITE PHASE (collect promises; auto-pipelined non-atomically) ----
@@ -418,7 +424,12 @@ class Engine {
 
     rows.forEach((vals, i) => {
       if (!vals) return;
-      const [amountStr, updatedTsStr] = vals as [string, string, string];
+      const [amountStr, updatedTsStr, updatedHeightStr, txHashStr] = vals as [
+        string,
+        string,
+        string,
+        string,
+      ];
 
       const amt = new Big(amountStr || '0');
       if (amt.lte(0)) return; // only flush active balances
@@ -426,6 +437,7 @@ class Engine {
       const key = activeKeys[i]!;
       const [_, asset, user] = key.split(':'); // 'bal:{asset}:{user}'
       const lastUpdatedTs = Number(updatedTsStr || 0);
+      const prevTxHash = txHashStr || null;
 
       if (reachedFinal) {
         // Case 1: final block — emit once from lastUpdatedTs to final block timestamp
@@ -438,6 +450,8 @@ class Engine {
             endTs: finalTs,
             trigger: 'FINAL',
             balance: amt.toString(),
+            prevTxHash: prevTxHash,
+            startBlockNumber: Number(updatedHeightStr),
           });
           writePromises.push(
             this.redis.hSet(key, { updatedTs: String(finalTs), updatedHeight: String(height) }),
@@ -453,6 +467,8 @@ class Engine {
             endTs: currentWindowStart,
             trigger: 'EXHAUSTED',
             balance: amt.toString(),
+            prevTxHash: prevTxHash,
+            startBlockNumber: Number(updatedHeightStr),
           });
           // Advance cursor to the start of the current window (we didn't emit the live window)
           writePromises.push(

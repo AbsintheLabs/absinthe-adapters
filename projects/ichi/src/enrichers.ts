@@ -62,6 +62,7 @@ export const buildTimeWeightedBalanceEvents: Enricher = async (windows, context)
         windowDurationMs: w.endTs - w.startTs,
         startBlockNumber: w?.startBlockNumber || null, // not available for exhausted events
         endBlockNumber: w?.endBlockNumber || null, // not available for exhausted events
+        prevTxHash: w?.prevTxHash || null, // WILL be available for exhausted event
         txHash: w?.txHash || null, // txHash will not be available for exhausted events
         // WARN: REMOVE ME! THIS IS A DEBUGGING STEP!
         startReadable: new Date(w.startTs).toLocaleString(),
@@ -123,6 +124,25 @@ export const enrichWithPrice: Enricher = async (windows, context) => {
       COUNT: 1,
     });
 
+    let valueUsd: number | null = null;
+    if (Array.isArray(resp) && resp.length) {
+      const v = Number(resp[0].value);
+      if (Number.isFinite(v)) valueUsd = v;
+    }
+
+    if (valueUsd == null) {
+      // 2) Fallback: get the last known price bucket at/before `end`
+      const last = await context.redis.ts.revRange(key, 0, end, {
+        AGGREGATION: { type: 'LAST', timeBucket: 1000 * 60 * 60 * 4, EMPTY: true },
+        ALIGN: '0',
+        COUNT: 1,
+      });
+      if (Array.isArray(last) && last.length) {
+        const v = Number(last[0].value);
+        if (Number.isFinite(v)) valueUsd = v;
+      }
+    }
+
     // get metadata as well
     const metadata = await context.metadataCache.get(w.asset);
     if (!metadata) {
@@ -131,14 +151,7 @@ export const enrichWithPrice: Enricher = async (windows, context) => {
       continue;
     }
 
-    console.log('resp', resp);
     // resp is [[timestamp, value]] or [] if key missing
-    let valueUsd = null;
-    if (Array.isArray(resp) && resp.length > 0) {
-      const first = resp[0];
-      valueUsd = Number(first.value);
-      if (!Number.isFinite(valueUsd)) valueUsd = null;
-    }
 
     // console.log("**************************************************")
     // console.log("valueUsd", valueUsd);
@@ -151,7 +164,7 @@ export const enrichWithPrice: Enricher = async (windows, context) => {
     // const price = new Big(valueUsd ?? 0).mul(w.balanceBefore).div(10 ** metadata.decimals);
     const price = new Big(valueUsd ?? 0).div(10 ** metadata.decimals);
     const totalPosition = new Big(w.balanceBefore).mul(price);
-    // todo: clean up the final output to work with the absinthe sink
+    // todo: clean up the final output to work with the absinthe sink, currently don't support totalPosition in the api
     out.push({ ...w, valueUsd: Number(price), totalPosition: Number(totalPosition) });
   }
   return out;
