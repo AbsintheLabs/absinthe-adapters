@@ -7,7 +7,12 @@ import {
 import { RedisClientType } from 'redis';
 import Big from 'big.js';
 
+// todo: narrow the types! these are too general here
 type Enricher = (windows: any[], context: any) => Promise<any[]>;
+
+// used for metadata
+type Entry = { value: string; type: 'number' | 'string' };
+type ProtocolMetadata = Record<string, Entry>;
 
 // Simple pipe runner
 export const pipeline =
@@ -19,6 +24,27 @@ export const pipeline =
     }
     return result;
   };
+
+// this one will be used to properly format and customize the metadata in the appropriate way
+export const enrichBaseEventMetadata: Enricher = async (windows, context) => {
+  return windows.map((w) => {
+    return {
+      ...w,
+      base: {
+        ...w.base,
+        protocolMetadata: Object.fromEntries(
+          Object.entries(w.meta || {}).map(([key, value]) => [
+            key,
+            {
+              value: String(value),
+              type: typeof value as 'number' | 'string',
+            },
+          ]),
+        ),
+      },
+    };
+  });
+};
 
 export const enrichWithCommonBaseEventFields: Enricher = async (windows, context) => {
   return windows.map((w) => ({
@@ -42,6 +68,25 @@ export const enrichWithRunnerInfo: Enricher = async (windows, context) => {
         apiKeyHash: '1',
       },
     },
+  }));
+};
+
+export const buildEvents: Enricher = async (events, context) => {
+  return events.map((e) => ({
+    ...e,
+    eventType: MessageType.TRANSACTION,
+    rawAmount: e.amount,
+    // fixme: figure out what this should be (perhaps in the decimals step?)
+    // displayAmount: Number(e.amount),
+    unixTimestampMs: e.ts,
+    txHash: e.txHash,
+    logIndex: e.logIndex,
+    blockNumber: e.height,
+    blockHash: e.blockHash,
+    gasUsed: e.gasUsed,
+    // fixme: figure out what this should be (perhaps in the pricing step?)
+    // gasFeeUsd: e.gasFeeUsd,
+    currency: Currency.USD,
   }));
 };
 

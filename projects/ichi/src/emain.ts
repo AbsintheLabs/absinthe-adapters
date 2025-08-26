@@ -14,7 +14,7 @@ import {
 import dotenv from 'dotenv';
 dotenv.config();
 
-type MetadataValue = number | string | boolean;
+type MetadataValue = number | string;
 type BalanceDelta = {
   user: string;
   asset: string;
@@ -263,8 +263,13 @@ class Engine {
       redis: this.redis,
     };
 
-    const enrichedEvents = await pipeline()(this.events, enrichCtx);
-    // todo: add event enrichers here
+    const enrichedEvents = await pipeline(
+      enrichWithCommonBaseEventFields,
+      enrichWithRunnerInfo,
+      enrichBaseEventMetadata,
+      buildEvents,
+    )(this.events, enrichCtx);
+    console.log('enrichedEvents', enrichedEvents[0]);
 
     // set the events to the enriched events
     this.events = enrichedEvents;
@@ -281,6 +286,7 @@ class Engine {
     const enrichedWindows = await pipeline(
       enrichWithCommonBaseEventFields,
       enrichWithRunnerInfo,
+      enrichBaseEventMetadata,
       buildTimeWeightedBalanceEvents,
       enrichWithPrice,
     )(this.windows, enrichCtx);
@@ -289,10 +295,11 @@ class Engine {
   }
 
   async sendDataToSink(ctx: any) {
-    // todo: this needs to be passed in as a parameter in the adapter class or fetched from a factory
-    // potentially, you can choose from an enum and then the class will be instantiated based on that from a factory (another class)
     if (this.windows.length > 0) {
       await this.sink.write(this.windows);
+    }
+    if (this.events.length > 0) {
+      await this.sink.write(this.events);
     }
   }
 
@@ -322,10 +329,11 @@ class Engine {
         return Promise.resolve();
       },
       event: (e: OnChainEvent) =>
-        this.applyEvent(e, {
+        this.applyEvent(e, log, {
           ts: block.header.timestamp,
           height: block.header.height,
           txHash: log.transactionHash,
+          blockHash: block.header.hash,
         }),
     });
   }
@@ -339,7 +347,8 @@ class Engine {
     ctx.store.setForceFlush(true);
   }
 
-  private async applyEvent(e: OnChainEvent, blockData: any): Promise<void> {
+  private async applyEvent(e: OnChainEvent, log: any, blockData: any): Promise<void> {
+    // xxx: need to make sure that we do the proper balance tracking in here as we do with balance deltas with redis
     let { user, asset, amount, meta } = e;
 
     // data cleaning:
@@ -356,6 +365,10 @@ class Engine {
       ts: blockData.ts,
       height: blockData.height,
       txHash: blockData.txHash,
+      logIndex: log.logIndex,
+      blockNumber: blockData.height,
+      blockHash: blockData.blockHash,
+      gasUsed: log.gasUsed,
     });
   }
 
@@ -625,21 +638,31 @@ import * as hemiAbi from './abi/hemi';
 
 import * as ichiAbi from './abi/ichi';
 const ichiAdapter: Adapter = {
+  // fixme: add typing on block, log
   onLog: async (block, log, emit) => {
     if (log.topics[0] === ichiAbi.events.Transfer.topic) {
       const { from, to, value } = ichiAbi.events.Transfer.decode(log);
-      await emit.balanceDelta({
-        // fixme: we should make sure that users for evm logs are always lowercased in the engine
-        user: from,
-        // fixme: we should make sure that assets for evm logs are always lowercased in the engine
-        asset: log.address,
-        amount: new Big(value.toString()).neg(),
-      });
-      await emit.balanceDelta({
-        user: to,
-        asset: log.address,
+      await emit.event({
         amount: new Big(value.toString()),
+        asset: log.address,
+        user: from,
+        // random metadata for testing
+        meta: {
+          to: to,
+          blockNumber: block.header.height,
+          // randomNum: Math.floor(Math.random() * 100)
+        },
       });
+      // await emit.balanceDelta({
+      //   user: from,
+      //   asset: log.address,
+      //   amount: new Big(value.toString()).neg(),
+      // });
+      // await emit.balanceDelta({
+      //   user: to,
+      //   asset: log.address,
+      //   amount: new Big(value.toString()),
+      // });
     }
   },
   feedConfig: feedCfg,
@@ -657,7 +680,13 @@ const ichiAdapter: Adapter = {
 // --------------DRIVER CODE--------------
 // ------------------------------------------------------------
 import { processor, toBlock } from './processor';
-import { buildTimeWeightedBalanceEvents, enrichWithRunnerInfo, pipeline } from './enrichers';
+import {
+  buildEvents,
+  buildTimeWeightedBalanceEvents,
+  enrichBaseEventMetadata,
+  enrichWithRunnerInfo,
+  pipeline,
+} from './enrichers';
 import { enrichWithCommonBaseEventFields } from './enrichers';
 import { enrichWithPrice } from './enrichers';
 import { TransactionReceipt } from '@subsquid/evm-processor/lib/ds-rpc/rpc-data';

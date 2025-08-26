@@ -45,8 +45,16 @@ export class CsvSink implements Sink {
 
   private flattenObject(obj: any, prefix = ''): Record<string, any> {
     const flattened: Record<string, any> = {};
+
     for (const [key, value] of Object.entries(obj)) {
       const newKey = prefix ? `${prefix}.${key}` : key;
+
+      // Special handling for protocolMetadata - keep as JSON string
+      if (key === 'protocolMetadata' || newKey.endsWith('.protocolMetadata')) {
+        flattened[newKey] = typeof value === 'object' ? JSON.stringify(value) : value;
+        continue;
+      }
+
       if (value === null || value === undefined) {
         flattened[newKey] = '';
       } else if (typeof value === 'object' && !Array.isArray(value)) {
