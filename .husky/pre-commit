@@ -1,10 +1,2 @@
-#!/bin/sh
-. "$(dirname "$0")/_/husky.sh"
-
-echo "💅 Running Prettier..."
-pnpm format
-
-echo "✅ Running Lint..."
-pnpm lint:staged
-
-echo "✅ All checks passed!"
+echo "🔧 lint-staged on staged files…"
+pnpm lint-staged

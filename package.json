@@ -20,7 +20,8 @@
     "format": "prettier --write .",
     "prepare": "husky",
     "lint:changed": "eslint $(git diff --name-only | grep -E \"\\.ts$\" | xargs) --ext .ts --cache --cache-location .eslintcache",
-    "lint:staged": "eslint $(git diff --cached --name-only --diff-filter=ACMR | grep -E \"\\.ts$\" | xargs) --ext .ts --cache --cache-location .eslintcache"
+    "lint:staged": "eslint $(git diff --cached --name-only --diff-filter=ACMR | grep -E \"\\.ts$\" | xargs) --ext .ts --cache --cache-location .eslintcache",
+    "lint-staged": "lint-staged"
   },
   "dependencies": {
     "@subsquid/evm-abi": "^0.3.0",
@@ -52,7 +53,16 @@
     "eslint-config-prettier": "^10.1.5",
     "eslint-plugin-prettier": "^5.4.1",
     "husky": "^9.1.7",
+    "lint-staged": "^16.1.5",
     "prettier": "^3.5.3",
     "typescript": "~5.5.2"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx,json,md}": [
+      "prettier --write"
+    ],
+    "*.{ts,tsx}": [
+      "eslint --fix --cache --cache-location .eslintcache"
+    ]
   }
 }

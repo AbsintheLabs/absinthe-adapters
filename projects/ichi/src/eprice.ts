@@ -12,13 +12,15 @@ import { Block, ProcessorContext } from './processor';
 
 // FEEDS
 // import { FeedHandler, FeedHandlerFactory } from "./feeds/interface";
-import { HandlerFactory, HandlerFn, ExecutorFn } from './feeds/interface';
+import { HandlerFactory, HandlerFn, ExecutorFn, ResolveResult } from './feeds/interface';
 import { coinGeckoFactory } from './feeds/coingecko';
 import { peggedFactory } from './feeds/pegged';
 
 // DEFAULT CONTRACT ABIs
 // importing ABIs for each of the token assets (//todo: later separate these into separate files)
 import * as erc20Abi from './abi/erc20';
+import { ichinavFactory } from './feeds/ichinav';
+import { Chain } from '@subsquid/evm-processor/lib/interfaces/chain';
 // ------------------------------------------------------------
 // END IMPORTS
 // ------------------------------------------------------------
@@ -42,7 +44,8 @@ export type AssetConfig = {
 export type FeedSelector =
   | { kind: 'coingecko'; id: string }
   | { kind: 'pegged'; usdPegValue: number }
-  | { kind: 'univ2nav'; token0: TokenSelector; token1: TokenSelector };
+  | { kind: 'univ2nav'; token0: TokenSelector; token1: TokenSelector }
+  | { kind: 'ichinav'; token0: TokenSelector; token1: TokenSelector };
 // | { kind: string;[k: string]: any }; // let implementers extend // warn: have to see if this is proper
 // | { kind: 'coingeckoToken'; platformId: string; address: string } // /simple/token_price/{platform}
 // | { kind: 'defillama'; chain: string; address: string } // "ethereum:0x..."
@@ -78,7 +81,7 @@ export class RedisMetadataCache implements MetadataCache {
   async get(assetKey: string): Promise<AssetMetadata | null> {
     const key = this.key(assetKey);
     const result = await this.redis.json.get(key);
-    return result ? JSON.parse(result as string) : null;
+    return result as AssetMetadata | null;
   }
 
   async set(assetKey: string, metadata: AssetMetadata): Promise<void> {
@@ -91,8 +94,8 @@ export class RedisMetadataCache implements MetadataCache {
 
 export interface PriceCacheTS {
   // bucketed insert and lookup
-  set(assetKey: string, bucketMs: number, price: number): Promise<void>;
-  get(assetKey: string, bucketMs: number): Promise<number | null>;
+  set(assetKey: string, atMs: number, price: number): Promise<void>;
+  get(assetKey: string, atMs: number, bucketMs: number): Promise<number | null>;
 }
 
 export class RedisTSCache implements PriceCacheTS {
@@ -122,27 +125,62 @@ export class RedisTSCache implements PriceCacheTS {
     }
   }
 
-  async set(seriesKey: string, bucketMs: number, price: number) {
+  async set(seriesKey: string, timestampMs: number, price: number) {
+    console.log('setting price for', seriesKey, timestampMs, price);
     const key = this.key(seriesKey);
     await this.ensureSeries(key, seriesKey);
     // TS.ADD <key> <ts> <value> ON_DUPLICATE LAST
-    await this.redis.ts.add(key, bucketMs, price, {
+    await this.redis.ts.add(key, timestampMs, price, {
       ON_DUPLICATE: 'LAST',
     });
   }
 
-  // fixme: need to ensure that the bucketing logic is actually sound
-  async get(seriesKey: string, bucketMs: number): Promise<number | null> {
+  // // fixme: need to ensure that the bucketing logic is actually sound
+  // async get(seriesKey: string, timestampMs: number, bucketMs: number): Promise<number | null> {
+  //     const key = this.key(seriesKey);
+  //     // exact bucket
+  //     if (!(await this.redis.exists(key))) return null;
+
+  //     const exact = await this.redis.ts.range(key, timestampMs, timestampMs);
+  //     if (Array.isArray(exact) && exact.length)
+  //         return parseFloat(exact[0].value as unknown as string);
+  //     // previous sample <= bucket
+  //     const prev = await this.redis.ts.revRange(key, 0, bucketMs, { COUNT: 1 });
+  //     return Array.isArray(prev) && prev.length
+  //         ? parseFloat(prev[0].value as unknown as string)
+  //         : null;
+  // }
+  // Returns the price that applies to the bucket which contains `atMs`.
+  // – If there is a sample whose timestamp falls **inside** that bucket, we use it.
+  // – Otherwise we fall back to the last sample **before** that bucket.
+  // – If the series does not exist or we can’t find any sample, we return null.
+  async get(
+    seriesKey: string,
+    atMs: number, // any ts inside the bucket you care about
+    bucketMs: number, // bucket width in ms
+  ): Promise<number | null> {
     const key = this.key(seriesKey);
-    // exact bucket
-    const exact = await this.redis.ts.range(key, bucketMs, bucketMs);
-    if (Array.isArray(exact) && exact.length)
-      return parseFloat(exact[0].value as unknown as string);
-    // previous sample <= bucket
-    const prev = await this.redis.ts.revRange(key, 0, bucketMs, { COUNT: 1 });
-    return Array.isArray(prev) && prev.length
-      ? parseFloat(prev[0].value as unknown as string)
-      : null;
+
+    // 0. Series doesn’t exist → no price
+    if (!(await this.redis.exists(key))) return null;
+
+    // 1. Calculate bucket boundaries
+    const bucketStart = Math.floor(atMs / bucketMs) * bucketMs;
+    const bucketEnd = bucketStart + bucketMs - 1;
+
+    // 2. Do we have a sample exactly at the bucketStart? (fast path)
+    const exact = await this.redis.ts.range(key, bucketStart, bucketStart);
+    if (exact.length) return Number(exact[0].value);
+
+    // 3. Otherwise get the latest sample **up to atMs**
+    const latest = await this.redis.ts.revRange(key, 0, atMs, { COUNT: 1 });
+    if (!latest.length) return null; // nothing before/at atMs
+
+    // 4. Ensure that sample is inside the *current* bucket, not an older one
+    const { timestamp, value } = latest[0];
+    if (timestamp < bucketStart) return null; // stale → treat as missing
+
+    return Number(value);
   }
 }
 
@@ -153,14 +191,17 @@ export class RedisTSCache implements PriceCacheTS {
 // METADATA RESOLUTION STRATEGY
 
 export interface AssetTypeHandler {
-  getMetadata(assetKey: string, ctx: ResolveContext): Promise<AssetMetadata>;
+  getMetadata(ctx: ResolveContext): Promise<AssetMetadata | null>;
   normalizeAmount?(amount: Big, metadata: AssetMetadata): Big;
 }
 
 // Handlers
 export const erc20Handler: AssetTypeHandler = {
-  getMetadata: async (assetKey: string, ctx: ResolveContext) => {
-    const erc20Contract = new erc20Abi.Contract(ctx.sqdCtx, ctx.block as any, assetKey);
+  getMetadata: async (ctx: ResolveContext) => {
+    const erc20Contract = new erc20Abi.Contract(
+      { _chain: ctx.sqdCtx._chain, block: { height: ctx.block.header.height } }, // BlockContext
+      ctx.asset,
+    );
     const decimals = await erc20Contract.decimals();
     // note: we are omitting symbol and name for now since we don't use them and it's extra RPC calls for this
     return { decimals: Number(decimals) };
@@ -176,6 +217,7 @@ export const erc20Handler: AssetTypeHandler = {
 //     }
 // };
 
+// todo: clean up the metadata resolver to be co-located with the code that actually uses it
 export const metadataResolver = new Map<AssetType, AssetTypeHandler>([
   ['erc20', erc20Handler],
   // ['spl', splHandler],
@@ -203,8 +245,17 @@ export interface ResolveContext {
   atMs: number;
   // the closest block to the timestamp
   block: Block;
+  // bucketMs: number;
+  bucketMs: number;
   // sqd context to make rpc calls
   sqdCtx: ProcessorContext<any>;
+  // used directly by subsquid, helper method to make rpc calls
+  sqdRpcCtx: {
+    _chain: Chain;
+    block: {
+      height: number;
+    };
+  };
   // shared deps implementers may use
   // todo: add in later if needed, keep implementation simple for now
   // deps: Record<string, unknown>;
@@ -228,10 +279,10 @@ export class HandlerRegistry {
   }
 
   initialize(buildExec: (reg: HandlerRegistry) => ExecutorFn) {
-    const exec = buildExec(this);
+    const exec = buildExec(this); // build the universal resolver
     for (const [kind, factory] of this.factories) {
       // pass in a function that takes in itself and returns the handler function
-      this.handlers.set(kind, factory(exec));
+      this.handlers.set(kind, factory(exec)); // factory -> handler
     }
   }
 
@@ -248,7 +299,8 @@ export class PricingEngine {
   constructor() {
     // Register all handlers
     this.registry.register('coingecko', coinGeckoFactory);
-    this.registry.register('pegged', peggedHandler);
+    this.registry.register('pegged', peggedFactory);
+    this.registry.register('ichinav', ichinavFactory);
     // this.registry.register('univ2nav', univ2navHandler);
     // add more handlers here...
 
@@ -256,86 +308,60 @@ export class PricingEngine {
     this.registry.initialize((_) => this.resolveSelector.bind(this));
   }
 
-  private async resolveSelector(selector: FeedSelector, ctx: ResolveContext): Promise<number> {
+  private async resolveSelector(
+    assetConfig: AssetConfig,
+    asset: AssetKey,
+    ctx: ResolveContext,
+  ): Promise<ResolveResult> {
     // Get handler from registry
-    const handler = this.registry.get(selector.kind);
-    if (!handler) throw new Error(`No handler for ${selector.kind}`);
+    const handler = this.registry.get(assetConfig.priceFeed.kind);
+    if (!handler) throw new Error(`No handler for ${assetConfig.priceFeed.kind}`);
+
+    // set the asset key in the ctx as we're pricing a new asset now
+    // ctx.asset = asset;
+    const localCtx: ResolveContext = {
+      ...ctx,
+      asset: asset,
+    };
 
     // step 1: metadata resolution
     // tbd...
-    const metadata = await ctx.metadataCache.get(ctx.asset);
+    let metadata = await localCtx.metadataCache.get(localCtx.asset);
     if (!metadata) {
-      const metadata = await metadataResolver.get(ctx.asset as AssetType);
-      await ctx.metadataCache.set(ctx.asset, metadata);
+      const metaResolver = metadataResolver.get(assetConfig.assetType);
+      if (!metaResolver) throw new Error(`No metadata resolver for ${assetConfig.assetType}`);
+      metadata = await metaResolver.getMetadata(localCtx);
+      // note: we always expect metadata to be found here since we call metadata resolver BEFORE the price
+      if (!metadata) {
+        throw new Error(`No metadata found for ${localCtx.asset}`);
+      }
+      await localCtx.metadataCache.set(localCtx.asset, metadata);
     }
 
     // step 2: price resolution
-    // Add caching logic here
-    // xxx: figure out the bucketing logic later
-    const bucket = Math.floor(ctx.atMs / ctx.priceBucketMs) * ctx.priceBucketMs;
-    const seriesKey = `sel:${JSON.stringify(selector)}`;
+    const cached = await localCtx.priceCache.get(localCtx.asset, localCtx.atMs, localCtx.bucketMs);
+    if (cached != null) {
+      console.log('cached price found for', localCtx.asset, localCtx.atMs, cached);
+      return { price: cached, metadata };
+    }
 
-    const cached = await ctx.priceCache.get(seriesKey, bucket);
-    if (cached != null) return cached;
-
-    // xxx: figure out metadata resolution later as well
+    console.log('resolving price for', localCtx.asset, localCtx.atMs);
     // Call handler with recursion capability
+    // todo: we might want to return the time as well, as the feeds might give back a different time than the one that we asked for
     const price = await handler({
-      selector,
-      ctx,
-      recurse: (childSelector: FeedSelector) => this.resolveSelector(childSelector, ctx),
+      assetConfig,
+      ctx: localCtx,
+      recurse: (childCfg, childAssetKey, childCtx) =>
+        this.resolveSelector(childCfg, childAssetKey, childCtx ?? localCtx),
     });
 
-    await ctx.priceCache.set(seriesKey, bucket, price);
-    return price;
+    await localCtx.priceCache.set(localCtx.asset, localCtx.atMs, price);
+    // return price.price;
+    return { price, metadata };
   }
 
-  async priceAsset(feed: FeedSelector, ctx: ResolveContext): Promise<number> {
-    return await this.resolveSelector(feed, ctx);
+  async priceAsset(assetConfig: AssetConfig, ctx: ResolveContext): Promise<number> {
+    const price = await this.resolveSelector(assetConfig, ctx.asset, ctx);
+    return price.price;
   }
 }
-
-// scratch
-
-/* Overview:
-1. config defines what type of pricing module is used for each asset. asset is just a string.
-2. user can overwrite or inject their own pricing config. empty if nothing to do.
-3. during initialization, pricing gets created with the proper strategies inside the engine
-4. during indexing, we resolve the asset and call the appropriate pricing strategy based on the config.
-how does this work? (this is the hard part)
-- call priceAsset()
-- we get the config for the asset (// todo: later, we'll have to make this work dynamically as well)
-- call this.feedRegistry.resolve(feedSelector, atMs)
-- we have to traverse the TokenFeedSelectors
-    - for each one, we call pull any metadata necessary by the normalization? // fixme: where does this go?
-    - we call the appropriate pricing strategy based on the config.
-    - we store the result in the cache so that we can re-use cached values
-    - we keep calling the resolver for each level so we get all the information for all the assets that we need
-
-- each level has an asset type, which contains the metadata for the asset. this is used in the erc pricing strategy which will combine the price per token with the actual amount.
-- this probably can only come in during the enrichment step.
-- this part only needs to:
-    - pull and store metadata into redis
-    - pull and store price into redis
-
-- during the enrichment step, we pull the metadata and the price back to calculate the size of each users position
-- this is where an erc20 class will be helpful to abstract out token details (what metadata do we actually need, etc)
-- this is also where the resolver is going to pull all the necessary information to create a graph of prices
-
-// 5. data gets indexed. cache defaults are set per strategy. for example, erc20 will cache the metadata since decimals never change.
-
-- for the start of each window in backfillpricedataforbatch
-- call priceAsset() on each asset for each time period
-- priceAsset pulls the config for the asset and calls the resolver on that pricefeed
-resolve() should do a few things:
-1. invoke the assetType strategy (for example, erc20 pulls decimals and caches it).
-    This should also be its own adapter strategy since we might have different implementations for diff assets.
-2. keep invoking the methods for each level of the pricefeed so we get all the information for all the assets that we need
-*/
-
-/* pricing complexities:
---- let's solve the basic asset problem first, then extend to univ3.
-1. for assets: they are of a certain type. Each type will need its own wrapper. for example, erc20 needs to be scaled by decimals before the next pricing strategy gets used.
-2. univ3: here, we don't know all the positions ahead of time. the asset is the univ3 nft. each nft needs to be priced separately by lookign at its liquidity position.
-  - we don't know all the positions ahead of time, BUT we do know the pools ahead of time. How would we make it work with this?
-*/

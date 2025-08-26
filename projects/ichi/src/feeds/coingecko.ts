@@ -3,8 +3,8 @@ import axios from 'axios';
 
 // Simple function implementation using FeedHandler signature
 export const coinGeckoFactory: HandlerFactory<'coingecko'> = (resolve) => async (args) => {
-  const { selector, ctx } = args;
-  const coingeckoId = selector.id;
+  const { assetConfig, ctx } = args;
+  const coingeckoId = assetConfig.priceFeed.id;
   const atMs = ctx.atMs;
 
   try {

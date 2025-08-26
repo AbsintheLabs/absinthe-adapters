@@ -1,16 +1,24 @@
 // interface.ts
-import { FeedSelector, ResolveContext } from '../eprice';
+import { AssetConfig, AssetKey, AssetMetadata, FeedSelector, ResolveContext } from '../eprice';
 
-// The main resolver: It is the implementation detail of each price source
-export type ExecutorFn = (selector: FeedSelector, ctx: ResolveContext) => Promise<number>;
+export type ResolveResult = { price: number; metadata: AssetMetadata };
 
-// This is what each handler looks like after it's been created
-// It allows for recursive calls of its subtypes
-export type HandlerFn<T extends FeedSelector['kind'] = FeedSelector['kind']> = (args: {
-  selector: Extract<FeedSelector, { kind: T }>;
+// helper: pick an AssetConfig whose priceFeed.kind === K
+type AssetConfigOf<K extends FeedSelector['kind']> = AssetConfig & {
+  priceFeed: Extract<FeedSelector, { kind: K }>;
+};
+
+// new signatures
+export type ExecutorFn = (
+  cfg: AssetConfig,
+  asset: AssetKey,
+  ctx: ResolveContext,
+) => Promise<ResolveResult>;
+
+export type HandlerFn<K extends FeedSelector['kind'] = FeedSelector['kind']> = (args: {
+  assetConfig: AssetConfigOf<K>;
   ctx: ResolveContext;
   recurse: ExecutorFn;
 }) => Promise<number>;
 
-// This factory takes in the implementation detail of the price source and returns a handler function
-export type HandlerFactory<T extends FeedSelector['kind']> = (recurse: ExecutorFn) => HandlerFn<T>;
+export type HandlerFactory<K extends FeedSelector['kind']> = (recurse: ExecutorFn) => HandlerFn<K>;

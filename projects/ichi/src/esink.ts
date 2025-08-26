@@ -32,7 +32,14 @@ export class CsvSink implements Sink {
   private out: fs.WriteStream;
 
   constructor(private path: string) {
+    const fileExists = fs.existsSync(path) && fs.statSync(path).size > 0;
+
     this.out = fs.createWriteStream(path, { flags: 'a' });
+    this.stream = format({
+      headers: true,
+      writeHeaders: !fileExists, // << key line
+    });
+
     this.stream.pipe(this.out);
   }
 

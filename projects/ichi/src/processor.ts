@@ -10,6 +10,7 @@ import {
   Transaction as _Transaction,
 } from '@subsquid/evm-processor';
 import * as hemiAbi from './abi/hemi';
+import * as ichiAbi from './abi/ichi';
 import { StakingProtocol, validateEnv } from '@absinthe/common';
 
 // const env = validateEnv();
@@ -25,18 +26,32 @@ import { StakingProtocol, validateEnv } from '@absinthe/common';
 // const contractAddresses = hemiStakingProtocol.contractAddress;
 // const earliestFromBlock = hemiStakingProtocol.fromBlock;
 
+// PARAMS
+// todo: SET BLOCK RANGES AND CONRACT ADDRESS!
+const fromBlock = 1685017;
+export const toBlock = 2481775;
+// export const toBlock = 1690000;
+// const contractAddresses = '0xa18a0fC8bF43A18227742B4bf8F2813b467804c6';
+// const contractAddresses = '0xDb7608614dfdD9feBFC1b82A7609420fa7B3Bc34'
+const contractAddresses = [
+  '0xa18a0fC8bF43A18227742B4bf8F2813b467804c6',
+  '0x983Ef679f2913C0FA447DD7518404b7D07198291',
+  '0x423Fc440A2b61fc1e81ECc406fdF70d36929C680',
+  '0xF399dafCB98f958474E736147d9D35b2A3caE3e0',
+];
+// END PARAMS
+// 1931630, 1931606, 1685020, 1685017
+
 // temporary to make this work:
 const hemiStakingProtocol = {
   gatewayUrl: 'https://v2.archive.subsquid.io/network/hemi-mainnet',
   rpcUrl: 'https://rpc.hemi.network/rpc',
-  // toBlock: 1619450,
-  toBlock: 0,
+  toBlock, // note: we are tracking a very small range for testing
+  // toBlock: 0,
 };
 
-const earliestFromBlock = 1240000;
+const earliestFromBlock = fromBlock;
 // const earliestFromBlock = 1434250;
-
-const contractAddresses = '0x4f5e928763cbfaf5ffd8907ebbb0dabd5f78ba83';
 
 export const processor = new EvmBatchProcessor()
   .setGateway(hemiStakingProtocol.gatewayUrl)
@@ -50,8 +65,10 @@ export const processor = new EvmBatchProcessor()
   .includeAllBlocks()
   .setFinalityConfirmation(75)
   .addLog({
-    address: [contractAddresses],
-    topic0: [hemiAbi.events.Deposit.topic, hemiAbi.events.Withdraw.topic],
+    // todo: SET CONTRACT ADDRESS + TOPIC0
+    address: [...contractAddresses],
+    // topic0: [hemiAbi.events.Deposit.topic, hemiAbi.events.Withdraw.topic],
+    topic0: [ichiAbi.events.Transfer.topic],
     transaction: true,
   })
   .setFields({

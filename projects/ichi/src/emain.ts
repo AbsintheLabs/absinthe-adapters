@@ -3,17 +3,16 @@ import Big from 'big.js';
 import { createClient, RedisClientType } from 'redis';
 import { Sink, CsvSink } from './esink';
 import {
-  AssetKey,
   AssetFeedConfig,
-  FeedSelector,
   HandlerRegistry,
   RedisTSCache,
   RedisMetadataCache,
   ResolveContext,
   PricingEngine,
 } from './eprice';
-import { coinGeckoFactory } from './feeds/coingecko';
-import { peggedHandler } from './feeds/pegged';
+
+import dotenv from 'dotenv';
+dotenv.config();
 
 type MetadataValue = number | string | boolean;
 type BalanceDelta = {
@@ -52,7 +51,7 @@ export interface Adapter {
   // onTransaction(...)
   // priceFeeds?: FeedSelector[];
   // priceAsset?: (timestampMs: number, asset: string, redis: RedisClientType) => Promise<number>;
-  feedConfig?: AssetFeedConfig;
+  feedConfig: AssetFeedConfig;
 }
 
 class Engine {
@@ -79,6 +78,7 @@ class Engine {
   private priceCache: RedisTSCache;
   private metadataCache: RedisMetadataCache;
   private pricingEngine: PricingEngine;
+  private ctx: any;
 
   constructor(
     protected cfg: { flushMs: number; enablePriceCache: boolean },
@@ -95,6 +95,7 @@ class Engine {
     // note: redis is always enabled for now
     // todo: add namespace to the keys for redis so there are no collisions?
     this.redis = createClient();
+
     this.sink = sink;
     this.pricingEngine = new PricingEngine();
 
@@ -102,11 +103,32 @@ class Engine {
     this.metadataCache = new RedisMetadataCache(this.redis);
   }
 
+  private async init() {
+    await this.redis.connect();
+
+    // Add error handling for Redis connection
+    this.redis.on('error', (err) => {
+      console.error('Redis Client Error:', err);
+    });
+
+    // Graceful shutdown
+    process.on('SIGTERM', async () => {
+      console.log('SIGTERM received, closing Redis connection...');
+      await this.redis.quit();
+      process.exit(0);
+    });
+  }
+
   // note: we probably want to be able to pass other types of processors in here, not just evm ones, but solana too!
   // can make a builder class for evm + solana that gently wraps over the subsquid methods to make sure that we're exposing the right ones
   // this will likely be a simple wrapper on top of the sqd methods on the sqd processor class
   async run() {
+    // pre-loop initialization
+    await this.init();
+
+    // main loop
     this.sqdProcessor.run(this.db, async (ctx: any) => {
+      this.ctx = ctx;
       for (const block of ctx.blocks) {
         for (const log of block.logs) {
           await this.ingestLog(block, log);
@@ -119,6 +141,7 @@ class Engine {
           }
         }
       }
+
       // we only need to get the timestamp at the end of the batch, rather than every single block
       const lastBlock = ctx.blocks[ctx.blocks.length - 1];
       // fixme: ensure that this checks if the toBlock is set.
@@ -147,7 +170,13 @@ class Engine {
 
     // 2. Get all assets that we need to price
     // fixme: this will need to change in the future based on how we support these multiple assets
-    const assets = await this.redis.sMembers('assets:tracked');
+    // const assets = await this.redis.sMembers('assets:tracked');
+    const raw = await this.redis.hGetAll('assets:tracked'); // HASH, not SET
+    const assets = Object.entries(raw).map(([asset, h]) => ({
+      asset,
+      birth: Number(h) || 0, // ensure numeric
+    }));
+
     // attempt to create timeseries for each of these assets
     // for (const asset of assets) {
     //   await this.redis.call('TS.CREATE', [`price:${asset}`, 'LABELS', 'asset', asset]);
@@ -155,55 +184,83 @@ class Engine {
     // }
 
     // 3. for each of these blocks, promise.all the price data by invoking the priceAsset function
-    const allPricePromises = blocksOfWindowStarts.flatMap((block) =>
-      assets.map(async (asset) => {
-        const price = await this.priceAsset(asset, block.header.timestamp, block);
-        return {
+    // const allPricePromises = blocksOfWindowStarts.flatMap((block) =>
+    //   assets.map(async (asset) => {
+    //     const price = await this.priceAsset(asset, block.header.timestamp, block);
+    //     return {
+    //       block: block.header.timestamp,
+    //       asset,
+    //       price,
+    //     };
+    //   }),
+    // );
+
+    // // const priceData = await Promise.all(allPricePromises);
+    // // note: not doing concurrency since this adds a lot of complexity especially with caching
+    // const priceData: Array<{ asset: string; block: number; price: number }> = [];
+    // for (const promise of allPricePromises) {
+    //   const result = await promise;
+    //   priceData.push(result);
+    // }
+
+    const priceData = [];
+    console.log('blocks count:', blocksOfWindowStarts.length);
+    for (const block of blocksOfWindowStarts) {
+      const assetsAtThisBlock = assets.filter((assetInfo) => {
+        return assetInfo.birth <= block.header.height; // Compare block numbers
+      });
+      for (const asset of assetsAtThisBlock) {
+        const price = await this.priceAsset(asset.asset, block.header.timestamp, block);
+        priceData.push({
           block: block.header.timestamp,
           asset,
           price,
-        };
-      }),
-    );
-
-    // const priceData = await Promise.all(allPricePromises);
-    // note: not doing concurrency since this adds a lot of complexity especially with caching
-    const priceData: Array<{ asset: string; block: number; price: number }> = [];
-    for (const promise of allPricePromises) {
-      const result = await promise;
-      priceData.push(result);
-    }
-
-    // 4. store the price data in the price store (simple hash per asset:block)
-    for (const p of priceData) {
-      await this.redis.hSet(`price:${p.asset}:${p.block}`, { price: String(p.price) });
+        });
+      }
     }
   }
 
   async priceAsset(asset: string, atMs: number, block: any): Promise<number> {
-    const feedConfig = this.adapter.feedConfig?.[asset];
-    if (!feedConfig) throw new Error(`No feed config found for asset: ${asset}`);
+    const assetConfig = this.adapter.feedConfig?.[asset];
+    // if (!assetConfig) throw new Error(`No feed config found for asset: ${asset}`);
+    // xxx: figure out what to do when the asset is not found
+    // or do we return price as 0 and then filter out 0 rows during the enrichment step?
+    // probably this to start, and then figure out a better system later
+    if (!assetConfig) return 0;
 
-    const ctx = {
+    const ctx: ResolveContext = {
       priceCache: this.priceCache,
       metadataCache: this.metadataCache,
       atMs,
       block,
       asset,
-      sqdCtx: this.sqdProcessor,
+      sqdCtx: this.ctx,
+      bucketMs: this.cfg.flushMs,
+      sqdRpcCtx: {
+        _chain: this.ctx._chain,
+        block: {
+          height: block.header.height,
+        },
+      },
     };
 
-    return await this.pricingEngine.priceAsset(feedConfig.priceFeed, ctx);
+    return await this.pricingEngine.priceAsset(assetConfig, ctx);
   }
 
   async enrichWindows(ctx: any) {
+    const enrichCtx: any = {
+      priceCache: this.priceCache,
+      metadataCache: this.metadataCache,
+      redis: this.redis,
+    };
+
     if (this.windows.length > 0) {
       const enrichedWindows = await pipeline(
         enrichWithCommonBaseEventFields,
         enrichWithRunnerInfo,
         buildTimeWeightedBalanceEvents,
         enrichWithPrice,
-      )(this.windows, this.redis);
+      )(this.windows, enrichCtx);
       // set the windows to be the enriched windows
       this.windows = enrichedWindows;
     }
@@ -301,7 +358,8 @@ class Engine {
         updatedHeight: String(height),
       }),
       newAmt.gt(0) ? this.redis.sAdd('ab:gt0', key) : this.redis.sRem('ab:gt0', key),
-      this.redis.sAdd('assets:tracked', e.asset.toLowerCase()),
+      // this.redis.sAdd('assets:tracked', e.asset.toLowerCase()),
+      this.redis.hSetNX('assets:tracked', e.asset.toLowerCase(), height.toString()),
     ]);
   }
 
@@ -312,8 +370,8 @@ class Engine {
   private async flushPeriodic(nowMs: number, height: number) {
     const w = this.cfg.flushMs;
 
-    // TODO: wire this dynamically from the processor
-    const finalBlock: number | null = 1619450;
+    // xxx: wire this dynamically from the processor when we pass in env variables via class
+    const finalBlock: number | null = toBlock;
     const reachedFinal = finalBlock != null && height === finalBlock;
     const backfilling = finalBlock != null && height < finalBlock;
 
@@ -407,13 +465,55 @@ class Engine {
 // Example adapter (the actual implementation steps)
 // ------------------------------------------------------------
 
+// fixme: ensure that all keys are lowercased in the engine (if asset type is of erc20)
 const feedCfg: AssetFeedConfig = {
   // erc20 example
-  '0x4200000000000000000000000000000000000006': {
+  // '0x4200000000000000000000000000000000000006': {
+  //   assetType: 'erc20',
+  //   priceFeed: {
+  //     kind: 'coingecko',
+  //     id: 'ethereum',
+  //   },
+  // },
+
+  /*
+  asset
+
+  */
+  '0xa18a0fc8bf43a18227742b4bf8f2813b467804c6': {
     assetType: 'erc20',
     priceFeed: {
-      kind: 'coingecko',
-      id: 'ethereum',
+      // xxx: feedhandler broken since we should be getting the token metadata from the resolver but the address is not being passed in anywhere
+      kind: 'ichinav',
+      token0: { assetType: 'erc20', priceFeed: { kind: 'coingecko', id: 'bitcoin' } },
+      token1: { assetType: 'erc20', priceFeed: { kind: 'coingecko', id: 'bitcoin' } },
+    },
+  },
+  '0x983ef679f2913c0fa447dd7518404b7d07198291': {
+    assetType: 'erc20',
+    priceFeed: {
+      // xxx: feedhandler broken since we should be getting the token metadata from the resolver but the address is not being passed in anywhere
+      kind: 'ichinav',
+      token0: { assetType: 'erc20', priceFeed: { kind: 'coingecko', id: 'bitcoin' } },
+      token1: { assetType: 'erc20', priceFeed: { kind: 'coingecko', id: 'bitcoin' } },
+    },
+  },
+  '0x423fc440a2b61fc1e81ecc406fdf70d36929c680': {
+    assetType: 'erc20',
+    priceFeed: {
+      // xxx: feedhandler broken since we should be getting the token metadata from the resolver but the address is not being passed in anywhere
+      kind: 'ichinav',
+      token0: { assetType: 'erc20', priceFeed: { kind: 'coingecko', id: 'ethereum' } },
+      token1: { assetType: 'erc20', priceFeed: { kind: 'pegged', usdPegValue: 1 } },
+    },
+  },
+  '0xf399dafcb98f958474e736147d9d35b2a3cae3e0': {
+    assetType: 'erc20',
+    priceFeed: {
+      // xxx: feedhandler broken since we should be getting the token metadata from the resolver but the address is not being passed in anywhere
+      kind: 'ichinav',
+      token0: { assetType: 'erc20', priceFeed: { kind: 'coingecko', id: 'ethereum' } },
+      token1: { assetType: 'erc20', priceFeed: { kind: 'pegged', usdPegValue: 1 } },
     },
   },
   // // spl example
@@ -442,23 +542,45 @@ import * as hemiAbi from './abi/hemi';
 // example univ2 lp is diff from volume pricing of swaps
 // should this be two separate pricing strategies transactions / twb?
 // or any for the 2 types of events: twb and transaction they both intake a pricing function? <-- this seems like the better option
-const sampleAdapter: Adapter = {
+// const sampleAdapter: Adapter = {
+//   onLog: async (block, log, emit) => {
+//     if (log.topics[0] === hemiAbi.events.Deposit.topic) {
+//       const { depositor, token, amount } = hemiAbi.events.Deposit.decode(log);
+//       // make sure to await!!
+//       await emit.balanceDelta({
+//         user: depositor,
+//         asset: token,
+//         amount: new Big(amount.toString()),
+//       });
+//     } else if (log.topics[0] === hemiAbi.events.Withdraw.topic) {
+//       const { withdrawer, token, amount } = hemiAbi.events.Withdraw.decode(log);
+//       // make sure to await!!
+//       await emit.balanceDelta({
+//         user: withdrawer,
+//         asset: token,
+//         amount: new Big(amount.toString()).neg(),
+//       });
+//     }
+//   },
+//   feedConfig: feedCfg,
+// };
+
+import * as ichiAbi from './abi/ichi';
+const ichiAdapter: Adapter = {
   onLog: async (block, log, emit) => {
-    if (log.topics[0] === hemiAbi.events.Deposit.topic) {
-      const { depositor, token, amount } = hemiAbi.events.Deposit.decode(log);
-      // make sure to await!!
+    if (log.topics[0] === ichiAbi.events.Transfer.topic) {
+      const { from, to, value } = ichiAbi.events.Transfer.decode(log);
       await emit.balanceDelta({
-        user: depositor,
-        asset: token,
-        amount: new Big(amount.toString()),
+        // fixme: we should make sure that users for evm logs are always lowercased in the engine
+        user: from.toLowerCase(),
+        // fixme: we should make sure that assets for evm logs are always lowercased in the engine
+        asset: log.address.toLowerCase(),
+        amount: new Big(value.toString()).neg(),
       });
-    } else if (log.topics[0] === hemiAbi.events.Withdraw.topic) {
-      const { withdrawer, token, amount } = hemiAbi.events.Withdraw.decode(log);
-      // make sure to await!!
       await emit.balanceDelta({
-        user: withdrawer,
-        asset: token,
-        amount: new Big(amount.toString()).neg(),
+        user: to.toLowerCase(),
+        asset: log.address.toLowerCase(),
+        amount: new Big(value.toString()),
       });
     }
   },
@@ -476,7 +598,7 @@ const sampleAdapter: Adapter = {
 // Will probably load the config from the env anyway so it might even stay the same for all indexers.
 // --------------DRIVER CODE--------------
 // ------------------------------------------------------------
-import { processor } from './processor';
+import { processor, toBlock } from './processor';
 import { buildTimeWeightedBalanceEvents, enrichWithRunnerInfo, pipeline } from './enrichers';
 import { enrichWithCommonBaseEventFields } from './enrichers';
 import { enrichWithPrice } from './enrichers';
@@ -528,9 +650,10 @@ const sink = new CsvSink('windows.csv');
 // todo: add a feature to not actually send data to the api to allow for testing
 // todo: what does testing and validation look like before actually hooking it up to the api?
 const engine = new Engine(
+  // fixme: remove this enable price cache flag since its not being used for anything
   { flushMs: 1000 * 60 * 60 * 48, enablePriceCache: false },
   processor,
-  sampleAdapter,
+  ichiAdapter,
   sink,
 );
 engine.run();
