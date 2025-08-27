@@ -10,6 +10,9 @@ import {
   PricingEngine,
   AssetConfig,
 } from './eprice';
+import { AppConfig } from './config/schema';
+import { loadConfig } from './config/load';
+import { buildProcessor } from './eprocessorBuilder';
 
 import dotenv from 'dotenv';
 dotenv.config();
@@ -34,9 +37,16 @@ type OnChainEvent = {
   meta?: Record<string, MetadataValue>;
 };
 
+type OnChainTransaction = {
+  user?: string;
+  asset?: string;
+  amount?: Big;
+  meta?: Record<string, MetadataValue>;
+};
+
 // Adapter interface (you implement this per protocol)
 export interface Adapter {
-  onLog(
+  onLog?(
     // todo: tighten up the types here
     block: any,
     log: any,
@@ -50,11 +60,11 @@ export interface Adapter {
     },
   ): Promise<void>;
   // note: transaction tracking only supports event-based tracking, not time-weighted
-  onTransaction(
+  onTransaction?(
     block: any,
     transaction: any,
     emit: {
-      event: (e: OnChainEvent) => Promise<void>;
+      event: (e: OnChainTransaction) => Promise<void>;
     },
   ): Promise<void>;
   // priceFeeds?: FeedSelector[];
@@ -64,14 +74,14 @@ export interface Adapter {
 
 type IndexerMode = 'evm' | 'solana';
 
-class Engine {
+export class Engine {
   protected db: Database<any, any>;
   // fixme: why is adapter typed with !
   protected adapter!: Adapter;
   // State file path for Subsquid processor checkpoint persistence
   // Each containerized indexer instance uses the same local path since they run in isolation
   // The actual file will be 'status.txt' containing block height and hash for crash recovery
-  protected static readonly STATE_FILE_PATH = './state';
+  private static readonly STATE_FILE_PATH = './state';
 
   // private lastUpatedTime =
 
@@ -91,48 +101,52 @@ class Engine {
   private metadataCache: RedisMetadataCache;
   private pricingEngine: PricingEngine;
   private ctx: any;
+  private appCfg: AppConfig;
+  private sqdProcessor: any;
 
   constructor(
-    protected cfg: { flushMs: number; enablePriceCache: boolean },
-    protected sqdProcessor: any,
+    // keep only run-time knobs that are not part of AppConfig (or read them from appCfg.processor if you prefer)
     adapter: Adapter,
     sink: Sink,
   ) {
-    // todo, later have this choose based on the adapter type from config
-    this.indexerMode = 'evm';
+    // 1) Load validated config once
+    this.appCfg = loadConfig(); // uses your Zod discriminated union (evm|solana)
 
-    this.db = new Database({
-      tables: {}, // no data tables at all. We use redis, process memory to keep state.
-      dest: new LocalDest(Engine.STATE_FILE_PATH), // where status.txt (or your custom file) lives
-    });
+    // 2) Build processor from config (don’t accept a prebuilt one)
+    this.sqdProcessor = buildProcessor(this.appCfg); // picks EVM or Solana branch based on cfg.kind
+    this.indexerMode = this.appCfg.kind === 'evm' ? 'evm' : 'solana';
 
-    // todo: this could later be done during the adapter environment / init step
-    // todo: rather than the engine constructor
-    if (this.indexerMode === 'evm') {
-      // Create a new feedConfig with lowercased keys
-      const normalizedFeedConfig: Record<string, AssetConfig> = {};
-      for (const [asset, config] of Object.entries(adapter.feedConfig)) {
-        normalizedFeedConfig[asset.toLowerCase()] = config;
+    // 3) State path and DB, namespaced by indexerId to avoid collisions
+    // const statePath = `${Engine.STATE_DIR_BASE}/${this.appCfg.indexerId}`;
+    const statePath = Engine.STATE_FILE_PATH;
+    // don't need tables since we're relying on redis for persistence
+    this.db = new Database({ tables: {}, dest: new LocalDest(statePath) });
+
+    // 4) Adapter + feedConfig normalization (lowercase keys)
+    const normalizedFeedConfig: Record<string, AssetConfig> = {};
+    if (adapter.feedConfig) {
+      for (const [asset, cfg] of Object.entries(adapter.feedConfig)) {
+        normalizedFeedConfig[asset.toLowerCase()] = cfg;
       }
-
-      // Create a new adapter with normalized config
-      this.adapter = {
-        ...adapter,
-        feedConfig: normalizedFeedConfig,
-      };
-    } else {
-      this.adapter = adapter;
     }
 
-    this.adapter = adapter;
+    // allow overrides from env JSON if provided
+    if (this.appCfg.feedConfigJson && this.appCfg.kind === 'evm') {
+      const fromEnv = JSON.parse(this.appCfg.feedConfigJson) as Record<string, AssetConfig>;
+      for (const [asset, cfg] of Object.entries(fromEnv)) {
+        normalizedFeedConfig[asset.toLowerCase()] = cfg;
+      }
+    }
+    this.adapter = { ...adapter, feedConfig: normalizedFeedConfig };
 
-    // note: redis is always enabled for now
-    // todo: add namespace to the keys for redis so there are no collisions?
+    // 5) Infra
+    // fixme: make this more robust (don't depend on the passed in indexer id)
+    const redisPrefix = `abs:${this.appCfg.indexerId}:`;
     this.redis = createClient();
-
     this.sink = sink;
-    this.pricingEngine = new PricingEngine();
 
+    // 6) Pricing + caches
+    this.pricingEngine = new PricingEngine();
     this.priceCache = new RedisTSCache(this.redis);
     this.metadataCache = new RedisMetadataCache(this.redis);
   }
@@ -163,6 +177,8 @@ class Engine {
     // main loop
     this.sqdProcessor.run(this.db, async (ctx: any) => {
       this.ctx = ctx;
+
+      // XXX: this will change when we add solana support (will it always be blocks, logs, transactions?)
       for (const block of ctx.blocks) {
         for (const log of block.logs) {
           await this.ingestLog(block, log);
@@ -171,7 +187,6 @@ class Engine {
         for (const transaction of block.transactions) {
           // only process successful function calls
           if (transaction.status === 1) {
-            console.log('ingesting transaction');
             await this.ingestTransaction(block, transaction);
           }
         }
@@ -193,7 +208,8 @@ class Engine {
     // 1) dedupe to the first block per window
     const windowToFirstBlock = new Map<number, any>();
     for (const block of blocks) {
-      const windowStart = Math.floor(block.header.timestamp / this.cfg.flushMs) * this.cfg.flushMs;
+      const windowStart =
+        Math.floor(block.header.timestamp / this.appCfg.flushMs) * this.appCfg.flushMs;
       if (!windowToFirstBlock.has(windowStart)) windowToFirstBlock.set(windowStart, block);
     }
     const blocksOfWindowStarts = Array.from(windowToFirstBlock.values());
@@ -251,7 +267,7 @@ class Engine {
       block,
       asset,
       sqdCtx: this.ctx,
-      bucketMs: this.cfg.flushMs,
+      bucketMs: this.appCfg.flushMs,
       sqdRpcCtx: {
         _chain: this.ctx._chain,
         block: {
@@ -314,20 +330,24 @@ class Engine {
 
   async ingestTransaction(block: any, transaction: any) {
     console.log('transaction', transaction);
-    await this.adapter.onTransaction(block, transaction, {
-      event: (e: OnChainEvent) =>
+    await this.adapter.onTransaction?.(block, transaction, {
+      event: (e: OnChainTransaction) =>
         this.applyEvent(e, transaction, {
           ts: block.header.timestamp,
           height: block.header.height,
           txHash: transaction.hash,
           blockHash: block.header.hash,
+          gasUsed: transaction.gasUsed,
+          gasPrice: transaction.gasPrice,
+          from: transaction.from,
+          to: transaction.to,
         }),
     });
   }
 
   // Subsquid hands logs to this
   async ingestLog(block: any, log: any) {
-    await this.adapter.onLog(block, log, {
+    await this.adapter.onLog?.(block, log, {
       balanceDelta: (e: BalanceDelta) =>
         this.applyBalanceDelta(e, {
           ts: block.header.timestamp,
@@ -339,6 +359,8 @@ class Engine {
         return Promise.resolve();
       },
       event: (e: OnChainEvent) =>
+        // XXX: apply event needs to work for both transaction and for log events
+        // XXX: typing needs to be fixed here!!!
         this.applyEvent(e, log, {
           ts: block.header.timestamp,
           height: block.header.height,
@@ -357,28 +379,28 @@ class Engine {
     ctx.store.setForceFlush(true);
   }
 
-  private async applyEvent(e: OnChainEvent, log: any, blockData: any): Promise<void> {
+  private async applyEvent(e: OnChainTransaction, transaction: any, blockData: any): Promise<void> {
     // xxx: need to make sure that we do the proper balance tracking in here as we do with balance deltas with redis
     let { user, asset, amount, meta } = e;
 
     // data cleaning:
     if (this.indexerMode === 'evm') {
-      user = user.toLowerCase();
+      user = (user || transaction.from).toLowerCase();
       asset = asset?.toLowerCase();
     }
 
     this.events.push({
       user,
       asset,
-      amount: amount.toString(),
+      amount: amount?.toString() || '0',
       meta,
       ts: blockData.ts,
       height: blockData.height,
       txHash: blockData.txHash,
-      logIndex: log.logIndex,
+      // logIndex: log.logIndex,
       blockNumber: blockData.height,
       blockHash: blockData.blockHash,
-      gasUsed: log.gasUsed,
+      // gasUsed: log.gasUsed,
     });
   }
 
@@ -445,7 +467,7 @@ class Engine {
   // When we reach finalBlock: flush everything INCLUDING the last partial window.
   // In live mode (no finalBlock): only flush fully closed windows, never the current one.
   private async flushPeriodic(nowMs: number, height: number) {
-    const w = this.cfg.flushMs;
+    const w = this.appCfg.flushMs;
 
     // xxx: wire this dynamically from the processor when we pass in env variables via class
     const finalBlock: number | null = toBlock;
@@ -554,34 +576,52 @@ class Engine {
 // Example adapter (the actual implementation steps)
 // ------------------------------------------------------------
 
-// fixme: ensure that all keys are lowercased in the engine (if asset type is of erc20)
-const feedCfg: AssetFeedConfig = {
-  // erc20 example
-  // '0x4200000000000000000000000000000000000006': {
-  //   assetType: 'erc20',
-  //   priceFeed: {
-  //     kind: 'coingecko',
-  //     id: 'ethereum',
-  //   },
-  // },
+// ICHI VAULTS
+// '0xa18a0fc8bf43a18227742b4bf8f2813b467804c6': {
+//   assetType: 'erc20',
+//   priceFeed: {
+//     kind: 'ichinav',
+//     token0: { assetType: 'erc20', priceFeed: { kind: 'coingecko', id: 'bitcoin' } },
+//     token1: { assetType: 'erc20', priceFeed: { kind: 'coingecko', id: 'bitcoin' } },
+//   },
+// },
+// '0x983ef679f2913c0fa447dd7518404b7d07198291': {
+//   assetType: 'erc20',
+//   priceFeed: {
+//     kind: 'ichinav',
+//     token0: { assetType: 'erc20', priceFeed: { kind: 'coingecko', id: 'bitcoin' } },
+//     token1: { assetType: 'erc20', priceFeed: { kind: 'coingecko', id: 'bitcoin' } },
+//   },
+// },
+// '0x423fc440a2b61fc1e81ecc406fdf70d36929c680': {
+//   assetType: 'erc20',
+//   priceFeed: {
+//     kind: 'ichinav',
+//     token0: { assetType: 'erc20', priceFeed: { kind: 'coingecko', id: 'ethereum' } },
+//     token1: { assetType: 'erc20', priceFeed: { kind: 'pegged', usdPegValue: 1 } },
+//   },
+// },
+// '0xf399dafcb98f958474e736147d9d35b2a3cae3e0': {
+//   assetType: 'erc20',
+//   priceFeed: {
+//     kind: 'ichinav',
+//     token0: { assetType: 'erc20', priceFeed: { kind: 'coingecko', id: 'ethereum' } },
+//     token1: { assetType: 'erc20', priceFeed: { kind: 'pegged', usdPegValue: 1 } },
+//   },
+// },
+// END ICHI VAULTS
 
-  '0xa18a0fc8bf43a18227742b4bf8f2813b467804c6': {
+const feedCfg: AssetFeedConfig = {
+  // GAMMA VAULTS
+  '0xd317b3bc6650fc6c128b672a12ae22e66027185f': {
     assetType: 'erc20',
     priceFeed: {
       kind: 'ichinav',
-      token0: { assetType: 'erc20', priceFeed: { kind: 'coingecko', id: 'bitcoin' } },
+      token0: { assetType: 'erc20', priceFeed: { kind: 'pegged', usdPegValue: 1 } },
       token1: { assetType: 'erc20', priceFeed: { kind: 'coingecko', id: 'bitcoin' } },
     },
   },
-  '0x983ef679f2913c0fa447dd7518404b7d07198291': {
-    assetType: 'erc20',
-    priceFeed: {
-      kind: 'ichinav',
-      token0: { assetType: 'erc20', priceFeed: { kind: 'coingecko', id: 'bitcoin' } },
-      token1: { assetType: 'erc20', priceFeed: { kind: 'coingecko', id: 'bitcoin' } },
-    },
-  },
-  '0x423fc440a2b61fc1e81ecc406fdf70d36929c680': {
+  '0x7eccd6d077e4ad7120150578e936a22f058fbcce': {
     assetType: 'erc20',
     priceFeed: {
       kind: 'ichinav',
@@ -589,32 +629,35 @@ const feedCfg: AssetFeedConfig = {
       token1: { assetType: 'erc20', priceFeed: { kind: 'pegged', usdPegValue: 1 } },
     },
   },
-  '0xf399dafcb98f958474e736147d9d35b2a3cae3e0': {
+  '0xdb7608614dfdd9febfc1b82a7609420fa7b3bc34': {
     assetType: 'erc20',
     priceFeed: {
       kind: 'ichinav',
       token0: { assetType: 'erc20', priceFeed: { kind: 'coingecko', id: 'ethereum' } },
-      token1: { assetType: 'erc20', priceFeed: { kind: 'pegged', usdPegValue: 1 } },
+      token1: { assetType: 'erc20', priceFeed: { kind: 'coingecko', id: 'bitcoin' } },
     },
   },
-  // // spl example
-  // 'jupSoLaHXQiZZTSfEWMTRRgpnyFm8f6sZdosWBjx93v': {
-  //   assetType: 'spl',
-  //   priceFeed: {
-  //     kind: 'coingecko',
-  //     id: 'jupiter-staked-sol'
-  //   }
-  // },
-  // // univ2 pool example
-  // '0xA43fe16908251ee70EF74718545e4FE6C5cCEc9f': {
-  //   assetType: 'erc20',
-  //   priceFeed: {
-  //     kind: 'univ2nav',
-  //     token0: { assetType: 'erc20', priceFeed: { kind: 'coingecko', id: 'pepe' } },
-  //     token1: { assetType: 'erc20', priceFeed: { kind: 'pegged', usdPegValue: 1 } }
-  //   }
-  // },
 };
+// END GAMMA VAULTS
+
+// '0x423fc440a2b61fc1e81ecc406fdf70d36929c680': {
+// // spl example
+// 'jupSoLaHXQiZZTSfEWMTRRgpnyFm8f6sZdosWBjx93v': {
+//   assetType: 'spl',
+//   priceFeed: {
+//     kind: 'coingecko',
+//     id: 'jupiter-staked-sol'
+//   }
+// },
+// // univ2 pool example
+// '0xA43fe16908251ee70EF74718545e4FE6C5cCEc9f': {
+//   assetType: 'erc20',
+//   priceFeed: {
+//     kind: 'univ2nav',
+//     token0: { assetType: 'erc20', priceFeed: { kind: 'coingecko', id: 'pepe' } },
+//     token1: { assetType: 'erc20', priceFeed: { kind: 'pegged', usdPegValue: 1 } }
+//   }
+// },
 
 // todo: use builder pattern to only add the gateway, rpc, and logs. transaction should not be modified since we need the txhash
 
@@ -647,58 +690,55 @@ import * as hemiAbi from './abi/hemi';
 // };
 
 import * as ichiAbi from './abi/ichi';
+import * as demosAbi from './abi/demos';
 const ichiAdapter: Adapter = {
   // fixme: add typing on block, log
   onLog: async (block, log, emit) => {
     if (log.topics[0] === ichiAbi.events.Transfer.topic) {
       const { from, to, value } = ichiAbi.events.Transfer.decode(log);
-      await emit.event({
-        amount: new Big(value.toString()),
-        asset: log.address,
-        user: from,
-        // random metadata for testing
-        meta: {
-          to: to,
-          blockNumber: block.header.height,
-          // randomNum: Math.floor(Math.random() * 100)
-        },
-      });
-      // await emit.balanceDelta({
-      //   user: from,
-      //   asset: log.address,
-      //   amount: new Big(value.toString()).neg(),
-      // });
-      // await emit.balanceDelta({
-      //   user: to,
-      //   asset: log.address,
+      // await emit.event({
       //   amount: new Big(value.toString()),
+      //   asset: log.address,
+      //   user: from,
+      //   // random metadata for testing
+      //   // meta: {
+      //   //   to: to,
+      //   //   blockNumber: block.header.height,
+      //   //   // randomNum: Math.floor(Math.random() * 100)
+      //   // },
       // });
+      await emit.balanceDelta({
+        user: from,
+        asset: log.address,
+        amount: new Big(value.toString()).neg(),
+      });
+      await emit.balanceDelta({
+        user: to,
+        asset: log.address,
+        amount: new Big(value.toString()),
+      });
     }
   },
-  onTransaction: async (block, transaction, emit) => {
-    // Track transactions with gas fees similar to BatchProcessor pattern
-    const { input, from, to, gasPrice, gasUsed } = transaction;
+  // onTransaction: async (block, transaction, emit) => {
+  //   // Track transactions with gas fees similar to BatchProcessor pattern
+  //   const { input, from, to, gasPrice, gasUsed } = transaction;
 
-    // Track all successful transactions for gas fee analysis
-    // if (gasUsed && gasPrice) {
-    const gasFee = BigInt(gasUsed) * BigInt(gasPrice);
-    const displayGasFee = Number(gasFee) / 10 ** 18;
-
-    await emit.event({
-      // amount: new Big(gasFee.toString()),
-      amount: new Big(100),
-      user: from,
-      // meta: {
-      //   to: to,
-      //   gasPrice: gasPrice.toString(),
-      //   gasUsed: gasUsed.toString(),
-      //   displayGasFee: displayGasFee,
-      //   blockNumber: block.header.height,
-      //   input: input ? input.slice(0, 10) : null, // first 4 bytes of function selector
-      // },
-    });
-    // }
-  },
+  //   if (input?.startsWith(demosAbi.functions.userVerify.sighash)) {
+  //     // Track all successful transactions for gas fee analysis
+  //     await emit.event({
+  //       // can be empty and the engine will fill in the rest!
+  //       // amount: new Big(gasFee.toString()),
+  //       // meta: {
+  //       //   to: to,
+  //       //   gasPrice: gasPrice.toString(),
+  //       //   gasUsed: gasUsed.toString(),
+  //       //   displayGasFee: displayGasFee,
+  //       //   blockNumber: block.header.height,
+  //       //   input: input ? input.slice(0, 10) : null, // first 4 bytes of function selector
+  //       // },
+  //     });
+  //   }
+  // },
   feedConfig: feedCfg,
 };
 
@@ -726,6 +766,7 @@ import { enrichWithPrice } from './enrichers';
 import { TransactionReceipt } from '@subsquid/evm-processor/lib/ds-rpc/rpc-data';
 
 const sink = new CsvSink('windows.csv');
+new Engine(ichiAdapter, sink).run();
 
 // core problem:
 /*
@@ -767,14 +808,3 @@ const sink = new CsvSink('windows.csv');
 //   // todo: this can even be loaded in by the engine class (or by a loader class that the engine calls)
 //   feedConfig: feedCfg,
 // }
-
-// todo: add a feature to not actually send data to the api to allow for testing
-// todo: what does testing and validation look like before actually hooking it up to the api?
-const engine = new Engine(
-  // fixme: remove this enable price cache flag since its not being used for anything
-  { flushMs: 1000 * 60 * 60 * 48, enablePriceCache: false },
-  processor,
-  ichiAdapter,
-  sink,
-);
-engine.run();

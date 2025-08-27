@@ -31,23 +31,30 @@ import { StakingProtocol, validateEnv } from '@absinthe/common';
 // todo: SET BLOCK RANGES AND CONRACT ADDRESS!
 // TEST NUM 2 - DEMOS
 
-const fromBlock = 1931630;
-export const toBlock = 2481775;
-const contractAddresses = '0x70468f06cf32b776130e2da4c0d7dd08983282ec';
+// const fromBlock = 1931630;
+// export const toBlock = 2481775;
+// const contractAddresses = '0x70468f06cf32b776130e2da4c0d7dd08983282ec';
 
-// const fromBlock = 1685017;
-// // export const toBlock = 2481775;
+const fromBlock = 1729013;
+export const toBlock = 2481775;
 // export const toBlock = 1800000;
-// // const contractAddresses = '0xa18a0fC8bF43A18227742B4bf8F2813b467804c6';
-// // const contractAddresses = '0xDb7608614dfdD9feBFC1b82A7609420fa7B3Bc34'
+// const contractAddresses = '0xa18a0fC8bF43A18227742B4bf8F2813b467804c6';
+// const contractAddresses = '0xDb7608614dfdD9feBFC1b82A7609420fa7B3Bc34'
+// ichi addresses
 // const contractAddresses = [
 //   '0xa18a0fC8bF43A18227742B4bf8F2813b467804c6',
 //   '0x983Ef679f2913C0FA447DD7518404b7D07198291',
 //   '0x423Fc440A2b61fc1e81ECc406fdF70d36929C680',
 //   '0xF399dafCB98f958474E736147d9D35b2A3caE3e0',
 // ];
+
+// gamma addresses
+const contractAddresses = [
+  '0xd317b3bc6650fc6c128b672a12ae22e66027185f',
+  '0x7eccd6d077e4ad7120150578e936a22f058fbcce',
+  '0xdb7608614dfdd9febfc1b82a7609420fa7b3bc34',
+];
 // END PARAMS
-// 1931630, 1931606, 1685020, 1685017
 
 // temporary to make this work:
 const hemiStakingProtocol = {
@@ -71,17 +78,17 @@ export const processor = new EvmBatchProcessor()
   })
   .includeAllBlocks()
   .setFinalityConfirmation(75)
-  .addTransaction({
-    sighash: [demosAbi.functions.userVerify.sighash],
-    to: [contractAddresses],
-  })
-  // .addLog({
-  //   // todo: SET CONTRACT ADDRESS + TOPIC0
-  //   address: [...contractAddresses],
-  //   // topic0: [hemiAbi.events.Deposit.topic, hemiAbi.events.Withdraw.topic],
-  //   topic0: [ichiAbi.events.Transfer.topic],
-  //   transaction: true,
+  // .addTransaction({
+  //   sighash: [demosAbi.functions.userVerify.sighash],
+  //   to: [contractAddresses],
   // })
+  .addLog({
+    // todo: SET CONTRACT ADDRESS + TOPIC0
+    address: [...contractAddresses],
+    // topic0: [hemiAbi.events.Deposit.topic, hemiAbi.events.Withdraw.topic],
+    topic0: [ichiAbi.events.Transfer.topic],
+    transaction: true,
+  })
   .setFields({
     log: {
       transactionHash: true,
