@@ -85,19 +85,8 @@ export class Engine {
     // 1) Use provided config
     this.appCfg = appCfg; // uses your Zod discriminated union (evm|solana)
 
-    // todo: clean this up a bit
-    // Extract topic0s from EVM log subscriptions if available
-    if (this.appCfg.kind === 'evm') {
-      // Flatten all topic0 arrays from all log subscriptions
-      // Use config topic0s if they exist, otherwise keep adapter's topic0s
-      // xxx: this obviously needs to be fixed with the way we're passing in topic0s
-      this.appCfg.subscriptions.logs[0].topic0 = adapter.topic0s || [];
-      // If no config topic0s but adapter has topic0s, keep adapter's topic0s
-      // This allows adapters to define their own topic0s by default
-    }
-
-    // 2) Build processor from config (don't accept a prebuilt one)
-    this.sqdProcessor = buildProcessor(this.appCfg); // picks EVM or Solana branch based on cfg.kind
+    // 2) Build processor from config with adapter's topic0s
+    this.sqdProcessor = buildProcessor(this.appCfg, adapter.topic0s); // picks EVM or Solana branch based on cfg.kind
     this.indexerMode = this.appCfg.kind === 'evm' ? 'evm' : 'solana';
 
     // 3) State path and DB, namespaced by indexerId to avoid collisions

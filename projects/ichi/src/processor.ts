@@ -85,8 +85,7 @@ export const processor = new EvmBatchProcessor()
   .addLog({
     // todo: SET CONTRACT ADDRESS + TOPIC0
     address: [...contractAddresses],
-    // topic0: [hemiAbi.events.Deposit.topic, hemiAbi.events.Withdraw.topic],
-    topic0: [ichiAbi.events.Transfer.topic],
+    // topic0 will be set by adapter via buildProcessor
     transaction: true,
   })
   .setFields({

@@ -36,12 +36,6 @@ const EvmCfg = z.object({
                 .toLowerCase()
                 .regex(/^0x[a-fA-F0-9]{40}$/, { message: 'Invalid EVM address' }),
             ),
-            topic0: z.array(
-              z
-                .string()
-                .toLowerCase()
-                .regex(/^0x[a-fA-F0-9]{64}$/, { message: 'Invalid EVM event signature' }),
-            ),
           }),
         )
         .default([]),

@@ -15,8 +15,7 @@
   "subscriptions": {
     "logs": [
       {
-        "addresses": ["0x0621bae969de9c153835680f158f481424c0720a"],
-        "topic0": []
+        "addresses": ["0x0621bae969de9c153835680f158f481424c0720a"]
       }
     ],
     "functionCalls": []

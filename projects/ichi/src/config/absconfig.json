@@ -62,18 +62,11 @@
                     "type": "array",
                     "items": {
                       "type": "string",
-                      "pattern": "^0x[a-f0-9]{40}$"
-                    }
-                  },
-                  "topic0": {
-                    "type": "array",
-                    "items": {
-                      "type": "string",
-                      "pattern": "^0x[a-f0-9]{64}$"
+                      "pattern": "^0x[a-fA-F0-9]{40}$"
                     }
                   }
                 },
-                "required": ["addresses", "topic0"]
+                "required": ["addresses"]
               }
             },
             "functionCalls": {
@@ -86,14 +79,14 @@
                     "type": "array",
                     "items": {
                       "type": "string",
-                      "pattern": "^0x[a-f0-9]{40}$"
+                      "pattern": "^0x[a-fA-F0-9]{40}$"
                     }
                   },
                   "sighash": {
                     "type": "array",
                     "items": {
                       "type": "string",
-                      "pattern": "^0x[a-f0-9]{8}$"
+                      "pattern": "^0x[a-fA-F0-9]{8}$"
                     }
                   }
                 },

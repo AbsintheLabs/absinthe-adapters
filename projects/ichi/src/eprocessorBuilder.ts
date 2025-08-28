@@ -3,7 +3,7 @@ import { EvmBatchProcessor } from '@subsquid/evm-processor';
 // import { SolanaBatchProcessor } from '@subsquid/solana-processor';
 import type { AppConfig } from './config/schema';
 
-export function buildProcessor(cfg: AppConfig) {
+export function buildProcessor(cfg: AppConfig, adapterTopic0s?: string[]) {
   if (cfg.kind === 'evm') {
     const p = new EvmBatchProcessor()
       .setGateway(cfg.network.gatewayUrl)
@@ -18,7 +18,7 @@ export function buildProcessor(cfg: AppConfig) {
     for (const l of cfg.subscriptions.logs)
       p.addLog({
         address: l.addresses,
-        topic0: l.topic0,
+        ...(adapterTopic0s && adapterTopic0s.length > 0 ? { topic0: adapterTopic0s } : {}),
       });
 
     for (const t of cfg.subscriptions.functionCalls)
