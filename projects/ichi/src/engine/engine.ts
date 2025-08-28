@@ -62,8 +62,10 @@ export class Engine {
   private enrichedEvents: PricedEvent[] = [];
   private enrichedWindows: PricedBalanceWindow[] = [];
 
-  // fixme: store this persistently so that we can recover from crashes
-  private lastFlushBoundary = -1; // memoizes last time-aligned boundary flushed
+  // Redis key for storing the last flush boundary (crash-resistant)
+  private get lastFlushBoundaryKey(): string {
+    return `abs:${this.appCfg.indexerId}:flush:boundary`;
+  }
   private sink: Sink;
   private indexerMode: IndexerMode;
 
@@ -139,6 +141,22 @@ export class Engine {
       await this.redis.quit();
       process.exit(0);
     });
+  }
+
+  /**
+   * Get the last flush boundary from Redis
+   * Returns -1 if no boundary has been stored yet (first run)
+   */
+  private async getLastFlushBoundary(): Promise<number> {
+    const boundary = await this.redis.get(this.lastFlushBoundaryKey);
+    return boundary ? Number(boundary) : -1;
+  }
+
+  /**
+   * Set the last flush boundary in Redis
+   */
+  private async setLastFlushBoundary(boundary: number): Promise<void> {
+    await this.redis.set(this.lastFlushBoundaryKey, boundary.toString());
   }
 
   // note: we probably want to be able to pass other types of processors in here, not just evm ones, but solana too!
@@ -489,8 +507,9 @@ export class Engine {
     // Avoid duplicate work per boundary in live mode
     // (For final block we allow a last pass even if the boundary repeats)
     if (!reachedFinal) {
-      if (currentWindowStart === this.lastFlushBoundary) return;
-      this.lastFlushBoundary = currentWindowStart;
+      const lastBoundary = await this.getLastFlushBoundary();
+      if (currentWindowStart === lastBoundary) return;
+      await this.setLastFlushBoundary(currentWindowStart);
     }
 
     const activeKeys = await this.redis.sMembers('ab:gt0');
