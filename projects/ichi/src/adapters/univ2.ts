@@ -3,6 +3,7 @@ import { Adapter } from '../types/adapter';
 import { AssetFeedConfig, TokenSelector } from '../types/pricing';
 import { HandlerFactory } from '../feeds/interface';
 import * as univ2Abi from '../abi/univ2';
+import { log } from '../utils/logger';
 
 // Handler name constant for Uniswap V2 LP NAV pricing
 const UNIV2_LP_NAV_HANDLER = 'univ2lpnav';
@@ -88,7 +89,7 @@ const univ2LpNavFactory: HandlerFactory<typeof UNIV2_LP_NAV_HANDLER> =
 
       return Number(lpTokenPrice.toString());
     } catch (error) {
-      console.warn(`Failed to price Uniswap V2 LP token ${ctx.asset}:`, error);
+      log.warn(`Failed to price Uniswap V2 LP token ${ctx.asset}:`, error);
       return 0;
     }
   };

@@ -30,6 +30,8 @@ import { mapToJson, toTimeWeightedBalance, pricePosition } from '@absinthe/commo
 import { PoolProcessState } from './model';
 import { checkToken, flattenNestedMap } from './utils/helper';
 
+import { log } from './utils/logger';
+
 /**
  * HemiStakingProcessor - Main processor class for Hemi staking protocol events
  *
@@ -133,7 +135,7 @@ export class HemiStakingProcessor {
         try {
           await this.processBatch(ctx);
         } catch (error) {
-          console.error('Error processing batch:', error);
+          log.error('Error processing batch:', error);
           // Re-throw to trigger Subsquid's error handling and restart mechanism
           throw error;
         }
@@ -330,18 +332,14 @@ export class HemiStakingProcessor {
     // This is useful for debugging specific user behavior without spam
     if (depositor.toLowerCase() !== '0x3a28c6735d9ffa75ad625b6af41d47ce476cde94'.toLowerCase()) {
       // return; // Commented out - would skip processing for all other users
-      console.log('Right now on the deposit event for address: ', depositor);
-      console.log(`Processing deposit event for token: ${token}`, {
-        depositor: depositor,
-        amount: amount,
-      });
+      log.debug('Processing deposit event for address:', depositor, 'token:', token);
     }
 
     // Validate that we support this token
     // checkToken returns metadata if supported, null if unsupported
     const tokenMetadata = checkToken(token);
     if (!tokenMetadata) {
-      console.warn(`Ignoring deposit for unsupported token: ${token}`);
+      log.warn(`Ignoring deposit for unsupported token: ${token}`);
       return; // Skip processing unsupported tokens to prevent errors
     }
 
@@ -441,17 +439,13 @@ export class HemiStakingProcessor {
     // DEBUG: Conditional logging (same pattern as deposits)
     if (withdrawer.toLowerCase() !== '0x3a28c6735d9ffa75ad625b6af41d47ce476cde94'.toLowerCase()) {
       // return; // Commented out - would skip processing
-      console.log('Right now on the withdraw event for address: ', withdrawer);
-      console.log(`Processing withdraw event for token: ${token}`, {
-        withdrawer: withdrawer,
-        amount: amount,
-      });
+      log.debug('Processing withdraw event for address:', withdrawer, 'token:', token);
     }
 
     // Validate token support (same validation as deposits)
     const tokenMetadata = checkToken(token);
     if (!tokenMetadata) {
-      console.warn(`Ignoring withdraw for unsupported token: ${token}`);
+      log.warn(`Ignoring withdraw for unsupported token: ${token}`);
       return;
     }
 
@@ -570,7 +564,7 @@ export class HemiStakingProcessor {
             // Validate token support (should always pass, but defensive programming)
             const tokenMetadata = checkToken(tokenAddress);
             if (!tokenMetadata) {
-              console.warn(`Ignoring withdraw for unsupported token: ${tokenAddress}`);
+              log.warn(`Ignoring unsupported token in periodic balance flush: ${tokenAddress}`);
               return; // Skip this token entirely
             }
 

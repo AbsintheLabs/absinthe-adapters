@@ -4,7 +4,7 @@ import { Database, LocalDest } from '@subsquid/file-store';
 import Big from 'big.js';
 import { createClient, RedisClientType } from 'redis';
 import dotenv from 'dotenv';
-
+import { log } from '../utils/logger';
 import { Sink } from '../esink';
 import { RedisTSCache, RedisMetadataCache, RedisHandlerMetadataCache } from '../cache';
 import { PricingEngine } from './pricing-engine';
@@ -132,12 +132,12 @@ export class Engine {
 
     // Add error handling for Redis connection
     this.redis.on('error', (err) => {
-      console.error('Redis Client Error:', err);
+      log.error('Redis Client Error:', err);
     });
 
     // Graceful shutdown
     process.on('SIGTERM', async () => {
-      console.log('SIGTERM received, closing Redis connection...');
+      log.info('SIGTERM received, closing Redis connection...');
       await this.redis.quit();
       process.exit(0);
     });
@@ -236,7 +236,7 @@ export class Engine {
           // If you need to collect results:
           // priceData.push({ block: t.ts, asset: t.asset, price });
         } catch (err) {
-          console.error(`priceAsset failed for ${t.asset} @ ${t.ts}`, err);
+          log.error(`priceAsset failed for ${t.asset} @ ${t.ts}`, err);
         }
       }
     };
@@ -288,7 +288,6 @@ export class Engine {
       enrichBaseEventMetadata,
       buildEvents,
     )(this.events, enrichCtx);
-    console.log('enrichedEvents', enrichedEvents[0]);
 
     // Store enriched events for later sending to sink
     this.enrichedEvents = enrichedEvents;
@@ -329,7 +328,6 @@ export class Engine {
   }
 
   async ingestTransaction(block: Block, transaction: Transaction) {
-    console.log('transaction', transaction);
     const emit: TransactionEmitFunctions = {
       event: (e: OnChainTransaction) =>
         this.applyEvent(e, transaction, {

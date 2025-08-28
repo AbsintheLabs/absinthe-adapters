@@ -6,6 +6,7 @@ import { ActiveBalancesHemi } from './types';
 
 // Import common utilities for data transformation
 import { ActiveBalance, jsonToMap } from '@absinthe/common';
+import { log } from './logger';
 
 /**
  * loadActiveBalancesFromDb - Reconstructs nested balance maps from database storage
@@ -68,7 +69,7 @@ export async function loadActiveBalancesFromDb(
 
     // Validate key format and handle edge cases
     if (!tokenAddress || !eoaAddress) {
-      console.warn(`Invalid balance key format: ${key}, skipping entry`);
+      log.warn(`Invalid balance key format: ${key}, skipping entry`);
       continue; // Skip malformed entries to prevent corruption
     }
 

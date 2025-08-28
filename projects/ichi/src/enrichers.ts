@@ -5,6 +5,7 @@ import {
   TimeWindowTrigger,
 } from '@absinthe/common';
 import Big from 'big.js';
+import { log } from './utils/logger';
 import {
   EnrichmentContext,
   Enricher,
@@ -132,7 +133,6 @@ export const buildTimeWeightedBalanceEvents: WindowEnricher = async (windows, co
 
 // Enrich balance windows with pricing data
 export const enrichWithPrice: WindowEnricher = async (windows, context) => {
-  console.log('enrichWithPrice');
   // todo: automatically average the prices over the durations, this way we automatically get
   // todo: one row during backfills rather than a row for each window
 
@@ -160,17 +160,13 @@ export const enrichWithPrice: WindowEnricher = async (windows, context) => {
 
     // todo: maybe add an exists function to the price cache
     if (!(await context.redis.exists(key))) {
-      console.log('no price found for', w.asset);
       out.push({ ...w, valueUsd: null });
       continue; // nothing stored yet for this asset
-    } else {
-      console.log('price found for', w.asset);
     }
 
     // TS.RANGE key start end ALIGN start AGGREGATION TWA bucket BUCKETTIMESTAMP last EMPTY
     // Expect exactly 1 bucket back when EMPTY is present.
     // xxx: don't have this fail if no key is found!
-    console.log('getting price for', key, start, end);
     const resp = await context.redis.ts.range(key, start, end, {
       LATEST: true, // return values for a bucket even if the bucket hasn't elapsed yet
       AGGREGATION: {
@@ -205,18 +201,11 @@ export const enrichWithPrice: WindowEnricher = async (windows, context) => {
     // get metadata as well
     const metadata = await context.metadataCache.get(w.asset);
     if (!metadata) {
-      console.log('no metadata found for', w.asset);
       out.push({ ...w, valueUsd: null });
       continue;
     }
 
     // resp is [[timestamp, value]] or [] if key missing
-
-    // console.log("**************************************************")
-    // console.log("valueUsd", valueUsd);
-    // console.log("balanceBefore", w.balanceBefore);
-    // console.log("metadata", metadata);
-    // console.log("**************************************************")
 
     // todo: clean up the logic so it's clear that we're multiplying the price by the balance before
     // FIXME: have this use big.js so we don't lose precision

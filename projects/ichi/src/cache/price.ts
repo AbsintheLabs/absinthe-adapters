@@ -2,6 +2,7 @@
 
 import { RedisClientType } from 'redis';
 import { PriceCacheTS } from '../types/pricing';
+import { log } from '../utils/logger';
 
 export class RedisTSCache implements PriceCacheTS {
   constructor(
@@ -31,7 +32,7 @@ export class RedisTSCache implements PriceCacheTS {
   }
 
   async set(seriesKey: string, timestampMs: number, price: number) {
-    console.log('setting price for', seriesKey, timestampMs, price);
+    log.debug('setting price for', seriesKey, timestampMs, price);
     const key = this.key(seriesKey);
     await this.ensureSeries(key, seriesKey);
     // TS.ADD <key> <ts> <value> ON_DUPLICATE LAST

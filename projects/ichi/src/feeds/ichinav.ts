@@ -1,6 +1,7 @@
 import { HandlerFactory } from './interface';
 import * as ichiAbi from '../abi/ichi';
 import Big from 'big.js';
+import { log } from '../utils/logger';
 
 // Simple function implementation using FeedHandler signature
 export const ichinavFactory: HandlerFactory<'ichinav'> = (resolve) => async (args) => {
@@ -50,15 +51,6 @@ export const ichinavFactory: HandlerFactory<'ichinav'> = (resolve) => async (arg
   const { total0, total1 } = await ichiContract.getTotalAmounts();
   const totalSupply = await ichiContract.totalSupply();
 
-  console.log('total0', total0.toString());
-  console.log('total1', total1.toString());
-  console.log('totalSupply', totalSupply.toString());
-  console.log('token0Decimals', token0Decimals);
-  console.log('token1Decimals', token1Decimals);
-  console.log('ichiTokenDecimals', ichiTokenDecimals);
-  console.log('token0Price', token0Resolved);
-  console.log('token1Price', token1Resolved);
-
   // if total supply is 0, we can't compute a price
   if (Number(totalSupply) === 0) {
     return 0;
@@ -70,13 +62,10 @@ export const ichinavFactory: HandlerFactory<'ichinav'> = (resolve) => async (arg
     .div(10 ** token0Decimals)
     .mul(token0Resolved.price)
     .add(new Big(total1.toString()).div(10 ** token1Decimals).mul(token1Resolved.price));
-  console.log('totalValue', totalValue.toString());
   // const price = totalValue.div(totalSupply.toString());
 
   // scale by decimals
   const price = totalValue.div(new Big(totalSupply.toString()).div(10 ** ichiTokenDecimals));
-
-  console.log('price', price.toNumber());
 
   // return { price: price.toNumber(), metadata: { decimals: ichiTokenDecimals } };
   return price.toNumber();

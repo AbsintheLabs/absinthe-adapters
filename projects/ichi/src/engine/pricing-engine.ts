@@ -7,6 +7,7 @@ import { ichinavFactory } from '../feeds/ichinav';
 import { AssetConfig, AssetKey, FeedSelector, ResolveContext } from '../types/pricing';
 import { metadataResolver } from './asset-handlers';
 import { CustomFeedHandlers } from '../types/adapter';
+import { log } from '../utils/logger';
 
 type Key = string; // stable cache key for a selector
 
@@ -99,11 +100,11 @@ export class PricingEngine {
     // step 2: price resolution
     const cached = await localCtx.priceCache.get(localCtx.asset, localCtx.atMs, localCtx.bucketMs);
     if (cached != null) {
-      console.log('cached price found for', localCtx.asset, localCtx.atMs, cached);
+      log.debug('cached price found for', localCtx.asset, localCtx.atMs, cached);
       return { price: cached, metadata };
     }
 
-    console.log('resolving price for', localCtx.asset, localCtx.atMs);
+    log.debug('resolving price for', localCtx.asset, localCtx.atMs);
     // Call handler with recursion capability
     // todo: we might want to return the time as well, as the feeds might give back a different time than the one that we asked for
     const price = await handler({
