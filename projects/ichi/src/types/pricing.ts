@@ -59,6 +59,18 @@ export interface PriceCacheTS {
   get(assetKey: string, atMs: number, bucketMs: number): Promise<number | null>;
 }
 
+export interface HandlerMetadataCache {
+  // Store arbitrary JSON data for feed handlers with namespaced keys
+  set(handlerName: string, key: string, data: any): Promise<void>;
+  get(handlerName: string, key: string): Promise<any | null>;
+  // Check if data exists
+  has(handlerName: string, key: string): Promise<boolean>;
+  // Delete specific key
+  delete(handlerName: string, key: string): Promise<void>;
+  // Clear all data for a specific handler
+  clearHandler(handlerName: string): Promise<void>;
+}
+
 // ------------------------------------------------------------
 // RESOLVE CONTEXT
 // ------------------------------------------------------------
@@ -69,6 +81,8 @@ export interface ResolveContext {
   priceCache: PriceCacheTS;
   // asset metadata cache
   metadataCache: MetadataCache;
+  // handler metadata cache for storing arbitrary state
+  handlerMetadataCache: HandlerMetadataCache;
   // the asset we are pricing
   asset: AssetKey;
   // the timestamp of the asset

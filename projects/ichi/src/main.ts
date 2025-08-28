@@ -40,11 +40,11 @@ import { AssetFeedConfig } from './types/pricing';
 
 export const univ2TestConfig: AssetFeedConfig = {
   // LP token address - this will be priced using the custom univ2lpnav feed
+  // Note: The key IS the pool address, no need to specify it separately
   '0x0621bae969de9c153835680f158f481424c0720a': {
     assetType: 'erc20',
     priceFeed: {
       kind: 'univ2lpnav',
-      poolAddress: '0x0621bAE969De9C153835680f158f481424c0720a', // Same as the LP token address
       token0: {
         assetType: 'erc20',
         priceFeed: {

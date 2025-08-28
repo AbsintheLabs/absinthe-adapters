@@ -1,55 +1,53 @@
-// Uniswap V2 protocol adapter implementation
-//
-// This adapter demonstrates how to create custom pricing feeds for your protocol.
-//
-// Example usage of the custom 'univ2lpnav' feed:
-//
-// const feedConfig: AssetFeedConfig = {
-//   '0x1234...': { // LP token address (same as poolAddress)
-//     assetType: 'erc20',
-//     priceFeed: {
-//       kind: 'univ2lpnav',
-//       poolAddress: '0x1234...', // Uniswap V2 pair contract address
-//       token0: {
-//         assetType: 'erc20',
-//         priceFeed: { kind: 'coingecko', id: 'ethereum' }
-//       },
-//       token1: {
-//         assetType: 'erc20',
-//         priceFeed: { kind: 'coingecko', id: 'usd-coin' }
-//       }
-//     }
-//   }
-// };
-
 import Big from 'big.js';
-import { Adapter, CustomFeedHandlers } from '../types/adapter';
+import { Adapter } from '../types/adapter';
 import { AssetFeedConfig, TokenSelector } from '../types/pricing';
 import { HandlerFactory } from '../feeds/interface';
 import * as univ2Abi from '../abi/univ2';
 
+// Handler name constant for Uniswap V2 LP NAV pricing
+const UNIV2_LP_NAV_HANDLER = 'univ2lpnav';
+
 // Custom feed selector for Uniswap V2 LP token pricing
 type Univ2LpNavFeedSelector = {
-  kind: 'univ2lpnav';
+  kind: typeof UNIV2_LP_NAV_HANDLER;
   token0: TokenSelector;
   token1: TokenSelector;
-  poolAddress: string;
 };
 
 // Custom feed handler factory for Uniswap V2 LP tokens
-const univ2LpNavFactory: HandlerFactory<'univ2lpnav'> =
-  (recurse) =>
+const univ2LpNavFactory: HandlerFactory<typeof UNIV2_LP_NAV_HANDLER> =
+  (resolve) =>
   async ({ assetConfig, ctx }) => {
     const feedConfig = assetConfig.priceFeed as Univ2LpNavFeedSelector;
 
     try {
-      // Create contract instance for the LP token
-      const lpContract = new univ2Abi.Contract(ctx.sqdRpcCtx, feedConfig.poolAddress);
+      // Create contract instance for the LP token (pool address is the asset key)
+      const poolAddress = ctx.asset.toLowerCase();
+      const lpContract = new univ2Abi.Contract(ctx.sqdRpcCtx, poolAddress);
 
-      // Get token addresses from the pool
-      // fixme: should be cached to prevent redundant rpc calls!
-      const token0Address = (await lpContract.token0()).toLowerCase();
-      const token1Address = (await lpContract.token1()).toLowerCase();
+      // Cache key for pool configuration (use the asset key)
+      const poolConfigKey = poolAddress;
+
+      // Try to get cached pool configuration first
+      let poolConfig = await ctx.handlerMetadataCache.get(UNIV2_LP_NAV_HANDLER, poolConfigKey);
+
+      if (!poolConfig) {
+        // Get token addresses and decimals from the pool and cache them
+        const [token0Address, token1Address, lpDecimals] = await Promise.all([
+          lpContract.token0(),
+          lpContract.token1(),
+          lpContract.decimals(),
+        ]);
+
+        poolConfig = {
+          token0Address: token0Address.toLowerCase(),
+          token1Address: token1Address.toLowerCase(),
+          lpDecimals: Number(lpDecimals.toString()),
+        };
+
+        // Cache the pool configuration
+        await ctx.handlerMetadataCache.set(UNIV2_LP_NAV_HANDLER, poolConfigKey, poolConfig);
+      }
 
       // Get pool reserves and total supply using the contract methods
       const [reservesData, totalSupply] = await Promise.all([
@@ -61,14 +59,14 @@ const univ2LpNavFactory: HandlerFactory<'univ2lpnav'> =
 
       // Get prices for both underlying tokens using recursion
       const [price0Result, price1Result] = await Promise.all([
-        recurse(
+        resolve(
           { assetType: feedConfig.token0.assetType, priceFeed: feedConfig.token0.priceFeed },
-          token0Address, // Use actual token address as asset key
+          poolConfig.token0Address, // Use cached token address as asset key
           ctx,
         ),
-        recurse(
+        resolve(
           { assetType: feedConfig.token1.assetType, priceFeed: feedConfig.token1.priceFeed },
-          token1Address, // Use actual token address as asset key
+          poolConfig.token1Address, // Use cached token address as asset key
           ctx,
         ),
       ]);
@@ -83,10 +81,9 @@ const univ2LpNavFactory: HandlerFactory<'univ2lpnav'> =
         .mul(price1Result.price);
       const totalPoolValue = token0Value.plus(token1Value);
 
-      // Get LP token decimals (should be 18 for standard Uniswap V2, but let's be safe)
-      const lpDecimals = await lpContract.decimals();
+      // Use cached LP token decimals
       const lpTokenPrice = totalPoolValue.div(
-        new Big(totalSupply.toString()).div(Math.pow(10, lpDecimals)),
+        new Big(totalSupply.toString()).div(Math.pow(10, poolConfig.lpDecimals)),
       );
 
       return Number(lpTokenPrice.toString());
@@ -95,11 +92,6 @@ const univ2LpNavFactory: HandlerFactory<'univ2lpnav'> =
       return 0;
     }
   };
-
-// Custom feed handlers for this adapter
-const customFeeds: CustomFeedHandlers = {
-  univ2lpnav: univ2LpNavFactory,
-};
 
 // Example function to create a Uniswap V2 adapter with LP token pricing
 export function createUniv2Adapter(feedConfig: AssetFeedConfig): Adapter {
@@ -130,6 +122,8 @@ export function createUniv2Adapter(feedConfig: AssetFeedConfig): Adapter {
     topic0s: [univ2Abi.events.Sync.topic, univ2Abi.events.Transfer.topic],
     feedConfig,
     // Register custom pricing feeds
-    customFeeds,
+    customFeeds: {
+      [UNIV2_LP_NAV_HANDLER]: univ2LpNavFactory,
+    },
   };
 }

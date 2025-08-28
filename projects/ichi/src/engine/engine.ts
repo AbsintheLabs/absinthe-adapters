@@ -6,7 +6,7 @@ import { createClient, RedisClientType } from 'redis';
 import dotenv from 'dotenv';
 
 import { Sink } from '../esink';
-import { RedisTSCache, RedisMetadataCache } from '../cache';
+import { RedisTSCache, RedisMetadataCache, RedisHandlerMetadataCache } from '../cache';
 import { PricingEngine } from './pricing-engine';
 import { AppConfig } from '../config/schema';
 import { loadConfig } from '../config/load';
@@ -58,6 +58,7 @@ export class Engine {
   // caches
   private priceCache: RedisTSCache;
   private metadataCache: RedisMetadataCache;
+  private handlerMetadataCache: RedisHandlerMetadataCache;
   private pricingEngine: PricingEngine;
   private ctx: any;
   private appCfg: AppConfig;
@@ -113,13 +114,14 @@ export class Engine {
     // 5) Infra
     // fixme: make this more robust (don't depend on the passed in indexer id)
     const redisPrefix = `abs:${this.appCfg.indexerId}:`;
-    this.redis = createClient();
+    this.redis = createClient({});
     this.sink = sink;
 
     // 6) Pricing + caches
     this.pricingEngine = new PricingEngine(this.adapter.customFeeds);
     this.priceCache = new RedisTSCache(this.redis);
     this.metadataCache = new RedisMetadataCache(this.redis);
+    this.handlerMetadataCache = new RedisHandlerMetadataCache(this.redis);
   }
 
   private async init() {
@@ -234,6 +236,7 @@ export class Engine {
     const ctx: ResolveContext = {
       priceCache: this.priceCache,
       metadataCache: this.metadataCache,
+      handlerMetadataCache: this.handlerMetadataCache,
       atMs,
       block,
       asset,
@@ -256,6 +259,7 @@ export class Engine {
     const enrichCtx: any = {
       priceCache: this.priceCache,
       metadataCache: this.metadataCache,
+      handlerMetadataCache: this.handlerMetadataCache,
       redis: this.redis,
     };
 
@@ -276,6 +280,7 @@ export class Engine {
     const enrichCtx: any = {
       priceCache: this.priceCache,
       metadataCache: this.metadataCache,
+      handlerMetadataCache: this.handlerMetadataCache,
       redis: this.redis,
     };
 
