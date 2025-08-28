@@ -44,6 +44,12 @@ const nullCurrencyAddresses = [
     chainId: 8453,
     fromBlock: 33033160,
   },
+  {
+    name: 'footium',
+    contractAddress: '0x7cED531Bb384dE4e70C0A543dBC5707bDB67632a',
+    chainId: 42161,
+    fromBlock: 370444915,
+  },
 ];
 
 export { currencies, nullCurrencyAddresses };
