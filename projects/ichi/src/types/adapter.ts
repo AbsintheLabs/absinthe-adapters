@@ -3,6 +3,26 @@
 import { BalanceDelta, PositionToggle, OnChainEvent, OnChainTransaction } from './core';
 import { AssetFeedConfig } from './pricing';
 import { HandlerFactory } from '../feeds/interface';
+import { Block, Log, Transaction } from '../processor';
+
+// ------------------------------------------------------------
+// EMIT FUNCTIONS
+// ------------------------------------------------------------
+
+// Emit functions for log handlers
+export interface LogEmitFunctions {
+  balanceDelta: (e: BalanceDelta) => Promise<void>;
+  positionToggle: (e: PositionToggle) => Promise<void>;
+  event: (e: OnChainEvent) => Promise<void>;
+  // fixme: figure out how we can also do event based re-pricing, rather than just pricing on a schedule
+  // reprice: (e: RepriceEvent) => Promise<void>;
+  // add more here as scope grows
+}
+
+// Emit functions for transaction handlers
+export interface TransactionEmitFunctions {
+  event: (e: OnChainTransaction) => Promise<void>;
+}
 
 // ------------------------------------------------------------
 // ADAPTER INTERFACE
@@ -15,26 +35,12 @@ export interface CustomFeedHandlers {
 
 // Adapter interface (you implement this per protocol)
 export interface Adapter {
-  onLog?(
-    // todo: tighten up the types here
-    block: any,
-    log: any,
-    emit: {
-      balanceDelta: (e: BalanceDelta) => Promise<void>;
-      positionToggle: (e: PositionToggle) => Promise<void>;
-      event: (e: OnChainEvent) => Promise<void>;
-      // fixme: figure out how we can also do event based re-pricing, rather than just pricing on a schedule
-      // reprice: (e: RepriceEvent) => Promise<void>;
-      // add more here as scope grows
-    },
-  ): Promise<void>;
+  onLog?(block: Block, log: Log, emit: LogEmitFunctions): Promise<void>;
   // note: transaction tracking only supports event-based tracking, not time-weighted
   onTransaction?(
-    block: any,
-    transaction: any,
-    emit: {
-      event: (e: OnChainTransaction) => Promise<void>;
-    },
+    block: Block,
+    transaction: Transaction,
+    emit: TransactionEmitFunctions,
   ): Promise<void>;
   // xxx: this should not be optional as its a core part of each integration, but i dont want everything to break right now
   topic0s?: string[];

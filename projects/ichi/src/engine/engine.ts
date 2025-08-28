@@ -11,7 +11,7 @@ import { PricingEngine } from './pricing-engine';
 import { AppConfig } from '../config/schema';
 import { loadConfig } from '../config/load';
 import { buildProcessor } from '../eprocessorBuilder';
-import { Adapter } from '../types/adapter';
+import { Adapter, LogEmitFunctions, TransactionEmitFunctions } from '../types/adapter';
 import {
   IndexerMode,
   BalanceDelta,
@@ -27,7 +27,7 @@ import {
   PricedBalanceWindow,
   PricedEvent,
 } from '../types/enrichment';
-import { toBlock } from '../processor';
+import { toBlock, Block, Log, Transaction } from '../processor';
 import {
   buildEvents,
   buildTimeWeightedBalanceEvents,
@@ -321,9 +321,9 @@ export class Engine {
     }
   }
 
-  async ingestTransaction(block: any, transaction: any) {
+  async ingestTransaction(block: Block, transaction: Transaction) {
     console.log('transaction', transaction);
-    await this.adapter.onTransaction?.(block, transaction, {
+    const emit: TransactionEmitFunctions = {
       event: (e: OnChainTransaction) =>
         this.applyEvent(e, transaction, {
           ts: block.header.timestamp,
@@ -335,12 +335,13 @@ export class Engine {
           from: transaction.from,
           to: transaction.to,
         }),
-    });
+    };
+    await this.adapter.onTransaction?.(block, transaction, emit);
   }
 
   // Subsquid hands logs to this
-  async ingestLog(block: any, log: any) {
-    await this.adapter.onLog?.(block, log, {
+  async ingestLog(block: Block, log: Log) {
+    const emit: LogEmitFunctions = {
       balanceDelta: (e: BalanceDelta) =>
         this.applyBalanceDelta(e, {
           ts: block.header.timestamp,
@@ -360,7 +361,8 @@ export class Engine {
           txHash: log.transactionHash,
           blockHash: block.header.hash,
         }),
-    });
+    };
+    await this.adapter.onLog?.(block, log, emit);
   }
 
   protected async sqdBatchEnd(ctx: any) {
@@ -375,13 +377,20 @@ export class Engine {
     ctx.store.setForceFlush(true);
   }
 
-  private async applyEvent(e: OnChainTransaction, transaction: any, blockData: any): Promise<void> {
+  private async applyEvent(
+    e: OnChainTransaction,
+    transactionOrLog: Transaction | Log,
+    blockData: any,
+  ): Promise<void> {
     // xxx: need to make sure that we do the proper balance tracking in here as we do with balance deltas with redis
     let { user, asset, amount, meta } = e;
 
     // data cleaning:
     if (this.indexerMode === 'evm') {
-      user = (user || transaction.from).toLowerCase();
+      // For transactions, use transaction.from; for logs, use transaction.from from the log's transaction
+      const transaction =
+        'from' in transactionOrLog ? transactionOrLog : transactionOrLog.transaction;
+      user = (user || transaction?.from || '').toLowerCase();
       asset = asset?.toLowerCase();
     }
 

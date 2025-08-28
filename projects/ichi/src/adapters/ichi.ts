@@ -7,7 +7,6 @@ import * as ichiAbi from '../abi/ichi';
 
 export function createIchiAdapter(feedConfig: AssetFeedConfig): Adapter {
   return {
-    // fixme: add typing on block, log
     onLog: async (block, log, emit) => {
       if (log.topics[0] === ichiAbi.events.Transfer.topic) {
         const { from, to, value } = ichiAbi.events.Transfer.decode(log);
