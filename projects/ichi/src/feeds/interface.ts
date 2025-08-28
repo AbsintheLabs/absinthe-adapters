@@ -15,10 +15,12 @@ export type ExecutorFn = (
   ctx: ResolveContext,
 ) => Promise<ResolveResult>;
 
-export type HandlerFn<K extends FeedSelector['kind'] = FeedSelector['kind']> = (args: {
+export type HandlerFn<K extends FeedSelector['kind'] = string> = (args: {
   assetConfig: AssetConfigOf<K>;
   ctx: ResolveContext;
   recurse: ExecutorFn;
 }) => Promise<number>;
 
-export type HandlerFactory<K extends FeedSelector['kind']> = (recurse: ExecutorFn) => HandlerFn<K>;
+export type HandlerFactory<K extends FeedSelector['kind'] = string> = (
+  recurse: ExecutorFn,
+) => HandlerFn<K>;

@@ -3,6 +3,7 @@
 import { Engine } from './engine';
 import { CsvSink } from './esink';
 import { createIchiAdapter } from './adapters';
+import { createUniv2Adapter } from './adapters/univ2';
 import { defaultFeedConfig } from './config/pricing';
 import { loadConfig } from './config/load';
 
@@ -34,6 +35,35 @@ const configFilename = process.argv[2]; // First argument after the script name
 const appCfg = loadConfig(configFilename); // All config loading logic is in loadConfig()
 
 const ichiAdapter = createIchiAdapter(defaultFeedConfig);
+
+import { AssetFeedConfig } from './types/pricing';
+
+export const univ2TestConfig: AssetFeedConfig = {
+  // LP token address - this will be priced using the custom univ2lpnav feed
+  '0x0621bae969de9c153835680f158f481424c0720a': {
+    assetType: 'erc20',
+    priceFeed: {
+      kind: 'univ2lpnav',
+      poolAddress: '0x0621bAE969De9C153835680f158f481424c0720a', // Same as the LP token address
+      token0: {
+        assetType: 'erc20',
+        priceFeed: {
+          kind: 'coingecko',
+          id: 'bitcoin',
+        },
+      },
+      token1: {
+        assetType: 'erc20',
+        priceFeed: {
+          kind: 'pegged',
+          usdPegValue: 1,
+        },
+      },
+    },
+  },
+};
+
+const univ2Adapter = createUniv2Adapter(univ2TestConfig);
 const sink = new CsvSink('windows.csv');
 
-new Engine(ichiAdapter, sink, appCfg).run();
+new Engine(univ2Adapter, sink, appCfg).run();

@@ -26,6 +26,7 @@ const EvmCfg = z.object({
   }),
   subscriptions: z
     .object({
+      // xxx: need to clean this up
       logs: z
         .array(
           z.object({
@@ -33,13 +34,13 @@ const EvmCfg = z.object({
               z
                 .string()
                 .toLowerCase()
-                .regex(/^0x[a-f0-9]{40}$/, { message: 'Invalid EVM address' }),
+                .regex(/^0x[a-fA-F0-9]{40}$/, { message: 'Invalid EVM address' }),
             ),
             topic0: z.array(
               z
                 .string()
                 .toLowerCase()
-                .regex(/^0x[a-f0-9]{64}$/, { message: 'Invalid EVM event signature' }),
+                .regex(/^0x[a-fA-F0-9]{64}$/, { message: 'Invalid EVM event signature' }),
             ),
           }),
         )
@@ -51,13 +52,13 @@ const EvmCfg = z.object({
               z
                 .string()
                 .toLowerCase()
-                .regex(/^0x[a-f0-9]{40}$/, { message: 'Invalid EVM address' }),
+                .regex(/^0x[a-fA-F0-9]{40}$/, { message: 'Invalid EVM address' }),
             ),
             sighash: z.array(
               z
                 .string()
                 .toLowerCase()
-                .regex(/^0x[a-f0-9]{8}$/, { message: 'Invalid EVM function signature' }),
+                .regex(/^0x[a-fA-F0-9]{8}$/, { message: 'Invalid EVM function signature' }),
             ),
           }),
         )

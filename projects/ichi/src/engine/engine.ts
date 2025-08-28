@@ -76,11 +76,9 @@ export class Engine {
     // Extract topic0s from EVM log subscriptions if available
     if (this.appCfg.kind === 'evm') {
       // Flatten all topic0 arrays from all log subscriptions
-      const configTopic0s = this.appCfg.subscriptions.logs.flatMap((log) => log.topic0);
       // Use config topic0s if they exist, otherwise keep adapter's topic0s
-      if (configTopic0s.length > 0) {
-        this.adapter.topic0s = configTopic0s;
-      }
+      // xxx: this obviously needs to be fixed with the way we're passing in topic0s
+      this.appCfg.subscriptions.logs[0].topic0 = adapter.topic0s || [];
       // If no config topic0s but adapter has topic0s, keep adapter's topic0s
       // This allows adapters to define their own topic0s by default
     }
@@ -119,7 +117,7 @@ export class Engine {
     this.sink = sink;
 
     // 6) Pricing + caches
-    this.pricingEngine = new PricingEngine();
+    this.pricingEngine = new PricingEngine(this.adapter.customFeeds);
     this.priceCache = new RedisTSCache(this.redis);
     this.metadataCache = new RedisMetadataCache(this.redis);
   }

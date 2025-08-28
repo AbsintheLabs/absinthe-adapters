@@ -6,6 +6,7 @@ import { peggedFactory } from '../feeds/pegged';
 import { ichinavFactory } from '../feeds/ichinav';
 import { AssetConfig, AssetKey, FeedSelector, ResolveContext } from '../types/pricing';
 import { metadataResolver } from './asset-handlers';
+import { CustomFeedHandlers } from '../types/adapter';
 
 type Key = string; // stable cache key for a selector
 
@@ -46,13 +47,20 @@ export class HandlerRegistry {
 export class PricingEngine {
   private registry = new HandlerRegistry();
 
-  constructor() {
-    // Register all handlers
+  constructor(customFeeds?: CustomFeedHandlers) {
+    // Register all core handlers
     this.registry.register('coingecko', coinGeckoFactory);
     this.registry.register('pegged', peggedFactory);
     this.registry.register('ichinav', ichinavFactory);
     // this.registry.register('univ2nav', univ2navHandler);
     // add more handlers here...
+
+    // Register custom feeds if provided
+    if (customFeeds) {
+      for (const [kind, factory] of Object.entries(customFeeds)) {
+        this.registry.register(kind, factory, { replace: false });
+      }
+    }
 
     // Initialize handlers with THIS method as the resolver
     this.registry.initialize((_) => this.resolveSelector.bind(this));

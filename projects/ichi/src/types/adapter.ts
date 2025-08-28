@@ -2,10 +2,16 @@
 
 import { BalanceDelta, PositionToggle, OnChainEvent, OnChainTransaction } from './core';
 import { AssetFeedConfig } from './pricing';
+import { HandlerFactory } from '../feeds/interface';
 
 // ------------------------------------------------------------
 // ADAPTER INTERFACE
 // ------------------------------------------------------------
+
+// Custom feed handler registry for adapters
+export interface CustomFeedHandlers {
+  [feedKind: string]: HandlerFactory<any>;
+}
 
 // Adapter interface (you implement this per protocol)
 export interface Adapter {
@@ -33,4 +39,6 @@ export interface Adapter {
   // xxx: this should not be optional as its a core part of each integration, but i dont want everything to break right now
   topic0s?: string[];
   feedConfig: AssetFeedConfig;
+  // Optional custom pricing feed handlers
+  customFeeds?: CustomFeedHandlers;
 }

@@ -25,13 +25,15 @@ export type AssetConfig = {
 };
 
 // --- Feed "how to get a price?" ---
-// todo: need to allow an implementer to create their own custom feed selector as part of the adapter
-export type FeedSelector =
+// Core feed selectors provided by the library
+export type CoreFeedSelector =
   | { kind: 'coingecko'; id: string }
   | { kind: 'pegged'; usdPegValue: number }
   | { kind: 'univ2nav'; token0: TokenSelector; token1: TokenSelector }
   | { kind: 'ichinav'; token0: TokenSelector; token1: TokenSelector };
-// | { kind: string;[k: string]: any }; // let implementers extend // warn: have to see if this is proper
+
+// Extensible feed selector that allows custom implementations
+export type FeedSelector = CoreFeedSelector | { kind: string; [key: string]: any };
 // | { kind: 'coingeckoToken'; platformId: string; address: string } // /simple/token_price/{platform}
 // | { kind: 'defillama'; chain: string; address: string } // "ethereum:0x..."
 // | { kind: 'coinpaprika'; id: string }               // e.g., "btc-bitcoin"
