@@ -579,7 +579,6 @@ export class ZebuNewProcessor {
     logger.info('Batch finalization completed', {
       totalTransactions,
       contractCount: this.zebuNewProtocol.length,
-      chainId: this.chainId,
     });
   }
 }
