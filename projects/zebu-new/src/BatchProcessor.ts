@@ -37,16 +37,6 @@ export class ZebuNewProcessor {
     this.env = env;
     this.chainId = chainId;
     this.schemaName = this.generateSchemaName();
-
-    logger.info('ZebuNewProcessor initialized', {
-      chainId: this.chainId,
-      schemaName: this.schemaName,
-      contractCount: zebuNewProtocol.length,
-      contracts: zebuNewProtocol.map((c) => ({
-        name: c.name,
-        address: c.contractAddress,
-      })),
-    });
   }
 
   private generateSchemaName(): string {
@@ -56,12 +46,6 @@ export class ZebuNewProcessor {
 
     const hash = createHash('md5').update(uniquePoolCombination).digest('hex').slice(0, 8);
     const schemaName = `zebu-new-${this.chainId}-${hash}`;
-
-    logger.info('Generated schema name', {
-      schemaName,
-      hash,
-      uniquePoolCombination,
-    });
 
     return schemaName;
   }
@@ -98,8 +82,6 @@ export class ZebuNewProcessor {
       chainId: this.chainId,
     };
 
-    logger.info('Starting batch processing', batchInfo);
-
     const protocolStates = await this.initializeProtocolStates(ctx);
 
     for (const block of ctx.blocks) {
@@ -107,14 +89,6 @@ export class ZebuNewProcessor {
     }
 
     await this.finalizeBatch(ctx, protocolStates);
-
-    logger.info('Completed batch processing', {
-      ...batchInfo,
-      totalTransactions: Array.from(protocolStates.values()).reduce(
-        (sum, state) => sum + state.transactions.length,
-        0,
-      ),
-    });
   }
 
   private async initializeProtocolStates(ctx: any): Promise<Map<string, ZebuNewProtocolState>> {
@@ -125,18 +99,7 @@ export class ZebuNewProcessor {
       protocolStates.set(contractAddress, {
         transactions: [],
       });
-
-      logger.info('Initialized protocol state', {
-        contractName: client.name,
-        contractAddress,
-        chainId: this.chainId,
-      });
     }
-
-    logger.info('All protocol states initialized', {
-      contractCount: protocolStates.size,
-      chainId: this.chainId,
-    });
 
     return protocolStates;
   }
@@ -296,7 +259,7 @@ export class ZebuNewProcessor {
     if (!currency) {
       const nullCurrency = nullCurrencyAddresses.find(
         (nullCurr) =>
-          nullCurr.contractAddress.toLowerCase() === currencyAddress.toLowerCase() &&
+          nullCurr.contractAddress.toLowerCase() === contractAddress.toLowerCase() &&
           nullCurr.chainId === this.chainId,
       );
 
@@ -391,6 +354,34 @@ export class ZebuNewProcessor {
         winner: {
           value: 'false',
           type: 'boolean',
+        },
+        currency: {
+          value: currencySymbol,
+          type: 'string',
+        },
+        currencyAddress: {
+          value: currencyAddress,
+          type: 'string',
+        },
+        currencyDecimals: {
+          value: (currency?.decimals ?? 18).toString(),
+          type: 'string',
+        },
+        currencyPrice: {
+          value: usdToCurrencyValue.toString(),
+          type: 'string',
+        },
+        currencySymbol: {
+          value: currencySymbol,
+          type: 'string',
+        },
+        currencyName: {
+          value: currency?.name ?? 'UNKNOWN',
+          type: 'string',
+        },
+        currencyId: {
+          value: currencyId.toString(),
+          type: 'string',
         },
       },
       rawAmount: bidamount.toString(),
