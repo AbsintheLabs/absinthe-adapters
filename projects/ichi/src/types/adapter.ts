@@ -30,7 +30,7 @@ export interface Adapter {
       event: (e: OnChainTransaction) => Promise<void>;
     },
   ): Promise<void>;
-  // priceFeeds?: FeedSelector[];
-  // priceAsset?: (timestampMs: number, asset: string, redis: RedisClientType) => Promise<number>;
+  // xxx: this should not be optional as its a core part of each integration, but i dont want everything to break right now
+  topic0s?: string[];
   feedConfig: AssetFeedConfig;
 }
