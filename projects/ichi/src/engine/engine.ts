@@ -20,6 +20,13 @@ import {
   OnChainTransaction,
 } from '../types/core';
 import { AssetConfig, ResolveContext } from '../types/pricing';
+import {
+  EnrichmentContext,
+  RawBalanceWindow,
+  RawEvent,
+  PricedBalanceWindow,
+  PricedEvent,
+} from '../types/enrichment';
 import { toBlock } from '../processor';
 import {
   buildEvents,
@@ -29,6 +36,7 @@ import {
   pipeline,
   enrichWithCommonBaseEventFields,
   enrichWithPrice,
+  filterOutZeroValueEvents,
 } from '../enrichers';
 
 dotenv.config();
@@ -47,8 +55,12 @@ export class Engine {
   // fixme: prepend the redis prefix with a unique id to avoid conflicts if multiple containerized indexers are running and using the same redis instance
   // todo: change number to bigint/something that encodes token info
   protected redis: RedisClientType;
-  protected windows: any[] = [];
-  private events: any[] = [];
+  protected windows: RawBalanceWindow[] = [];
+  private events: RawEvent[] = [];
+
+  // Enriched data ready to be sent to sink
+  private enrichedEvents: PricedEvent[] = [];
+  private enrichedWindows: PricedBalanceWindow[] = [];
 
   // fixme: store this persistently so that we can recover from crashes
   private lastFlushBoundary = -1; // memoizes last time-aligned boundary flushed
@@ -253,17 +265,17 @@ export class Engine {
     return await this.pricingEngine.priceAsset(assetConfig, ctx);
   }
 
-  private async enrichEvents(ctx: any) {
-    if (this.events.length === 0) return;
+  private async enrichEvents(ctx: any): Promise<PricedEvent[]> {
+    if (this.events.length === 0) return [];
 
-    const enrichCtx: any = {
+    const enrichCtx: EnrichmentContext = {
       priceCache: this.priceCache,
       metadataCache: this.metadataCache,
       handlerMetadataCache: this.handlerMetadataCache,
       redis: this.redis,
     };
 
-    const enrichedEvents = await pipeline(
+    const enrichedEvents = await pipeline<PricedEvent>(
       enrichWithCommonBaseEventFields,
       enrichWithRunnerInfo,
       enrichBaseEventMetadata,
@@ -271,36 +283,41 @@ export class Engine {
     )(this.events, enrichCtx);
     console.log('enrichedEvents', enrichedEvents[0]);
 
-    // set the events to the enriched events
-    this.events = enrichedEvents;
+    // Store enriched events for later sending to sink
+    this.enrichedEvents = enrichedEvents;
+    return enrichedEvents;
   }
 
-  private async enrichWindows(ctx: any) {
-    if (this.windows.length === 0) return;
-    const enrichCtx: any = {
+  private async enrichWindows(ctx: any): Promise<PricedBalanceWindow[]> {
+    if (this.windows.length === 0) return [];
+    const enrichCtx: EnrichmentContext = {
       priceCache: this.priceCache,
       metadataCache: this.metadataCache,
       handlerMetadataCache: this.handlerMetadataCache,
       redis: this.redis,
     };
 
-    const enrichedWindows = await pipeline(
+    const enrichedWindows = await pipeline<PricedBalanceWindow>(
       enrichWithCommonBaseEventFields,
       enrichWithRunnerInfo,
       enrichBaseEventMetadata,
       buildTimeWeightedBalanceEvents,
       enrichWithPrice,
+      filterOutZeroValueEvents,
     )(this.windows, enrichCtx);
-    // set the windows to be the enriched windows
-    this.windows = enrichedWindows;
+
+    // Store enriched windows for later sending to sink
+    this.enrichedWindows = enrichedWindows;
+    return enrichedWindows;
   }
 
   async sendDataToSink(ctx: any) {
-    if (this.windows.length > 0) {
-      await this.sink.write(this.windows);
+    // Send enriched data to sink with loose coupling
+    if (this.enrichedWindows.length > 0) {
+      await this.sink.write(this.enrichedWindows);
     }
-    if (this.events.length > 0) {
-      await this.sink.write(this.events);
+    if (this.enrichedEvents.length > 0) {
+      await this.sink.write(this.enrichedEvents);
     }
   }
 
@@ -348,9 +365,12 @@ export class Engine {
 
   protected async sqdBatchEnd(ctx: any) {
     // clear windows at the end of the batch
-    this.windows = [];
+    this.windows.length = 0;
     // clear events at the end of the batch
-    this.events = [];
+    this.events.length = 0;
+    // clear enriched data at the end of the batch
+    this.enrichedEvents.length = 0;
+    this.enrichedWindows.length = 0;
     // Force flush to update the processor status for file-based processors.
     ctx.store.setForceFlush(true);
   }
@@ -365,8 +385,8 @@ export class Engine {
       asset = asset?.toLowerCase();
     }
 
-    this.events.push({
-      user,
+    const event: RawEvent = {
+      user: user || '',
       asset,
       amount: amount?.toString() || '0',
       meta,
@@ -377,7 +397,12 @@ export class Engine {
       blockNumber: blockData.height,
       blockHash: blockData.blockHash,
       // gasUsed: log.gasUsed,
-    });
+      gasUsed: blockData.gasUsed,
+      gasPrice: blockData.gasPrice,
+      from: blockData.from,
+      to: blockData.to,
+    };
+    this.events.push(event);
   }
 
   protected async applyBalanceDelta(e: BalanceDelta, blockData: any): Promise<void> {
@@ -410,7 +435,7 @@ export class Engine {
     // create a new window
     if (oldAmt.gt(0) && oldTs < ts) {
       // todo: add a new window to a list of windows to send to the absinthe api
-      this.windows.push({
+      const window: RawBalanceWindow = {
         user: e.user.toLowerCase(),
         asset: e.asset,
         startTs: oldTs,
@@ -422,7 +447,8 @@ export class Engine {
         balanceAfter: newAmt.toString(),
         prevTxHash: prevTxHash,
         txHash: blockData.txHash,
-      });
+      };
+      this.windows.push(window);
     }
 
     await Promise.all([
@@ -503,16 +529,18 @@ export class Engine {
         // Case 1: final block — emit once from lastUpdatedTs to final block timestamp
         const finalTs = nowMs; // the block timestamp of the final block
         if (lastUpdatedTs < finalTs) {
-          this.windows.push({
+          const window: RawBalanceWindow = {
             user,
             asset,
             startTs: lastUpdatedTs,
             endTs: finalTs,
+            startBlockNumber: Number(updatedHeightStr),
+            endBlockNumber: height,
             trigger: 'FINAL',
             balance: amt.toString(),
             prevTxHash: prevTxHash,
-            startBlockNumber: Number(updatedHeightStr),
-          });
+          };
+          this.windows.push(window);
           writePromises.push(
             this.redis.hSet(key, { updatedTs: String(finalTs), updatedHeight: String(height) }),
           );
@@ -520,16 +548,18 @@ export class Engine {
       } else {
         // Case 2: live mode — emit once from lastUpdatedTs to currentWindowStart if lastUpdatedTs is NOT in the current window
         if (lastUpdatedTs < currentWindowStart) {
-          this.windows.push({
+          const window: RawBalanceWindow = {
             user,
             asset,
             startTs: lastUpdatedTs,
             endTs: currentWindowStart,
+            startBlockNumber: Number(updatedHeightStr),
+            endBlockNumber: height,
             trigger: 'EXHAUSTED',
             balance: amt.toString(),
             prevTxHash: prevTxHash,
-            startBlockNumber: Number(updatedHeightStr),
-          });
+          };
+          this.windows.push(window);
           // Advance cursor to the start of the current window (we didn't emit the live window)
           writePromises.push(
             this.redis.hSet(key, {

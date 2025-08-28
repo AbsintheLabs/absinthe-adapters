@@ -4,36 +4,44 @@ import {
   TimeWeightedBalanceEvent,
   TimeWindowTrigger,
 } from '@absinthe/common';
-import { RedisClientType } from 'redis';
 import Big from 'big.js';
+import {
+  EnrichmentContext,
+  Enricher,
+  WindowEnricher,
+  EventEnricher,
+  RawBalanceWindow,
+  RawEvent,
+  EnrichedBalanceWindow,
+  EnrichedEvent,
+  PricedBalanceWindow,
+  PricedEvent,
+  BaseEnrichedFields,
+} from './types/enrichment';
 
-// todo: narrow the types! these are too general here
-type Enricher = (windows: any[], context: any) => Promise<any[]>;
-
-// used for metadata
-type Entry = { value: string; type: 'number' | 'string' };
-type ProtocolMetadata = Record<string, Entry>;
-
-// Simple pipe runner
-export const pipeline =
-  (...enrichers: Enricher[]) =>
-  async (windows: any[], context: any) => {
-    let result = windows;
+// Simple pipe runner with proper typing
+export function pipeline<TOutput>(...enrichers: Enricher<any, any>[]) {
+  return async (items: any[], context: EnrichmentContext): Promise<TOutput[]> => {
+    let result: any[] = items;
     for (const enricher of enrichers) {
       result = await enricher(result, context);
     }
-    return result;
+    return result as TOutput[];
   };
+}
 
 // this one will be used to properly format and customize the metadata in the appropriate way
-export const enrichBaseEventMetadata: Enricher = async (windows, context) => {
-  return windows.map((w) => {
+export const enrichBaseEventMetadata: Enricher<BaseEnrichedFields, BaseEnrichedFields> = async (
+  items,
+  context,
+) => {
+  return items.map((item) => {
     return {
-      ...w,
+      ...item,
       base: {
-        ...w.base,
+        ...item.base,
         protocolMetadata: Object.fromEntries(
-          Object.entries(w.meta || {}).map(([key, value]) => [
+          Object.entries((item as any).meta || {}).map(([key, value]) => [
             key,
             {
               value: String(value),
@@ -46,23 +54,29 @@ export const enrichBaseEventMetadata: Enricher = async (windows, context) => {
   });
 };
 
-export const enrichWithCommonBaseEventFields: Enricher = async (windows, context) => {
-  return windows.map((w) => ({
-    ...w,
+export const enrichWithCommonBaseEventFields: Enricher<
+  RawBalanceWindow | RawEvent,
+  BaseEnrichedFields
+> = async (items, context) => {
+  return items.map((item) => ({
+    ...item,
     base: {
       version: '1.0.0',
       eventId: '', // fixme: figure out how we do it in the other adapters
-      userId: w.user,
+      userId: (item as any).user,
       currency: Currency.USD,
     },
   }));
 };
 
-export const enrichWithRunnerInfo: Enricher = async (windows, context) => {
-  return windows.map((w) => ({
-    ...w,
+export const enrichWithRunnerInfo: Enricher<BaseEnrichedFields, BaseEnrichedFields> = async (
+  items,
+  context,
+) => {
+  return items.map((item) => ({
+    ...item,
     base: {
-      ...w.base,
+      ...item.base,
       runner: {
         runnerId: '1',
         apiKeyHash: '1',
@@ -71,7 +85,7 @@ export const enrichWithRunnerInfo: Enricher = async (windows, context) => {
   }));
 };
 
-export const buildEvents: Enricher = async (events, context) => {
+export const buildEvents: EventEnricher = async (events, context) => {
   return events.map((e) => ({
     ...e,
     eventType: MessageType.TRANSACTION,
@@ -87,10 +101,10 @@ export const buildEvents: Enricher = async (events, context) => {
     // fixme: figure out what this should be (perhaps in the pricing step?)
     // gasFeeUsd: e.gasFeeUsd,
     currency: Currency.USD,
-  }));
+  })) as EnrichedEvent[];
 };
 
-export const buildTimeWeightedBalanceEvents: Enricher = async (windows, context) => {
+export const buildTimeWeightedBalanceEvents: WindowEnricher = async (windows, context) => {
   return windows.map(
     (w) =>
       ({
@@ -112,12 +126,12 @@ export const buildTimeWeightedBalanceEvents: Enricher = async (windows, context)
         // WARN: REMOVE ME! THIS IS A DEBUGGING STEP!
         startReadable: new Date(w.startTs).toLocaleString(),
         endReadable: new Date(w.endTs).toLocaleString(),
-      }) as TimeWeightedBalanceEvent,
+      }) as EnrichedBalanceWindow,
   );
 };
 
-// fixme: this needs to be fixed so that we're passing context / redis properly into all the enrichers
-export const enrichWithPrice: Enricher = async (windows, context) => {
+// Enrich balance windows with pricing data
+export const enrichWithPrice: WindowEnricher = async (windows, context) => {
   console.log('enrichWithPrice');
   // todo: automatically average the prices over the durations, this way we automatically get
   // todo: one row during backfills rather than a row for each window
@@ -208,13 +222,17 @@ export const enrichWithPrice: Enricher = async (windows, context) => {
     // FIXME: have this use big.js so we don't lose precision
     // const price = new Big(valueUsd ?? 0).mul(w.balanceBefore).div(10 ** metadata.decimals);
     const price = new Big(valueUsd ?? 0).div(10 ** metadata.decimals);
-    const totalPosition = new Big(w.balanceBefore).mul(price);
+    const balanceBefore = w.balanceBefore || w.balance || '0';
+    const totalPosition = new Big(balanceBefore).mul(price);
     // todo: clean up the final output to work with the absinthe sink, currently don't support totalPosition in the api
     out.push({ ...w, valueUsd: Number(price), totalPosition: Number(totalPosition) });
   }
-  return out;
+  return out as PricedBalanceWindow[];
 };
 
-export const filterOutZeroValueEvents: Enricher = async (windows, context) => {
+export const filterOutZeroValueEvents: Enricher<PricedBalanceWindow, PricedBalanceWindow> = async (
+  windows,
+  context,
+) => {
   return windows.filter((w) => w.valueUsd !== 0);
 };
