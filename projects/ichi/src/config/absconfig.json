@@ -1,0 +1,225 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "anyOf": [
+    {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "evm"
+        },
+        "network": {
+          "type": "object",
+          "properties": {
+            "chainId": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            "gatewayUrl": {
+              "type": "string",
+              "format": "uri"
+            },
+            "rpcUrl": {
+              "type": "string",
+              "format": "uri"
+            },
+            "finality": {
+              "default": 75,
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": ["chainId", "gatewayUrl", "rpcUrl"]
+        },
+        "range": {
+          "type": "object",
+          "properties": {
+            "fromBlock": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "toBlock": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": ["fromBlock"]
+        },
+        "subscriptions": {
+          "type": "object",
+          "properties": {
+            "logs": {
+              "default": [],
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "addresses": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^0x[a-f0-9]{40}$"
+                    }
+                  },
+                  "topic0": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^0x[a-f0-9]{64}$"
+                    }
+                  }
+                },
+                "required": ["addresses", "topic0"]
+              }
+            },
+            "functionCalls": {
+              "default": [],
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "to": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^0x[a-f0-9]{40}$"
+                    }
+                  },
+                  "sighash": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^0x[a-f0-9]{8}$"
+                    }
+                  }
+                },
+                "required": ["to", "sighash"]
+              }
+            }
+          }
+        },
+        "indexerId": {
+          "type": "string"
+        },
+        "flushMs": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "feedConfigJson": {
+          "type": "string"
+        },
+        "extrasJson": {
+          "type": "string"
+        }
+      },
+      "required": ["kind", "network", "range", "subscriptions", "indexerId", "flushMs"]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "solana"
+        },
+        "network": {
+          "type": "object",
+          "properties": {
+            "gatewayUrl": {
+              "type": "string",
+              "format": "uri"
+            },
+            "rpcUrl": {
+              "type": "string",
+              "format": "uri"
+            },
+            "commitment": {
+              "default": "finalized",
+              "type": "string",
+              "enum": ["processed", "confirmed", "finalized"]
+            }
+          },
+          "required": ["gatewayUrl", "rpcUrl"]
+        },
+        "range": {
+          "type": "object",
+          "properties": {
+            "fromSlot": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "toSlot": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": ["fromSlot"]
+        },
+        "subscriptions": {
+          "type": "object",
+          "properties": {
+            "programs": {
+              "default": [],
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "programId": {
+                    "type": "string"
+                  }
+                },
+                "required": ["programId"]
+              }
+            },
+            "instructions": {
+              "default": [],
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "programId": {
+                    "type": "string"
+                  }
+                },
+                "required": ["programId"]
+              }
+            },
+            "logs": {
+              "default": [],
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "programId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "indexerId": {
+          "type": "string"
+        },
+        "flushMs": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "feedConfigJson": {
+          "type": "string"
+        },
+        "extrasJson": {
+          "type": "string"
+        }
+      },
+      "required": ["kind", "network", "range", "subscriptions", "indexerId", "flushMs"]
+    }
+  ]
+}

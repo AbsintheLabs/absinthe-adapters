@@ -25,3 +25,5 @@ testdeploy/
 .eslintcache
 absinthe.log
 logs/
+status.txt
+*.absinthe.json

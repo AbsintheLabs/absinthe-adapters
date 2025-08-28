@@ -1,0 +1,17 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "ichi",
+      "type": "node",
+      "request": "launch",
+      "preLaunchTask": "tsc: build",
+      "program": "${workspaceFolder}/projects/ichi/lib/emain.js",
+      "runtimeArgs": ["--no-deprecation", "--no-warnings", "--enable-source-maps"],
+      // "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**", "${workspaceFolder}/**/node_modules/**/*.js"],
+      "sourceMaps": true,
+      "outFiles": ["${workspaceFolder}/projects/ichi/lib/**/*.js"]
+    }
+  ]
+}
