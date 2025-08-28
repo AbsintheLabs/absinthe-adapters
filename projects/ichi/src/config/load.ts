@@ -7,53 +7,41 @@ import { AppConfig } from './schema';
 dotenv();
 
 export function loadConfig(filename?: string) {
-  const configFilename = filename || 'config.absinthe.json';
-  const localConfigPath = join(process.cwd(), configFilename);
-  const hasLocalConfig = existsSync(localConfigPath);
-  const hasEnvConfig = !!process.env.INDEXER_CONFIG;
-
-  // Error if both are defined (only when using default filename)
-  if (!filename && hasLocalConfig && hasEnvConfig) {
-    throw new Error(
-      'Configuration conflict: Both config.absinthe.json file and INDEXER_CONFIG environment variable are defined. ' +
-        'Please use only one configuration source.',
-    );
-  }
-
-  // If a specific filename is provided, only try that file
+  // Priority 1: Explicitly provided file path (from command line args)
   if (filename) {
-    if (hasLocalConfig) {
+    const explicitConfigPath = join(process.cwd(), filename);
+    if (existsSync(explicitConfigPath)) {
       try {
-        const configContent = readFileSync(localConfigPath, 'utf-8');
+        const configContent = readFileSync(explicitConfigPath, 'utf-8');
         const configData = JSON.parse(configContent);
         return AppConfig.parse(configData);
       } catch (error) {
         throw new Error(
-          `Failed to load ${configFilename}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          `Failed to load ${filename}: ${error instanceof Error ? error.message : 'Unknown error'}`,
         );
       }
-    } else {
-      throw new Error(`Configuration file not found: ${configFilename}`);
     }
+    // If explicit filename provided but doesn't exist, continue to fallback options
   }
 
-  // Try local config first (default behavior)
-  if (hasLocalConfig) {
+  // Priority 2: absinthe.config.json in current directory
+  const defaultConfigPath = join(process.cwd(), 'absinthe.config.json');
+  if (existsSync(defaultConfigPath)) {
     try {
-      const configContent = readFileSync(localConfigPath, 'utf-8');
+      const configContent = readFileSync(defaultConfigPath, 'utf-8');
       const configData = JSON.parse(configContent);
       return AppConfig.parse(configData);
     } catch (error) {
       throw new Error(
-        `Failed to load ${configFilename}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        `Failed to load absinthe.config.json: ${error instanceof Error ? error.message : 'Unknown error'}`,
       );
     }
   }
 
-  // Fall back to environment variable
-  if (hasEnvConfig) {
+  // Priority 3: process.env.INDEXER_CONFIG
+  if (process.env.INDEXER_CONFIG) {
     try {
-      const configData = JSON.parse(process.env.INDEXER_CONFIG as string);
+      const configData = JSON.parse(process.env.INDEXER_CONFIG);
       return AppConfig.parse(configData);
     } catch (error) {
       throw new Error(
@@ -63,7 +51,9 @@ export function loadConfig(filename?: string) {
   }
 
   // No configuration found
-  throw new Error(
-    `No configuration found. Please provide either a ${configFilename} file or set the INDEXER_CONFIG environment variable.`,
-  );
+  const errorMessage = filename
+    ? `No configuration found. Tried: ${filename}, absinthe.config.json, and INDEXER_CONFIG environment variable.`
+    : 'No configuration found. Please provide absinthe.config.json file, set the INDEXER_CONFIG environment variable, or specify a config file path.';
+
+  throw new Error(errorMessage);
 }

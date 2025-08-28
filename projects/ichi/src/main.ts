@@ -1,33 +1,39 @@
-import { AbsintheApiClient, validateEnv, HOURS_TO_MS, StakingProtocol } from '@absinthe/common';
-import { HemiStakingProcessor } from './BatchProcessor';
-const env = validateEnv();
+// Main entry point for the ICHI indexer
 
-const apiClient = new AbsintheApiClient({
-  baseUrl: env.baseConfig.absintheApiUrl,
-  apiKey: env.baseConfig.absintheApiKey,
-});
+import { Engine } from './engine';
+import { CsvSink } from './esink';
+import { createIchiAdapter } from './adapters';
+import { defaultFeedConfig } from './config/pricing';
+import { loadConfig } from './config/load';
 
-const hemiStakingProtocol = env.stakingProtocols.find((stakingProtocol) => {
-  return stakingProtocol.type === StakingProtocol.HEMI;
-});
+// ------------------------------------------------------------
+// Example configurations and core problem notes
+// ------------------------------------------------------------
 
-if (!hemiStakingProtocol) {
-  throw new Error('Hemi staking protocol not found');
-}
+// core problem:
+/*
+- certain tokens that we're tracking (like for balance delta) are not priced by coingecko but a diff strategy
+- we can't determine by asset address (since they might both be erc20s)
+- dynamic pricing is hard. let's not do that. pass in everything in the config.
+*/
 
-const chainConfig = {
-  chainArch: hemiStakingProtocol.chainArch,
-  networkId: hemiStakingProtocol.chainId,
-  chainShortName: hemiStakingProtocol.chainShortName,
-  chainName: hemiStakingProtocol.chainName,
-};
+// note: both univ2nav and pricefeed should implement cachable (which means that values that have already
+// been found should be returned immediately rather than requerying)
 
-const WINDOW_DURATION_MS = env.baseConfig.balanceFlushIntervalHours * HOURS_TO_MS;
-const hemiStakingProcessor = new HemiStakingProcessor(
-  hemiStakingProtocol,
-  WINDOW_DURATION_MS,
-  apiClient,
-  env.baseConfig,
-  chainConfig,
-);
-hemiStakingProcessor.run();
+// case 1: we need to fetch an underlying price (which we already have that day) which means it will be re-cached
+// case 2: we need to fetch the pricing of univ2 nav to price the LP token. We will price the lp token each day as well for simplicity.
+
+// ------------------------------------------------------------
+// Final! Running the engine. This is just the driver.
+// Will probably load the config from the env anyway so it might even stay the same for all indexers.
+// --------------DRIVER CODE--------------
+// ------------------------------------------------------------
+
+// Read command line arguments and load configuration
+const configFilename = process.argv[2]; // First argument after the script name
+const appCfg = loadConfig(configFilename); // All config loading logic is in loadConfig()
+
+const ichiAdapter = createIchiAdapter(defaultFeedConfig);
+const sink = new CsvSink('windows.csv');
+
+new Engine(ichiAdapter, sink, appCfg).run();

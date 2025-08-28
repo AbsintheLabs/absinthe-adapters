@@ -1,7 +1,7 @@
 // config/schema.ts
 import * as z from 'zod';
 import { isValidChainId } from './chains';
-import { AssetFeedConfigInput } from './feeds';
+// import { AssetFeedConfigInput } from './feeds';
 
 const Common = z.object({
   indexerId: z.string(), // for namespacing keys/files
@@ -118,10 +118,10 @@ const SolanaCfg = z.object({
 export const AppConfig = z.discriminatedUnion('kind', [
   EvmCfg.merge(Common).extend({
     //FIXME: later make it not optional, but right now hacking around not having this in place
-    feedConfig: AssetFeedConfigInput.optional(),
+    // feedConfig: AssetFeedConfigInput.optional(),
   }),
   SolanaCfg.merge(Common).extend({
-    feedConfig: AssetFeedConfigInput.optional(),
+    // feedConfig: AssetFeedConfigInput.optional(),
   }),
 ]);
 export type AppConfig = z.infer<typeof AppConfig>;
