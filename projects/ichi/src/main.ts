@@ -39,12 +39,12 @@ const ichiAdapter = createIchiAdapter(defaultFeedConfig);
 import { AssetFeedConfig } from './types/pricing';
 
 export const univ2TestConfig: AssetFeedConfig = {
-  // LP token address - this will be priced using the custom univ2lpnav feed
+  // LP token address - this will be priced using the official univ2nav feed
   // Note: The key IS the pool address, no need to specify it separately
   '0x0621bae969de9c153835680f158f481424c0720a': {
     assetType: 'erc20',
     priceFeed: {
-      kind: 'univ2lpnav',
+      kind: 'univ2nav',
       token0: {
         assetType: 'erc20',
         priceFeed: {

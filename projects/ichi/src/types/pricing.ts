@@ -31,13 +31,11 @@ export type CoreFeedSelector =
   | { kind: 'pegged'; usdPegValue: number }
   | { kind: 'univ2nav'; token0: TokenSelector; token1: TokenSelector }
   | { kind: 'ichinav'; token0: TokenSelector; token1: TokenSelector };
+// ...
+// add coinpaprika, defillama, codex, etc here.
 
 // Extensible feed selector that allows custom implementations
 export type FeedSelector = CoreFeedSelector | { kind: string; [key: string]: any };
-// | { kind: 'coingeckoToken'; platformId: string; address: string } // /simple/token_price/{platform}
-// | { kind: 'defillama'; chain: string; address: string } // "ethereum:0x..."
-// | { kind: 'coinpaprika'; id: string }               // e.g., "btc-bitcoin"
-// | { kind: 'coincodex'; symbol: string };            // if you add CoinCodex
 
 export type TokenSelector = {
   assetType: AssetType; // tokens only

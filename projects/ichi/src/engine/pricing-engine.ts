@@ -4,6 +4,7 @@ import { HandlerFactory, HandlerFn, ExecutorFn, ResolveResult } from '../feeds/i
 import { coinGeckoFactory } from '../feeds/coingecko';
 import { peggedFactory } from '../feeds/pegged';
 import { ichinavFactory } from '../feeds/ichinav';
+import { univ2NavFactory } from '../feeds/univ2nav';
 import { AssetConfig, AssetKey, FeedSelector, ResolveContext } from '../types/pricing';
 import { metadataResolver } from './asset-handlers';
 import { CustomFeedHandlers } from '../types/adapter';
@@ -53,7 +54,7 @@ export class PricingEngine {
     this.registry.register('coingecko', coinGeckoFactory);
     this.registry.register('pegged', peggedFactory);
     this.registry.register('ichinav', ichinavFactory);
-    // this.registry.register('univ2nav', univ2navHandler);
+    this.registry.register('univ2nav', univ2NavFactory);
     // add more handlers here...
 
     // Register custom feeds if provided
