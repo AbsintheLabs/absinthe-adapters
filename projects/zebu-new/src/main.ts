@@ -7,7 +7,6 @@ dotenv.config();
 const env = validateEnv();
 
 const network = process.argv[2];
-
 const networkToChainId: Record<string, number> = {
   bsc: 56,
   polygon: 137,
