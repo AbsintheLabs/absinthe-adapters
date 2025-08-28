@@ -26,4 +26,4 @@ testdeploy/
 absinthe.log
 logs/
 status.txt
-*.absinthe.json
+# *.absinthe.json
