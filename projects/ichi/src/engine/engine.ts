@@ -3,9 +3,16 @@
 import { Database, LocalDest } from '@subsquid/file-store';
 import Big from 'big.js';
 import { createClient, RedisClientType } from 'redis';
+import {
+  ChainName,
+  getChainEnumKey,
+  ChainShortName,
+  ChainType,
+  GatewayUrl,
+} from '@absinthe/common';
 import dotenv from 'dotenv';
 import { log } from '../utils/logger';
-import { Sink } from '../esink';
+import { Sink } from '../types';
 import { RedisTSCache, RedisMetadataCache, RedisHandlerMetadataCache } from '../cache';
 import { PricingEngine } from './pricing-engine';
 import { AppConfig } from '../config/schema';
@@ -77,6 +84,7 @@ export class Engine {
   private ctx: any;
   private appCfg: AppConfig;
   private sqdProcessor: any;
+  private chainConfig: any;
 
   constructor(
     // keep only run-time knobs that are not part of AppConfig (or read them from appCfg.processor if you prefer)
@@ -86,6 +94,22 @@ export class Engine {
   ) {
     // 1) Use provided config
     this.appCfg = appCfg; // uses your Zod discriminated union (evm|solana)
+    const chainId = appCfg.kind === 'evm' && appCfg.network.chainId;
+    const chainKey = getChainEnumKey(chainId as number);
+    if (!chainKey) {
+      throw new Error(`${chainId} is not a supported chainId.`);
+    }
+    const chainName = ChainName[chainKey];
+    const chainShortName = ChainShortName[chainKey];
+    const chainArch = appCfg.kind === 'evm' ? ChainType.EVM : ChainType.SOLANA;
+    const gatewayUrl = GatewayUrl[chainKey]; //todo: pass this instead of other
+
+    this.chainConfig = {
+      chainArch: chainArch,
+      networkId: chainId,
+      chainShortName: chainShortName,
+      chainName: chainName,
+    };
 
     // 2) Build processor from config with adapter's topic0s
     this.sqdProcessor = buildProcessor(this.appCfg, adapter.topic0s); // picks EVM or Solana branch based on cfg.kind
@@ -301,6 +325,8 @@ export class Engine {
       metadataCache: this.metadataCache,
       handlerMetadataCache: this.handlerMetadataCache,
       redis: this.redis,
+      chainConfig: this.chainConfig,
+      absintheApiKey: this.appCfg.absintheApiKey,
     };
 
     const enrichedWindows = await pipeline<PricedBalanceWindow>(

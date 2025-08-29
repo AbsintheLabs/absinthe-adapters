@@ -8,6 +8,8 @@ const Common = z.object({
   flushMs: z.number().int().positive(), // your engine’s windowing
   feedConfigJson: z.string().optional(), // optional JSON blob for adapter feeds
   extrasJson: z.string().optional(), // adapter-specific extras (JSON)
+  absintheApiUrl: z.string().url(),
+  absintheApiKey: z.string(),
 });
 
 // EVM-only

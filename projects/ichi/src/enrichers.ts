@@ -19,6 +19,7 @@ import {
   PricedEvent,
   BaseEnrichedFields,
 } from './types/enrichment';
+import { createHash } from 'crypto';
 
 // Simple pipe runner with proper typing
 export function pipeline<TOutput>(...enrichers: Enricher<any, any>[]) {
@@ -59,28 +60,37 @@ export const enrichWithCommonBaseEventFields: Enricher<
   RawBalanceWindow | RawEvent,
   BaseEnrichedFields
 > = async (items, context) => {
-  return items.map((item) => ({
-    ...item,
-    base: {
-      version: '1.0.0',
-      eventId: '', // fixme: figure out how we do it in the other adapters
-      userId: (item as any).user,
-      currency: Currency.USD,
-    },
-  }));
+  return items.map((item) => {
+    const eventIdComponents = `${context.chainConfig?.networkId || 'unknown'}-${item.user || 'unknown'}-${item.startTs || item.ts || Date.now()}-${(item as any).endTs || item.ts || Date.now()}-${(item as any).windowDurationMs || 0}-${context.absintheApiKey || 'no-key'}-${(item as any).type || 'event'}`;
+
+    const eventId = createHash('md5').update(eventIdComponents).digest('hex').slice(0, 16);
+
+    return {
+      ...item,
+      base: {
+        version: '1.0.0',
+        eventId: eventId,
+        userId: (item as any).user || '',
+        currency: Currency.USD,
+        chain: context.chainConfig,
+      },
+    };
+  });
 };
 
 export const enrichWithRunnerInfo: Enricher<BaseEnrichedFields, BaseEnrichedFields> = async (
   items,
   context,
 ) => {
+  const apiKeyHash = createHash('md5').update(context.absintheApiKey).digest('hex').slice(0, 8);
+
   return items.map((item) => ({
     ...item,
     base: {
       ...item.base,
       runner: {
         runnerId: '1',
-        apiKeyHash: '1',
+        apiKeyHash: apiKeyHash,
       },
     },
   }));

@@ -1,7 +1,7 @@
 // Main entry point for the ICHI indexer
 
 import { Engine } from './engine';
-import { CsvSink } from './esink';
+import { CsvSink } from './sinks';
 import { createIchiAdapter } from './adapters';
 import { createUniv2Adapter } from './adapters/univ2';
 import { defaultFeedConfig } from './config/pricing';

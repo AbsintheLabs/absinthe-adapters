@@ -55,6 +55,8 @@ export interface EnrichmentContext {
   metadataCache: MetadataCache;
   handlerMetadataCache: HandlerMetadataCache;
   redis: RedisClientType;
+  chainConfig: any;
+  absintheApiKey: string;
 }
 
 // ------------------------------------------------------------

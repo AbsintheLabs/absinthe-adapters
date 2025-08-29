@@ -43,4 +43,4 @@ export { createIchiAdapter, createHemiAdapter } from './adapters';
 export { defaultFeedConfig, gammaVaultsFeedConfig, ichiVaultsFeedConfig } from './config/pricing';
 
 // Sink
-export { Sink, CsvSink } from './esink';
+export { SinkFactory, CsvSink } from './sinks';
