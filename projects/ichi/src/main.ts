@@ -1,7 +1,7 @@
 // Main entry point for the ICHI indexer
 
 import { Engine } from './engine';
-import { CsvSink } from './sinks';
+import { CsvSink, SinkFactory } from './sinks';
 import { createIchiAdapter } from './adapters';
 import { createUniv2Adapter } from './adapters/univ2';
 import { defaultFeedConfig } from './config/pricing';
@@ -37,6 +37,7 @@ const appCfg = loadConfig(configFilename); // All config loading logic is in loa
 const ichiAdapter = createIchiAdapter(defaultFeedConfig);
 
 import { AssetFeedConfig } from './types/pricing';
+import { AbsintheApiClient } from '@absinthe/common';
 
 export const univ2TestConfig: AssetFeedConfig = {
   // LP token address - this will be priced using the official univ2nav feed
@@ -63,7 +64,12 @@ export const univ2TestConfig: AssetFeedConfig = {
   },
 };
 
+const apiClient = new AbsintheApiClient({
+  baseUrl: appCfg.absintheApiUrl,
+  apiKey: appCfg.absintheApiKey,
+});
+
 const univ2Adapter = createUniv2Adapter(univ2TestConfig);
-const sink = new CsvSink('windows.csv');
+const sink = SinkFactory.create({ kind: 'absinthe' }, apiClient);
 
 new Engine(univ2Adapter, sink, appCfg).run();

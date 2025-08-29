@@ -8,4 +8,4 @@ export interface Sink {
 // Factory input selected at engine construction
 export type SinkConfig =
   | { kind: 'csv'; path: string }
-  | { kind: 'absinthe'; url: string; apiKey?: string; rateLimit?: number; batchSize?: number };
+  | { kind: 'absinthe'; rateLimit?: number; batchSize?: number };

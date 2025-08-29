@@ -6,9 +6,9 @@ import type { AppConfig } from './config/schema';
 export function buildProcessor(cfg: AppConfig, adapterTopic0s?: string[]) {
   if (cfg.kind === 'evm') {
     const p = new EvmBatchProcessor()
-      .setGateway(cfg.network.gatewayUrl)
-      .setRpcEndpoint(cfg.network.rpcUrl)
-      .setFinalityConfirmation(cfg.network.finality)
+      .setGateway(cfg.network.gatewayUrl as string)
+      .setRpcEndpoint(cfg.network.rpcUrl as string)
+      .setFinalityConfirmation(cfg.network.finality as number)
       .includeAllBlocks() // needed for proper price backfilling
       .setBlockRange({
         from: cfg.range.fromBlock,
