@@ -25,5 +25,8 @@ export type {
   PriceFeedable,
 } from './pricing';
 
+// Sink types
+export type { Sink, SinkConfig } from './sink';
+
 // Adapter types
 export type { Adapter } from './adapter';

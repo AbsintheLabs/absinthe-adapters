@@ -22,7 +22,6 @@ import {
 } from '../../types/interfaces/protocols';
 import { ChainId, Currency, MessageType, ProtocolType, TimeWindowTrigger } from '../../types/enums';
 import { VERSION, ZERO_ADDRESS } from '../consts';
-import { logger } from '../logger';
 
 function toTimeWeightedBalance(
   historyWindows: HistoryWindow[],

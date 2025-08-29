@@ -6,8 +6,8 @@ import {
   MessageType,
   Currency,
   TimeWindowTrigger,
+  Chain,
 } from '@absinthe/common';
-import Big from 'big.js';
 import { MetadataCache, PriceCacheTS, HandlerMetadataCache } from './pricing';
 
 // ------------------------------------------------------------
@@ -20,13 +20,16 @@ export interface RawBalanceWindow {
   startTs: number;
   endTs: number;
   startBlockNumber: number;
+  contractAddress: string;
   endBlockNumber: number;
+  base?: BaseEnrichedFields;
   trigger: 'BALANCE_CHANGE' | 'EXHAUSTED' | 'FINAL';
   balanceBefore?: string;
   balanceAfter?: string;
   balance?: string;
   prevTxHash?: string | null;
   txHash?: string | null;
+  valueUsd?: number;
 }
 
 export interface RawEvent {
@@ -35,6 +38,7 @@ export interface RawEvent {
   amount: string;
   meta?: Record<string, any>;
   ts: number;
+  contractAddress: string;
   height: number;
   txHash: string;
   blockNumber: number;
@@ -55,6 +59,9 @@ export interface EnrichmentContext {
   metadataCache: MetadataCache;
   handlerMetadataCache: HandlerMetadataCache;
   redis: RedisClientType;
+  chainConfig: any;
+  absintheApiKey: string;
+  indexerId: string;
 }
 
 // ------------------------------------------------------------
@@ -79,11 +86,17 @@ export interface BaseEnrichedFields {
     eventId: string;
     userId: string;
     currency: Currency;
-    protocolMetadata?: Record<string, { value: string; type: 'number' | 'string' }>;
+    protocolName: string;
+    protocolType: string;
+    contractAddress: string;
+    chain: Chain;
+    //todo:  we have them optional because we are building in different enrichers, fix it to build in a single enricher
+    protocolMetadata?: { [key: string]: { value: string; type: 'number' | 'string' } };
     runner?: {
       runnerId: string;
       apiKeyHash: string;
     };
+    valueUsd?: number;
   };
 }
 
@@ -96,11 +109,11 @@ export interface EnrichedBalanceWindow extends BaseEnrichedFields {
   startBlockNumber: number;
   endBlockNumber: number;
   trigger: 'BALANCE_CHANGE' | 'EXHAUSTED' | 'FINAL';
-  balanceBefore?: string;
-  balanceAfter?: string;
-  balance?: string;
-  prevTxHash?: string | null;
-  txHash?: string | null;
+  balanceBefore: string;
+  balanceAfter: string;
+  balance: string;
+  prevTxHash: string | null;
+  txHash: string | null;
 
   // Enriched fields
   eventType: MessageType.TIME_WEIGHTED_BALANCE;
@@ -143,7 +156,7 @@ export interface EnrichedEvent extends BaseEnrichedFields {
 // ------------------------------------------------------------
 
 export interface PricedBalanceWindow extends EnrichedBalanceWindow {
-  valueUsd: number | null;
+  valueUsd: number;
   totalPosition: number | null;
 }
 

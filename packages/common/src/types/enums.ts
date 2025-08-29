@@ -84,6 +84,7 @@ enum ProtocolType {
 
 enum ChainType {
   EVM = 'evm',
+  SOLANA = 'solana',
 }
 
 enum TokenPreference {
