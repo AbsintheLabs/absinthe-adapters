@@ -66,4 +66,4 @@ export const univ2TestConfig: AssetFeedConfig = {
 const univ2Adapter = createUniv2Adapter(univ2TestConfig);
 const sink = new CsvSink('windows.csv');
 
-new Engine(univ2Adapter, sink, appCfg).run();
+new Engine(ichiAdapter, sink, appCfg).run();

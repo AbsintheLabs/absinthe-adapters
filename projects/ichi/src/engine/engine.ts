@@ -287,6 +287,7 @@ export class Engine {
       enrichWithRunnerInfo,
       enrichBaseEventMetadata,
       buildEvents,
+      filterOutZeroValueEvents,
     )(this.events, enrichCtx);
 
     // Store enriched events for later sending to sink

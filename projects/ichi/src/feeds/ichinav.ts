@@ -3,50 +3,53 @@ import * as ichiAbi from '../abi/ichi';
 import Big from 'big.js';
 import { log } from '../utils/logger';
 
+// Handler name constant for ICHI NAV pricing
+const ICHI_NAV_HANDLER = 'ichinav';
+
 // Simple function implementation using FeedHandler signature
 export const ichinavFactory: HandlerFactory<'ichinav'> = (resolve) => async (args) => {
   const { assetConfig, ctx } = args;
   const { token0, token1 } = assetConfig.priceFeed;
 
-  const ichiContract = new ichiAbi.Contract(
-    // eventually, move this typing into the ctx object so it's very easy to set when we need to make an rpc call
-    // { _chain: ctx.sqdCtx._chain, block: { height: ctx.block.header.height } },
-    ctx.sqdRpcCtx,
-    ctx.asset,
-  );
+  const ichiContract = new ichiAbi.Contract(ctx.sqdRpcCtx, ctx.asset);
 
-  // HACK: get the keys from the rpc calls each time. instead, should allow the implementer to cache them
-  // allow each handler to have its own metadata cache for whatever it needs
-  // NOTE: this is an optimization, so it can wait
-  const token0Address = (await ichiContract.token0()).toLowerCase();
-  const token1Address = (await ichiContract.token1()).toLowerCase();
+  // Cache key for ICHI vault configuration
+  const vaultConfigKey = ctx.asset.toLowerCase();
 
-  // xxx: need to have the implementer pass in the new asset key to the resolve call. This needs to be enforced somehow
-  // const token0Price = await resolve(tokan0, { ...ctx, asset: token0Address });
-  // const token1Price = await resolve(token1, { ...ctx, asset: token1Address });
+  // Try to get cached vault configuration first
+  let vaultConfig = await ctx.handlerMetadataCache.get(ICHI_NAV_HANDLER, vaultConfigKey);
+
+  if (!vaultConfig) {
+    // Get token addresses and ICHI token decimals from the vault and cache them
+    const [token0Address, token1Address, ichiTokenDecimals] = await Promise.all([
+      ichiContract.token0(),
+      ichiContract.token1(),
+      ichiContract.decimals(),
+    ]);
+
+    vaultConfig = {
+      token0Address: token0Address.toLowerCase(),
+      token1Address: token1Address.toLowerCase(),
+      ichiTokenDecimals: Number(ichiTokenDecimals.toString()),
+    };
+
+    // Cache the vault configuration
+    await ctx.handlerMetadataCache.set(ICHI_NAV_HANDLER, vaultConfigKey, vaultConfig);
+  }
+
+  // Use cached token addresses
+  const token0Address = vaultConfig.token0Address;
+  const token1Address = vaultConfig.token1Address;
+
   const token0Resolved = await resolve(token0, token0Address, ctx);
   const token1Resolved = await resolve(token1, token1Address, ctx);
 
-  // we can assume we'll have the decimals after resolving the token0 and token1 prices above
-  // fixme: we should be able to return metadata of the token by the resolve calls as well so we don't have to rely on the metadata cache explicitly
-  // xxx: we should be able to access the asset key from the object as well so we can reference it
-  // const token0Metadata = await ctx.metadataCache.get(token0Address);
-  // if (!token0Metadata) {
-  //     throw new Error(`Token metadata not found for ${token0Address}`);
-  // }
-  // const token0Decimals = token0Metadata.decimals;
-
-  // const token1Metadata = await ctx.metadataCache.get(token1Address);
-  // if (!token1Metadata) {
-  //     throw new Error(`Token metadata not found for ${token1Address}`);
-  // }
-  // const token1Decimals = token1Metadata.decimals;
-
+  // Get token decimals from the resolved price data
   const token0Decimals = token0Resolved.metadata.decimals;
   const token1Decimals = token1Resolved.metadata.decimals;
 
-  // todo; store this later in the metadata cache
-  const ichiTokenDecimals = await ichiContract.decimals();
+  // Use cached ICHI token decimals
+  const ichiTokenDecimals = vaultConfig.ichiTokenDecimals;
 
   const { total0, total1 } = await ichiContract.getTotalAmounts();
   const totalSupply = await ichiContract.totalSupply();
