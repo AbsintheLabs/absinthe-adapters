@@ -70,6 +70,7 @@ const apiClient = new AbsintheApiClient({
 });
 
 const univ2Adapter = createUniv2Adapter(univ2TestConfig);
-const sink = SinkFactory.create({ kind: 'absinthe' }, apiClient);
+// const sink = SinkFactory.create({ kind: 'absinthe' }, apiClient);
+const sink = SinkFactory.create({ kind: 'csv', path: 'output.csv' });
 
 new Engine(univ2Adapter, sink, appCfg).run();

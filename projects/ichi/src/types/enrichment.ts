@@ -34,7 +34,7 @@ export interface RawBalanceWindow {
 
 export interface RawEvent {
   user: string;
-  asset?: string;
+  asset: string;
   amount: string;
   meta?: Record<string, any>;
   ts: number;
@@ -130,7 +130,7 @@ export interface EnrichedBalanceWindow extends BaseEnrichedFields {
 export interface EnrichedEvent extends BaseEnrichedFields {
   // Raw fields
   user: string;
-  asset?: string;
+  asset: string;
   amount: string;
   meta?: Record<string, any>;
   ts: number;

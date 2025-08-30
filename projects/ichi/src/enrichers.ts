@@ -78,8 +78,8 @@ export const enrichWithCommonBaseEventFields: Enricher<
         currency: Currency.USD,
         chain: context.chainConfig,
         protocolName: 'demo1', //todo: add this for different contracts
-        protocolType: 'type',
-        contractAddress: item.contractAddress,
+        protocolType: 'type', //todo: add this for different contracts
+        contractAddress: item.asset,
       },
     };
   });
@@ -259,7 +259,7 @@ export const enrichWithPrice: WindowEnricher = async (windows, context) => {
 
 export const cleanupForApi: WindowEnricher = async (windows, context) => {
   return windows.map((w) => {
-    const { user, asset, contractAddress, trigger, ...cleanWindow } = w;
+    const { user, asset, trigger, ...cleanWindow } = w;
     return cleanWindow;
   });
 };

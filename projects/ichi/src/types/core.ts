@@ -22,14 +22,14 @@ export type PositionToggle = {
 
 export type OnChainEvent = {
   user: string;
-  asset?: string;
+  asset: string;
   amount: Big;
   meta?: Record<string, MetadataValue>;
 };
 
 export type OnChainTransaction = {
   user?: string;
-  asset?: string;
+  asset: string;
   amount?: Big;
   meta?: Record<string, MetadataValue>;
 };
