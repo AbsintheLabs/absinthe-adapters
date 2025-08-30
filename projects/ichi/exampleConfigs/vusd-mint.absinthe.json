@@ -1,0 +1,23 @@
+{
+  "$schema": "./src/config/absconfig.json",
+  "kind": "evm",
+  "indexerId": "vusd-mint-indexer",
+  "flushMs": 86400000,
+  "network": {
+    "chainId": 1,
+    "gatewayUrl": "https://v2.archive.subsquid.io/network/ethereum-mainnet",
+    "rpcUrl": "https://eth-mainnet.blastapi.io/73e36dcc-0743-4d42-966c-0e8fa208abaf"
+  },
+  "range": {
+    "fromBlock": 22017054,
+    "toBlock": 32017054
+  },
+  "subscriptions": {
+    "logs": [
+      {
+        "addresses": ["0xfd22bcf90d63748288913336cd38bbc0e681e298"]
+      }
+    ],
+    "functionCalls": []
+  }
+}

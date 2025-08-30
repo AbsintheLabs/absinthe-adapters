@@ -10,6 +10,7 @@ const Common = z.object({
   extrasJson: z.string().optional(), // adapter-specific extras (JSON)
   absintheApiUrl: z.string().url(),
   absintheApiKey: z.string(),
+  coingeckoApiKey: z.string(),
 });
 
 // EVM-only

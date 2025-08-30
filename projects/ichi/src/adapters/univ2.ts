@@ -13,14 +13,14 @@ export function createUniv2Adapter(feedConfig: AssetFeedConfig): Adapter {
         if (from !== '0x0000000000000000000000000000000000000000') {
           await emit.balanceDelta({
             user: from,
-            asset: log.address,
+            asset: log.address.toLowerCase(),
             amount: new Big(value.toString()).neg(),
           });
         }
         if (to !== '0x0000000000000000000000000000000000000000') {
           await emit.balanceDelta({
             user: to,
-            asset: log.address,
+            asset: log.address.toLowerCase(),
             amount: new Big(value.toString()),
           });
         }

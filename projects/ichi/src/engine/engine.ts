@@ -45,6 +45,8 @@ import {
   enrichWithCommonBaseEventFields,
   enrichWithPrice,
   cleanupForApi,
+  enrichEventsWithGasPricing,
+  enrichEventsWithAssetPrice,
   // filterOutZeroValueEvents,
 } from '../enrichers';
 
@@ -316,6 +318,8 @@ export class Engine {
       enrichWithRunnerInfo,
       enrichBaseEventMetadata,
       buildEvents,
+      enrichEventsWithAssetPrice,
+      enrichEventsWithGasPricing,
       cleanupForApi,
     )(this.events, enrichCtx);
 
@@ -328,7 +332,7 @@ export class Engine {
     const allEnrichedWindows: PricedBalanceWindow[] = [];
 
     // Process windows for each contract separately, similar to UniswapV2 processor
-    for (const [asset, contractWindows] of this.windows.entries()) {
+    for (const [contractAddress, contractWindows] of this.windows.entries()) {
       if (contractWindows.length === 0) continue;
 
       const enrichCtx: EnrichmentContext = {
@@ -372,16 +376,22 @@ export class Engine {
   async ingestTransaction(block: Block, transaction: Transaction) {
     const emit: TransactionEmitFunctions = {
       event: (e: OnChainTransaction) =>
-        this.applyEvent(e, transaction, {
-          ts: block.header.timestamp,
-          height: block.header.height,
-          txHash: transaction.hash,
-          blockHash: block.header.hash,
-          gasUsed: transaction.gasUsed,
-          gasPrice: transaction.gasPrice,
-          from: transaction.from,
-          to: transaction.to,
-        }),
+        this.applyEvent(
+          e,
+          transaction,
+          {
+            ts: block.header.timestamp,
+            height: block.header.height,
+            txHash: transaction.hash,
+            blockHash: block.header.hash,
+            gasUsed: transaction.gasUsed,
+            gasPrice: transaction.gasPrice,
+            from: transaction.from,
+            to: transaction.to,
+          },
+          '',
+          // todo: we may need to use the to address from the transaction
+        ),
     };
     await this.adapter.onTransaction?.(block, transaction, emit);
   }
@@ -390,11 +400,15 @@ export class Engine {
   async ingestLog(block: Block, log: Log) {
     const emit: LogEmitFunctions = {
       balanceDelta: (e: BalanceDelta) =>
-        this.applyBalanceDelta(e, {
-          ts: block.header.timestamp,
-          height: block.header.height,
-          txHash: log.transactionHash,
-        }), // Pass contract address from log
+        this.applyBalanceDelta(
+          e,
+          {
+            ts: block.header.timestamp,
+            height: block.header.height,
+            txHash: log.transactionHash,
+          },
+          log.address.toLowerCase(),
+        ), // Pass contract address from log
       positionToggle: (e: PositionToggle) => {
         /* todo: implement me */
         return Promise.resolve();
@@ -402,19 +416,28 @@ export class Engine {
       event: (e: OnChainEvent) =>
         // XXX: apply event needs to work for both transaction and for log events
         // XXX: typing needs to be fixed here!!!
-        this.applyEvent(e, log, {
-          ts: block.header.timestamp,
-          height: block.header.height,
-          txHash: log.transactionHash,
-          blockHash: block.header.hash,
-        }),
+        this.applyEvent(
+          e,
+          log,
+          {
+            ts: block.header.timestamp,
+            height: block.header.height,
+            txHash: log.transactionHash,
+            blockHash: block.header.hash,
+            gasUsed: log.transaction?.gasUsed,
+            gasPrice: log.transaction?.gasPrice,
+            from: log.transaction?.from,
+            to: log.transaction?.to,
+          },
+          log.address.toLowerCase(),
+        ),
     };
     await this.adapter.onLog?.(block, log, emit);
   }
 
   protected async sqdBatchEnd(ctx: any) {
     // clear windows at the end of the batch - clear each contract's windows
-    for (const [asset, contractWindows] of this.windows.entries()) {
+    for (const [contractAddress, contractWindows] of this.windows.entries()) {
       contractWindows.length = 0;
     }
     // clear events at the end of the batch
@@ -430,6 +453,7 @@ export class Engine {
     e: OnChainTransaction,
     transactionOrLog: Transaction | Log,
     blockData: any,
+    contractAddress: string,
   ): Promise<void> {
     // xxx: need to make sure that we do the proper balance tracking in here as we do with balance deltas with redis
     let { user, asset, amount, meta } = e;
@@ -442,7 +466,6 @@ export class Engine {
       user = (user || transaction?.from || '').toLowerCase();
       asset = asset?.toLowerCase();
     }
-
     const event: RawEvent = {
       user: user || '',
       asset: asset,
@@ -451,20 +474,32 @@ export class Engine {
       ts: blockData.ts,
       height: blockData.height,
       txHash: blockData.txHash,
-      // logIndex: log.logIndex,
+      logIndex: 'logIndex' in transactionOrLog ? transactionOrLog.logIndex : undefined,
       blockNumber: blockData.height,
       blockHash: blockData.blockHash,
-      contractAddress: asset,
-      // gasUsed: log.gasUsed,
+      contractAddress: contractAddress,
       gasUsed: blockData.gasUsed,
       gasPrice: blockData.gasPrice,
       from: blockData.from,
       to: blockData.to,
     };
     this.events.push(event);
+
+    await this.redis.hSetNX(
+      'assets:tracked',
+      '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
+      blockData.height.toString(),
+    );
+    if (e.asset) {
+      await this.redis.hSetNX('assets:tracked', e.asset.toLowerCase(), blockData.height.toString());
+    }
   }
 
-  protected async applyBalanceDelta(e: BalanceDelta, blockData: any): Promise<void> {
+  protected async applyBalanceDelta(
+    e: BalanceDelta,
+    blockData: any,
+    contractAddress: string,
+  ): Promise<void> {
     const ts = blockData.ts;
     const height = blockData.height;
 
@@ -474,7 +509,7 @@ export class Engine {
       e.asset = e.asset.toLowerCase();
     }
 
-    const key = `bal:${e.asset}:${e.user}`;
+    const key = `bal:${e.asset}:${e.user}:${contractAddress}`;
 
     // Load current state (single HMGET with pipeline if you batch)
     const [amountStr, updatedTsStr, updatedHeightStr, prevTxHashStr] = await this.redis.hmGet(key, [
@@ -496,7 +531,7 @@ export class Engine {
       const window: RawBalanceWindow = {
         user: e.user.toLowerCase(),
         asset: e.asset,
-        contractAddress: e.asset,
+        contractAddress: contractAddress,
         startTs: oldTs,
         endTs: ts,
         startBlockNumber: oldHeight,
@@ -509,10 +544,10 @@ export class Engine {
       };
 
       // Get or create contract-specific windows array, similar to UniswapV2 processor
-      if (!this.windows.has(e.asset)) {
-        this.windows.set(e.asset, []);
+      if (!this.windows.has(contractAddress)) {
+        this.windows.set(contractAddress, []);
       }
-      this.windows.get(e.asset)!.push(window);
+      this.windows.get(contractAddress)!.push(window);
     }
 
     await Promise.all([
@@ -586,7 +621,7 @@ export class Engine {
       if (amt.lte(0)) return; // only flush active balances
 
       const key = activeKeys[i]!;
-      const [_, asset, user] = key.split(':'); // 'bal:{asset}:{user}:{contract}'
+      const [_, asset, user, contractAddress] = key.split(':'); // 'bal:{asset}:{user}:{contract}'
       const lastUpdatedTs = Number(updatedTsStr || 0);
       const prevTxHash = txHashStr || null;
 
@@ -597,7 +632,7 @@ export class Engine {
           const window: RawBalanceWindow = {
             user,
             asset,
-            contractAddress: asset,
+            contractAddress: contractAddress,
             startTs: lastUpdatedTs,
             endTs: finalTs,
             startBlockNumber: Number(updatedHeightStr),
@@ -608,10 +643,10 @@ export class Engine {
           };
 
           // Get or create contract-specific windows array
-          if (!this.windows.has(asset)) {
-            this.windows.set(asset, []);
+          if (!this.windows.has(contractAddress)) {
+            this.windows.set(contractAddress, []);
           }
-          this.windows.get(asset)!.push(window);
+          this.windows.get(contractAddress)!.push(window);
 
           writePromises.push(
             this.redis.hSet(key, { updatedTs: String(finalTs), updatedHeight: String(height) }),
@@ -623,7 +658,7 @@ export class Engine {
           const window: RawBalanceWindow = {
             user,
             asset,
-            contractAddress: asset,
+            contractAddress: contractAddress,
             startTs: lastUpdatedTs,
             endTs: currentWindowStart,
             startBlockNumber: Number(updatedHeightStr),
@@ -634,10 +669,10 @@ export class Engine {
           };
 
           // Get or create contract-specific windows array
-          if (!this.windows.has(asset)) {
-            this.windows.set(asset, []);
+          if (!this.windows.has(contractAddress)) {
+            this.windows.set(contractAddress, []);
           }
-          this.windows.get(asset)!.push(window);
+          this.windows.get(contractAddress)!.push(window);
 
           // Advance cursor to the start of the current window (we didn't emit the live window)
           writePromises.push(

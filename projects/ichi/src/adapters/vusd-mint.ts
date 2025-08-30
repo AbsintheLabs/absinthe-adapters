@@ -3,33 +3,24 @@
 import Big from 'big.js';
 import { Adapter } from '../types/adapter';
 import { AssetFeedConfig } from '../types/pricing';
-import * as ichiAbi from '../abi/ichi';
+import * as vusdMintAbi from '../abi/mint';
 
-export function createIchiAdapter(feedConfig: AssetFeedConfig): Adapter {
+export function createVusdMintAdapter(feedConfig: AssetFeedConfig): Adapter {
   return {
     onLog: async (block, log, emit) => {
-      if (log.topics[0] === ichiAbi.events.Transfer.topic) {
-        const { from, to, value } = ichiAbi.events.Transfer.decode(log);
-        // await emit.event({
-        //   amount: new Big(value.toString()),
-        //   asset: log.address,
-        //   user: from,
-        //   // random metadata for testing
-        //   // meta: {
-        //   //   to: to,
-        //   //   blockNumber: block.header.height,
-        //   //   // randomNum: Math.floor(Math.random() * 100)
-        //   // },
-        // });
-        await emit.balanceDelta({
-          user: from,
-          asset: log.address.toLowerCase(),
-          amount: new Big(value.toString()).neg(),
-        });
-        await emit.balanceDelta({
-          user: to,
-          asset: log.address.toLowerCase(),
-          amount: new Big(value.toString()),
+      if (log.topics[0] === vusdMintAbi.events.Mint.topic) {
+        const { tokenIn, amountIn, amountInAfterTransferFee, mintage, receiver } =
+          vusdMintAbi.events.Mint.decode(log);
+        await emit.event({
+          amount: new Big(mintage.toString()),
+          asset: '0x677ddbd918637E5F2c79e164D402454dE7dA8619'.toLowerCase(),
+          user: receiver,
+          meta: {
+            tokenIn: tokenIn.toLowerCase(),
+            amountIn: amountIn.toString(),
+            amountInAfterTransferFee: amountInAfterTransferFee.toString(),
+            mintage: mintage.toString(),
+          },
         });
       }
     },

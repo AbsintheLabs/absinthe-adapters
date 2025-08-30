@@ -79,7 +79,7 @@ export const enrichWithCommonBaseEventFields: Enricher<
         chain: context.chainConfig,
         protocolName: 'demo1', //todo: add this for different contracts
         protocolType: 'type', //todo: add this for different contracts
-        contractAddress: item.asset,
+        contractAddress: item.contractAddress,
       },
     };
   });
@@ -110,17 +110,16 @@ export const buildEvents: EventEnricher = async (events, context) => {
     ...e,
     eventType: MessageType.TRANSACTION,
     rawAmount: e.amount,
-    // fixme: figure out what this should be (perhaps in the decimals step?)
-    // displayAmount: Number(e.amount),
-    unixTimestampMs: e.ts,
+    eventName: 'Mint', //todo: have the eventName
+    unixTimestampMs: Number(e.ts),
     txHash: e.txHash,
     indexedTimeMs: currentTime,
     logIndex: e.logIndex,
     blockNumber: e.height,
     blockHash: e.blockHash,
-    gasUsed: e.gasUsed,
+    gasUsed: Number(e.gasUsed),
     // fixme: figure out what this should be (perhaps in the pricing step?)
-    // gasFeeUsd: e.gasFeeUsd,
+    // gasFeeUsd: ((Number(e.gasPrice) * Number(e.gasUsed)) / 10) * 18,
     currency: Currency.USD,
   }));
 };
@@ -257,9 +256,143 @@ export const enrichWithPrice: WindowEnricher = async (windows, context) => {
   return out;
 };
 
+// creating this because in rawEvents we don't have the startTs/endTs, and I will inject displayAmount from here
+// Pricing enricher specifically for events (similar to enrichWithPrice but for events)
+export const enrichEventsWithAssetPrice: EventEnricher = async (events, context) => {
+  const out = [];
+
+  for (const e of events) {
+    let assetPrice = 0;
+    const key = `price:${e.asset}`; // e.g. "price:0x677d..."
+    const timestamp = e.ts; // events use 'ts' not 'startTs/endTs'
+    const metadata = await context.metadataCache.get(e.asset);
+    if (!metadata) {
+      out.push({
+        ...e,
+        displayAmount: 0,
+        base: {
+          ...e.base,
+          valueUsd: 0,
+        },
+      });
+      continue;
+    }
+    const displayAmount = new Big(e.amount).div(10 ** metadata.decimals);
+    // Check if price data exists for this asset
+    if (!(await context.redis.exists(key))) {
+      out.push({
+        ...e,
+        displayAmount: Number(displayAmount),
+        base: {
+          ...e.base,
+          valueUsd: 0,
+        },
+      });
+      continue; // nothing stored yet for this asset
+    }
+
+    // Get price at the specific event timestamp
+    const resp = await context.redis.ts.range(key, timestamp, timestamp, {
+      LATEST: true,
+      AGGREGATION: {
+        type: 'LAST', // Get last known price at this timestamp
+        timeBucket: 1000 * 60 * 60 * 4, // 4 hour buckets
+        EMPTY: true,
+      },
+      ALIGN: '0',
+      COUNT: 1,
+    });
+
+    if (Array.isArray(resp) && resp.length) {
+      const v = Number(resp[0].value);
+      if (Number.isFinite(v)) assetPrice = v;
+    }
+
+    // Fallback: get the last known price before this timestamp
+    if (assetPrice === 0) {
+      const last = await context.redis.ts.revRange(key, 0, timestamp, {
+        AGGREGATION: { type: 'LAST', timeBucket: 1000 * 60 * 60 * 4, EMPTY: true },
+        ALIGN: '0',
+        COUNT: 1,
+      });
+      if (Array.isArray(last) && last.length) {
+        const v = Number(last[0].value);
+        if (Number.isFinite(v)) assetPrice = v;
+      }
+    }
+
+    // For events, calculate price per token (not total position value)
+    const pricePerToken = new Big(displayAmount).mul(assetPrice);
+    out.push({
+      ...e,
+      displayAmount: Number(displayAmount),
+      base: {
+        ...e.base,
+        valueUsd: Number(pricePerToken), // Price per token in USD
+      },
+    });
+  }
+
+  return out;
+};
+
+// Generalized enricher for pricing gas fees with any asset
+export const enrichEventsWithGasPricing: EventEnricher = async (events, context) => {
+  // Use ETH as default gas token, but could be made configurable
+  const gasTokenAddress = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2'; // WETH
+  const gasPriceKey = `price:${gasTokenAddress.toLowerCase()}`;
+
+  const out = [];
+  for (const e of events) {
+    let gasTokenPrice = 0;
+
+    // Get gas token price at the event timestamp
+    if (await context.redis.exists(gasPriceKey)) {
+      const resp = await context.redis.ts.range(gasPriceKey, e.ts, e.ts, {
+        LATEST: true,
+        AGGREGATION: {
+          type: 'LAST',
+          timeBucket: 1000 * 60 * 60 * 4,
+          EMPTY: true,
+        },
+        ALIGN: '0',
+        COUNT: 1,
+      });
+
+      if (Array.isArray(resp) && resp.length) {
+        const v = Number(resp[0].value);
+        if (Number.isFinite(v)) gasTokenPrice = v;
+      }
+    }
+
+    console.log('gasTokenPrice', gasTokenPrice);
+    console.log('gasPrice', e.gasPrice);
+    console.log('gasUsed', e.gasUsed);
+
+    // Calculate gas fee in USD
+    const gasFeeWei = (Number(e.gasPrice) || 0) * (Number(e.gasUsed) || 0);
+    const gasFeeNative = gasFeeWei / 10 ** 18; // Convert to native token units
+    const gasFeeUsd = gasFeeNative * gasTokenPrice;
+
+    out.push({
+      ...e,
+      gasFeeUsd: Number(gasFeeUsd), // Ensure it's a number, not BigInt
+    });
+  }
+
+  return out;
+};
+
 export const cleanupForApi: WindowEnricher = async (windows, context) => {
   return windows.map((w) => {
-    const { user, asset, trigger, ...cleanWindow } = w;
+    const { user, asset, trigger, meta, contractAddress, ...cleanWindow } = w;
+
+    if ('ts' in cleanWindow) delete cleanWindow.ts;
+    if ('amount' in cleanWindow) delete cleanWindow.amount;
+    if ('height' in cleanWindow) delete cleanWindow.height;
+    if ('currency' in cleanWindow) delete cleanWindow.currency;
+    if ('to' in cleanWindow) delete cleanWindow.to;
+    if ('from' in cleanWindow) delete cleanWindow.from;
     return cleanWindow;
   });
 };

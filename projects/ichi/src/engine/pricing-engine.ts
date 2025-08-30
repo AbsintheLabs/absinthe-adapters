@@ -115,6 +115,8 @@ export class PricingEngine {
         this.resolveSelector(childCfg, childAssetKey, childCtx ?? localCtx),
     });
 
+    console.log('price', price, metadata);
+
     await localCtx.priceCache.set(localCtx.asset, localCtx.atMs, price);
     // return price.price;
     return { price, metadata };

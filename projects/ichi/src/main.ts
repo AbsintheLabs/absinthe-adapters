@@ -34,32 +34,43 @@ import { loadConfig } from './config/load';
 const configFilename = process.argv[2]; // First argument after the script name
 const appCfg = loadConfig(configFilename); // All config loading logic is in loadConfig()
 
-const ichiAdapter = createIchiAdapter(defaultFeedConfig);
+// const ichiAdapter = createIchiAdapter(defaultFeedConfig);
 
 import { AssetFeedConfig } from './types/pricing';
+import { createVusdMintAdapter } from './adapters/vusd-mint';
 import { AbsintheApiClient } from '@absinthe/common';
 
-export const univ2TestConfig: AssetFeedConfig = {
-  // LP token address - this will be priced using the official univ2nav feed
-  // Note: The key IS the pool address, no need to specify it separately
-  '0x0621bae969de9c153835680f158f481424c0720a': {
+// export const univ2TestConfig: AssetFeedConfig = {
+//   // LP token address - this will be priced using the official univ2nav feed
+//   // Note: The key IS the pool address, no need to specify it separately
+//   '0x0621bae969de9c153835680f158f481424c0720a': {
+//     assetType: 'erc20',
+//     priceFeed: {
+//       kind: 'univ2nav',
+//       token0: {
+//         assetType: 'erc20',
+//         priceFeed: {
+//           kind: 'coingecko',
+//           id: 'bitcoin',
+//         },
+//       },
+//       token1: {
+//         assetType: 'erc20',
+//         priceFeed: {
+//           kind: 'pegged',
+//           usdPegValue: 1,
+//         },
+//       },
+//     },
+//   },
+// };
+
+export const vusdMintTestConfig: AssetFeedConfig = {
+  '0x677ddbd918637E5F2c79e164D402454dE7dA8619': {
     assetType: 'erc20',
     priceFeed: {
-      kind: 'univ2nav',
-      token0: {
-        assetType: 'erc20',
-        priceFeed: {
-          kind: 'coingecko',
-          id: 'bitcoin',
-        },
-      },
-      token1: {
-        assetType: 'erc20',
-        priceFeed: {
-          kind: 'pegged',
-          usdPegValue: 1,
-        },
-      },
+      kind: 'coingecko',
+      id: 'vesper-vdollar',
     },
   },
 };
@@ -69,8 +80,7 @@ const apiClient = new AbsintheApiClient({
   apiKey: appCfg.absintheApiKey,
 });
 
-const univ2Adapter = createUniv2Adapter(univ2TestConfig);
+const vusdMintAdapter = createVusdMintAdapter(vusdMintTestConfig);
 // const sink = SinkFactory.create({ kind: 'absinthe' }, apiClient);
 const sink = SinkFactory.create({ kind: 'csv', path: 'output.csv' });
-
-new Engine(univ2Adapter, sink, appCfg).run();
+new Engine(vusdMintAdapter, sink, appCfg).run();

@@ -12,11 +12,12 @@ export function buildProcessor(cfg: AppConfig, adapterTopic0s?: string[]) {
       .includeAllBlocks() // needed for proper price backfilling
       .setBlockRange({
         from: cfg.range.fromBlock,
-        ...(cfg.range.toBlock ? { to: cfg.range.toBlock } : {}),
+        ...(cfg.range.toBlock && cfg.range.toBlock !== 0 ? { to: cfg.range.toBlock } : {}),
       });
 
     for (const l of cfg.subscriptions.logs)
       p.addLog({
+        transaction: true,
         address: l.addresses,
         ...(adapterTopic0s && adapterTopic0s.length > 0 ? { topic0: adapterTopic0s } : {}),
       });

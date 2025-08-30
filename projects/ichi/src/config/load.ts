@@ -8,10 +8,6 @@ dotenv();
 
 export function loadConfig(filename?: string) {
   let configData: any = {};
-  // Debug: Log environment variables
-  console.log('ABSINTHE_API_URL:', process.env.ABSINTHE_API_URL);
-  console.log('ABSINTHE_API_KEY:', process.env.ABSINTHE_API_KEY);
-
   // Priority 1: Explicitly provided file path (from command line args)
   if (filename) {
     const explicitConfigPath = join(process.cwd(), filename);
@@ -61,6 +57,10 @@ export function loadConfig(filename?: string) {
   }
   if (process.env.ABSINTHE_API_KEY) {
     configData.absintheApiKey = process.env.ABSINTHE_API_KEY;
+  }
+
+  if (process.env.COINGECKO_API_KEY) {
+    configData.coingeckoApiKey = process.env.COINGECKO_API_KEY;
   }
 
   // Validate we have some configuration

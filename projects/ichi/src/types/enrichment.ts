@@ -30,6 +30,7 @@ export interface RawBalanceWindow {
   prevTxHash?: string | null;
   txHash?: string | null;
   valueUsd?: number;
+  meta?: Record<string, any>;
 }
 
 export interface RawEvent {
@@ -48,6 +49,7 @@ export interface RawEvent {
   gasPrice?: string;
   from?: string;
   to?: string;
+  base?: BaseEnrichedFields;
 }
 
 // ------------------------------------------------------------
