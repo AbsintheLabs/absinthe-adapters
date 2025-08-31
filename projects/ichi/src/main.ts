@@ -73,6 +73,13 @@ export const vusdMintTestConfig: AssetFeedConfig = {
       id: 'vesper-vdollar',
     },
   },
+  '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2': {
+    assetType: 'erc20',
+    priceFeed: {
+      kind: 'coingecko',
+      id: 'ethereum',
+    },
+  },
 };
 
 const apiClient = new AbsintheApiClient({
@@ -81,6 +88,6 @@ const apiClient = new AbsintheApiClient({
 });
 
 const vusdMintAdapter = createVusdMintAdapter(vusdMintTestConfig);
-// const sink = SinkFactory.create({ kind: 'absinthe' }, apiClient);
-const sink = SinkFactory.create({ kind: 'csv', path: 'output.csv' });
+const sink = SinkFactory.create({ kind: 'absinthe' }, apiClient);
+// const sink = SinkFactory.create({ kind: 'csv', path: 'output.csv' });
 new Engine(vusdMintAdapter, sink, appCfg).run();

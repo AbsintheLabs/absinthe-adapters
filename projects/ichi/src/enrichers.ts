@@ -118,6 +118,7 @@ export const buildEvents: EventEnricher = async (events, context) => {
     blockNumber: e.height,
     blockHash: e.blockHash,
     gasUsed: Number(e.gasUsed),
+    gasPrice: Number(e.gasPrice),
     // fixme: figure out what this should be (perhaps in the pricing step?)
     // gasFeeUsd: ((Number(e.gasPrice) * Number(e.gasUsed)) / 10) * 18,
     currency: Currency.USD,
@@ -338,18 +339,24 @@ export const enrichEventsWithAssetPrice: EventEnricher = async (events, context)
 
 // Generalized enricher for pricing gas fees with any asset
 export const enrichEventsWithGasPricing: EventEnricher = async (events, context) => {
-  // Use ETH as default gas token, but could be made configurable
-  const gasTokenAddress = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2'; // WETH
+  const gasTokenAddress = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2';
   const gasPriceKey = `price:${gasTokenAddress.toLowerCase()}`;
+
+  // Debug: Check what prices exist for ETH
+  const allEthPrices = await context.redis.ts.range(gasPriceKey, 0, Date.now(), {
+    AGGREGATION: { type: 'LAST', timeBucket: 1000 * 60 * 60 * 4, EMPTY: true },
+    ALIGN: '0',
+    COUNT: 10,
+  });
+  console.log('All ETH prices in Redis:', allEthPrices);
 
   const out = [];
   for (const e of events) {
     let gasTokenPrice = 0;
 
-    // Get gas token price at the event timestamp
+    // Get the LAST known ETH price (don't try to match exact timestamp)
     if (await context.redis.exists(gasPriceKey)) {
-      const resp = await context.redis.ts.range(gasPriceKey, e.ts, e.ts, {
-        LATEST: true,
+      const resp = await context.redis.ts.revRange(gasPriceKey, 0, Date.now(), {
         AGGREGATION: {
           type: 'LAST',
           timeBucket: 1000 * 60 * 60 * 4,
@@ -365,18 +372,14 @@ export const enrichEventsWithGasPricing: EventEnricher = async (events, context)
       }
     }
 
-    console.log('gasTokenPrice', gasTokenPrice);
-    console.log('gasPrice', e.gasPrice);
-    console.log('gasUsed', e.gasUsed);
-
     // Calculate gas fee in USD
     const gasFeeWei = (Number(e.gasPrice) || 0) * (Number(e.gasUsed) || 0);
-    const gasFeeNative = gasFeeWei / 10 ** 18; // Convert to native token units
+    const gasFeeNative = gasFeeWei / 10 ** 18;
     const gasFeeUsd = gasFeeNative * gasTokenPrice;
 
     out.push({
       ...e,
-      gasFeeUsd: Number(gasFeeUsd), // Ensure it's a number, not BigInt
+      gasFeeUsd: Number(gasFeeUsd),
     });
   }
 

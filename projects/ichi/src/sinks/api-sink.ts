@@ -9,8 +9,8 @@ class ApiSink implements Sink {
       return;
     }
 
-    console.log(JSON.stringify(batch, null, 2));
-
+    // console.log(JSON.stringify(batch, null, 2));
+    console.log(batch);
     console.log(`Sending ${batch.length} items to Absinthe API`);
     await this.apiClient.send(batch);
   }
