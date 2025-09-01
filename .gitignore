@@ -19,6 +19,7 @@ chains.txt
 *.tsbuildinfo
 testdeploy/
 **/abs_config.json
+reset-docker.sh
 
 **/src/model/generated
 **/src/abi/

@@ -1,9 +1,9 @@
 import { AbsintheApiClient, HOURS_TO_MS } from '@absinthe/common';
-import { SplTransfersProcessor } from './BatchProcessor';
+import { OrcaProcessor } from './BatchProcessor';
 import { validateEnv } from './utils/validateEnv';
 
 const env = validateEnv();
-const { splTransfersProtocol, baseConfig } = env;
+const { orcaProtocol, baseConfig } = env;
 
 const apiClient = new AbsintheApiClient({
   baseUrl: baseConfig.absintheApiUrl,
@@ -11,18 +11,18 @@ const apiClient = new AbsintheApiClient({
 });
 
 const chainConfig = {
-  chainArch: splTransfersProtocol.chainArch,
-  networkId: splTransfersProtocol.chainId,
-  chainShortName: splTransfersProtocol.chainShortName,
-  chainName: splTransfersProtocol.chainName,
+  chainArch: orcaProtocol.chainArch,
+  networkId: orcaProtocol.chainId,
+  chainShortName: orcaProtocol.chainShortName,
+  chainName: orcaProtocol.chainName,
 };
 
 const WINDOW_DURATION_MS = baseConfig.balanceFlushIntervalHours * HOURS_TO_MS;
-const splTransfersProcessor = new SplTransfersProcessor(
-  splTransfersProtocol,
+const orcaProcessor = new OrcaProcessor(
+  orcaProtocol,
   WINDOW_DURATION_MS,
   apiClient,
   env.baseConfig,
   chainConfig,
 );
-splTransfersProcessor.run();
+orcaProcessor.run();

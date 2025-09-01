@@ -1,0 +1,174 @@
+import { logger } from '@absinthe/common';
+import * as whirlpoolProgram from '../abi/whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc';
+import { OrcaInstructionData, InitializeData } from '../utils/types';
+
+export async function processPoolInstructions(
+  instructionsData: OrcaInstructionData[],
+  protocolStates: Map<string, any>,
+): Promise<void> {
+  logger.info(`🏊 [PoolInstructions] Processing ${instructionsData.length} pool instructions`);
+
+  for (const data of instructionsData) {
+    try {
+      switch (data.type) {
+        case 'initializePool':
+          await processInitializePool(data as InitializeData, protocolStates);
+          break;
+        case 'initializePoolV2':
+          await processInitializePoolV2(data as InitializeData, protocolStates);
+          break;
+
+        case 'initializePoolWithAdaptiveFee':
+          await processInitializePoolWithAdaptiveFee(data as InitializeData, protocolStates);
+          break;
+      }
+    } catch (error) {
+      logger.error(`❌ [PoolInstructions] Failed to process ${data.type}:`, error);
+    }
+  }
+}
+
+async function processInitializePool(
+  data: InitializeData,
+  protocolStates: Map<string, any>,
+): Promise<void> {
+  logger.info(`🏊 [PoolInstructions] Processing initialize pool`, {
+    slot: data.slot,
+    txHash: data.txHash,
+  });
+
+  logger.info(`🏊 [PoolInstructions] Decoded instruction:`, {
+    decodedInstruction: data.decodedInstruction,
+  });
+
+  const analysis = analyseInitialization(data.decodedInstruction);
+  logger.info(`🏊 [PoolInstructions] Analysis:`, {
+    analysis,
+  });
+
+  // set this in the pools list in redis
+}
+
+async function processInitializePoolV2(
+  data: InitializeData,
+  protocolStates: Map<string, any>,
+): Promise<void> {
+  logger.info(`🏊 [PoolInstructions] Processing initialize pool V2`, {
+    slot: data.slot,
+    txHash: data.txHash,
+  });
+
+  logger.info(`🏊 [PoolInstructions] Decoded instruction:`, {
+    decodedInstruction: data.decodedInstruction,
+  });
+
+  const analysis = analyseInitialization(data.decodedInstruction);
+  logger.info(`🏊 [PoolInstructions] Analysis:`, {
+    analysis,
+  });
+
+  // set this in the pools list in redis
+}
+
+async function processInitializePoolWithAdaptiveFee(
+  data: InitializeData,
+  protocolStates: Map<string, any>,
+): Promise<void> {
+  logger.info(`🏊 [PoolInstructions] Processing initialize pool V2`, {
+    slot: data.slot,
+    txHash: data.txHash,
+  });
+
+  logger.info(`🏊 [PoolInstructions] Decoded instruction:`, {
+    decodedInstruction: data.decodedInstruction,
+  });
+
+  const analysis = analyseInitialization(data.decodedInstruction);
+  logger.info(`🏊 [PoolInstructions] Analysis:`, {
+    analysis,
+  });
+
+  // set this in the pools list in redis
+}
+
+function analyseInitialization(decodedInstruction: any) {
+  const tokenMintA = decodedInstruction.accounts.tokenMintA;
+  const tokenMintB = decodedInstruction.accounts.tokenMintB;
+
+  //todo: get decimals in this step + name
+  const decimalsA = (tokenMintA: any) => {
+    return tokenMintA.decimals;
+  };
+  const decimalsB = (tokenMintB: any) => {
+    return tokenMintB.decimals;
+  };
+
+  const currentTick = () => {};
+
+  return {
+    whirlpool: decodedInstruction.accounts.whirlpool,
+    whirlpoolConfig: decodedInstruction.accounts.whirlpoolConfig,
+
+    tokenMintA: decodedInstruction.accounts.tokenMintA,
+    tokenMintB: decodedInstruction.accounts.tokenMintB,
+
+    funder: decodedInstruction.accounts.funder,
+
+    tokenVaultA: decodedInstruction.accounts.tokenVaultA,
+    tokenVaultB: decodedInstruction.accounts.tokenVaultB,
+
+    feeTier: getFeeTierInfo(decodedInstruction),
+    tokenProgram: getTokenProgramInfo(decodedInstruction),
+    systemProgram: decodedInstruction.accounts.systemProgram,
+
+    tickSpacing: decodedInstruction.data.tickSpacing,
+
+    initialSqrtPrice: decodedInstruction.data.initialSqrtPrice,
+    currentTick: currentTick(),
+    poolType: getPoolType(decodedInstruction),
+
+    decimalsA: decimalsA(tokenMintA),
+    decimalsB: decimalsB(tokenMintB),
+  };
+}
+
+function getPoolType(decodedInstruction: any): string {
+  if (decodedInstruction.accounts.initializePoolAuthority) {
+    return 'adaptiveFee';
+  } else if (decodedInstruction.accounts.tokenProgramA) {
+    return 'v2';
+  } else {
+    return 'v1';
+  }
+}
+
+function getTokenProgramInfo(decodedInstruction: any): any {
+  if (decodedInstruction.accounts.tokenProgramA && decodedInstruction.accounts.tokenProgramB) {
+    // V2 or Adaptive: Has separate programs for each token
+    return {
+      tokenProgramA: decodedInstruction.accounts.tokenProgramA,
+      tokenProgramB: decodedInstruction.accounts.tokenProgramB,
+      type: 'separate',
+    };
+  } else if (decodedInstruction.accounts.tokenProgram) {
+    // V1: Single token program
+    return {
+      tokenProgram: decodedInstruction.accounts.tokenProgram,
+      type: 'single',
+    };
+  } else {
+    return {
+      type: 'unknown',
+    };
+  }
+}
+
+function getFeeTierInfo(decodedInstruction: any): string {
+  if (decodedInstruction.accounts.feeTier) {
+    return decodedInstruction.accounts.feeTier;
+  } else if (decodedInstruction.accounts.adaptiveFeeTier) {
+    return 'adaptive'; // ← Adaptive fee pools don't have feeTier
+  } else {
+    return 'unknown';
+  }
+}

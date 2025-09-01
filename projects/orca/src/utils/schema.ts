@@ -1,8 +1,8 @@
 import { ProtocolType } from '@absinthe/common';
 import { z } from 'zod';
 
-const splTransfersProtocolSchema = z.object({
-  type: z.enum([ProtocolType.SPL_TRANSFERS]),
+const orcaProtocolSchema = z.object({
+  type: z.string(),
   name: z.string(),
   contractAddress: z.string(),
   chainId: z.number(),
@@ -11,4 +11,4 @@ const splTransfersProtocolSchema = z.object({
   balanceFlushIntervalHours: z.number(),
 });
 
-export { splTransfersProtocolSchema };
+export { orcaProtocolSchema };

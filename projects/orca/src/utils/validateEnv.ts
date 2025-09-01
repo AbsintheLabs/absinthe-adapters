@@ -11,8 +11,8 @@ import {
   ValidatedEnvBase,
   ChainId,
 } from '@absinthe/common';
-import { splTransfersProtocolSchema } from './schema';
-import { SplTransfersProtocol, ValidatedEnv } from './types';
+import { orcaProtocolSchema } from './schema';
+import { OrcaProtocol, ValidatedEnv } from './types';
 import { FILE_NAME } from './consts';
 
 export function validateEnv(): ValidatedEnv {
@@ -41,7 +41,7 @@ export function validateEnv(): ValidatedEnv {
       console.log(`Using configuration from file: ${configFilePath}`);
     }
 
-    const configResult = splTransfersProtocolSchema.safeParse(configData);
+    const configResult = orcaProtocolSchema.safeParse(configData);
 
     if (!configResult.success) {
       const errorMessages = configResult.error.errors
@@ -62,12 +62,13 @@ export function validateEnv(): ValidatedEnv {
     const gatewayUrl = GatewayUrl[chainKey];
     const rpcUrl = getRpcUrlForChain(chainId, envResult.data);
 
-    const splTransfersProtocol: SplTransfersProtocol = {
+    const orcaProtocol: OrcaProtocol = {
       type: configResult.data.type,
       toBlock: configResult.data.toBlock,
       fromBlock: configResult.data.fromBlock,
       name: configResult.data.name,
       contractAddress: configResult.data.contractAddress,
+      balanceFlushIntervalHours: configResult.data.balanceFlushIntervalHours,
       chainArch: chainArch,
       chainId: chainId,
       gatewayUrl: gatewayUrl,
@@ -85,7 +86,7 @@ export function validateEnv(): ValidatedEnv {
 
     return {
       baseConfig,
-      splTransfersProtocol,
+      orcaProtocol,
     };
   } catch (error) {
     if (error instanceof Error) {
