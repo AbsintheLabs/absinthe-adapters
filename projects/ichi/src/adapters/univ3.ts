@@ -87,13 +87,11 @@ export function createUniv3Adapter(feedConfig: AssetFeedConfig): Adapter {
         if (!owner) {
           console.error('No owner found for asset: ', assetKey);
         }
-        // FIXME: we should replace this with positionUpdate instead of balanceDelta to make intention much clearer
-        await emit.balanceDelta({
+        await emit.positionUpdate({
           // NOTE: if owner is not defined, it probably means that the from block was before the position was created!
           // NOTE: the backup can be to actually make an rpc call in this point in time to get the owner if we don't have it as a safety precaution!
           user: owner!,
           asset: assetKey,
-          amount: new Big(0),
         });
         // WARN: just a test to make sure that the reprice is working
         await emit.reprice({ asset: assetKey });
@@ -117,10 +115,9 @@ export function createUniv3Adapter(feedConfig: AssetFeedConfig): Adapter {
         if (!owner) {
           console.error('No owner found for asset: ', assetKey);
         }
-        await emit.balanceDelta({
+        await emit.positionUpdate({
           user: owner!,
           asset: assetKey,
-          amount: new Big(0),
         });
         // WARN: just a test to make sure that the reprice is working
         await emit.reprice({ asset: assetKey });

@@ -16,6 +16,14 @@ export type BalanceDelta = {
   meta?: Record<string, MetadataValue>;
 };
 
+// Syntactic sugar over BalanceDelta for position updates (amount is always new Big(0))
+export type PositionUpdate = {
+  user: string;
+  asset: string;
+  // only support primitive types for metadata with flat structure
+  meta?: Record<string, MetadataValue>;
+};
+
 export type OwnershipTransfer = {
   // oldOwner: string;
   newOwner: string;

@@ -3,6 +3,7 @@
 import {
   BalanceDelta,
   PositionToggle,
+  PositionUpdate,
   OnChainEvent,
   OnChainTransaction,
   OwnershipTransfer,
@@ -21,6 +22,7 @@ import { MeasureDelta } from './core';
 // Emit functions for log handlers
 export interface LogEmitFunctions {
   balanceDelta: (e: BalanceDelta) => Promise<void>;
+  positionUpdate: (e: PositionUpdate) => Promise<void>;
   ownershipTransfer: (e: OwnershipTransfer) => Promise<void>;
   positionToggle: (e: PositionToggle) => Promise<void>;
   measureDelta: (e: MeasureDelta) => Promise<void>;

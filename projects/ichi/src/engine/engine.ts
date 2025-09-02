@@ -18,6 +18,7 @@ import {
   Projector,
   ProjectorContext,
 } from '../types/adapter';
+import { PositionUpdate } from '../types/core';
 import {
   IndexerMode,
   BalanceDelta,
@@ -404,6 +405,20 @@ export class Engine {
           height: block.header.height,
           txHash: log.transactionHash,
         }),
+      positionUpdate: (e: PositionUpdate) =>
+        this.applyBalanceDelta(
+          {
+            user: e.user,
+            asset: e.asset,
+            amount: new Big(0),
+            meta: e.meta,
+          },
+          {
+            ts: block.header.timestamp,
+            height: block.header.height,
+            txHash: log.transactionHash,
+          },
+        ),
       reprice: (e: Reprice) => {
         return this.applyReprice(e, {
           ts: block.header.timestamp,
