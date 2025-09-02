@@ -7,6 +7,7 @@ import assert from 'assert';
 import * as univ3poolAbi from '../abi/univ3pool';
 import * as univ3positionsAbi from '../abi/univ3nonfungiblepositionmanager';
 import * as univ3factoryAbi from '../abi/univ3factory';
+import * as erc20Abi from '../abi/erc20';
 
 // Handler name constant for Uniswap v3 LP pricing
 const UNIV3_LP_HANDLER = 'univ3lp';
@@ -67,18 +68,24 @@ function parseAssetKey(assetKey: string) {
 // ---------- Main handler ----------
 export const univ3lpFactory: HandlerFactory<'univ3lp'> = (resolve) => async (args) => {
   const { assetConfig, ctx } = args;
-  const {
-    token0: token0Feed,
-    token1: token1Feed,
-    nonfungiblepositionmanager,
-    kind,
-  } = assetConfig.priceFeed;
-  log.debug('🔍 UNIV3LP: Starting handler for asset:', ctx.asset);
-  log.debug('🔍 UNIV3LP: Config:', {
-    nonfungiblepositionmanager,
-    token0Feed: !!token0Feed,
-    token1Feed: !!token1Feed,
-  });
+      const {
+        token: tokenFeed,
+        nonfungiblepositionmanager,
+        tokenSelector, // either 'token0' or 'token1'
+        kind,
+    } = assetConfig.priceFeed;
+
+    if (!tokenFeed || (tokenSelector !== 'token0' && tokenSelector !== 'token1')) {
+        log.error('🔍 UNIV3LP: token feed and tokenSelector are required');
+        return 0;
+    }
+
+    log.debug('🔍 UNIV3LP: Starting handler for asset:', ctx.asset);
+    log.debug('🔍 UNIV3LP: Config:', {
+        nonfungiblepositionmanager,
+        tokenFeed: !!tokenFeed,
+        tokenSelector,
+    });
 
   // Parse asset key to get position manager and tokenId
   const { pm, tokenId } = parseAssetKey(ctx.asset);
@@ -260,17 +267,24 @@ export const univ3lpFactory: HandlerFactory<'univ3lp'> = (resolve) => async (arg
     const token0Metadata = await ctx.metadataCache.get(token0);
     const token1Metadata = await ctx.metadataCache.get(token1);
 
+    let d0, d1;
     if (!token0Metadata) {
       log.error(`🔍 UNIV3LP: Token ${token0} not found in metadata cache`);
-      return 0;
+      const erc20Contract = new erc20Abi.Contract(ctx.sqdRpcCtx, token0);
+      const token0d = await erc20Contract.decimals();
+      d0 = Number(token0d.toString());
+      await ctx.metadataCache.set(token0, { decimals: d0 });
     }
     if (!token1Metadata) {
       log.error(`🔍 UNIV3LP: Token ${token1} not found in metadata cache`);
-      return 0;
+      const erc20Contract = new erc20Abi.Contract(ctx.sqdRpcCtx, token1);
+      const token1d = await erc20Contract.decimals();
+      d1 = Number(token1d.toString());
+      await ctx.metadataCache.set(token1, { decimals: d1 });
     }
+    assert(d0 !== undefined, 'Token0 decimals are undefined');
+    assert(d1 !== undefined, 'Token1 decimals are undefined');
 
-    const d0 = token0Metadata.decimals;
-    const d1 = token1Metadata.decimals;
     log.debug('🔍 UNIV3LP: Token decimals:', { token0: d0, token1: d1 });
 
     // 6) Compose USD value

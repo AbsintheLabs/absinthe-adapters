@@ -22,9 +22,10 @@ export type AssetType = 'erc20' | 'spl' | 'erc721';
 
 // Kubernetes-style label selector expressions
 export type LabelExpr = {
-  key: string;
-  op: 'In' | 'NotIn' | 'Exists' | 'DoesNotExist';
-  values?: string[]; // only used for In/NotIn
+  key?: string; // optional for AnyIn operation
+  op: 'In' | 'NotIn' | 'Exists' | 'DoesNotExist' | 'AnyIn';
+  values?: string[]; // only used for In/NotIn and AnyIn
+  keys?: string[]; // only used for AnyIn (OR logic across multiple keys)
 };
 
 // Match criteria for asset feed rules
@@ -78,19 +79,26 @@ export function labelsMatch(
   if (!exprs) return true;
 
   for (const e of exprs) {
-    const val = have[e.key];
     switch (e.op) {
       case 'Exists':
-        if (val === undefined) return false;
-        break;
       case 'DoesNotExist':
-        if (val !== undefined) return false;
-        break;
       case 'In':
-        if (!val || !e.values?.includes(val)) return false;
-        break;
       case 'NotIn':
-        if (val && e.values?.includes(val)) return false;
+        if (!e.key) return false;
+        const val = have[e.key];
+        if (e.op === 'Exists' && val === undefined) return false;
+        if (e.op === 'DoesNotExist' && val !== undefined) return false;
+        if (e.op === 'In' && (!val || !e.values?.includes(val))) return false;
+        if (e.op === 'NotIn' && val && e.values?.includes(val)) return false;
+        break;
+      case 'AnyIn':
+        if (!e.keys || !e.values) return false;
+        // Check if ANY of the keys has a value that's in the values array (OR logic)
+        const anyMatch = e.keys.some((key) => {
+          const keyVal = have[key];
+          return keyVal && e.values!.includes(keyVal);
+        });
+        if (!anyMatch) return false;
         break;
     }
   }
@@ -144,8 +152,8 @@ export type CoreFeedSelector =
   | {
       kind: 'univ3lp';
       nonfungiblepositionmanager: string;
-      token0: TokenSelector;
-      token1: TokenSelector;
+      tokenSelector: 'token0' | 'token1';
+      token: TokenSelector;
     };
 // | { kind: 'univ3lp'; nonfungiblepositionmanager: string; tokens: { address: string, tokenSelector: TokenSelector }[] };
 // ...

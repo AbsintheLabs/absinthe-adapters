@@ -98,29 +98,104 @@ const univ2Adapter = createUniv2Adapter(univ2TestConfig);
 //     }
 //   }
 // }
-export const sampleuniv3config: AssetFeedConfig = [
-  // univ3 pool address - matches the specific pool from user's request
+// export const sampleuniv3config: AssetFeedConfig = [
+//   // univ3 pool address - matches the specific pool from user's request
+//   {
+//     match: {
+//       matchLabels: {
+//         protocol: 'uniswap-v3',
+//         pool: '0x92787e904d925662272f3776b8a7f0b8f92f9bb5',
+//       },
+//     },
+//     config: {
+//       assetType: 'erc721',
+//       priceFeed: {
+//         kind: 'univ3lp',
+//         nonfungiblepositionmanager: '0xe43ca1Dee3F0fc1e2df73A0745674545F11A59F5',
+//         // factory: '0xCdBCd51a5E8728E0AF4895ce5771b7d17fF71959',
+//         token0: {
+//           assetType: 'erc20',
+//           priceFeed: {
+//             kind: 'coingecko',
+//             id: 'bitcoin',
+//           },
+//         },
+//         token1: {
+//           assetType: 'erc20',
+//           priceFeed: {
+//             kind: 'pegged',
+//             usdPegValue: 1,
+//           },
+//         },
+//       },
+//     },
+//   },
+// ];
+
+const idealConfig: AssetFeedConfig = [
+  // Example: Only token0 feed provided - derives token1 price from pool
+  // This matches any v3 pool that has WETH as either token0 OR token1
   {
     match: {
-      matchLabels: {
-        protocol: 'uniswap-v3',
-        pool: '0x92787e904d925662272f3776b8a7f0b8f92f9bb5',
-      },
+      matchExpressions: [
+        // Must be Uniswap V3 protocol
+        {
+          key: 'protocol',
+          op: 'In',
+          values: ['uniswap-v3'],
+        },
+        // Either token0 OR token1 must be WETH (OR logic)
+        {
+          op: 'In',
+          keys: ['token0'],
+          // xxx: make sure that these are lowercased if we're in evm land // bug!!!
+          values: ['0xad11a8beb98bbf61dbb1aa0f6d6f2ecd87b35afa'], // WETH address
+        },
+      ],
     },
     config: {
       assetType: 'erc721',
       priceFeed: {
         kind: 'univ3lp',
-        nonfungiblepositionmanager: '0xe43ca1Dee3F0fc1e2df73A0745674545F11A59F5',
-        // factory: '0xCdBCd51a5E8728E0AF4895ce5771b7d17fF71959',
-        token0: {
+        // bug: make sure that these are lowercased if we're in evm land
+        nonfungiblepositionmanager: '0xe43ca1dee3f0fc1e2df73a0745674545f11a59f5',
+        tokenSelector: 'token0',
+        token: {
           assetType: 'erc20',
           priceFeed: {
-            kind: 'coingecko',
-            id: 'bitcoin',
+            kind: 'pegged',
+            usdPegValue: 1,
           },
         },
-        token1: {
+      },
+    },
+  },
+  {
+    match: {
+      matchExpressions: [
+        // Must be Uniswap V3 protocol
+        {
+          key: 'protocol',
+          op: 'In',
+          values: ['uniswap-v3'],
+        },
+        // Either token0 OR token1 must be WETH (OR logic)
+        {
+          op: 'In',
+          keys: ['token1'],
+          // xxx: make sure that these are lowercased if we're in evm land // bug!!!
+          values: ['0xad11a8beb98bbf61dbb1aa0f6d6f2ecd87b35afa'], // WETH address
+        },
+      ],
+    },
+    config: {
+      assetType: 'erc721',
+      priceFeed: {
+        kind: 'univ3lp',
+        // bug: make sure that these are lowercased if we're in evm land
+        nonfungiblepositionmanager: '0xe43ca1dee3f0fc1e2df73a0745674545f11a59f5',
+        tokenSelector: 'token1',
+        token: {
           assetType: 'erc20',
           priceFeed: {
             kind: 'pegged',
@@ -133,4 +208,4 @@ export const sampleuniv3config: AssetFeedConfig = [
 ];
 
 // testing univ3
-new Engine(createUniv3Adapter(sampleuniv3config), new CsvSink('windows.csv'), appCfg).run();
+new Engine(createUniv3Adapter(idealConfig), new CsvSink('windows.csv'), appCfg).run();

@@ -51,6 +51,7 @@ export function createUniv3Adapter(feedConfig: AssetFeedConfig): Adapter {
         const poolAddress = log.address; // NOTE: since we are getting multiple events here, we get the address from the log
 
         // Queue repricing for this pool (will be executed after labels are set)
+
         queueRepriceForPool(poolAddress.toLowerCase());
         console.log(
           `Pool ${poolAddress.toLowerCase()} had a swap - queued repricing for batch end`,
@@ -93,7 +94,6 @@ export function createUniv3Adapter(feedConfig: AssetFeedConfig): Adapter {
           user: owner!,
           asset: assetKey,
         });
-        // WARN: just a test to make sure that the reprice is working
         await emit.reprice({ asset: assetKey });
       } else if (log.topics[0] === decreaseLiquidityTopic) {
         const { tokenId, liquidity, amount0, amount1 } =
@@ -119,7 +119,6 @@ export function createUniv3Adapter(feedConfig: AssetFeedConfig): Adapter {
           user: owner!,
           asset: assetKey,
         });
-        // WARN: just a test to make sure that the reprice is working
         await emit.reprice({ asset: assetKey });
       }
 
