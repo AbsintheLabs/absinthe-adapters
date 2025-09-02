@@ -25,6 +25,8 @@ export function createUniv3Adapter(feedConfig: AssetFeedConfig): Adapter {
   const labelPromises: Array<() => Promise<void>> = [];
   // Queue for deferred reprice operations (executed after labels are set)
   const repricePromises: Array<() => Promise<void>> = [];
+  // Queue for deferred individual asset reprice operations (executed after labels are set)
+  const assetRepricePromises: Array<{ asset: string; fn: () => Promise<void> }> = [];
 
   return {
     onLog: async (block, log, emit, rpcCtx, redis) => {
@@ -44,25 +46,50 @@ export function createUniv3Adapter(feedConfig: AssetFeedConfig): Adapter {
         });
       };
 
+      // Helper function to queue reprice operations for individual assets
+      const queueRepriceForAsset = (assetKey: string) => {
+        assetRepricePromises.push({
+          asset: assetKey,
+          fn: async () => {
+            console.log('Repricing asset: ', assetKey);
+            await emit.reprice({ asset: assetKey });
+          },
+        });
+      };
+
       // Handle change in ticks (Swap events)
       if (log.topics[0] === swapTopic) {
         const decoded = univ3poolAbi.events.Swap.decode(log);
         const { tick, sqrtPriceX96, liquidity, amount0, amount1, recipient, sender } = decoded;
         const poolAddress = log.address; // NOTE: since we are getting multiple events here, we get the address from the log
+        const poolAddressLower = poolAddress.toLowerCase();
 
-        // Queue repricing for this pool (will be executed after labels are set)
+        // Store the tick + sqrtPriceX96 in Redis for lookup later (without having to make rpc calls)
+        const blockHeight = block.header.height;
+        const poolPriceKey = `pool:${poolAddressLower}:price:${blockHeight}`;
 
-        queueRepriceForPool(poolAddress.toLowerCase());
+        await redis.hSet(poolPriceKey, {
+          tick: tick.toString(),
+          sqrtPriceX96: sqrtPriceX96.toString(),
+          blockHeight: blockHeight.toString(),
+          timestamp: Date.now().toString(),
+        });
+
+        // Also store a reference to clean up old entries later
+        const poolLatestPriceKey = `pool:${poolAddressLower}:latest_price`;
+        await redis.set(poolLatestPriceKey, blockHeight.toString());
+
         console.log(
-          `Pool ${poolAddress.toLowerCase()} had a swap - queued repricing for batch end`,
+          `Stored pool price data for ${poolAddressLower} at height ${blockHeight}: tick=${tick}, sqrtPriceX96=${sqrtPriceX96}`,
         );
 
-        // as an optimization, we can set the liquidity and sqrtPriceX96 in redis here rather than fetching from rpc
-        // needs to use the same key as the univ3 pricing handler
+        // Queue repricing for this pool (will be executed after labels are set)
+        queueRepriceForPool(poolAddressLower);
+        console.log(`Pool ${poolAddressLower} had a swap - queued repricing for batch end`);
 
         // Emit custom event for swap observation
         await emit.custom('univ3', 'swapObserved', {
-          pool: log.address.toLowerCase(),
+          pool: poolAddressLower,
           tick: parseInt(tick.toString()),
         });
       }
@@ -94,7 +121,8 @@ export function createUniv3Adapter(feedConfig: AssetFeedConfig): Adapter {
           user: owner!,
           asset: assetKey,
         });
-        await emit.reprice({ asset: assetKey });
+        // Queue reprice operation (will be executed after labels are set)
+        queueRepriceForAsset(assetKey);
       } else if (log.topics[0] === decreaseLiquidityTopic) {
         const { tokenId, liquidity, amount0, amount1 } =
           univ3positionsAbi.events.DecreaseLiquidity.decode(log);
@@ -119,7 +147,8 @@ export function createUniv3Adapter(feedConfig: AssetFeedConfig): Adapter {
           user: owner!,
           asset: assetKey,
         });
-        await emit.reprice({ asset: assetKey });
+        // Queue reprice operation (will be executed after labels are set)
+        queueRepriceForAsset(assetKey);
       }
 
       // Handle Transfer events (NFT LP token transfers)
@@ -219,7 +248,7 @@ export function createUniv3Adapter(feedConfig: AssetFeedConfig): Adapter {
         console.log(`🔄 Executing ${labelPromises.length} queued label operations`);
         try {
           // Execute all promises concurrently with concurrency limit
-          const BATCH_SIZE = 10; // Process in batches to avoid overwhelming Redis
+          const BATCH_SIZE = 75; // Process in batches to avoid overwhelming Redis
           for (let i = 0; i < labelPromises.length; i += BATCH_SIZE) {
             const batch = labelPromises.slice(i, i + BATCH_SIZE);
             await Promise.all(batch.map((fn) => fn()));
@@ -233,17 +262,34 @@ export function createUniv3Adapter(feedConfig: AssetFeedConfig): Adapter {
         }
       }
 
-      // Execute queued reprice operations (labels are now set, so reverse indexes are populated)
+      // Execute queued asset reprice operations (labels are now set)
+      if (assetRepricePromises.length > 0) {
+        console.log(`🔄 Executing ${assetRepricePromises.length} queued asset reprice operations`);
+        try {
+          // Execute asset reprice promises sequentially to avoid overwhelming
+          for (const assetReprice of assetRepricePromises) {
+            await assetReprice.fn();
+          }
+          console.log(`✅ Completed ${assetRepricePromises.length} asset reprice operations`);
+        } catch (error) {
+          console.error('❌ Error executing asset reprice operations:', error);
+        } finally {
+          // Clear the queue
+          assetRepricePromises.length = 0;
+        }
+      }
+
+      // Execute queued pool reprice operations (labels are now set, so reverse indexes are populated)
       if (repricePromises.length > 0) {
-        console.log(`🔄 Executing ${repricePromises.length} queued reprice operations`);
+        console.log(`🔄 Executing ${repricePromises.length} queued pool reprice operations`);
         try {
           // Execute reprice promises sequentially to avoid overwhelming
           for (const repriceFn of repricePromises) {
             await repriceFn();
           }
-          console.log(`✅ Completed ${repricePromises.length} reprice operations`);
+          console.log(`✅ Completed ${repricePromises.length} pool reprice operations`);
         } catch (error) {
-          console.error('❌ Error executing reprice operations:', error);
+          console.error('❌ Error executing pool reprice operations:', error);
         } finally {
           // Clear the queue
           repricePromises.length = 0;

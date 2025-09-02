@@ -135,6 +135,42 @@ const univ2Adapter = createUniv2Adapter(univ2TestConfig);
 const idealConfig: AssetFeedConfig = [
   // Example: Only token0 feed provided - derives token1 price from pool
   // This matches any v3 pool that has WETH as either token0 OR token1
+  // {
+  //   match: {
+  //     matchExpressions: [
+  //       // Must be Uniswap V3 protocol
+  //       {
+  //         key: 'protocol',
+  //         op: 'In',
+  //         values: ['uniswap-v3'],
+  //       },
+  //       // Either token0 OR token1 must be WETH (OR logic)
+  //       {
+  //         op: 'In',
+  //         key: 'token0',
+  //         // xxx: make sure that these are lowercased if we're in evm land // bug!!!
+  //         values: ['0xad11a8beb98bbf61dbb1aa0f6d6f2ecd87b35afa'],
+  //       },
+
+  //     ],
+  //   },
+  //   config: {
+  //     assetType: 'erc721',
+  //     priceFeed: {
+  //       kind: 'univ3lp',
+  //       // bug: make sure that these are lowercased if we're in evm land
+  //       nonfungiblepositionmanager: '0xe43ca1dee3f0fc1e2df73a0745674545f11a59f5',
+  //       tokenSelector: 'token0',
+  //       token: {
+  //         assetType: 'erc20',
+  //         priceFeed: {
+  //           kind: 'pegged',
+  //           usdPegValue: 1,
+  //         },
+  //       },
+  //     },
+  //   },
+  // },
   {
     match: {
       matchExpressions: [
@@ -144,47 +180,15 @@ const idealConfig: AssetFeedConfig = [
           op: 'In',
           values: ['uniswap-v3'],
         },
-        // Either token0 OR token1 must be WETH (OR logic)
+        // ----------for testing -----------
+        { key: 'token0', op: 'In', values: ['0x4200000000000000000000000000000000000006'] },
+        { key: 'tickUpper', op: 'In', values: ['887220'] },
+        // ----------for testing -----------
         {
+          key: 'token1',
           op: 'In',
-          keys: ['token0'],
           // xxx: make sure that these are lowercased if we're in evm land // bug!!!
-          values: ['0xad11a8beb98bbf61dbb1aa0f6d6f2ecd87b35afa'], // WETH address
-        },
-      ],
-    },
-    config: {
-      assetType: 'erc721',
-      priceFeed: {
-        kind: 'univ3lp',
-        // bug: make sure that these are lowercased if we're in evm land
-        nonfungiblepositionmanager: '0xe43ca1dee3f0fc1e2df73a0745674545f11a59f5',
-        tokenSelector: 'token0',
-        token: {
-          assetType: 'erc20',
-          priceFeed: {
-            kind: 'pegged',
-            usdPegValue: 1,
-          },
-        },
-      },
-    },
-  },
-  {
-    match: {
-      matchExpressions: [
-        // Must be Uniswap V3 protocol
-        {
-          key: 'protocol',
-          op: 'In',
-          values: ['uniswap-v3'],
-        },
-        // Either token0 OR token1 must be WETH (OR logic)
-        {
-          op: 'In',
-          keys: ['token1'],
-          // xxx: make sure that these are lowercased if we're in evm land // bug!!!
-          values: ['0xad11a8beb98bbf61dbb1aa0f6d6f2ecd87b35afa'], // WETH address
+          values: ['0xad11a8beb98bbf61dbb1aa0f6d6f2ecd87b35afa'],
         },
       ],
     },

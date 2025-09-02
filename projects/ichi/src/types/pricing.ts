@@ -21,12 +21,21 @@ export type AssetType = 'erc20' | 'spl' | 'erc721';
 // ----------------------------------------------------------
 
 // Kubernetes-style label selector expressions
-export type LabelExpr = {
-  key?: string; // optional for AnyIn operation
-  op: 'In' | 'NotIn' | 'Exists' | 'DoesNotExist' | 'AnyIn';
-  values?: string[]; // only used for In/NotIn and AnyIn
-  keys?: string[]; // only used for AnyIn (OR logic across multiple keys)
-};
+export type LabelExpr =
+  | {
+      op: 'In' | 'NotIn';
+      key: string;
+      values: string[];
+    }
+  | {
+      op: 'Exists' | 'DoesNotExist';
+      key: string;
+    }
+  | {
+      op: 'AnyIn';
+      keys: string[];
+      values: string[];
+    };
 
 // Match criteria for asset feed rules
 export type AssetMatch = {
@@ -82,21 +91,21 @@ export function labelsMatch(
     switch (e.op) {
       case 'Exists':
       case 'DoesNotExist':
-      case 'In':
-      case 'NotIn':
-        if (!e.key) return false;
         const val = have[e.key];
         if (e.op === 'Exists' && val === undefined) return false;
         if (e.op === 'DoesNotExist' && val !== undefined) return false;
-        if (e.op === 'In' && (!val || !e.values?.includes(val))) return false;
-        if (e.op === 'NotIn' && val && e.values?.includes(val)) return false;
+        break;
+      case 'In':
+      case 'NotIn':
+        const inVal = have[e.key];
+        if (e.op === 'In' && (!inVal || !e.values.includes(inVal))) return false;
+        if (e.op === 'NotIn' && inVal && e.values.includes(inVal)) return false;
         break;
       case 'AnyIn':
-        if (!e.keys || !e.values) return false;
         // Check if ANY of the keys has a value that's in the values array (OR logic)
         const anyMatch = e.keys.some((key) => {
           const keyVal = have[key];
-          return keyVal && e.values!.includes(keyVal);
+          return keyVal && e.values.includes(keyVal);
         });
         if (!anyMatch) return false;
         break;

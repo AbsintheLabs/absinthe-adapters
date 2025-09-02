@@ -14,6 +14,7 @@ const UNIV3_LP_HANDLER = 'univ3lp';
 
 // ---------- math helpers (Q64.96) ----------
 const Q96 = Big(2).pow(96);
+const Q192 = Q96.pow(2); // 2^192
 
 function tickToSqrtPriceX96(tick: number): Big {
   // sqrtPriceX96 = 2^96 * sqrt(1.0001^tick)
@@ -22,6 +23,14 @@ function tickToSqrtPriceX96(tick: number): Big {
   // Big.js approximation for now - replace with TickMath constants for production
   const pow = Big(Math.pow(1.0001, tick));
   return pow.sqrt().times(Q96);
+}
+
+// token1 per token0 (i.e., price of token0 in token1 units)
+function priceToken0InToken1(sqrtPriceX96: Big, d0: number, d1: number): Big {
+  const Q192 = Big(2).pow(192);
+  const pRaw = sqrtPriceX96.pow(2).div(Q192); // (sqrt/2^96)^2
+  const scale = Big(10).pow(d0 - d1); // NOTE: d0 - d1 (not d1 - d0)
+  return pRaw.times(scale);
 }
 
 function amountsFromLiquidity(
@@ -65,27 +74,36 @@ function parseAssetKey(assetKey: string) {
   return { pm, tokenId };
 }
 
+async function getErc20Decimals(ctx: any, addr: string): Promise<number> {
+  const cached = await ctx.metadataCache.get(addr);
+  if (cached?.decimals != null) return Number(cached.decimals);
+  const c = new erc20Abi.Contract(ctx.sqdRpcCtx, addr);
+  const dec = Number((await c.decimals()).toString());
+  await ctx.metadataCache.set(addr, { decimals: dec });
+  return dec;
+}
+
 // ---------- Main handler ----------
 export const univ3lpFactory: HandlerFactory<'univ3lp'> = (resolve) => async (args) => {
   const { assetConfig, ctx } = args;
-      const {
-        token: tokenFeed,
-        nonfungiblepositionmanager,
-        tokenSelector, // either 'token0' or 'token1'
-        kind,
-    } = assetConfig.priceFeed;
+  const {
+    token: tokenFeed,
+    nonfungiblepositionmanager,
+    tokenSelector, // either 'token0' or 'token1'
+    kind,
+  } = assetConfig.priceFeed;
 
-    if (!tokenFeed || (tokenSelector !== 'token0' && tokenSelector !== 'token1')) {
-        log.error('🔍 UNIV3LP: token feed and tokenSelector are required');
-        return 0;
-    }
+  if (!tokenFeed || (tokenSelector !== 'token0' && tokenSelector !== 'token1')) {
+    log.error('🔍 UNIV3LP: token feed and tokenSelector are required');
+    return 0;
+  }
 
-    log.debug('🔍 UNIV3LP: Starting handler for asset:', ctx.asset);
-    log.debug('🔍 UNIV3LP: Config:', {
-        nonfungiblepositionmanager,
-        tokenFeed: !!tokenFeed,
-        tokenSelector,
-    });
+  log.debug('🔍 UNIV3LP: Starting handler for asset:', ctx.asset);
+  log.debug('🔍 UNIV3LP: Config:', {
+    nonfungiblepositionmanager,
+    tokenFeed: !!tokenFeed,
+    tokenSelector,
+  });
 
   // Parse asset key to get position manager and tokenId
   const { pm, tokenId } = parseAssetKey(ctx.asset);
@@ -118,12 +136,12 @@ export const univ3lpFactory: HandlerFactory<'univ3lp'> = (resolve) => async (arg
   if (labels && labels.pool && labels.token0 && labels.token1) {
     // Use labels data - this is much more efficient and avoids contract calls
     positionMetadata = {
-      token0: labels.token0,
-      token1: labels.token1,
+      token0: String(labels.token0).toLowerCase(),
+      token1: String(labels.token1).toLowerCase(),
       fee: Number(labels.fee),
       tickLower: Number(labels.tickLower),
       tickUpper: Number(labels.tickUpper),
-      pool: labels.pool,
+      pool: String(labels.pool).toLowerCase(),
     };
     log.debug(`🔍 UNIV3LP: Using cached labels for position ${ctx.asset}:`, {
       pool: labels.pool,
@@ -223,17 +241,37 @@ export const univ3lpFactory: HandlerFactory<'univ3lp'> = (resolve) => async (arg
     return 0;
   }
 
-  // 3) Read pool price state (slot0)
-  log.debug('🔍 UNIV3LP: Reading pool price state (slot0)');
+  // 3) Read pool price state (slot0) - try Redis first, fallback to contract
+  log.debug('🔍 UNIV3LP: Reading pool price state');
+  let sqrtPriceX96: Big;
+  let tick: number;
+
   try {
-    const poolContract = new univ3poolAbi.Contract(ctx.sqdRpcCtx, pool);
-    log.debug('🔍 UNIV3LP: Calling poolContract.slot0()');
-    const slot0 = await poolContract.slot0();
-    log.debug('🔍 UNIV3LP: Slot0 received:', {
-      tick: slot0.tick,
-      sqrtPriceX96: slot0.sqrtPriceX96.toString(),
-    });
-    const sqrtPriceX96 = new Big(slot0.sqrtPriceX96.toString());
+    // First try to get from Redis (stored during swap events)
+    const poolPriceKey = `pool:${pool}:price:${ctx.block.header.height}`;
+    const cachedPriceData = await ctx.redis.hGetAll(poolPriceKey);
+
+    if (cachedPriceData && cachedPriceData.sqrtPriceX96 && cachedPriceData.tick) {
+      // Use cached data from Redis
+      sqrtPriceX96 = new Big(cachedPriceData.sqrtPriceX96);
+      tick = Number(cachedPriceData.tick);
+      log.debug('🔍 UNIV3LP: Using cached price data from Redis:', {
+        tick,
+        sqrtPriceX96: sqrtPriceX96.toString(),
+        blockHeight: ctx.block.header.height,
+      });
+    } else {
+      // Fallback to contract call
+      log.debug('🔍 UNIV3LP: No cached price data found, calling poolContract.slot0()');
+      const poolContract = new univ3poolAbi.Contract(ctx.sqdRpcCtx, pool);
+      const slot0 = await poolContract.slot0();
+      log.debug('🔍 UNIV3LP: Slot0 received from contract:', {
+        tick: slot0.tick,
+        sqrtPriceX96: slot0.sqrtPriceX96.toString(),
+      });
+      sqrtPriceX96 = new Big(slot0.sqrtPriceX96.toString());
+      tick = Number(slot0.tick);
+    }
 
     // 4) Convert ticks → sqrt bounds, then L → token amounts
     log.debug('🔍 UNIV3LP: Converting ticks to sqrt prices');
@@ -253,55 +291,56 @@ export const univ3lpFactory: HandlerFactory<'univ3lp'> = (resolve) => async (arg
       amount1: amount1.toString(),
     });
 
-    // 5) Recurse to USD using existing engine
-    log.debug('🔍 UNIV3LP: Resolving token0 price');
-    const token0Resolved = await resolve(token0Feed, token0, ctx);
-    log.debug('🔍 UNIV3LP: Token0 resolved:', { price: token0Resolved.price });
-
-    log.debug('🔍 UNIV3LP: Resolving token1 price');
-    const token1Resolved = await resolve(token1Feed, token1, ctx);
-    log.debug('🔍 UNIV3LP: Token1 resolved:', { price: token1Resolved.price });
-
-    // Get token decimals
-    log.debug('🔍 UNIV3LP: Getting token metadata');
-    const token0Metadata = await ctx.metadataCache.get(token0);
-    const token1Metadata = await ctx.metadataCache.get(token1);
-
-    let d0, d1;
-    if (!token0Metadata) {
-      log.error(`🔍 UNIV3LP: Token ${token0} not found in metadata cache`);
-      const erc20Contract = new erc20Abi.Contract(ctx.sqdRpcCtx, token0);
-      const token0d = await erc20Contract.decimals();
-      d0 = Number(token0d.toString());
-      await ctx.metadataCache.set(token0, { decimals: d0 });
-    }
-    if (!token1Metadata) {
-      log.error(`🔍 UNIV3LP: Token ${token1} not found in metadata cache`);
-      const erc20Contract = new erc20Abi.Contract(ctx.sqdRpcCtx, token1);
-      const token1d = await erc20Contract.decimals();
-      d1 = Number(token1d.toString());
-      await ctx.metadataCache.set(token1, { decimals: d1 });
-    }
-    assert(d0 !== undefined, 'Token0 decimals are undefined');
-    assert(d1 !== undefined, 'Token1 decimals are undefined');
-
+    // 5) Get token decimals
+    log.debug('🔍 UNIV3LP: Getting token decimals');
+    const d0 = await getErc20Decimals(ctx, token0);
+    const d1 = await getErc20Decimals(ctx, token1);
     log.debug('🔍 UNIV3LP: Token decimals:', { token0: d0, token1: d1 });
 
-    // 6) Compose USD value
-    const amount0Decimal = amount0.div(Big(10).pow(d0)).toNumber();
-    const amount1Decimal = amount1.div(Big(10).pow(d1)).toNumber();
-    const valueUsd = amount0Decimal * token0Resolved.price + amount1Decimal * token1Resolved.price;
+    // 6) Resolve the single known token price
+    const knownIs0 = tokenSelector === 'token0';
+    const knownTokenAddr = knownIs0 ? token0 : token1;
+    log.debug('🔍 UNIV3LP: Resolving known token price', { knownTokenAddr, knownIs0 });
+    const knownResolved = await resolve(tokenFeed, knownTokenAddr, ctx);
+    log.debug('🔍 UNIV3LP: Known token resolved:', { price: knownResolved.price });
 
-    log.debug('🔍 UNIV3LP: Final calculation:', {
-      amount0Decimal,
-      amount1Decimal,
-      token0Price: token0Resolved.price,
-      token1Price: token1Resolved.price,
-      valueUsd,
+    if (!knownResolved || knownResolved.price == null || !(knownResolved.price > 0)) {
+      log.error('🔍 UNIV3LP: Failed to resolve known token price');
+      return 0;
+    }
+
+    // 7) Derive the missing token price from sqrtPriceX96
+    const P01 = priceToken0InToken1(sqrtPriceX96, d0, d1); // token1 per token0
+    let p0usd: Big, p1usd: Big;
+    if (knownIs0) {
+      p0usd = Big(knownResolved.price);
+      p1usd = p0usd.div(P01); // USD1 = USD0 / (token1 per token0)
+    } else {
+      p1usd = Big(knownResolved.price);
+      p0usd = p1usd.times(P01); // USD0 = USD1 * (token1 per token0)
+    }
+
+    log.debug('🔍 UNIV3LP: Derived prices:', {
+      p0usd: p0usd.toString(),
+      p1usd: p1usd.toString(),
+      P01: P01.toString(),
     });
 
-    log.debug('🔍 UNIV3LP: Handler completed successfully, returning:', valueUsd);
-    return valueUsd;
+    // 8) Compose USD value
+    const amount0Decimal = amount0.div(Big(10).pow(d0));
+    const amount1Decimal = amount1.div(Big(10).pow(d1));
+    const valueUsd = amount0Decimal.times(p0usd).plus(amount1Decimal.times(p1usd));
+
+    log.debug('🔍 UNIV3LP: Final calculation:', {
+      amount0Decimal: amount0Decimal.toString(),
+      amount1Decimal: amount1Decimal.toString(),
+      p0usd: p0usd.toString(),
+      p1usd: p1usd.toString(),
+      valueUsd: valueUsd.toString(),
+    });
+
+    log.debug('🔍 UNIV3LP: Handler completed successfully, returning:', valueUsd.toNumber());
+    return valueUsd.toNumber();
   } catch (error) {
     log.error(`🔍 UNIV3LP: Failed to price position ${ctx.asset}:`, error);
     log.debug('🔍 UNIV3LP: Handler failed, returning 0');
