@@ -43,4 +43,42 @@ export class RedisHandlerMetadataCache implements HandlerMetadataCache {
       await this.redis.del(keys);
     }
   }
+
+  // Measure-specific methods
+  async getMeasureAtHeight(asset: string, metric: string, height: number): Promise<string | null> {
+    const baseKey = `meas:${asset}:${metric}`;
+
+    // Start from initial state (0)
+    let amt = BigInt(0);
+
+    // Get all deltas up to the target height
+    const deltas = await this.redis.zRangeByScore(`${baseKey}:d`, 0, height);
+
+    // Apply all deltas in order
+    for (const delta of deltas) {
+      amt += BigInt(delta);
+    }
+
+    return amt.toString();
+  }
+
+  async getMeasureNearestSnapshot(
+    asset: string,
+    metric: string,
+    height: number,
+  ): Promise<{ value: string; height: number } | null> {
+    const baseKey = `meas:${asset}:${metric}`;
+
+    // For now, just return the current state as the "snapshot"
+    // TODO: Implement proper snapshot mechanism if needed
+    const amount = await this.redis.hGet(baseKey, 'amount');
+    const updatedHeight = await this.redis.hGet(baseKey, 'updatedHeight');
+
+    if (!amount || !updatedHeight) return null;
+
+    return {
+      value: amount,
+      height: Number(updatedHeight),
+    };
+  }
 }

@@ -1,0 +1,26 @@
+{
+  "$schema": "./src/config/absconfig.json",
+  "kind": "evm",
+  "indexerId": "univ3-hemi-indexer",
+  "flushMs": 21600000,
+  "network": {
+    "chainId": 43111,
+    "gatewayUrl": "https://v2.archive.subsquid.io/network/hemi-mainnet",
+    "rpcUrl": "https://rpc.hemi.network/rpc"
+  },
+  "range": {
+    "fromBlock": 507584,
+    "toBlock": 1400000
+  },
+  "subscriptions": {
+    "logs": [
+      {
+        "addresses": [
+          "0x92787e904D925662272F3776b8a7f0b8F92F9BB5",
+          "0xe43ca1Dee3F0fc1e2df73A0745674545F11A59F5"
+        ]
+      }
+    ],
+    "functionCalls": []
+  }
+}

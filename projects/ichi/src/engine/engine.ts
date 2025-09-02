@@ -11,15 +11,24 @@ import { PricingEngine } from './pricing-engine';
 import { AppConfig } from '../config/schema';
 import { loadConfig } from '../config/load';
 import { buildProcessor } from '../eprocessorBuilder';
-import { Adapter, LogEmitFunctions, TransactionEmitFunctions } from '../types/adapter';
+import {
+  Adapter,
+  LogEmitFunctions,
+  TransactionEmitFunctions,
+  Projector,
+  ProjectorContext,
+} from '../types/adapter';
 import {
   IndexerMode,
   BalanceDelta,
+  OwnershipTransfer,
   PositionToggle,
+  MeasureDelta,
   OnChainEvent,
   OnChainTransaction,
+  Reprice,
 } from '../types/core';
-import { AssetConfig, ResolveContext } from '../types/pricing';
+import { AssetConfig, ResolveContext, findConfig, AssetFeedRule } from '../types/pricing';
 import {
   EnrichmentContext,
   RawBalanceWindow,
@@ -27,7 +36,7 @@ import {
   PricedBalanceWindow,
   PricedEvent,
 } from '../types/enrichment';
-import { toBlock, Block, Log, Transaction } from '../processor';
+import { Block, Log, Transaction } from '../processor';
 import {
   buildEvents,
   buildTimeWeightedBalanceEvents,
@@ -57,6 +66,9 @@ export class Engine {
   protected redis: RedisClientType;
   protected windows: RawBalanceWindow[] = [];
   private events: RawEvent[] = [];
+
+  // Projectors for custom event processing
+  private projectors: Map<string, Projector> = new Map();
 
   // Enriched data ready to be sent to sink
   private enrichedEvents: PricedEvent[] = [];
@@ -97,22 +109,23 @@ export class Engine {
     // don't need tables since we're relying on redis for persistence
     this.db = new Database({ tables: {}, dest: new LocalDest(statePath) });
 
-    // 4) Adapter + feedConfig normalization (lowercase keys)
-    const normalizedFeedConfig: Record<string, AssetConfig> = {};
-    if (adapter.feedConfig) {
-      for (const [asset, cfg] of Object.entries(adapter.feedConfig)) {
-        normalizedFeedConfig[asset.toLowerCase()] = cfg;
-      }
-    }
+    // 4) Adapter + feedConfig normalization (keep as AssetFeedRule[] for rule matching)
+    let normalizedFeedConfig = adapter.feedConfig || [];
 
     // allow overrides from env JSON if provided
     if (this.appCfg.feedConfigJson && this.appCfg.kind === 'evm') {
-      const fromEnv = JSON.parse(this.appCfg.feedConfigJson) as Record<string, AssetConfig>;
-      for (const [asset, cfg] of Object.entries(fromEnv)) {
-        normalizedFeedConfig[asset.toLowerCase()] = cfg;
-      }
+      const fromEnv = JSON.parse(this.appCfg.feedConfigJson) as AssetFeedRule[];
+      // Merge env rules with adapter rules (env rules take precedence)
+      normalizedFeedConfig = [...fromEnv, ...normalizedFeedConfig];
     }
     this.adapter = { ...adapter, feedConfig: normalizedFeedConfig };
+
+    // 4.5) Register projectors
+    if (this.adapter.projectors) {
+      for (const projector of this.adapter.projectors) {
+        this.projectors.set(projector.namespace, projector);
+      }
+    }
 
     // 5) Infra
     // fixme: make this more robust (don't depend on the passed in indexer id)
@@ -168,6 +181,9 @@ export class Engine {
 
     // main loop
     this.sqdProcessor.run(this.db, async (ctx: any) => {
+      log.debug(`🏁 START BATCH. Blocks: ${ctx.blocks.length}.`);
+      log.debug(`Starting block: ${ctx.blocks[0].header.height}.`);
+      log.debug(`Ending block: ${ctx.blocks[ctx.blocks.length - 1].header.height}.`);
       this.ctx = ctx;
 
       // XXX: this will change when we add solana support (will it always be blocks, logs, transactions?)
@@ -184,6 +200,7 @@ export class Engine {
         }
       }
 
+      await this.adapter.onBatchEnd?.(this.redis);
       // we only need to get the timestamp at the end of the batch, rather than every single block
       const lastBlock = ctx.blocks[ctx.blocks.length - 1];
       // fixme: ensure that this checks if the toBlock is set.
@@ -197,6 +214,7 @@ export class Engine {
   }
 
   async backfillPriceDataForBatch(blocks: any[]) {
+    log.debug(`💰 Backfilling price data for batch of ${blocks.length} blocks`);
     // 1) dedupe to the first block per window
     const windowToFirstBlock = new Map<number, any>();
     for (const block of blocks) {
@@ -213,6 +231,8 @@ export class Engine {
       asset,
       birth: Number(h) || 0,
     }));
+
+    log.debug(`💰 Collected ${assets.length} assets to backfill`);
 
     // 3) build tasks
     type Task = { block: any; ts: number; asset: string };
@@ -244,18 +264,36 @@ export class Engine {
     await Promise.all(Array.from({ length: Math.min(MAX_CONCURRENCY, tasks.length) }, worker));
   }
 
-  async priceAsset(asset: string, atMs: number, block: any): Promise<number> {
-    const assetConfig = this.adapter.feedConfig?.[asset];
-    // if (!assetConfig) throw new Error(`No feed config found for asset: ${asset}`);
+  async priceAsset(
+    asset: string,
+    atMs: number,
+    block: any,
+    bypassTopLevelCache: boolean = false,
+  ): Promise<number> {
+    // Get labels from Redis for rule matching
+    const labelsKey = `asset:labels:${asset}`;
+    const labels = await this.redis.hGetAll(labelsKey);
+
+    // Use rule-based matching to find the appropriate config for this asset
+    const assetConfig = findConfig(
+      this.adapter.feedConfig || [],
+      asset,
+      (assetKey: string) => labels,
+    );
+
     // xxx: figure out what to do when the asset is not found
     // or do we return price as 0 and then filter out 0 rows during the enrichment step?
     // probably this to start, and then figure out a better system later
-    if (!assetConfig) return 0;
+    if (!assetConfig) {
+      log.error(`💰 No feed config found for asset: ${asset}`);
+      return 0;
+    }
 
     const ctx: ResolveContext = {
       priceCache: this.priceCache,
       metadataCache: this.metadataCache,
       handlerMetadataCache: this.handlerMetadataCache,
+      redis: this.redis,
       atMs,
       block,
       asset,
@@ -267,7 +305,12 @@ export class Engine {
           height: block.header.height,
         },
       },
+      bypassTopLevelCache,
     };
+
+    if (bypassTopLevelCache) {
+      log.debug('ctx when bypassing top level cache: ', ctx);
+    }
 
     return await this.pricingEngine.priceAsset(assetConfig, ctx);
   }
@@ -287,7 +330,7 @@ export class Engine {
       enrichWithRunnerInfo,
       enrichBaseEventMetadata,
       buildEvents,
-      filterOutZeroValueEvents,
+      // filterOutZeroValueEvents,
     )(this.events, enrichCtx);
 
     // Store enriched events for later sending to sink
@@ -296,7 +339,10 @@ export class Engine {
   }
 
   private async enrichWindows(ctx: any): Promise<PricedBalanceWindow[]> {
-    if (this.windows.length === 0) return [];
+    if (this.windows.length === 0) {
+      log.debug('⚠️ NO WINDOWS TO ENRICH');
+      return [];
+    }
     const enrichCtx: EnrichmentContext = {
       priceCache: this.priceCache,
       metadataCache: this.metadataCache,
@@ -304,14 +350,18 @@ export class Engine {
       redis: this.redis,
     };
 
+    log.debug(`about to enrich windows: ${this.windows.length}`);
+
     const enrichedWindows = await pipeline<PricedBalanceWindow>(
       enrichWithCommonBaseEventFields,
       enrichWithRunnerInfo,
       enrichBaseEventMetadata,
       buildTimeWeightedBalanceEvents,
       enrichWithPrice,
-      filterOutZeroValueEvents,
+      // filterOutZeroValueEvents,
     )(this.windows, enrichCtx);
+
+    log.debug(`enriched windows count: ${enrichedWindows.length}`);
 
     // Store enriched windows for later sending to sink
     this.enrichedWindows = enrichedWindows;
@@ -354,10 +404,28 @@ export class Engine {
           height: block.header.height,
           txHash: log.transactionHash,
         }),
-      positionToggle: (e: PositionToggle) => {
-        /* todo: implement me */
+      reprice: (e: Reprice) => {
+        return this.applyReprice(e, {
+          ts: block.header.timestamp,
+          height: block.header.height,
+          txHash: log.transactionHash,
+          block: block,
+        });
+      },
+      ownershipTransfer: (e: OwnershipTransfer) => {
+        /* todo: implement ownership transfer handling */
         return Promise.resolve();
       },
+      positionToggle: (e: PositionToggle) => {
+        /* todo: implement position toggle handling */
+        return Promise.resolve();
+      },
+      measureDelta: (e: MeasureDelta) =>
+        this.applyMeasureDelta(e, {
+          ts: block.header.timestamp,
+          height: block.header.height,
+          txHash: log.transactionHash,
+        }),
       event: (e: OnChainEvent) =>
         // XXX: apply event needs to work for both transaction and for log events
         // XXX: typing needs to be fixed here!!!
@@ -367,8 +435,31 @@ export class Engine {
           txHash: log.transactionHash,
           blockHash: block.header.hash,
         }),
+      custom: async (namespace: string, type: string, payload: any) => {
+        const projector = this.projectors.get(namespace);
+        if (projector) {
+          const ctx: ProjectorContext = {
+            redis: this.redis,
+            emit: emit,
+            block: block,
+            log: log,
+          };
+          await projector.onCustom(type, payload, ctx);
+        }
+      },
     };
-    await this.adapter.onLog?.(block, log, emit);
+    await this.adapter.onLog?.(
+      block,
+      log,
+      emit,
+      {
+        _chain: this.ctx._chain,
+        block: {
+          height: block.header.height,
+        },
+      },
+      this.redis,
+    );
   }
 
   protected async sqdBatchEnd(ctx: any) {
@@ -479,6 +570,56 @@ export class Engine {
     ]);
   }
 
+  protected async applyMeasureDelta(e: MeasureDelta, blockData: any): Promise<void> {
+    const ts = blockData.ts;
+    const height = blockData.height;
+
+    // data cleaning:
+    if (this.indexerMode === 'evm') {
+      e.asset = e.asset.toLowerCase();
+    }
+
+    const key = `meas:${e.asset}:${e.metric}`;
+
+    // Load current state
+    // fixme: remove the extra variables that we don't need anymore
+    const [amountStr, updatedTsStr, updatedHeightStr, updatedTxHashStr] = await this.redis.hmGet(
+      key,
+      ['amount', 'updatedTs', 'updatedHeight', 'updatedTxHash'],
+    );
+
+    const oldAmt = new Big(amountStr || '0');
+    const newAmt = oldAmt.plus(e.delta);
+    const oldTs = updatedTsStr ? Number(updatedTsStr) : ts;
+    const oldHeight = updatedHeightStr ? Number(updatedHeightStr) : height;
+    const prevTxHash = updatedTxHashStr || null;
+
+    // Store the delta for historical reconstruction
+    await this.redis.zAdd(`${key}:d`, {
+      score: height,
+      value: e.delta.toString(),
+    });
+
+    await Promise.all([
+      this.redis.hSet(key, {
+        amount: newAmt.toString(),
+        updatedTs: String(ts),
+        updatedHeight: String(height),
+      }),
+      newAmt.gt(0) ? this.redis.sAdd('meas:active', key) : this.redis.sRem('meas:active', key),
+      // Track asset-metric combinations for backfilling
+      this.redis.hSetNX('meas:tracked', `${e.asset}:${e.metric}`, height.toString()),
+    ]);
+  }
+
+  private async applyReprice(e: Reprice, blockData: any): Promise<void> {
+    const ts = blockData.ts;
+    log.debug('applyReprice: ', e.asset, ts, blockData);
+
+    // We want to bypass the top level cache here as we're repricing!
+    await this.priceAsset(e.asset, ts, blockData.block, true);
+  }
+
   // behavior:
   // If we're backfilling (finalBlock is set and height < finalBlock): skip flushing for speed.
   // When we reach finalBlock: flush everything INCLUDING the last partial window.
@@ -486,8 +627,8 @@ export class Engine {
   private async flushPeriodic(nowMs: number, height: number) {
     const w = this.appCfg.flushMs;
 
-    // xxx: wire this dynamically from the processor when we pass in env variables via class
-    const finalBlock: number | null = toBlock;
+    if (this.appCfg.kind !== 'evm') return; // todo: currently only evm is supported
+    const finalBlock: number | null = this.appCfg.range.toBlock ?? null;
     const reachedFinal = finalBlock != null && height === finalBlock;
     const backfilling = finalBlock != null && height < finalBlock;
 
@@ -537,7 +678,21 @@ export class Engine {
       if (amt.lte(0)) return; // only flush active balances
 
       const key = activeKeys[i]!;
-      const [_, asset, user] = key.split(':'); // 'bal:{asset}:{user}'
+      // Parse the Redis key format: 'bal:{asset}:{user}'
+      // The asset can contain colons (e.g., 'erc721:0x...:tokenId'), so we need to extract it properly
+      const parts = key.split(':');
+      if (parts[0] !== 'bal') {
+        log.error(`Invalid Redis key format: ${key}`);
+        return;
+      }
+
+      // The user is always the last part
+      const user = parts[parts.length - 1];
+
+      // The asset is everything between 'bal:' and ':{user}'
+      // Find the user part and extract everything before it
+      const userIndex = key.lastIndexOf(`:${user}`);
+      const asset = key.substring(4, userIndex); // Skip 'bal:' prefix
       const lastUpdatedTs = Number(updatedTsStr || 0);
       const prevTxHash = txHashStr || null;
 

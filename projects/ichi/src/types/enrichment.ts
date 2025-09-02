@@ -21,10 +21,26 @@ export interface RawBalanceWindow {
   endTs: number;
   startBlockNumber: number;
   endBlockNumber: number;
-  trigger: 'BALANCE_CHANGE' | 'EXHAUSTED' | 'FINAL';
+  trigger: 'BALANCE_CHANGE' | 'EXHAUSTED' | 'FINAL' | 'MEASURE_CHANGE';
   balanceBefore?: string;
   balanceAfter?: string;
   balance?: string;
+  prevTxHash?: string | null;
+  txHash?: string | null;
+}
+
+export interface RawMeasureWindow {
+  user: string;
+  asset: string;
+  metric: string;
+  startTs: number;
+  endTs: number;
+  startBlockNumber: number;
+  endBlockNumber: number;
+  trigger: 'MEASURE_CHANGE' | 'EXHAUSTED' | 'FINAL';
+  measureBefore?: string;
+  measureAfter?: string;
+  measure?: string;
   prevTxHash?: string | null;
   txHash?: string | null;
 }
@@ -67,6 +83,7 @@ export type Enricher<TInput = any, TOutput = any> = (
 ) => Promise<TOutput[]>;
 
 export type WindowEnricher = Enricher<RawBalanceWindow, any>;
+export type MeasureWindowEnricher = Enricher<RawMeasureWindow, any>;
 export type EventEnricher = Enricher<RawEvent, any>;
 
 // ------------------------------------------------------------
@@ -114,6 +131,34 @@ export interface EnrichedBalanceWindow extends BaseEnrichedFields {
   endReadable: string;
 }
 
+export interface EnrichedMeasureWindow extends BaseEnrichedFields {
+  // Raw fields
+  user: string;
+  asset: string;
+  metric: string;
+  startTs: number;
+  endTs: number;
+  startBlockNumber: number;
+  endBlockNumber: number;
+  trigger: 'MEASURE_CHANGE' | 'EXHAUSTED' | 'FINAL';
+  measureBefore?: string;
+  measureAfter?: string;
+  measure?: string;
+  prevTxHash?: string | null;
+  txHash?: string | null;
+
+  // Enriched fields
+  eventType: MessageType.TIME_WEIGHTED_BALANCE; // TODO: Use TIME_WEIGHTED_MEASURE when available
+  timeWindowTrigger: TimeWindowTrigger;
+  startUnixTimestampMs: number;
+  endUnixTimestampMs: number;
+  windowDurationMs: number;
+
+  // Debug fields
+  startReadable: string;
+  endReadable: string;
+}
+
 export interface EnrichedEvent extends BaseEnrichedFields {
   // Raw fields
   user: string;
@@ -147,6 +192,11 @@ export interface PricedBalanceWindow extends EnrichedBalanceWindow {
   totalPosition: number | null;
 }
 
+export interface PricedMeasureWindow extends EnrichedMeasureWindow {
+  valueUsd: number | null;
+  totalPosition: number | null;
+}
+
 export interface PricedEvent extends EnrichedEvent {
   displayAmount?: number;
   gasFeeUsd?: number;
@@ -162,4 +212,5 @@ export type EnrichmentPipeline<TInput, TOutput> = (
 ) => (items: TInput[], context: EnrichmentContext) => Promise<TOutput[]>;
 
 export type WindowPipeline = EnrichmentPipeline<RawBalanceWindow, PricedBalanceWindow>;
+export type MeasureWindowPipeline = EnrichmentPipeline<RawMeasureWindow, PricedMeasureWindow>;
 export type EventPipeline = EnrichmentPipeline<RawEvent, PricedEvent>;

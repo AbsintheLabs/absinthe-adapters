@@ -16,8 +16,29 @@ export type BalanceDelta = {
   meta?: Record<string, MetadataValue>;
 };
 
+export type OwnershipTransfer = {
+  // oldOwner: string;
+  newOwner: string;
+  asset: string;
+};
+
 export type PositionToggle = {
-  // implement me!
+  asset: string;
+  active: boolean;
+  // optional metadata for additional context
+  meta?: Record<string, MetadataValue>;
+};
+
+export type MeasureDelta = {
+  asset: string; // e.g., "erc721:<PM>:<tokenId>"
+  metric: string; // "liquidity" | "debt" | "shares" | ...
+  delta: Big; // bigint or decimal string
+  // optional for direct attribution; can be resolved later
+  user?: string;
+};
+
+export type Reprice = {
+  asset: string;
 };
 
 export type OnChainEvent = {

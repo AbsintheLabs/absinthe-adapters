@@ -2,10 +2,15 @@
 
 import { Engine } from './engine';
 import { CsvSink } from './esink';
-import { createIchiAdapter } from './adapters';
-import { createUniv2Adapter } from './adapters/univ2';
 import { defaultFeedConfig } from './config/pricing';
 import { loadConfig } from './config/load';
+
+// adapters
+import { createIchiAdapter } from './adapters';
+import { createUniv2Adapter } from './adapters/univ2';
+import { createUniv3Adapter } from './adapters/univ3';
+import dotenv from 'dotenv';
+dotenv.config();
 
 // ------------------------------------------------------------
 // Example configurations and core problem notes
@@ -38,32 +43,94 @@ const ichiAdapter = createIchiAdapter(defaultFeedConfig);
 
 import { AssetFeedConfig } from './types/pricing';
 
-export const univ2TestConfig: AssetFeedConfig = {
+export const univ2TestConfig: AssetFeedConfig = [
   // LP token address - this will be priced using the official univ2nav feed
   // Note: The key IS the pool address, no need to specify it separately
-  '0x0621bae969de9c153835680f158f481424c0720a': {
-    assetType: 'erc20',
-    priceFeed: {
-      kind: 'univ2nav',
-      token0: {
-        assetType: 'erc20',
-        priceFeed: {
-          kind: 'coingecko',
-          id: 'bitcoin',
+  {
+    match: { key: '0x0621bae969de9c153835680f158f481424c0720a' },
+    config: {
+      assetType: 'erc20',
+      priceFeed: {
+        kind: 'univ2nav',
+        token0: {
+          assetType: 'erc20',
+          priceFeed: {
+            kind: 'coingecko',
+            id: 'bitcoin',
+          },
         },
-      },
-      token1: {
-        assetType: 'erc20',
-        priceFeed: {
-          kind: 'pegged',
-          usdPegValue: 1,
+        token1: {
+          assetType: 'erc20',
+          priceFeed: {
+            kind: 'pegged',
+            usdPegValue: 1,
+          },
         },
       },
     },
   },
-};
-
+];
 const univ2Adapter = createUniv2Adapter(univ2TestConfig);
-const sink = new CsvSink('windows.csv');
 
-new Engine(ichiAdapter, sink, appCfg).run();
+// ———————————————————————————————————————————————————————
+// export const sampleuniv3config: AssetFeedConfig = [
+//   // univ3 pool address
+//   '0x92787e904D925662272F3776b8a7f0b8F92F9BB5': {
+//     assetType: 'erc721',
+//     priceFeed: {
+//       kind: 'univ3lp',
+//       nonfungiblepositionmanager: '0xe43ca1Dee3F0fc1e2df73A0745674545F11A59F5',
+//       // factory: '0xCdBCd51a5E8728E0AF4895ce5771b7d17fF71959',
+//       token0: {
+//         assetType: 'erc20',
+//         priceFeed: {
+//           kind: 'coingecko',
+//           id: 'pepe'
+//         }
+//       },
+//       token1: {
+//         assetType: 'erc20',
+//         priceFeed: {
+//           kind: 'pegged',
+//           usdPegValue: 1
+//         }
+//       }
+//     }
+//   }
+// }
+export const sampleuniv3config: AssetFeedConfig = [
+  // univ3 pool address - matches the specific pool from user's request
+  {
+    match: {
+      matchLabels: {
+        protocol: 'uniswap-v3',
+        pool: '0x92787e904d925662272f3776b8a7f0b8f92f9bb5',
+      },
+    },
+    config: {
+      assetType: 'erc721',
+      priceFeed: {
+        kind: 'univ3lp',
+        nonfungiblepositionmanager: '0xe43ca1Dee3F0fc1e2df73A0745674545F11A59F5',
+        // factory: '0xCdBCd51a5E8728E0AF4895ce5771b7d17fF71959',
+        token0: {
+          assetType: 'erc20',
+          priceFeed: {
+            kind: 'coingecko',
+            id: 'bitcoin',
+          },
+        },
+        token1: {
+          assetType: 'erc20',
+          priceFeed: {
+            kind: 'pegged',
+            usdPegValue: 1,
+          },
+        },
+      },
+    },
+  },
+];
+
+// testing univ3
+new Engine(createUniv3Adapter(sampleuniv3config), new CsvSink('windows.csv'), appCfg).run();

@@ -27,3 +27,4 @@ absinthe.log
 logs/
 status.txt
 # *.absinthe.json
+out*.txt
