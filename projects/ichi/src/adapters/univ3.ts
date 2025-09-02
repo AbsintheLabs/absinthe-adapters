@@ -11,6 +11,7 @@ import * as univ3positionsAbi from '../abi/univ3nonfungiblepositionmanager';
 
 // univ3 projector
 import { Univ3Projector } from './univ3-projector';
+import assert from 'assert';
 
 export function createUniv3Adapter(feedConfig: AssetFeedConfig): Adapter {
   const transferTopic = univ3positionsAbi.events.Transfer.topic;
@@ -24,7 +25,8 @@ export function createUniv3Adapter(feedConfig: AssetFeedConfig): Adapter {
   // Queue for deferred label operations
   const labelPromises: Array<() => Promise<void>> = [];
   // Queue for deferred reprice operations (executed after labels are set)
-  const repricePromises: Array<() => Promise<void>> = [];
+  const repricePromises: Array<{ fn: () => Promise<void>; tick?: number; poolAddress: string }> =
+    [];
   // Queue for deferred individual asset reprice operations (executed after labels are set)
   const assetRepricePromises: Array<{ asset: string; fn: () => Promise<void> }> = [];
 
@@ -33,16 +35,20 @@ export function createUniv3Adapter(feedConfig: AssetFeedConfig): Adapter {
       // Create factory contract instance with the provided RPC context
 
       // Helper function to queue reprice operations for a pool
-      const queueRepriceForPool = (poolAddress: string) => {
-        repricePromises.push(async () => {
-          const poolIdxKey = `pool:${poolAddress}:positions`;
-          const assetKeys = await redis.sMembers(poolIdxKey);
-          console.log(`Found ${assetKeys.length} assets in pool ${poolAddress} - repricing...`);
+      const queueRepriceForPool = (poolAddress: string, tick?: number) => {
+        repricePromises.push({
+          poolAddress,
+          tick,
+          fn: async () => {
+            const poolIdxKey = `pool:${poolAddress}:positions`;
+            const assetKeys = await redis.sMembers(poolIdxKey);
+            console.log(`Found ${assetKeys.length} assets in pool ${poolAddress} - repricing...`);
 
-          for (const assetKey of assetKeys) {
-            console.log('Repricing asset: ', assetKey);
-            await emit.reprice({ asset: assetKey });
-          }
+            for (const assetKey of assetKeys) {
+              console.log('Repricing asset: ', assetKey);
+              await emit.reprice({ asset: assetKey });
+            }
+          },
         });
       };
 
@@ -84,8 +90,10 @@ export function createUniv3Adapter(feedConfig: AssetFeedConfig): Adapter {
         );
 
         // Queue repricing for this pool (will be executed after labels are set)
-        queueRepriceForPool(poolAddressLower);
-        console.log(`Pool ${poolAddressLower} had a swap - queued repricing for batch end`);
+        queueRepriceForPool(poolAddressLower, parseInt(tick.toString()));
+        console.log(
+          `Pool ${poolAddressLower} had a swap at tick ${tick} - queued repricing for batch end`,
+        );
 
         // Emit custom event for swap observation
         await emit.custom('univ3', 'swapObserved', {
@@ -284,8 +292,12 @@ export function createUniv3Adapter(feedConfig: AssetFeedConfig): Adapter {
         console.log(`🔄 Executing ${repricePromises.length} queued pool reprice operations`);
         try {
           // Execute reprice promises sequentially to avoid overwhelming
-          for (const repriceFn of repricePromises) {
-            await repriceFn();
+          // for (const repriceFn of repricePromises) {
+          //   await repriceFn();
+          // }
+          // Execute all reprice promises sequentially
+          for (const reprice of repricePromises) {
+            await reprice.fn();
           }
           console.log(`✅ Completed ${repricePromises.length} pool reprice operations`);
         } catch (error) {

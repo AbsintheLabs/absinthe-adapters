@@ -2,7 +2,7 @@
   "$schema": "./src/config/absconfig.json",
   "kind": "evm",
   "indexerId": "univ3-hemi-indexer",
-  "flushMs": 21600000,
+  "flushMs": 172800000,
   "network": {
     "chainId": 43111,
     "gatewayUrl": "https://v2.archive.subsquid.io/network/hemi-mainnet",

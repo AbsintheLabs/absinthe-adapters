@@ -46,8 +46,6 @@ export class RedisTSCache implements PriceCacheTS {
     atMs: number, // any ts inside the bucket you care about
     bucketMs: number, // bucket width in ms
   ): Promise<number | null> {
-    // XXX: remove me once we figure out how to properly make sure we don't cache the liquidity values!! or trigger a reprice method!!
-    return null;
     const key = this.key(seriesKey);
 
     // 0. Series doesn't exist → no price
