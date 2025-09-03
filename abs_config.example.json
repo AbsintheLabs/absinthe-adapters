@@ -313,6 +313,12 @@
           "contractAddress": "0x7cED531Bb384dE4e70C0A543dBC5707bDB67632a",
           "chainId": 42161,
           "fromBlock": 370444915
+        },
+        {
+          "name": "xyz-8",
+          "contractAddress": "0x506900B4bE61dcdCD11c5ce90DCF16d8fDeC600d",
+          "chainId": 8453,
+          "fromBlock": 34196308
         }
       ]
     },

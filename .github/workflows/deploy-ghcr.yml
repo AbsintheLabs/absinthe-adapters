@@ -171,7 +171,7 @@ jobs:
             images_to_build+=("zebu-legacy")
           fi
           if [[ "${{ needs.changes.outputs.zebu-new }}" == "true" ]]; then
-            images_to_build+=("zebu-new-base" "zebu-new-polygon")
+            images_to_build+=("zebu-new-base" "zebu-new-polygon" "zebu-new-arbitrum")
           fi
 
           # Find all Dockerfiles
