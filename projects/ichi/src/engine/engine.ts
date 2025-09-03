@@ -23,7 +23,7 @@ import {
   IndexerMode,
   BalanceDelta,
   OwnershipTransfer,
-  PositionToggle,
+  PositionStatusChange,
   MeasureDelta,
   OnChainEvent,
   OnChainTransaction,
@@ -431,9 +431,12 @@ export class Engine {
         /* todo: implement ownership transfer handling */
         return Promise.resolve();
       },
-      positionToggle: (e: PositionToggle) => {
-        /* todo: implement position toggle handling */
-        return Promise.resolve();
+      positionStatusChange: (e: PositionStatusChange) => {
+        return this.applyPositionStatusChange(e, {
+          ts: block.header.timestamp,
+          height: block.header.height,
+          txHash: log.transactionHash,
+        });
       },
       measureDelta: (e: MeasureDelta) =>
         this.applyMeasureDelta(e, {
@@ -583,6 +586,38 @@ export class Engine {
       // this.redis.sAdd('assets:tracked', e.asset.toLowerCase()),
       this.redis.hSetNX('assets:tracked', e.asset.toLowerCase(), height.toString()),
     ]);
+  }
+
+  protected async applyPositionStatusChange(
+    e: PositionStatusChange,
+    blockData: any,
+  ): Promise<void> {
+    const ts = blockData.ts;
+    const height = blockData.height;
+
+    // data cleaning:
+    if (this.indexerMode === 'evm') {
+      e.user = e.user.toLowerCase();
+      e.asset = e.asset.toLowerCase();
+    }
+
+    const key = `pos:${e.asset}:${e.user}`;
+
+    // Store position active/inactive state
+    await Promise.all([
+      this.redis.hSet(key, {
+        active: e.active.toString(),
+        updatedTs: String(ts),
+        updatedHeight: String(height),
+        txHash: blockData.txHash,
+      }),
+      // Track active positions for fast lookup
+      e.active ? this.redis.sAdd('pos:active', key) : this.redis.sRem('pos:active', key),
+      // Track all positions (both active and inactive)
+      this.redis.sAdd('pos:all', key),
+    ]);
+
+    log.debug(`Position status change: ${e.user} -> ${e.asset} active: ${e.active}`);
   }
 
   protected async applyMeasureDelta(e: MeasureDelta, blockData: any): Promise<void> {

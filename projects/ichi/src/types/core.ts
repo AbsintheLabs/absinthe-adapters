@@ -30,7 +30,8 @@ export type OwnershipTransfer = {
   asset: string;
 };
 
-export type PositionToggle = {
+export type PositionStatusChange = {
+  user: string;
   asset: string;
   active: boolean;
   // optional metadata for additional context

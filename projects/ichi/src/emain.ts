@@ -16,7 +16,7 @@ export { Engine } from './engine';
 export { Adapter } from './types/adapter';
 export type {
   BalanceDelta,
-  PositionToggle,
+  PositionStatusChange,
   OnChainEvent,
   OnChainTransaction,
   IndexerMode,

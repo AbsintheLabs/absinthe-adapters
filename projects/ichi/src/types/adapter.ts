@@ -2,7 +2,7 @@
 
 import {
   BalanceDelta,
-  PositionToggle,
+  PositionStatusChange,
   PositionUpdate,
   OnChainEvent,
   OnChainTransaction,
@@ -24,7 +24,7 @@ export interface LogEmitFunctions {
   balanceDelta: (e: BalanceDelta) => Promise<void>;
   positionUpdate: (e: PositionUpdate) => Promise<void>;
   ownershipTransfer: (e: OwnershipTransfer) => Promise<void>;
-  positionToggle: (e: PositionToggle) => Promise<void>;
+  positionStatusChange: (e: PositionStatusChange) => Promise<void>;
   measureDelta: (e: MeasureDelta) => Promise<void>;
   event: (e: OnChainEvent) => Promise<void>;
   reprice: (e: Reprice) => Promise<void>;

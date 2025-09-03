@@ -6,7 +6,7 @@ export { Engine } from './engine';
 // Types
 export type {
   BalanceDelta,
-  PositionToggle,
+  PositionStatusChange,
   OnChainEvent,
   OnChainTransaction,
   IndexerMode,

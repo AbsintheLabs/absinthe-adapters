@@ -3,7 +3,7 @@
 // Core types
 export type {
   BalanceDelta,
-  PositionToggle,
+  PositionStatusChange,
   OnChainEvent,
   OnChainTransaction,
   IndexerMode,

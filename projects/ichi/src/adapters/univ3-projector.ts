@@ -1,6 +1,6 @@
 // Univ3 Projector - handles custom events and emits generic engine events
 import { Projector, ProjectorContext } from '../types/adapter';
-import { PositionToggle } from '../types/core';
+import { PositionStatusChange } from '../types/core';
 import Big from 'big.js';
 
 export interface PositionIndexedPayload {
@@ -111,20 +111,32 @@ export class Univ3Projector implements Projector {
 
     // Positions that cross this tick as their lower boundary become active
     for (const tokenId of lowerPositions) {
-      const assetKey = `0xe43ca1dee3f0fc1e2df73a0745674545f11a59f5:${tokenId}`; // Using the nonfungiblepositionmanager address
-      await ctx.emit.positionToggle({
-        asset: assetKey,
-        active: true, // tickLower crossed means position becomes active
-      });
+      const assetKey = `erc721:0xe43ca1dee3f0fc1e2df73a0745674545f11a59f5:${tokenId}`.toLowerCase();
+      const ownerKey = `asset:owner:${assetKey}`;
+      const owner = await ctx.redis.get(ownerKey);
+
+      if (owner) {
+        await ctx.emit.positionStatusChange({
+          user: owner,
+          asset: assetKey,
+          active: true, // tickLower crossed means position becomes active
+        });
+      }
     }
 
     // Positions that cross this tick as their upper boundary become inactive
     for (const tokenId of upperPositions) {
-      const assetKey = `0xe43ca1dee3f0fc1e2df73a0745674545f11a59f5:${tokenId}`; // Using the nonfungiblepositionmanager address
-      await ctx.emit.positionToggle({
-        asset: assetKey,
-        active: false, // tickUpper crossed means position becomes inactive
-      });
+      const assetKey = `erc721:0xe43ca1dee3f0fc1e2df73a0745674545f11a59f5:${tokenId}`.toLowerCase();
+      const ownerKey = `asset:owner:${assetKey}`;
+      const owner = await ctx.redis.get(ownerKey);
+
+      if (owner) {
+        await ctx.emit.positionStatusChange({
+          user: owner,
+          asset: assetKey,
+          active: false, // tickUpper crossed means position becomes inactive
+        });
+      }
     }
   }
 }
