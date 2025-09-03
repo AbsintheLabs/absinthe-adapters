@@ -21,7 +21,7 @@ export interface RawBalanceWindow {
   endTs: number;
   startBlockNumber: number;
   endBlockNumber: number;
-  trigger: 'BALANCE_CHANGE' | 'EXHAUSTED' | 'FINAL' | 'MEASURE_CHANGE';
+  trigger: 'BALANCE_CHANGE' | 'EXHAUSTED' | 'FINAL' | 'MEASURE_CHANGE' | 'INACTIVE_POSITION';
   balanceBefore?: string;
   balanceAfter?: string;
   balance?: string;
@@ -112,7 +112,7 @@ export interface EnrichedBalanceWindow extends BaseEnrichedFields {
   endTs: number;
   startBlockNumber: number;
   endBlockNumber: number;
-  trigger: 'BALANCE_CHANGE' | 'EXHAUSTED' | 'FINAL';
+  trigger: 'BALANCE_CHANGE' | 'EXHAUSTED' | 'FINAL' | 'INACTIVE_POSITION';
   balanceBefore?: string;
   balanceAfter?: string;
   balance?: string;

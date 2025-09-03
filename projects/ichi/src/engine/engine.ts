@@ -52,6 +52,10 @@ import {
 dotenv.config();
 
 export class Engine {
+  // put near other constants
+  private static readonly BAL_SET_KEY = 'balances:gt0';
+  private static readonly ACTIVE_SET_KEY = 'activebalances';
+  private static readonly INACTIVE_SET_KEY = 'inactivebalances';
   protected db: Database<any, any>;
   // fixme: why is adapter typed with !
   protected adapter!: Adapter;
@@ -245,7 +249,8 @@ export class Engine {
     }
 
     // 4) simple worker pool (no deps)
-    const MAX_CONCURRENCY = 8; // tweak based on your IO headroom
+    // XXX: move this into the engine variable so that we can easily tweak it later
+    const MAX_CONCURRENCY = 100; // tweak based on your IO headroom
     let idx = 0;
 
     const worker = async () => {
@@ -398,6 +403,12 @@ export class Engine {
 
   // Subsquid hands logs to this
   async ingestLog(block: Block, log: Log) {
+    // todo: later, we can make this a bit more readable by passing in the same interface into all the events
+    // const commonEventCtx = {
+    //   ts: block.header.timestamp,
+    //   height: block.header.height,
+    //   txHash: log.transactionHash,
+    // };
     const emit: LogEmitFunctions = {
       balanceDelta: (e: BalanceDelta) =>
         this.applyBalanceDelta(e, {
@@ -419,25 +430,22 @@ export class Engine {
             txHash: log.transactionHash,
           },
         ),
-      reprice: (e: Reprice) => {
-        return this.applyReprice(e, {
+      reprice: (e: Reprice) =>
+        this.applyReprice(e, {
           ts: block.header.timestamp,
           height: block.header.height,
           txHash: log.transactionHash,
-          block: block,
-        });
-      },
-      ownershipTransfer: (e: OwnershipTransfer) => {
-        /* todo: implement ownership transfer handling */
-        return Promise.resolve();
-      },
-      positionStatusChange: (e: PositionStatusChange) => {
-        return this.applyPositionStatusChange(e, {
+          block: block, // fixme: this differs, so we should probably pass in block to all of the events just for consistency?
+        }),
+      // fixme: we should probably remove this event? not necessary anymore
+      ownershipTransfer: (e: OwnershipTransfer) => Promise.resolve(),
+      positionStatusChange: (e: PositionStatusChange) =>
+        this.applyPositionStatusChange(e, {
           ts: block.header.timestamp,
           height: block.header.height,
           txHash: log.transactionHash,
-        });
-      },
+          // fixme: add logindex so we have deterministic behavior for actions in the same block
+        }),
       measureDelta: (e: MeasureDelta) =>
         this.applyMeasureDelta(e, {
           ts: block.header.timestamp,
@@ -556,11 +564,14 @@ export class Engine {
     // Apply delta
     const newAmt = oldAmt.plus(e.amount);
 
-    // create a new window
-    if (oldAmt.gt(0) && oldTs < ts) {
-      // todo: add a new window to a list of windows to send to the absinthe api
+    // Check active status at the moment of the delta
+    // const isActive = await this.redis.sIsMember(Engine.ACTIVE_SET_KEY, key);
+    const isInactive = await this.redis.sIsMember(Engine.INACTIVE_SET_KEY, key);
+
+    // Only emit a window for balance deltas if ACTIVE
+    if (!isInactive && oldAmt.gt(0) && oldTs < ts) {
       const window: RawBalanceWindow = {
-        user: e.user.toLowerCase(),
+        user: e.user,
         asset: e.asset,
         startTs: oldTs,
         endTs: ts,
@@ -582,42 +593,108 @@ export class Engine {
         updatedHeight: String(height),
         txHash: blockData.txHash,
       }),
-      newAmt.gt(0) ? this.redis.sAdd('ab:gt0', key) : this.redis.sRem('ab:gt0', key),
+      // Maintain HAS-BALANCE set for scans/flush
+      newAmt.gt(0)
+        ? this.redis.sAdd(Engine.BAL_SET_KEY, key)
+        : this.redis.sRem(Engine.BAL_SET_KEY, key),
       // this.redis.sAdd('assets:tracked', e.asset.toLowerCase()),
       this.redis.hSetNX('assets:tracked', e.asset.toLowerCase(), height.toString()),
     ]);
   }
 
-  protected async applyPositionStatusChange(
-    e: PositionStatusChange,
-    blockData: any,
-  ): Promise<void> {
+  private async applyPositionStatusChange(e: PositionStatusChange, blockData: any): Promise<void> {
+    log.debug('applyPositionStatusChange: ', e);
     const ts = blockData.ts;
     const height = blockData.height;
+    const txHash = blockData.txHash;
 
-    // data cleaning:
+    // normalize
+    let user = e.user;
+    let asset = e.asset;
     if (this.indexerMode === 'evm') {
-      e.user = e.user.toLowerCase();
-      e.asset = e.asset.toLowerCase();
+      user = user.toLowerCase();
+      asset = asset.toLowerCase();
     }
 
-    const key = `pos:${e.asset}:${e.user}`;
+    // balance hash for this (asset,user)
+    const key = `bal:${asset}:${user}`;
 
-    // Store position active/inactive state
-    await Promise.all([
-      this.redis.hSet(key, {
-        active: e.active.toString(),
+    // fetch current row
+    const [amountStr, updatedTsStr, updatedHeightStr, prevTxHashStr] = await this.redis.hmGet(key, [
+      'amount',
+      'updatedTs',
+      'updatedHeight',
+      'txHash',
+    ]);
+    const amt = new Big(amountStr || '0');
+    const lastUpdatedTs = updatedTsStr ? Number(updatedTsStr) : ts;
+    const lastUpdatedHeight = updatedHeightStr ? Number(updatedHeightStr) : height;
+    const prevTxHash = prevTxHashStr || null;
+
+    // If we were tracking this key as active, close the window and drop from set
+    // const isActive = await this.redis.sIsMember(Engine.ACTIVE_SET_KEY, key);
+    const isInactive = (await this.redis.sIsMember(Engine.INACTIVE_SET_KEY, key)) === 1;
+
+    // isInactive == true and e.active == false means nothing to do
+    // isInactive == false and e.active == true means nothing to do
+    // isInactive == true and e.active == true means toggle on
+    // isInactive == false and e.active == false means toggle off
+    const isToggled = isInactive === e.active;
+    const shouldToggleOn = isInactive && e.active;
+    const shouldToggleOff = !isInactive && !e.active;
+    log.debug(
+      'applyPositionStatusChange',
+      key,
+      isInactive,
+      e.active,
+      shouldToggleOn,
+      shouldToggleOff,
+    );
+
+    // attempting to toggle off
+    if (shouldToggleOff) {
+      log.debug('toggle off', key);
+
+      // Only emit INACTIVE_POSITION window if position was previously active
+      // if (!isInactive) {
+      // Emit window only if there was time elapsed and a positive balance
+      if (amt.gt(0) && lastUpdatedTs < ts) {
+        const window: RawBalanceWindow = {
+          user,
+          asset,
+          startTs: lastUpdatedTs,
+          endTs: ts,
+          startBlockNumber: lastUpdatedHeight,
+          endBlockNumber: height,
+          trigger: 'INACTIVE_POSITION',
+          balanceBefore: amt.toString(),
+          balanceAfter: amt.toString(),
+          prevTxHash: prevTxHash,
+          txHash: txHash,
+        };
+        this.windows.push(window);
+      }
+
+      // Add to inactive set
+      await this.redis.sAdd(Engine.INACTIVE_SET_KEY, key);
+      await this.redis.hSet(key, {
         updatedTs: String(ts),
         updatedHeight: String(height),
-        txHash: blockData.txHash,
-      }),
-      // Track active positions for fast lookup
-      e.active ? this.redis.sAdd('pos:active', key) : this.redis.sRem('pos:active', key),
-      // Track all positions (both active and inactive)
-      this.redis.sAdd('pos:all', key),
-    ]);
-
-    log.debug(`Position status change: ${e.user} -> ${e.asset} active: ${e.active}`);
+        txHash: txHash,
+      });
+      // }
+    } else {
+      // Toggling ON: start tracking again (no window to emit now)
+      if (shouldToggleOn) {
+        log.debug('toggle on', key);
+        await this.redis.sRem(Engine.INACTIVE_SET_KEY, key);
+        await this.redis.hSet(key, {
+          updatedTs: String(ts),
+          updatedHeight: String(height),
+          txHash: txHash,
+        });
+      }
+    }
   }
 
   protected async applyMeasureDelta(e: MeasureDelta, blockData: any): Promise<void> {
@@ -702,12 +779,16 @@ export class Engine {
       await this.setLastFlushBoundary(currentWindowStart);
     }
 
-    const activeKeys = await this.redis.sMembers('ab:gt0');
-    if (activeKeys.length === 0) return;
+    // get keys that are active and greater than 0
+    const balanceKeys = await this.redis.sDiff([Engine.BAL_SET_KEY, Engine.INACTIVE_SET_KEY]);
+    if (balanceKeys.length === 0) {
+      log.debug('No balance keys found in flushPeriodic()');
+      return;
+    }
 
     // ---- READ PHASE (auto-pipelined) ----
     const rows = await Promise.all(
-      activeKeys.map((k) =>
+      balanceKeys.map((k) =>
         this.redis.hmGet(k, ['amount', 'updatedTs', 'updatedHeight', 'txHash']),
       ),
     );
@@ -715,7 +796,8 @@ export class Engine {
     // ---- WRITE PHASE (collect promises; auto-pipelined non-atomically) ----
     const writePromises: Array<Promise<unknown>> = [];
 
-    rows.forEach((vals, i) => {
+    // Process each balance key asynchronously
+    const processPromises = rows.map(async (vals, i) => {
       if (!vals) return;
       const [amountStr, updatedTsStr, updatedHeightStr, txHashStr] = vals as [
         string,
@@ -727,7 +809,7 @@ export class Engine {
       const amt = new Big(amountStr || '0');
       if (amt.lte(0)) return; // only flush active balances
 
-      const key = activeKeys[i]!;
+      const key = balanceKeys[i]!;
       // Parse the Redis key format: 'bal:{asset}:{user}'
       // The asset can contain colons (e.g., 'erc721:0x...:tokenId'), so we need to extract it properly
       const parts = key.split(':');
@@ -792,6 +874,9 @@ export class Engine {
         // else: lastUpdatedTs is inside the current window, so skip emitting
       }
     });
+
+    // Wait for all async processing to complete
+    await Promise.all(processPromises);
 
     if (writePromises.length) {
       await Promise.all(writePromises);

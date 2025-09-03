@@ -181,8 +181,9 @@ const idealConfig: AssetFeedConfig = [
           values: ['uniswap-v3'],
         },
         // ----------for testing -----------
-        // { key: 'token0', op: 'In', values: ['0x4200000000000000000000000000000000000006'] },
-        // { key: 'tickUpper', op: 'In', values: ['887220'] },
+        { key: 'token0', op: 'In', values: ['0x4200000000000000000000000000000000000006'] },
+        { key: 'tickUpper', op: 'In', values: ['-202653'] },
+        // { key: 'tickLower', op: 'In', values: ['66400'] },
         // ----------for testing -----------
         {
           key: 'token1',

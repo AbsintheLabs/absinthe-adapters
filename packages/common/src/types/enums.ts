@@ -113,6 +113,7 @@ enum TimeWindowTrigger {
   EXHAUSTED = 'exhausted',
   INCREASE = 'increase',
   DECREASE = 'decrease',
+  INACTIVE_POSITION = 'inactive_position',
 }
 
 export {

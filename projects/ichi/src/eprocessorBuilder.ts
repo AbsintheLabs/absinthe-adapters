@@ -15,17 +15,17 @@ export function buildProcessor(cfg: AppConfig, adapterTopic0s?: string[]) {
         ...(cfg.range.toBlock ? { to: cfg.range.toBlock } : {}),
       });
 
-    for (const l of cfg.subscriptions.logs)
-      p.addLog({
-        address: l.addresses,
-        ...(adapterTopic0s && adapterTopic0s.length > 0 ? { topic0: adapterTopic0s } : {}),
-      });
+    // for (const l of cfg.subscriptions.logs)
+    //   p.addLog({
+    //     address: l.addresses,
+    //     ...(adapterTopic0s && adapterTopic0s.length > 0 ? { topic0: adapterTopic0s } : {}),
+    //   });
 
-    for (const t of cfg.subscriptions.functionCalls)
-      p.addTransaction({
-        to: t.to,
-        sighash: t.sighash,
-      });
+    // for (const t of cfg.subscriptions.functionCalls)
+    //   p.addTransaction({
+    //     to: t.to,
+    //     sighash: t.sighash,
+    //   });
 
     p.setFields({
       log: { transactionHash: true },

@@ -3,6 +3,7 @@ import Big from 'big.js';
 import { Adapter, RpcContext } from '../types/adapter';
 import { AssetFeedConfig } from '../types/pricing';
 import { RedisClientType } from 'redis';
+import z from 'zod';
 
 // univ3 abis
 import * as univ3factoryAbi from '../abi/univ3factory';
@@ -13,11 +14,12 @@ import * as univ3positionsAbi from '../abi/univ3nonfungiblepositionmanager';
 import { Univ3Projector } from './univ3-projector';
 import assert from 'assert';
 
-export function createUniv3Adapter(feedConfig: AssetFeedConfig): Adapter {
+export function createUniv3Adapter(feedConfig: AssetFeedConfig, baseSqdProcessor: any): Adapter {
   const transferTopic = univ3positionsAbi.events.Transfer.topic;
   const increaseLiquidityTopic = univ3positionsAbi.events.IncreaseLiquidity.topic;
   const decreaseLiquidityTopic = univ3positionsAbi.events.DecreaseLiquidity.topic;
   const swapTopic = univ3poolAbi.events.Swap.topic;
+  const poolCreatedTopic = univ3factoryAbi.events.PoolCreated.topic;
 
   // Create projector instance
   const projector = new Univ3Projector();
@@ -30,7 +32,31 @@ export function createUniv3Adapter(feedConfig: AssetFeedConfig): Adapter {
   // Queue for deferred individual asset reprice operations (executed after labels are set)
   const assetRepricePromises: Array<{ asset: string; fn: () => Promise<void> }> = [];
 
+  // REDIS KEYS
+  const poolIdxKey = 'factory:pools';
+
   return {
+    // register the custom config schema for the adapter
+    adapterCustomConfig: new z.ZodObject({
+      nonFungiblePositionManagerAddress: z.string(),
+      factoryAddress: z.string(),
+    }),
+    // now we can reference the custom config schema for the adapter
+    processor: baseSqdProcessor
+      .addLog({
+        // fetch all transfer, increaseLiquidity, and decreaseLiquidity events for our particular nfpm
+        address: [config.nonFungiblePositionManagerAddress],
+        topic0: [transferTopic, increaseLiquidityTopic, decreaseLiquidityTopic],
+      })
+      .addLog({
+        // fetch all pool created events for our particular factory - nfpm pair
+        address: [config.factoryAddress],
+        topic0: [poolCreatedTopic],
+      })
+      .addLog({
+        // fetch ALL swap events and filter out for the ones that are specific to the factory contract later
+        topic0: [swapTopic],
+      }),
     onLog: async (block, log, emit, rpcCtx, redis) => {
       // Create factory contract instance with the provided RPC context
 
@@ -63,42 +89,173 @@ export function createUniv3Adapter(feedConfig: AssetFeedConfig): Adapter {
         });
       };
 
-      // Handle change in ticks (Swap events)
+      if (log.topics[0] === poolCreatedTopic) {
+        const { pool } = univ3factoryAbi.events.PoolCreated.decode(log);
+        const poolAddress = pool.toLowerCase();
+        await redis.sAdd(poolIdxKey, poolAddress);
+      }
+
+      // Handle change in ticks (Swap events) - detect tick crossings and toggle position status
       if (log.topics[0] === swapTopic) {
+        // first check if the pool is one created by our factory contract
+        const isPoolCreatedByFactory = await redis.sIsMember(poolIdxKey, log.address.toLowerCase());
+        if (!isPoolCreatedByFactory) {
+          // not a pool created by our factory contract so we shouldn't track it
+          return;
+        }
+
         const decoded = univ3poolAbi.events.Swap.decode(log);
-        const { tick, sqrtPriceX96, liquidity, amount0, amount1, recipient, sender } = decoded;
-        const poolAddress = log.address; // NOTE: since we are getting multiple events here, we get the address from the log
-        const poolAddressLower = poolAddress.toLowerCase();
+        const {
+          tick: tickBN,
+          sqrtPriceX96,
+          liquidity,
+          amount0,
+          amount1,
+          recipient,
+          sender,
+        } = decoded;
+        const pool = log.address.toLowerCase();
+        const curTick = Number(tickBN.toString());
 
         // Store the tick + sqrtPriceX96 in Redis for lookup later (without having to make rpc calls)
         const blockHeight = block.header.height;
-        const poolPriceKey = `pool:${poolAddressLower}:price:${blockHeight}`;
+        const poolPriceKey = `pool:${pool}:price:${blockHeight}`;
 
         await redis.hSet(poolPriceKey, {
-          tick: tick.toString(),
+          tick: tickBN.toString(),
           sqrtPriceX96: sqrtPriceX96.toString(),
           blockHeight: blockHeight.toString(),
           timestamp: Date.now().toString(),
         });
 
         // Also store a reference to clean up old entries later
-        const poolLatestPriceKey = `pool:${poolAddressLower}:latest_price`;
+        const poolLatestPriceKey = `pool:${pool}:latest_price`;
         await redis.set(poolLatestPriceKey, blockHeight.toString());
 
         console.log(
-          `Stored pool price data for ${poolAddressLower} at height ${blockHeight}: tick=${tick}, sqrtPriceX96=${sqrtPriceX96}`,
+          `Stored pool price data for ${pool} at height ${blockHeight}: tick=${curTick}, sqrtPriceX96=${sqrtPriceX96}`,
         );
 
-        // Queue repricing for this pool (will be executed after labels are set)
-        queueRepriceForPool(poolAddressLower, parseInt(tick.toString()));
+        // Detect tick crossings and toggle position status
+        const prevKey = `pool:${pool}:prevTick`;
+        const prevTickStr = await redis.get(prevKey);
+        await redis.set(prevKey, String(curTick)); // Store for next comparison
+
+        if (!prevTickStr) {
+          console.log(
+            `First swap observed for pool ${pool} at tick ${curTick} - skipping status updates`,
+          );
+          // Emit custom event for swap observation
+          await emit.custom('univ3', 'swapObserved', {
+            pool,
+            tick: curTick,
+          });
+          return; // First observed swap for this pool
+        }
+
+        const prevTick = Number(prevTickStr);
+        if (prevTick === curTick) {
+          console.log(`Pool ${pool} tick unchanged at ${curTick} - no crossings`);
+          // Emit custom event for swap observation
+          await emit.custom('univ3', 'swapObserved', {
+            pool,
+            tick: curTick,
+          });
+          return; // Nothing moved
+        }
+
+        const dirUp = curTick > prevTick;
+        const lo = Math.min(prevTick, curTick);
+        const hi = Math.max(prevTick, curTick);
+
         console.log(
-          `Pool ${poolAddressLower} had a swap at tick ${tick} - queued repricing for batch end`,
+          `Pool ${pool} tick moved from ${prevTick} to ${curTick} (${dirUp ? 'up' : 'down'}) - checking crossings in (${lo}, ${hi}]`,
         );
+
+        // Find positions whose bounds were crossed
+        const lowerKey = `pool:${pool}:bounds:lower`;
+        const upperKey = `pool:${pool}:bounds:upper`;
+
+        const [lowers, uppers] = await Promise.all([
+          redis.zRangeByScore(lowerKey, `(${lo}`, hi),
+          redis.zRangeByScore(upperKey, `(${lo}`, hi),
+        ]);
+
+        console.log(
+          `Found ${lowers.length} lower bounds and ${uppers.length} upper bounds crossed`,
+        );
+
+        // Determine which positions to activate/deactivate
+        const toActivate = new Set<string>();
+        const toDeactivate = new Set<string>();
+
+        if (dirUp) {
+          lowers.forEach((asset) => toActivate.add(asset));
+          uppers.forEach((asset) => toDeactivate.add(asset));
+        } else {
+          lowers.forEach((asset) => toDeactivate.add(asset));
+          uppers.forEach((asset) => toActivate.add(asset));
+        }
+
+        // Handle positions that may have both bounds crossed (resolve conflicts)
+        const candidates = new Set([...toActivate, ...toDeactivate]);
+        const statusChangePromises: Array<Promise<void>> = [];
+
+        for (const assetKey of candidates) {
+          statusChangePromises.push(
+            (async () => {
+              try {
+                const meta = await redis.hGetAll(`pos:${assetKey}`);
+                if (!meta || !meta.tickLower || !meta.tickUpper) {
+                  console.warn(`Missing position metadata for ${assetKey}`);
+                  return;
+                }
+
+                const lower = Number(meta.tickLower);
+                const upper = Number(meta.tickUpper);
+                const nowActive = curTick >= lower && curTick < upper; // Uniswap v3 active definition
+                const wasActive = meta.active === '1';
+
+                if (nowActive !== wasActive) {
+                  // Update status in Redis
+                  await redis.hSet(`pos:${assetKey}`, { active: nowActive ? '1' : '0' });
+
+                  // Get owner for positionStatusChange event
+                  const owner = await redis.get(`asset:owner:${assetKey}`);
+                  if (!owner) {
+                    console.warn(`No owner found for asset ${assetKey} during status change`);
+                    return;
+                  }
+
+                  console.log(
+                    `Position ${assetKey} ${nowActive ? 'activated' : 'deactivated'} (tick: ${curTick}, bounds: [${lower}, ${upper}))`,
+                  );
+
+                  // Emit position status change
+                  // await emit.positionStatusChange({
+                  //   user: owner,
+                  //   asset: assetKey,
+                  //   active: nowActive,
+                  // });
+
+                  // Queue reprice for this specific position
+                  queueRepriceForAsset(assetKey);
+                }
+              } catch (error) {
+                console.error(`Error processing status change for ${assetKey}:`, error);
+              }
+            })(),
+          );
+        }
+
+        // Wait for all status changes to complete
+        await Promise.all(statusChangePromises);
 
         // Emit custom event for swap observation
         await emit.custom('univ3', 'swapObserved', {
-          pool: poolAddressLower,
-          tick: parseInt(tick.toString()),
+          pool,
+          tick: curTick,
+          crossings: candidates.size,
         });
       }
 
@@ -209,6 +366,24 @@ export function createUniv3Adapter(feedConfig: AssetFeedConfig): Adapter {
               // Update reverse index Set for fast pool lookup
               const poolIdxKey = `pool:${poolAddress.toLowerCase()}:positions`;
               await redis.sAdd(poolIdxKey, assetKey);
+
+              // Index position bounds for efficient tick crossing detection
+              const poolAddr = poolAddress.toLowerCase();
+              const lowerKey = `pool:${poolAddr}:bounds:lower`;
+              const upperKey = `pool:${poolAddr}:bounds:upper`;
+              const posKey = `pos:${assetKey}`;
+
+              // Index bounds in sorted sets for fast range queries
+              await redis.zAdd(lowerKey, [{ score: Number(tickLower), value: assetKey }]);
+              await redis.zAdd(upperKey, [{ score: Number(tickUpper), value: assetKey }]);
+
+              // Store position metadata for status tracking
+              await redis.hSet(posKey, {
+                pool: poolAddr,
+                tickLower: tickLower.toString(),
+                tickUpper: tickUpper.toString(),
+                active: '0', // Will be set properly on first swap observation
+              });
             }
           } catch (error) {
             console.error(`Failed to set labels for ${assetKey}:`, error);
@@ -234,6 +409,28 @@ export function createUniv3Adapter(feedConfig: AssetFeedConfig): Adapter {
             to === '0x0000000000000000000000000000000000000000'
           ) {
             await redis.del(ownerKey);
+
+            // Position is being burned - clean up bounds indexing
+            const labels = await redis.hGetAll(labelsKey);
+            if (labels.pool) {
+              const poolAddr = labels.pool;
+              const lowerKey = `pool:${poolAddr}:bounds:lower`;
+              const upperKey = `pool:${poolAddr}:bounds:upper`;
+              const posKey = `pos:${assetKey}`;
+
+              // Remove from bounds indexes
+              await redis.zRem(lowerKey, assetKey);
+              await redis.zRem(upperKey, assetKey);
+
+              // Remove position metadata
+              await redis.del(posKey);
+
+              // Remove from pool positions set
+              const poolIdxKey = `pool:${poolAddr}:positions`;
+              await redis.sRem(poolIdxKey, assetKey);
+
+              console.log(`Cleaned up burned position ${assetKey} from pool ${poolAddr}`);
+            }
           }
         }
         if (to !== '0x0000000000000000000000000000000000000000') {

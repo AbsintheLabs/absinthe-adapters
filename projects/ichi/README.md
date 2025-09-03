@@ -24,7 +24,8 @@ The system follows a **blockchain indexer → pricing engine → enrichment pipe
 - **Redis Keys Used**:
   - **`abs:{indexerId}:flush:boundary`** - Tracks last flush boundary for crash recovery
   - **`assets:tracked`** - Hash map of `{asset: birthHeight}` tracking all assets seen
-  - **`ab:gt0`** - Set of balance keys with non-zero amounts for active balances
+  - **`activebalances`** - Set of actively tracked balance keys (toggled by position status changes)
+  - **`balances:gt0`** - Set of balance keys with non-zero amounts (used for scans/flush)
   - **`bal:{asset}:{user}`** - Hash with fields: `amount`, `updatedTs`, `updatedHeight`, `txHash`
   - **`meas:{asset}:{metric}`** - Hash for measure tracking with same fields as balance
   - **`meas:{asset}:{metric}:d`** - Sorted set for storing measure deltas by block height
@@ -105,8 +106,9 @@ const resp = await context.redis.ts.range(key, start, end, {
 4. **Metadata Cache**: `metadata:{asset}` → `{decimals: number}`
 5. **Handler Cache**: `handlerMeta:{handler}:{key}` → Handler-specific data
 6. **Asset Registry**: `assets:tracked` → `{asset: birthHeight}`
-7. **Active Balances**: `ab:gt0` → Set of active balance keys
-8. **Flush State**: `abs:{indexerId}:flush:boundary` → Last processed boundary
+7. **Active Balances**: `activebalances` → Set of actively tracked balance keys (toggled by position status changes)
+8. **Balance Keys**: `balances:gt0` → Set of balance keys with non-zero amounts (used for scans/flush)
+9. **Flush State**: `abs:{indexerId}:flush:boundary` → Last processed boundary
 
 ## Data Flow Summary
 

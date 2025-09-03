@@ -117,7 +117,9 @@ export const buildTimeWeightedBalanceEvents: WindowEnricher = async (windows, co
         timeWindowTrigger:
           w.trigger === 'BALANCE_CHANGE' //fixme: make this consistent across everywhere
             ? TimeWindowTrigger.TRANSFER
-            : TimeWindowTrigger.EXHAUSTED,
+            : // : w.trigger === 'INACTIVE_POSITION'
+              // ? TimeWindowTrigger.INACTIVE_POSITION
+              TimeWindowTrigger.EXHAUSTED,
         startUnixTimestampMs: w.startTs,
         endUnixTimestampMs: w.endTs,
         windowDurationMs: w.endTs - w.startTs,
