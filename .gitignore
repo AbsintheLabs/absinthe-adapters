@@ -20,6 +20,8 @@ chains.txt
 testdeploy/
 **/abs_config.json
 
+reset-docker.sh
+
 **/src/model/generated
 **/src/abi/
 .eslintcache
