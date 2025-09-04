@@ -23,7 +23,8 @@
     "inflected": "^1.0.0",
     "pg": "^8.13.1",
     "typeorm": "^0.3.20",
-    "zod": "^3.24.3"
+    "zod": "^3.24.3",
+    "redis": "^5.5.6"
   },
   "devDependencies": {
     "@subsquid/solana-typegen": "^0.6.1",

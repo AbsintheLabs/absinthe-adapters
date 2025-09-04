@@ -1,10 +1,14 @@
 import { logger } from '@absinthe/common';
-import * as whirlpoolProgram from '../abi/whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc';
 import { OrcaInstructionData, InitializeData } from '../utils/types';
+import { LiquidityMathService } from '../services/LiquidityMathService';
+import { PositionStorageService } from '../services/PositionStorageService';
+import { getJupPrice } from '../utils/pricing';
 
 export async function processPoolInstructions(
   instructionsData: OrcaInstructionData[],
   protocolStates: Map<string, any>,
+  liquidityMathService: LiquidityMathService,
+  positionStorageService: PositionStorageService,
 ): Promise<void> {
   logger.info(`🏊 [PoolInstructions] Processing ${instructionsData.length} pool instructions`);
 
@@ -12,14 +16,29 @@ export async function processPoolInstructions(
     try {
       switch (data.type) {
         case 'initializePool':
-          await processInitializePool(data as InitializeData, protocolStates);
+          await processInitializePool(
+            data as InitializeData,
+            protocolStates,
+            liquidityMathService,
+            positionStorageService,
+          );
           break;
         case 'initializePoolV2':
-          await processInitializePoolV2(data as InitializeData, protocolStates);
+          await processInitializePoolV2(
+            data as InitializeData,
+            protocolStates,
+            liquidityMathService,
+            positionStorageService,
+          );
           break;
 
         case 'initializePoolWithAdaptiveFee':
-          await processInitializePoolWithAdaptiveFee(data as InitializeData, protocolStates);
+          await processInitializePoolWithAdaptiveFee(
+            data as InitializeData,
+            protocolStates,
+            liquidityMathService,
+            positionStorageService,
+          );
           break;
       }
     } catch (error) {
@@ -31,6 +50,8 @@ export async function processPoolInstructions(
 async function processInitializePool(
   data: InitializeData,
   protocolStates: Map<string, any>,
+  liquidityMathService: LiquidityMathService,
+  positionStorageService: PositionStorageService,
 ): Promise<void> {
   logger.info(`🏊 [PoolInstructions] Processing initialize pool`, {
     slot: data.slot,
@@ -41,17 +62,18 @@ async function processInitializePool(
     decodedInstruction: data.decodedInstruction,
   });
 
-  const analysis = analyseInitialization(data.decodedInstruction);
+  const analysis = await analyseInitialization(data.decodedInstruction, liquidityMathService);
+  await positionStorageService.storePool(analysis);
   logger.info(`🏊 [PoolInstructions] Analysis:`, {
     analysis,
   });
-
-  // set this in the pools list in redis
 }
 
 async function processInitializePoolV2(
   data: InitializeData,
   protocolStates: Map<string, any>,
+  liquidityMathService: LiquidityMathService,
+  positionStorageService: PositionStorageService,
 ): Promise<void> {
   logger.info(`🏊 [PoolInstructions] Processing initialize pool V2`, {
     slot: data.slot,
@@ -62,17 +84,18 @@ async function processInitializePoolV2(
     decodedInstruction: data.decodedInstruction,
   });
 
-  const analysis = analyseInitialization(data.decodedInstruction);
+  const analysis = await analyseInitialization(data.decodedInstruction, liquidityMathService);
+  await positionStorageService.storePool(analysis);
   logger.info(`🏊 [PoolInstructions] Analysis:`, {
     analysis,
   });
-
-  // set this in the pools list in redis
 }
 
 async function processInitializePoolWithAdaptiveFee(
   data: InitializeData,
   protocolStates: Map<string, any>,
+  liquidityMathService: LiquidityMathService,
+  positionStorageService: PositionStorageService,
 ): Promise<void> {
   logger.info(`🏊 [PoolInstructions] Processing initialize pool V2`, {
     slot: data.slot,
@@ -83,52 +106,42 @@ async function processInitializePoolWithAdaptiveFee(
     decodedInstruction: data.decodedInstruction,
   });
 
-  const analysis = analyseInitialization(data.decodedInstruction);
+  const analysis = await analyseInitialization(data.decodedInstruction, liquidityMathService);
+  await positionStorageService.storePool(analysis);
   logger.info(`🏊 [PoolInstructions] Analysis:`, {
     analysis,
   });
-
-  // set this in the pools list in redis
 }
 
-function analyseInitialization(decodedInstruction: any) {
-  const tokenMintA = decodedInstruction.accounts.tokenMintA;
-  const tokenMintB = decodedInstruction.accounts.tokenMintB;
-
-  //todo: get decimals in this step + name
-  const decimalsA = (tokenMintA: any) => {
-    return tokenMintA.decimals;
-  };
-  const decimalsB = (tokenMintB: any) => {
-    return tokenMintB.decimals;
-  };
-
-  const currentTick = () => {};
+async function analyseInitialization(
+  decodedInstruction: any,
+  liquidityMathService: LiquidityMathService,
+) {
+  //todo: test
+  const token0Decimals = (await getJupPrice(decodedInstruction.accounts.tokenMintA)).decimals;
+  const token1Decimals = (await getJupPrice(decodedInstruction.accounts.tokenMintB)).decimals;
+  //todo: check if this is correct or not
+  const currentTick = liquidityMathService.sqrtPriceX64ToTick(
+    decodedInstruction.data.initialSqrtPrice,
+  );
 
   return {
-    whirlpool: decodedInstruction.accounts.whirlpool,
+    poolId: decodedInstruction.accounts.whirlpool,
     whirlpoolConfig: decodedInstruction.accounts.whirlpoolConfig,
-
-    tokenMintA: decodedInstruction.accounts.tokenMintA,
-    tokenMintB: decodedInstruction.accounts.tokenMintB,
-
     funder: decodedInstruction.accounts.funder,
-
-    tokenVaultA: decodedInstruction.accounts.tokenVaultA,
-    tokenVaultB: decodedInstruction.accounts.tokenVaultB,
-
-    feeTier: getFeeTierInfo(decodedInstruction),
+    tokenVault0: decodedInstruction.accounts.tokenVaultA,
+    tokenVault1: decodedInstruction.accounts.tokenVaultB,
+    fee: getFeeTierInfo(decodedInstruction),
     tokenProgram: getTokenProgramInfo(decodedInstruction),
     systemProgram: decodedInstruction.accounts.systemProgram,
-
     tickSpacing: decodedInstruction.data.tickSpacing,
-
-    initialSqrtPrice: decodedInstruction.data.initialSqrtPrice,
-    currentTick: currentTick(),
+    // initialSqrtPrice: decodedInstruction.data.initialSqrtPrice,
+    currentTick: currentTick,
     poolType: getPoolType(decodedInstruction),
-
-    decimalsA: decimalsA(tokenMintA),
-    decimalsB: decimalsB(tokenMintB),
+    token0Id: decodedInstruction.accounts.tokenMintA,
+    token1Id: decodedInstruction.accounts.tokenMintB,
+    token0Decimals: token0Decimals,
+    token1Decimals: token1Decimals,
   };
 }
 

@@ -11,6 +11,8 @@ import {
   toTransaction,
   logger,
   HOURS_TO_MS,
+  PriceFeed,
+  TokenPreference,
 } from '@absinthe/common';
 import * as whirlpoolProgram from './abi/whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc';
 import * as tokenProgram from './abi/TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
@@ -20,7 +22,7 @@ import { TypeormDatabase } from '@subsquid/typeorm-store';
 
 import { OrcaProtocol, ProtocolStateOrca, OrcaInstructionData } from './utils/types';
 import { augmentBlock } from '@subsquid/solana-objects';
-import { TRACKED_TOKENS } from './utils/consts';
+import { TRACKED_TOKENS, WHIRLPOOL_ADDRESSES } from './utils/consts';
 import { TokenBalance } from './utils/types';
 
 // Import all the mapping handlers
@@ -30,6 +32,8 @@ import { processFeeInstructions } from './mappings/feeInstructions';
 import { processPositionInstructions } from './mappings/positionInstructions';
 import { processPoolInstructions } from './mappings/poolInstructions';
 import { processTransferInstructions } from './mappings/transferInstruction';
+import { LiquidityMathService } from './services/LiquidityMathService';
+import { PositionStorageService } from './services/PositionStorageService';
 export class OrcaProcessor {
   private readonly protocol: OrcaProtocol;
   private readonly schemaName: string;
@@ -37,7 +41,8 @@ export class OrcaProcessor {
   private readonly apiClient: AbsintheApiClient;
   private readonly chainConfig: Chain;
   private readonly env: ValidatedEnvBase;
-
+  private readonly liquidityMathService: LiquidityMathService;
+  private readonly positionStorageService: PositionStorageService;
   constructor(
     dexProtocol: OrcaProtocol,
     refreshWindow: number,
@@ -52,6 +57,9 @@ export class OrcaProcessor {
     this.chainConfig = chainConfig;
     this.schemaName = this.generateSchemaName();
     this.refreshWindow = this.protocol.balanceFlushIntervalHours * HOURS_TO_MS;
+
+    this.positionStorageService = new PositionStorageService();
+    this.liquidityMathService = new LiquidityMathService();
   }
 
   private generateSchemaName(): string {
@@ -99,8 +107,14 @@ export class OrcaProcessor {
 
       for (let ins of block.instructions) {
         if (ins.programId === whirlpoolProgram.programId) {
+          logger.info(`🏊 [ProcessBatch] Decoding instruction:`, {
+            instruction: ins,
+          });
           const instructionData = this.decodeInstruction(ins, block);
           if (instructionData) {
+            logger.info(`🏊 [ProcessBatch] Instruction decoded:`, {
+              instructionData,
+            });
             blockInstructions.push(instructionData);
           }
         }
@@ -118,201 +132,298 @@ export class OrcaProcessor {
   private async initializeProtocolStates(ctx: any): Promise<Map<string, ProtocolStateOrca>> {
     const protocolStates = new Map<string, ProtocolStateOrca>();
 
-    const contractAddress = this.protocol.contractAddress.toLowerCase();
-    protocolStates.set(contractAddress, {
-      balanceWindows: [],
-      transactions: [],
-    });
+    for (const pool of WHIRLPOOL_ADDRESSES) {
+      const contractAddress = pool.toLowerCase();
+      protocolStates.set(contractAddress, {
+        balanceWindows: [],
+        transactions: [],
+      });
+    }
+
+    logger.info(
+      `🏊 [InitializeProtocolStates] Protocol states initialized for ${protocolStates.size} pools`,
+    );
+    for (const [pool, state] of protocolStates) {
+      logger.info(`🏊 [InitializeProtocolStates] Pool: ${pool}, State: ${JSON.stringify(state)}`);
+    }
 
     return protocolStates;
   }
 
+  private isTargetPoolInstruction(whirlPoolAddress: string): boolean {
+    return WHIRLPOOL_ADDRESSES.includes(whirlPoolAddress.toLowerCase());
+  }
+
+  // Update your decodeInstruction method to use this filter
   private decodeInstruction(ins: any, block: any): OrcaInstructionData | null {
-    const slot = block.header.slot;
-    const tx = ins.getTransaction().signatures[0];
-    const tokenBalances = ins.getTransaction().tokenBalances;
+    try {
+      const slot = block.header.slot;
+      const tx = ins.getTransaction().signatures[0];
+      const tokenBalances = ins.getTransaction().tokenBalances;
 
-    const baseData = {
-      slot,
-      txHash: tx,
-      logIndex: null, //todo: find equivalent in solana
-      blockHash: '', // todo: find equivalent in solana
-      timestamp: block.header.timestamp,
-      tokenBalances,
-    };
+      const baseData = {
+        slot,
+        txHash: tx,
+        logIndex: null, //todo: find equivalent in solana
+        blockHash: '', // todo: find equivalent in solana
+        timestamp: block.header.timestamp,
+        tokenBalances,
+      };
 
-    // Use switch statement to decode instruction
-    switch (ins.d8) {
-      case whirlpoolProgram.instructions.swap.d8:
-        return {
-          ...baseData,
-          type: 'swap',
-          decodedInstruction: whirlpoolProgram.instructions.swap.decode(ins),
-        } as OrcaInstructionData;
+      // Use switch statement to decode instruction
+      switch (ins.d8) {
+        case whirlpoolProgram.instructions.swap.d8:
+          logger.info(`🏊 [ProcessBatch] Inner instructions swap:`, {
+            inner: ins.inner,
+          });
+          const innerTransfers = ins.inner
+            ? ins.inner
+                .map((inner: any) => {
+                  try {
+                    return tokenProgram.instructions.transfer.decode({
+                      accounts: inner.accounts,
+                      data: inner.data,
+                    });
+                  } catch {
+                    return null;
+                  }
+                })
+                .filter((t: any) => t !== null)
+            : [];
 
-      case whirlpoolProgram.instructions.swapV2.d8:
-        return {
-          ...baseData,
-          type: 'swapV2',
-          decodedInstruction: whirlpoolProgram.instructions.swapV2.decode(ins),
-        } as OrcaInstructionData;
+          logger.info(`🏊 [ProcessBatch] Inner transfers swap:`, {
+            innerTransfers,
+          });
 
-      case whirlpoolProgram.instructions.increaseLiquidity.d8:
-        return {
-          ...baseData,
-          type: 'increaseLiquidity',
-          decodedInstruction: whirlpoolProgram.instructions.increaseLiquidity.decode(ins),
-        } as OrcaInstructionData;
+          return {
+            ...baseData,
+            type: 'swap',
+            transfers: innerTransfers,
+            decodedInstruction: whirlpoolProgram.instructions.swap.decode(ins),
+          } as OrcaInstructionData;
 
-      case whirlpoolProgram.instructions.decreaseLiquidity.d8:
-        return {
-          ...baseData,
-          type: 'decreaseLiquidity',
-          decodedInstruction: whirlpoolProgram.instructions.decreaseLiquidity.decode(ins),
-        } as OrcaInstructionData;
+        case whirlpoolProgram.instructions.swapV2.d8:
+          logger.info(`🏊 [ProcessBatch] Inner instructions swapV2:`, {
+            inner: ins.inner,
+          });
+          const innerTransfersV2 = ins.inner
+            ? ins.inner
+                .map((inner: any) => {
+                  try {
+                    return tokenProgram.instructions.transfer.decode({
+                      accounts: inner.accounts,
+                      data: inner.data,
+                    });
+                  } catch {
+                    return null;
+                  }
+                })
+                .filter((t: any) => t !== null)
+            : [];
 
-      case whirlpoolProgram.instructions.collectFees.d8:
-        return {
-          ...baseData,
-          type: 'collectFees',
-          decodedInstruction: whirlpoolProgram.instructions.collectFees.decode(ins),
-        } as OrcaInstructionData;
+          logger.info(`🏊 [ProcessBatch] Inner transfers swapV2:`, {
+            innerTransfersV2,
+          });
 
-      case whirlpoolProgram.instructions.collectProtocolFees.d8:
-        return {
-          ...baseData,
-          type: 'collectProtocolFees',
-          decodedInstruction: whirlpoolProgram.instructions.collectProtocolFees.decode(ins),
-        } as OrcaInstructionData;
+          return {
+            ...baseData,
+            type: 'swapV2',
+            transfers: innerTransfersV2,
+            decodedInstruction: whirlpoolProgram.instructions.swapV2.decode(ins),
+          } as OrcaInstructionData;
 
-      case whirlpoolProgram.instructions.collectReward.d8:
-        return {
-          ...baseData,
-          type: 'collectReward',
-          decodedInstruction: whirlpoolProgram.instructions.collectReward.decode(ins),
-        } as OrcaInstructionData;
+        case whirlpoolProgram.instructions.increaseLiquidity.d8:
+          return {
+            ...baseData,
+            type: 'increaseLiquidity',
+            decodedInstruction: whirlpoolProgram.instructions.increaseLiquidity.decode(ins),
+          } as OrcaInstructionData;
 
-      case whirlpoolProgram.instructions.collectFeesV2.d8:
-        return {
-          ...baseData,
-          type: 'collectFeesV2',
-          decodedInstruction: whirlpoolProgram.instructions.collectFeesV2.decode(ins),
-        } as OrcaInstructionData;
+        case whirlpoolProgram.instructions.decreaseLiquidity.d8:
+          return {
+            ...baseData,
+            type: 'decreaseLiquidity',
+            decodedInstruction: whirlpoolProgram.instructions.decreaseLiquidity.decode(ins),
+          } as OrcaInstructionData;
 
-      case whirlpoolProgram.instructions.collectProtocolFeesV2.d8:
-        return {
-          ...baseData,
-          type: 'collectProtocolFeesV2',
-          decodedInstruction: whirlpoolProgram.instructions.collectProtocolFeesV2.decode(ins),
-        } as OrcaInstructionData;
+        case whirlpoolProgram.instructions.collectFees.d8:
+          return {
+            ...baseData,
+            type: 'collectFees',
+            decodedInstruction: whirlpoolProgram.instructions.collectFees.decode(ins),
+          } as OrcaInstructionData;
 
-      case whirlpoolProgram.instructions.collectRewardV2.d8:
-        return {
-          ...baseData,
-          type: 'collectRewardV2',
-          decodedInstruction: whirlpoolProgram.instructions.collectRewardV2.decode(ins),
-        } as OrcaInstructionData;
+        case whirlpoolProgram.instructions.collectProtocolFees.d8:
+          return {
+            ...baseData,
+            type: 'collectProtocolFees',
+            decodedInstruction: whirlpoolProgram.instructions.collectProtocolFees.decode(ins),
+          } as OrcaInstructionData;
 
-      case whirlpoolProgram.instructions.decreaseLiquidityV2.d8:
-        return {
-          ...baseData,
-          type: 'decreaseLiquidityV2',
-          decodedInstruction: whirlpoolProgram.instructions.decreaseLiquidityV2.decode(ins),
-        } as OrcaInstructionData;
+        case whirlpoolProgram.instructions.collectReward.d8:
+          return {
+            ...baseData,
+            type: 'collectReward',
+            decodedInstruction: whirlpoolProgram.instructions.collectReward.decode(ins),
+          } as OrcaInstructionData;
 
-      case whirlpoolProgram.instructions.increaseLiquidityV2.d8:
-        return {
-          ...baseData,
-          type: 'increaseLiquidityV2',
-          decodedInstruction: whirlpoolProgram.instructions.increaseLiquidityV2.decode(ins),
-        } as OrcaInstructionData;
+        case whirlpoolProgram.instructions.collectFeesV2.d8:
+          return {
+            ...baseData,
+            type: 'collectFeesV2',
+            decodedInstruction: whirlpoolProgram.instructions.collectFeesV2.decode(ins),
+          } as OrcaInstructionData;
 
-      case whirlpoolProgram.instructions.twoHopSwapV2.d8:
-        return {
-          ...baseData,
-          type: 'twoHopSwapV2',
-          decodedInstruction: whirlpoolProgram.instructions.twoHopSwapV2.decode(ins),
-        } as OrcaInstructionData;
+        case whirlpoolProgram.instructions.collectProtocolFeesV2.d8:
+          return {
+            ...baseData,
+            type: 'collectProtocolFeesV2',
+            decodedInstruction: whirlpoolProgram.instructions.collectProtocolFeesV2.decode(ins),
+          } as OrcaInstructionData;
 
-      case whirlpoolProgram.instructions.twoHopSwap.d8:
-        return {
-          ...baseData,
-          type: 'twoHopSwap',
-          decodedInstruction: whirlpoolProgram.instructions.twoHopSwap.decode(ins),
-        } as OrcaInstructionData;
+        case whirlpoolProgram.instructions.collectRewardV2.d8:
+          return {
+            ...baseData,
+            type: 'collectRewardV2',
+            decodedInstruction: whirlpoolProgram.instructions.collectRewardV2.decode(ins),
+          } as OrcaInstructionData;
 
-      case whirlpoolProgram.instructions.openPosition.d8:
-        return {
-          ...baseData,
-          type: 'openPosition',
-          decodedInstruction: whirlpoolProgram.instructions.openPosition.decode(ins),
-        } as OrcaInstructionData;
+        case whirlpoolProgram.instructions.decreaseLiquidityV2.d8:
+          return {
+            ...baseData,
+            type: 'decreaseLiquidityV2',
+            decodedInstruction: whirlpoolProgram.instructions.decreaseLiquidityV2.decode(ins),
+          } as OrcaInstructionData;
 
-      case whirlpoolProgram.instructions.closePosition.d8:
-        return {
-          ...baseData,
-          type: 'closePosition',
-          decodedInstruction: whirlpoolProgram.instructions.closePosition.decode(ins),
-        } as OrcaInstructionData;
+        case whirlpoolProgram.instructions.increaseLiquidityV2.d8:
+          return {
+            ...baseData,
+            type: 'increaseLiquidityV2',
+            decodedInstruction: whirlpoolProgram.instructions.increaseLiquidityV2.decode(ins),
+          } as OrcaInstructionData;
 
-      case whirlpoolProgram.instructions.openPositionWithTokenExtensions.d8:
-        return {
-          ...baseData,
-          type: 'openPositionWithTokenExtensions',
-          decodedInstruction:
-            whirlpoolProgram.instructions.openPositionWithTokenExtensions.decode(ins),
-        } as OrcaInstructionData;
+        case whirlpoolProgram.instructions.twoHopSwapV2.d8:
+          const innerTransfersTwoHopSwapV2 = ins.inner
+            ? ins.inner
+                .map((inner: any) => {
+                  try {
+                    return tokenProgram.instructions.transfer.decode(inner);
+                  } catch {
+                    return null;
+                  }
+                })
+                .filter((t: any) => t !== null)
+            : [];
+          return {
+            ...baseData,
+            type: 'twoHopSwapV2',
+            transfers: innerTransfersTwoHopSwapV2,
+            decodedInstruction: whirlpoolProgram.instructions.twoHopSwapV2.decode(ins),
+          } as OrcaInstructionData;
 
-      case whirlpoolProgram.instructions.closePositionWithTokenExtensions.d8:
-        return {
-          ...baseData,
-          type: 'closePositionWithTokenExtensions',
-          decodedInstruction:
-            whirlpoolProgram.instructions.closePositionWithTokenExtensions.decode(ins),
-        } as OrcaInstructionData;
-      case whirlpoolProgram.instructions.openPositionWithMetadata.d8:
-        return {
-          ...baseData,
-          type: 'openPositionWithMetadata',
-          decodedInstruction: whirlpoolProgram.instructions.openPositionWithMetadata.decode(ins),
-        } as OrcaInstructionData;
+        case whirlpoolProgram.instructions.twoHopSwap.d8:
+          const twoHopTransfers = ins.inner
+            ? ins.inner
+                .map((inner: any) => {
+                  try {
+                    return tokenProgram.instructions.transfer.decode({
+                      accounts: inner.accounts,
+                      data: inner.data,
+                    });
+                  } catch {
+                    return null;
+                  }
+                })
+                .filter((t: any) => t !== null)
+            : [];
 
-      case whirlpoolProgram.instructions.initializePoolV2.d8:
-        return {
-          ...baseData,
-          type: 'initializePoolV2',
-          decodedInstruction: whirlpoolProgram.instructions.initializePoolV2.decode(ins),
-        } as OrcaInstructionData;
-      case whirlpoolProgram.instructions.initializePool.d8:
-        return {
-          ...baseData,
-          type: 'initializePool',
-          decodedInstruction: whirlpoolProgram.instructions.initializePool.decode(ins),
-        } as OrcaInstructionData;
+          return {
+            ...baseData,
+            type: 'twoHopSwap',
+            transfers: twoHopTransfers,
+            decodedInstruction: whirlpoolProgram.instructions.twoHopSwap.decode(ins),
+          } as OrcaInstructionData;
 
-      case whirlpoolProgram.instructions.initializePoolWithAdaptiveFee.d8:
-        return {
-          ...baseData,
-          type: 'initializePoolWithAdaptiveFee',
-          decodedInstruction:
-            whirlpoolProgram.instructions.initializePoolWithAdaptiveFee.decode(ins),
-        } as OrcaInstructionData;
+        case whirlpoolProgram.instructions.openPosition.d8:
+          return {
+            ...baseData,
+            type: 'openPosition',
+            decodedInstruction: whirlpoolProgram.instructions.openPosition.decode(ins),
+          } as OrcaInstructionData;
 
-      case tokenProgram.instructions.transfer.d1:
-        return {
-          ...baseData,
-          type: 'transfer',
-          decodedInstruction: tokenProgram.instructions.transfer.decode(ins),
-        } as OrcaInstructionData;
-      case tokenProgram.instructions.transferChecked.d1:
-        return {
-          ...baseData,
-          type: 'transferChecked',
-          decodedInstruction: tokenProgram.instructions.transferChecked.decode(ins),
-        } as OrcaInstructionData;
+        case whirlpoolProgram.instructions.closePosition.d8:
+          return {
+            ...baseData,
+            type: 'closePosition',
+            decodedInstruction: whirlpoolProgram.instructions.closePosition.decode(ins),
+          } as OrcaInstructionData;
 
-      default:
-        return null;
+        case whirlpoolProgram.instructions.openPositionWithTokenExtensions.d8:
+          return {
+            ...baseData,
+            type: 'openPositionWithTokenExtensions',
+            decodedInstruction:
+              whirlpoolProgram.instructions.openPositionWithTokenExtensions.decode(ins),
+          } as OrcaInstructionData;
+
+        case whirlpoolProgram.instructions.closePositionWithTokenExtensions.d8:
+          return {
+            ...baseData,
+            type: 'closePositionWithTokenExtensions',
+            decodedInstruction:
+              whirlpoolProgram.instructions.closePositionWithTokenExtensions.decode(ins),
+          } as OrcaInstructionData;
+        case whirlpoolProgram.instructions.openPositionWithMetadata.d8:
+          return {
+            ...baseData,
+            type: 'openPositionWithMetadata',
+            decodedInstruction: whirlpoolProgram.instructions.openPositionWithMetadata.decode(ins),
+          } as OrcaInstructionData;
+
+        case whirlpoolProgram.instructions.initializePoolV2.d8:
+          return {
+            ...baseData,
+            type: 'initializePoolV2',
+            decodedInstruction: whirlpoolProgram.instructions.initializePoolV2.decode(ins),
+          } as OrcaInstructionData;
+        case whirlpoolProgram.instructions.initializePool.d8:
+          return {
+            ...baseData,
+            type: 'initializePool',
+            decodedInstruction: whirlpoolProgram.instructions.initializePool.decode(ins),
+          } as OrcaInstructionData;
+
+        case whirlpoolProgram.instructions.initializePoolWithAdaptiveFee.d8:
+          return {
+            ...baseData,
+            type: 'initializePoolWithAdaptiveFee',
+            decodedInstruction:
+              whirlpoolProgram.instructions.initializePoolWithAdaptiveFee.decode(ins),
+          } as OrcaInstructionData;
+
+        case tokenProgram.instructions.transfer.d1:
+          return {
+            ...baseData,
+            type: 'transfer',
+            decodedInstruction: tokenProgram.instructions.transfer.decode(ins),
+          } as OrcaInstructionData;
+        case tokenProgram.instructions.transferChecked.d1:
+          return {
+            ...baseData,
+            type: 'transferChecked',
+            decodedInstruction: tokenProgram.instructions.transferChecked.decode(ins),
+          } as OrcaInstructionData;
+
+        default:
+          return null;
+      }
+    } catch (error) {
+      logger.warn(`⚠️ [DecodeInstruction] Failed to decode instruction:`, {
+        error: error as Error,
+        discriminator: ins.d8,
+        programId: ins.programId,
+      });
+      return null; // Skip this instruction instead of crashing
     }
   }
 
@@ -381,10 +492,22 @@ export class OrcaProcessor {
       ['transfer', 'transferChecked'].includes(data.type),
     );
 
-    // Process each category for this block
-
     if (poolInstructions.length > 0) {
-      await processPoolInstructions(poolInstructions, protocolStates);
+      await processPoolInstructions(
+        poolInstructions,
+        protocolStates,
+        this.liquidityMathService,
+        this.positionStorageService,
+      );
+    }
+
+    if (swapInstructions.length > 0) {
+      await processSwapInstructions(
+        swapInstructions,
+        protocolStates,
+        this.positionStorageService,
+        this.liquidityMathService,
+      );
     }
 
     //todo: include transfer log position over here in future
@@ -393,20 +516,24 @@ export class OrcaProcessor {
     // }
 
     if (positionInstructions.length > 0) {
-      await processPositionInstructions(positionInstructions, protocolStates);
-    }
-
-    if (swapInstructions.length > 0) {
-      await processSwapInstructions(swapInstructions, protocolStates);
+      await processPositionInstructions(
+        positionInstructions,
+        protocolStates,
+        this.positionStorageService,
+      );
     }
 
     if (liquidityInstructions.length > 0) {
-      await processLiquidityInstructions(liquidityInstructions, protocolStates);
+      await processLiquidityInstructions(
+        liquidityInstructions,
+        protocolStates,
+        this.liquidityMathService,
+      );
     }
 
-    // if (feeInstructions.length > 0) {
-    //   await processFeeInstructions(feeInstructions, protocolStates);
-    // }
+    if (feeInstructions.length > 0) {
+      await processFeeInstructions(feeInstructions, protocolStates);
+    }
   }
 
   //todo: after each batch processing, add the logic for flush Interval
@@ -417,8 +544,38 @@ export class OrcaProcessor {
   ): Promise<void> {
     logger.info('Finalizing batch...');
 
-    const contractAddress = this.protocol.contractAddress.toLowerCase();
-    const protocolState = protocolStates.get(contractAddress)!;
+    for (const pool of WHIRLPOOL_ADDRESSES) {
+      const contractAddress = pool.toLowerCase();
+      const protocolState = protocolStates.get(contractAddress)!;
+
+      const transactions = toTransaction(
+        protocolState.transactions,
+        //todo: we will remove this in revamp
+        {
+          contractAddress: pool,
+          name: 'Orca',
+          type: 'orca',
+          fromBlock: 0,
+          pricingStrategy: PriceFeed.COINGECKO,
+          token0: {
+            coingeckoId: 'token0',
+            decimals: 18,
+            address: 'token0',
+            symbol: 'token0',
+          },
+          token1: {
+            coingeckoId: 'token1',
+            decimals: 18,
+            address: 'token1',
+            symbol: 'token1',
+          },
+          preferredTokenCoingeckoId: TokenPreference.FIRST,
+        },
+        this.env,
+        this.chainConfig,
+      );
+      await this.apiClient.send(transactions);
+    }
 
     // const transactions = toTransaction(
     //   protocolState.transactions,

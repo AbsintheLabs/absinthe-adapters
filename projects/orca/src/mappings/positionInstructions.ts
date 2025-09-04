@@ -1,7 +1,8 @@
 import { logger } from '@absinthe/common';
 import { OrcaInstructionData, PositionData } from '../utils/types';
+import { PositionStorageService } from '../services/PositionStorageService';
 
-// todo: we will be rewarding the owner and not the positionAuthority
+// NOTE: we will be rewarding the owner and not the positionAuthority
 // “Holding” a position is defined in ORCA by owning the position-NFT.
 
 // 	- The NFT is a normal SPL-token whose owner field changes whenever it is transferred.
@@ -16,6 +17,7 @@ import { OrcaInstructionData, PositionData } from '../utils/types';
 export async function processPositionInstructions(
   instructionsData: OrcaInstructionData[],
   protocolStates: Map<string, any>,
+  positionStorageService: PositionStorageService,
 ): Promise<void> {
   logger.info(
     `🎯 [PositionInstructions] Processing ${instructionsData.length} position instructions`,
@@ -25,19 +27,31 @@ export async function processPositionInstructions(
     try {
       switch (data.type) {
         case 'openPosition':
-          await processOpenPosition(data as PositionData, protocolStates);
+          await processOpenPosition(data as PositionData, protocolStates, positionStorageService);
           break;
         case 'closePosition':
-          await processClosePosition(data as PositionData, protocolStates);
+          await processClosePosition(data as PositionData, protocolStates, positionStorageService);
           break;
         case 'openPositionWithTokenExtensions':
-          await processOpenPositionWithTokenExtensions(data as PositionData, protocolStates);
+          await processOpenPositionWithTokenExtensions(
+            data as PositionData,
+            protocolStates,
+            positionStorageService,
+          );
           break;
         case 'closePositionWithTokenExtensions':
-          await processClosePositionWithTokenExtensions(data as PositionData, protocolStates);
+          await processClosePositionWithTokenExtensions(
+            data as PositionData,
+            protocolStates,
+            positionStorageService,
+          );
           break;
         case 'openPositionWithMetadata':
-          await processOpenPositionWithMetadata(data as PositionData, protocolStates);
+          await processOpenPositionWithMetadata(
+            data as PositionData,
+            protocolStates,
+            positionStorageService,
+          );
           break;
       }
     } catch (error) {
@@ -49,6 +63,7 @@ export async function processPositionInstructions(
 async function processOpenPosition(
   data: PositionData,
   protocolStates: Map<string, any>,
+  positionStorageService: PositionStorageService,
 ): Promise<void> {
   logger.info(`🔓 [PositionInstructions] Processing open position`, {
     slot: data.slot,
@@ -57,16 +72,23 @@ async function processOpenPosition(
   logger.info(`🏊 [PositionInstructions] Decoded instruction:`, {
     decodedInstruction: data.decodedInstruction,
   });
-  const analysis = analyzeOpenPosition(data.decodedInstruction);
-  logger.info(`🏊 [PositionInstructions] Position analysis:`, {
-    analysis,
+  const positionData = await analyzeOpenPosition(
+    data.decodedInstruction,
+    data.slot,
+    data.timestamp,
+    positionStorageService,
+  );
+  await positionStorageService.storePosition(positionData);
+
+  logger.info(`🏊 [PositionInstructions] Position stored:`, {
+    positionData,
   });
-  //todo: add this to redis tracking
 }
 
 async function processClosePosition(
   data: PositionData,
   protocolStates: Map<string, any>,
+  positionStorageService: PositionStorageService,
 ): Promise<void> {
   logger.info(`🔒 [PositionInstructions] Processing close position`, {
     slot: data.slot,
@@ -79,18 +101,19 @@ async function processClosePosition(
   const { position, positionMint, positionTokenAccount } = analyseClosePosition(
     data.decodedInstruction,
   );
-  logger.info(`🏊 [PositionInstructions] Position analysis:`, {
+
+  await positionStorageService.deletePosition(position);
+  logger.info(`🏊 [PositionInstructions] Position deleted:`, {
     position,
     positionMint,
     positionTokenAccount,
   });
-
-  //todo: delete this from redis tracking using positionPDA
 }
 
 async function processOpenPositionWithTokenExtensions(
   data: PositionData,
   protocolStates: Map<string, any>,
+  positionStorageService: PositionStorageService,
 ): Promise<void> {
   logger.info(`🔓 [PositionInstructions] Processing open position with token extensions`, {
     slot: data.slot,
@@ -99,17 +122,22 @@ async function processOpenPositionWithTokenExtensions(
   logger.info(`🏊 [PositionInstructions] Decoded instruction:`, {
     decodedInstruction: data.decodedInstruction,
   });
-  const analysis = analyzeOpenPosition(data.decodedInstruction);
-  logger.info(`🏊 [PositionInstructions] Position analysis:`, {
-    analysis,
+  const positionData = await analyzeOpenPosition(
+    data.decodedInstruction,
+    data.slot,
+    data.timestamp,
+    positionStorageService,
+  );
+  await positionStorageService.storePosition(positionData);
+  logger.info(`🏊 [PositionInstructions] Position stored:`, {
+    positionData,
   });
-
-  //todo: add this to redis tracking
 }
 
 async function processClosePositionWithTokenExtensions(
   data: PositionData,
   protocolStates: Map<string, any>,
+  positionStorageService: PositionStorageService,
 ): Promise<void> {
   logger.info(`🔒 [PositionInstructions] Processing close position with token extensions`, {
     slot: data.slot,
@@ -122,18 +150,18 @@ async function processClosePositionWithTokenExtensions(
   const { position, positionMint, positionTokenAccount } = analyseClosePosition(
     data.decodedInstruction,
   );
-  logger.info(`🏊 [PositionInstructions] Position analysis:`, {
+  await positionStorageService.deletePosition(position);
+  logger.info(`🏊 [PositionInstructions] Position deleted:`, {
     position,
     positionMint,
     positionTokenAccount,
   });
-
-  //todo: delete this from redis tracking using positionPDA
 }
 
 async function processOpenPositionWithMetadata(
   data: PositionData,
   protocolStates: Map<string, any>,
+  positionStorageService: PositionStorageService,
 ): Promise<void> {
   logger.info(`🔓 [PositionInstructions] Processing open position with metadata`, {
     slot: data.slot,
@@ -142,39 +170,60 @@ async function processOpenPositionWithMetadata(
   logger.info(`🏊 [PositionInstructions] Decoded instruction:`, {
     decodedInstruction: data.decodedInstruction,
   });
-  const analysis = analyzeOpenPosition(data.decodedInstruction);
-  logger.info(`🏊 [PositionInstructions] Position analysis:`, {
-    analysis,
+  const positionData = await analyzeOpenPosition(
+    data.decodedInstruction,
+    data.slot,
+    data.timestamp,
+    positionStorageService,
+  );
+  await positionStorageService.storePosition(positionData);
+  logger.info(`🏊 [PositionInstructions] Position stored:`, {
+    positionData,
   });
-
-  //todo: add this to redis tracking
 }
 
-function analyzeOpenPosition(decodedInstruction: any) {
-  const currentTick = () => {};
-  const isTickInRange = () => {}; //todo: implement - call data function from pool hashmap
+async function analyzeOpenPosition(
+  decodedInstruction: any,
+  slot: number,
+  timestamp: number,
+  positionStorageService: PositionStorageService,
+) {
+  //note: do we need current tick logic, after we have already fetched it in the pool initialization step ?
+  // => No, we can use the current tick from the pool initialization step (only place to worry is if we have swaps between the pool init and open position (as maybe some other position exists))
+
+  const pool = await positionStorageService.getPool(decodedInstruction.accounts.whirlpool);
+  const currentTick = pool?.currentTick; //note :can never be null
+
+  const isActive = () => {
+    if (!currentTick) {
+      return 'false';
+    }
+    if (
+      currentTick > decodedInstruction.data.tickLowerIndex &&
+      currentTick < decodedInstruction.data.tickUpperIndex
+    ) {
+      return 'true';
+    }
+    return 'false';
+  };
+
   return {
-    position: decodedInstruction.accounts.position,
+    positionId: decodedInstruction.accounts.position,
     positionMint: decodedInstruction.accounts.positionMint,
-    positionTokenAccount: decodedInstruction.accounts.positionTokenAccount,
-
-    whirlpool: decodedInstruction.accounts.whirlpool,
-
+    // positionTokenAccount: decodedInstruction.accounts.positionTokenAccount,
+    poolId: decodedInstruction.accounts.whirlpool,
     tickLower: decodedInstruction.data.tickLowerIndex,
     tickUpper: decodedInstruction.data.tickUpperIndex,
-    tickRange: decodedInstruction.data.tickUpperIndex - decodedInstruction.data.tickLowerIndex,
-    isTickInRange: isTickInRange(),
-
+    isActive: isActive(),
     tokenProgram:
       decodedInstruction.accounts.tokenProgram || decodedInstruction.accounts.token2022Program,
-    systemProgram: decodedInstruction.accounts.systemProgram,
     //todo: check can we add liquidity in the position Initialization step ?
     // => NO, because I think its because its only added in the first step of increaseLiquidity
     // Why is it important => because I am setting it = 0
-    liquidity: 0,
-
-    funder: decodedInstruction.accounts.funder,
+    liquidity: '0',
     owner: decodedInstruction.accounts.owner,
+    lastUpdatedBlockTs: timestamp,
+    lastUpdatedBlockHeight: slot,
   };
 }
 

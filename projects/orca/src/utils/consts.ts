@@ -5,4 +5,11 @@ const FILE_NAME = 'config.json';
 const TRACKED_TOKENS = {
   [USDC_MINT]: USDC_DECIMALS,
 };
-export { TRACKED_TOKENS, FILE_NAME };
+
+const WHIRLPOOL_ADDRESSES = [
+  '8uGEM2h7s9EV5tYynAFh5kwve1uLiSEs665V9DYX2Lpj',
+  // 'AvVeFoEokqbosw9UWkYEnwpWhTQd96GeWwV48WjFCEMw',
+  // 'HWzqj2vg581nwvAryFKoeB3DaNqtNhtxY98wbb8EjLpC',
+];
+
+export { TRACKED_TOKENS, FILE_NAME, WHIRLPOOL_ADDRESSES };

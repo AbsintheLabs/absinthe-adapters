@@ -200,6 +200,9 @@ importers:
       pg:
         specifier: ^8.13.1
         version: 8.16.0
+      redis:
+        specifier: ^5.5.6
+        version: 5.5.6
       typeorm:
         specifier: ^0.3.20
         version: 0.3.24(ioredis@5.6.1)(pg@8.16.0)(redis@5.5.6)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4))

@@ -48,6 +48,18 @@ export async function processPositions(
   const startTime = Date.now();
 
   const eventsData = processItems(ctx, block, protocolStates);
+
+  // Always process pairs (swaps) regardless of position events
+  await processPairs(
+    ctx,
+    block,
+    positionTracker,
+    positionStorageService,
+    protocolStates,
+    chainPlatform,
+    coingeckoApiKey,
+  );
+
   if (!eventsData || eventsData.length == 0) {
     logger.info(`🔄 [PositionManager] No position events found in block ${block.header.height}`);
     return;
@@ -78,16 +90,6 @@ export async function processPositions(
     positionsAddress,
     factoryAddress,
     multicallAddress,
-  );
-
-  await processPairs(
-    ctx,
-    block,
-    positionTracker,
-    positionStorageService,
-    protocolStates,
-    chainPlatform,
-    coingeckoApiKey,
   );
 
   let processedCount = 0;

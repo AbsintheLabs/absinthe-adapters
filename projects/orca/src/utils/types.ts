@@ -61,13 +61,52 @@ interface BaseInstructionData {
   tokenBalances: TokenBalance[];
 }
 
+interface Token {
+  id: string;
+  decimals: number;
+}
+
+interface PositionDetails {
+  positionId: string;
+  owner: string;
+  liquidity: string;
+  tickLower: number;
+  tickUpper: number;
+  isActive: string;
+  lastUpdatedBlockTs: number;
+  lastUpdatedBlockHeight: number;
+  poolId: string;
+  positionMint: string;
+  tokenProgram: string;
+}
+
+interface PoolDetails {
+  poolId: string;
+  whirlpoolConfig: any;
+  token0Id: string;
+  token1Id: string;
+  token0Decimals: number;
+  token1Decimals: number;
+  fee: string;
+  poolType: string;
+  currentTick: number;
+  tickSpacing: number;
+  tokenProgram: string;
+  systemProgram: string;
+  tokenVault0: string;
+  tokenVault1: string;
+  funder: string;
+}
+
 interface SwapData extends BaseInstructionData {
   type: 'swap' | 'swapV2';
+  transfers: any;
   // Add swap-specific fields here
 }
 
 interface TwoHopSwapData extends BaseInstructionData {
   type: 'twoHopSwap' | 'twoHopSwapV2';
+  transfers: any;
   // Add two-hop swap specific fields here
 }
 
@@ -130,4 +169,7 @@ export type {
   PositionData,
   InitializeData,
   BaseInstructionData,
+  Token,
+  PositionDetails,
+  PoolDetails,
 };
