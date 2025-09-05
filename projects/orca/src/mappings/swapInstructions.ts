@@ -1,8 +1,9 @@
 import { Currency, logger, MessageType } from '@absinthe/common';
-import { OrcaInstructionData, SwapData, TwoHopSwapData } from '../utils/types';
-import { getJupPrice } from '../utils/pricing';
+import { OrcaInstructionData, PositionDetails, SwapData, TwoHopSwapData } from '../utils/types';
+import { getJupPrice, getTokenPrice } from '../utils/pricing';
 import { PositionStorageService } from '../services/PositionStorageService';
 import { LiquidityMathService } from '../services/LiquidityMathService';
+import { activatePosition, deactivatePosition } from '../services/LiquidityManagementService';
 
 export async function processSwapInstructions(
   instructionsData: OrcaInstructionData[],
@@ -54,13 +55,14 @@ export async function processSwapInstructions(
   }
 }
 
-async function processSwap(
-  data: SwapData,
+// Common processing logic for all swap types
+async function processSwapCommon(
+  data: SwapData | TwoHopSwapData,
   protocolStates: Map<string, any>,
   positionStorageService: PositionStorageService,
   liquidityMathService: LiquidityMathService,
 ): Promise<void> {
-  logger.info(`💱 [SwapInstructions] Processing swap instruction`, {
+  logger.info(`💱 [SwapInstructions] Processing ${data.type} instruction`, {
     slot: data.slot,
     txHash: data.txHash,
   });
@@ -68,10 +70,19 @@ async function processSwap(
   logger.info(`🏊 [SwapInstructions] Decoded instruction:`, {
     decodedInstruction: data,
   });
+
   const analysis = await analyseSwap(data, liquidityMathService);
   logger.info(`💸 [SwapInstructions] Swap analysis:`, {
     analysis,
   });
+
+  if (!analysis?.userAddress) {
+    logger.warn(`⚠️ [SwapInstructions] Skipping transaction schema - userAddress is undefined`, {
+      txHash: data.txHash,
+      analysis,
+    });
+    return;
+  }
 
   const poolDetails = await positionStorageService.getPool(analysis!.poolId);
 
@@ -87,200 +98,87 @@ async function processSwap(
         value: poolDetails!.token0Id,
         type: 'string',
       },
-
-      token0PriceUsd: {
-        value: analysis!.srcAmountUsd.toString(),
+      token1Decimals: {
+        value: poolDetails!.token1Decimals.toString(),
         type: 'number',
+      },
+      token1Address: {
+        value: poolDetails!.token1Id,
+        type: 'string',
       },
       amount0: {
         value: analysis!.fromAmount.toString(),
         type: 'number',
       },
-
-      amount0Abs: {
-        value: analysis!.fromAmount.toString(),
+      amount1: {
+        value: analysis!.toAmount.toString(),
         type: 'number',
       },
-      tick: {
+      currentTick: {
         value: analysis!.currentTick.toString(),
         type: 'number',
       },
     },
     rawAmount: analysis!.fromAmount.toString(),
-    displayAmount: analysis!.srcAmountUsd.toString(),
+    displayAmount: analysis!.valueUsd.toString(),
     unixTimestampMs: data.timestamp,
     txHash: data.txHash,
     logIndex: data.logIndex,
     blockNumber: data.slot,
     blockHash: data.blockHash,
-    userId: data.accounts.source,
+    userId: analysis!.userAddress,
     currency: Currency.USD,
-    valueUsd: swappedAmountUSD,
+    valueUsd: analysis!.valueUsd,
     gasUsed: 0, //todo: fix
     gasFeeUsd: 0, //todo: fix
   };
 
-  // 7. directly call the contract and check the currentTick.
-  // 8. check the current tick with all the pools we currently have,
+  const positionsToActivate: PositionDetails[] = [];
+  const positionsToDeactivate: PositionDetails[] = [];
 
-  //   const positionsToActivate: PositionData[] = [];
-  //   const positionsToDeactivate: PositionData[] = [];
+  const positions = await positionStorageService.getAllPositionsByPoolId(analysis!.poolId);
 
-  //   for (const position of positions) {
-  //     const wasActive = position.isActive === 'true';
-  //     const isNowActive = position.tickLower <= currentTick && position.tickUpper > currentTick;
+  for (const position of positions) {
+    const wasActive = position.isActive === 'true';
+    const isNowActive =
+      position.tickLower <= analysis!.currentTick && position.tickUpper > analysis!.currentTick;
 
-  //     if (!wasActive && isNowActive) {
-  //       positionsToActivate.push(position);
-  //     } else if (wasActive && !isNowActive) {
-  //       positionsToDeactivate.push(position);
-  //     }
-  //   }
-  //   await Promise.all([
-  //     this.activatePosition(block, currentTick, positionsToActivate),
-  //     this.deactivatePosition(
-  //       block,
-  //       currentTick,
-  //       positionsToDeactivate,
-  //       protocolStates,
-  //       coingeckoApiKey,
-  //       chainPlatform,
-  //     ),
-  //   ]);
+    if (!wasActive && isNowActive) {
+      positionsToActivate.push(position);
+    } else if (wasActive && !isNowActive) {
+      positionsToDeactivate.push(position);
+    }
+  }
 
-  //   private async activatePosition(
-  //     block: BlockHeader,
-  //     currentTick: number,
-  //     positions: PositionData[],
-  //   ) {
-  //     for (const position of positions) {
-  //       position.isActive = 'true';
-  //       position.currentTick = currentTick;
-  //       position.lastUpdatedBlockTs = block.timestamp;
-  //       position.lastUpdatedBlockHeight = block.height;
-  //       await this.positionStorageService.updatePosition(position);
+  await Promise.all([
+    activatePosition(
+      data.slot,
+      data.timestamp,
+      analysis!.currentTick,
+      positionsToActivate,
+      poolDetails!,
+      positionStorageService,
+    ),
+    deactivatePosition(
+      data.slot,
+      data.timestamp,
+      analysis!.currentTick,
+      positionsToDeactivate,
+      poolDetails!,
+      protocolStates,
+      positionStorageService,
+      liquidityMathService,
+    ),
+  ]);
+}
 
-  //       console.log(`Started tracking position ${position.positionId}`);
-  //     }
-  //   }
-
-  //   private async deactivatePosition(
-  //     block: BlockHeader,
-  //     currentTick: number,
-  //     positions: PositionData[],
-  //     protocolStates: Map<string, ProtocolStateUniswapV3>,
-  //     coingeckoApiKey: string,
-  //     chainPlatform: string,
-  //   ) {
-  //     for (const position of positions) {
-  //       position.isActive = 'false';
-  //       position.currentTick = currentTick;
-  //       let balanceWindow: HistoryWindow | null = null;
-  //       await this.positionStorageService.updatePosition(position); //todo: efficiency - double call
-
-  //       const token0 = await this.positionStorageService.getToken(position.token0Id);
-  //       const token1 = await this.positionStorageService.getToken(position.token1Id);
-  //       if (!token0 || !token1) {
-  //         logger.warn(`❌ Skipping position ${position.positionId} - missing token data:`, {
-  //           token0Exists: !!token0,
-  //           token0Id: position.token0Id,
-  //         });
-  //         return;
-  //       }
-
-  //       const oldLiquidity = BigInt(position.liquidity);
-
-  //       const { humanAmount0: oldHumanAmount0, humanAmount1: oldHumanAmount1 } =
-  //         getAmountsForLiquidityRaw(
-  //           oldLiquidity,
-  //           position.tickLower,
-  //           position.tickUpper,
-  //           position.currentTick,
-  //           token0.decimals,
-  //           token1.decimals,
-  //         );
-  //       const [token0inUSD, token1inUSD] = await getOptimizedTokenPrices(
-  //         position.poolId,
-  //         token0,
-  //         token1,
-  //         block,
-  //         coingeckoApiKey,
-  //         chainPlatform,
-  //       );
-
-  //       const oldLiquidityUSD =
-  //         Number(oldHumanAmount0) * token0inUSD + Number(oldHumanAmount1) * token1inUSD;
-
-  //       if (oldLiquidityUSD !== 0 && position.lastUpdatedBlockTs) {
-  //         balanceWindow = {
-  //           userAddress: position.owner,
-  //           deltaAmount: 0,
-  //           trigger: TimeWindowTrigger.EXHAUSTED,
-  //           startTs: position.lastUpdatedBlockTs,
-  //           endTs: block.timestamp,
-  //           windowDurationMs: this.windowDurationMs,
-  //           startBlockNumber: position.lastUpdatedBlockHeight,
-  //           endBlockNumber: block.height,
-  //           txHash: null,
-  //           currency: Currency.USD,
-  //           valueUsd: Number(oldLiquidityUSD),
-  //           balanceBefore: oldLiquidityUSD.toString(),
-  //           balanceAfter: oldLiquidityUSD.toString(),
-  //           tokenPrice: 0,
-  //           tokenDecimals: 0,
-  //           tokens: {
-  //             isActive: {
-  //               value: 'false',
-  //               type: 'boolean',
-  //             },
-  //             currentTick: {
-  //               value: currentTick.toString(),
-  //               type: 'number',
-  //             },
-  //             tickLower: {
-  //               value: position.tickLower.toString(),
-  //               type: 'number',
-  //             },
-  //             tickUpper: {
-  //               value: position.tickUpper.toString(),
-  //               type: 'number',
-  //             },
-  //             liquidity: {
-  //               value: position.liquidity.toString(),
-  //               type: 'number',
-  //             },
-  //             token0Id: {
-  //               value: position.token0Id,
-  //               type: 'string',
-  //             },
-  //             token1Id: {
-  //               value: position.token1Id,
-  //               type: 'string',
-  //             },
-  //           },
-  //         };
-  //       }
-  //       position.lastUpdatedBlockTs = block.timestamp;
-  //       position.lastUpdatedBlockHeight = block.height;
-  //       const poolState = protocolStates.get(position.poolId);
-  //       await this.positionStorageService.updatePosition(position);
-
-  //       if (poolState) {
-  //         if (balanceWindow) {
-  //           poolState.balanceWindows.push(balanceWindow);
-  //         }
-  //       } else {
-  //         protocolStates.set(position.poolId, {
-  //           balanceWindows: balanceWindow ? [balanceWindow] : [],
-  //           transactions: [],
-  //         });
-  //       }
-
-  //       console.log(`Stopped tracking position ${position.positionId}`);
-  //     }
-  //   }
-
-  //todo: finally set it with whirlpool in the protocolState
+async function processSwap(
+  data: SwapData,
+  protocolStates: Map<string, any>,
+  positionStorageService: PositionStorageService,
+  liquidityMathService: LiquidityMathService,
+): Promise<void> {
+  await processSwapCommon(data, protocolStates, positionStorageService, liquidityMathService);
 }
 
 async function processSwapV2(
@@ -289,21 +187,7 @@ async function processSwapV2(
   positionStorageService: PositionStorageService,
   liquidityMathService: LiquidityMathService,
 ): Promise<void> {
-  logger.info(`💱 [SwapInstructions] Processing swapV2 instruction`, {
-    slot: data.slot,
-    txHash: data.txHash,
-  });
-
-  logger.info(`🏊 [SwapInstructions] Decoded instruction:`, {
-    decodedInstruction: data,
-  });
-
-  const analysis = await analyseSwap(data, liquidityMathService);
-  logger.info(`💸 [SwapInstructions] Swap analysis:`, {
-    analysis,
-  });
-
-  // todo: simillar logic to swap (described above)
+  await processSwapCommon(data, protocolStates, positionStorageService, liquidityMathService);
 }
 
 async function processTwoHopSwap(
@@ -312,21 +196,7 @@ async function processTwoHopSwap(
   positionStorageService: PositionStorageService,
   liquidityMathService: LiquidityMathService,
 ): Promise<void> {
-  logger.info(`🔗 [SwapInstructions] Processing twoHopSwap instruction`, {
-    slot: data.slot,
-    txHash: data.txHash,
-  });
-
-  logger.info(`🏊 [SwapInstructions] Decoded instruction:`, {
-    decodedInstruction: data,
-  });
-
-  const analysis = await analyseSwap(data, liquidityMathService);
-  logger.info(`💸 [SwapInstructions] Two-hop analysis:`, {
-    analysis,
-  });
-
-  //todo: exact simillar logic, but check if we get 2 balance changes for one tx object (testing left)
+  await processSwapCommon(data, protocolStates, positionStorageService, liquidityMathService);
 }
 
 async function processTwoHopSwapV2(
@@ -335,116 +205,144 @@ async function processTwoHopSwapV2(
   positionStorageService: PositionStorageService,
   liquidityMathService: LiquidityMathService,
 ): Promise<void> {
-  logger.info(`🔗 [SwapInstructions] Processing twoHopSwapV2 instruction`, {
-    slot: data.slot,
-    txHash: data.txHash,
-  });
-  logger.info(`🏊 [SwapInstructions] Decoded instruction:`, {
-    decodedInstruction: data,
-  });
-  const analysis = await analyseSwap(data, liquidityMathService);
-  logger.info(`💸 [SwapInstructions] Two-hop analysis:`, {
-    analysis,
-  });
-
-  //todo: exact simillar logic, but check if we get 2 balance changes for one tx object (testing left)
+  await processSwapCommon(data, protocolStates, positionStorageService, liquidityMathService);
 }
 
-async function analyseSwap(decodedInstruction: any, liquidityMathService: LiquidityMathService) {
-  const { transfers, tokenBalances, txHash, data } = decodedInstruction;
-
-  const currentTick = liquidityMathService.sqrtPriceX64ToTick(
-    decodedInstruction.data.initialSqrtPrice,
-  );
-  logger.info(`🏊 [SwapInstructions] Transfers:`, {
-    transfers,
-    transfersLength: transfers.length,
-    baseDataTokenBalances: tokenBalances,
+async function analyseSwap(data: any, liquidityMathService: LiquidityMathService) {
+  logger.info(`🏊 [SwapInstructions] Decoded instruction:`, {
+    decodedInstruction: data.decodedInstruction.data,
+    sqrtPriceLimit: data.decodedInstruction.data.sqrtPriceLimit,
+    sqrtPriceLimitOne: data.decodedInstruction.data.sqrtPriceLimitOne,
   });
 
-  if (transfers.length > 2) {
+  const currentTick = liquidityMathService.sqrtPriceX64ToTick(
+    data.decodedInstruction.data.sqrtPriceLimit || data.decodedInstruction.data.sqrtPriceLimitOne,
+  );
+  logger.info(`🏊 [SwapInstructions] Transfers:`, {
+    transfers: data.transfers,
+    transfersLength: data.transfers.length,
+    baseDataTokenBalances: data.tokenBalances,
+  });
+
+  if (data.transfers.length > 2) {
     // First transfer: source -> intermediate
-    let firstTransfer = transfers[0];
+    let firstTransfer = data.transfers[0];
     // Last transfer: intermediate -> destination
 
     // Find token balances for the first and last transfers
-    let sourceBalance = tokenBalances.find(
+    let sourceBalance = data.tokenBalances.find(
       (tb: any) => tb.account === firstTransfer.accounts.source,
     );
 
-    let destBalance = tokenBalances.find(
-      (tb: any) => tb.account === transfers[transfers.length - 1].accounts.destination,
+    let destBalance = data.tokenBalances.find(
+      (tb: any) => tb.account === data.transfers[data.transfers.length - 1].accounts.destination,
     );
 
     // Find the intermediate token (the destination of first transfer)
-    let intermediateBalance = tokenBalances.find(
+    let intermediateBalance = data.tokenBalances.find(
       (tb: any) => tb.account === firstTransfer.accounts.destination,
     );
 
     let sourceMint = sourceBalance?.preMint;
     let intermediateMint = intermediateBalance?.preMint;
-    let destMint = destBalance?.postMint;
 
-    const srcMintDetails = await getJupPrice(sourceMint);
+    let sourceUserAddress = sourceBalance?.preOwner;
+    let destinationUserAddress = intermediateBalance?.preOwner;
+
+    let userAddress: string | undefined;
+
+    const srcMintDetails = await getTokenPrice(sourceMint);
 
     // Calculate source amount
     let srcAmount = Math.abs(
       Number((sourceBalance?.preAmount || 0n) - (sourceBalance?.postAmount || 0n)),
     );
 
-    let srcAmountUsd: number;
+    let srcAmountUsd: number = 0;
 
-    // If srcAmount is 0, calculate from intermediate amount
-    if (srcAmount === 0) {
-      const intermediateMintDetails = await getJupPrice(intermediateMint);
+    // Priority 1: Use source amount and source user address if both are available
+    if (srcAmount > 0 && sourceUserAddress) {
+      userAddress = sourceUserAddress;
+      srcAmountUsd = (srcMintDetails.usdPrice * srcAmount) / Math.pow(10, srcMintDetails.decimals);
+
+      logger.info(`🏊 [SwapInstructions] Using source amount and address:`, {
+        srcAmount,
+        srcMint: sourceMint,
+        srcAmountUsd,
+        userAddress,
+      });
+    }
+    // Priority 2: If srcAmount > 0 but srcAddress is null, price it for srcBalance but user should be destBalance
+    else if (srcAmount > 0 && !sourceUserAddress) {
+      userAddress = destBalance?.preOwner; // Use destination address
+      srcAmountUsd = (srcMintDetails.usdPrice * srcAmount) / Math.pow(10, srcMintDetails.decimals); // Price using source
+
+      logger.info(`🏊 [SwapInstructions] Using src amount for pricing but destAddress as user:`, {
+        srcAmount,
+        srcMint: sourceMint,
+        srcAmountUsd,
+        userAddress,
+      });
+    }
+    // Priority 3: If srcAmount is 0, use intermediate amount and destination address
+    else if (intermediateMint) {
+      const intermediateMintDetails = await getTokenPrice(intermediateMint);
       const intermediateAmount = Math.abs(
         Number((intermediateBalance?.preAmount || 0n) - (intermediateBalance?.postAmount || 0n)),
       );
+      userAddress = destinationUserAddress; // This can be undefined, but we still price it
 
       srcAmountUsd =
         (intermediateMintDetails.usdPrice * intermediateAmount) /
         Math.pow(10, intermediateMintDetails.decimals);
 
-      logger.info(`🏊 [SwapInstructions] Using intermediate amount (srcAmount was 0):`, {
+      logger.info(`🏊 [SwapInstructions] Using intermediate amount (fallback):`, {
         intermediateAmount,
         intermediateMint,
         srcAmountUsd,
+        userAddress,
       });
-    } else {
-      srcAmountUsd = (srcMintDetails.usdPrice * srcAmount) / Math.pow(10, srcMintDetails.decimals);
     }
 
     logger.info(`🔗 [SwapInstructions] Two-hop analysis:`, {
       sourceMint,
       intermediateMint,
-      destMint,
       srcAmount,
-      srcAmountUsd,
+      valueUsd: srcAmountUsd,
+      userAddress,
     });
 
-    if (sourceMint && intermediateMint && destMint) {
+    if (sourceMint && intermediateMint && destBalance?.postMint) {
       return {
         fromToken: sourceMint,
-        toToken: destMint,
+        toToken: intermediateMint,
         fromAmount: srcAmount,
         toAmount: Math.abs(
           Number((destBalance?.postAmount || 0n) - (destBalance?.preAmount || 0n)),
         ),
-        srcAmountUsd,
-        transactionHash: txHash,
+        valueUsd: srcAmountUsd,
+        rawAmount: srcAmount.toString(),
+        userAddress: userAddress,
+        transactionHash: data.txHash,
+        poolId: data.accounts.whirlpool,
+        fromAddress: sourceUserAddress,
+        toAddress: destinationUserAddress,
+        currentTick: currentTick,
       };
     }
-  } else if (transfers.length === 2) {
-    let srcBalance = tokenBalances.find((tb: any) => tb.account == transfers[0].accounts.source);
-    let destBalance = tokenBalances.find(
-      (tb: any) => tb.account === transfers[1].accounts.destination,
+  } else if (data.transfers.length === 2) {
+    let srcBalance = data.tokenBalances.find(
+      (tb: any) => tb.account == data.transfers[0].accounts.source,
+    );
+    let destBalance = data.tokenBalances.find(
+      (tb: any) => tb.account === data.transfers[1].accounts.destination,
     );
 
-    let srcMint = tokenBalances.find(
-      (tb: any) => tb.account === transfers[0].accounts.destination,
+    let srcMint = data.tokenBalances.find(
+      (tb: any) => tb.account === data.transfers[0].accounts.destination,
     )?.preMint;
-    let destMint = tokenBalances.find(
-      (tb: any) => tb.account === transfers[1].accounts.source,
+    let destMint = data.tokenBalances.find(
+      (tb: any) => tb.account === data.transfers[1].accounts.source,
     )?.preMint;
 
     // Calculate source amount
@@ -452,25 +350,54 @@ async function analyseSwap(decodedInstruction: any, liquidityMathService: Liquid
       Number((srcBalance?.preAmount || 0n) - (srcBalance?.postAmount || 0n)),
     );
 
-    let valueUsd: number;
+    let valueUsd: number = 0;
+    let userAddress: string | undefined;
 
-    // If srcAmount is 0, calculate from destination amount
-    if (rawAmount === 0) {
-      const destMintDetails = await getJupPrice(destMint);
+    let srcAddress = srcBalance?.preOwner;
+    let destAddress = destBalance?.preOwner;
+
+    // Priority 1: Use source amount and source address if both are available
+    if (rawAmount > 0 && srcAddress) {
+      const srcMintDetails = await getTokenPrice(srcMint);
+      valueUsd = (srcMintDetails.usdPrice * rawAmount) / Math.pow(10, srcMintDetails.decimals);
+      userAddress = srcAddress;
+
+      logger.info(`🏊 [SwapInstructions] Using source amount and address:`, {
+        rawAmount,
+        srcMint,
+        valueUsd,
+        userAddress,
+      });
+    }
+    // Priority 2: If srcAmount > 0 but srcAddress is null, price it for srcBalance but user should be destBalance
+    else if (rawAmount > 0 && !srcAddress) {
+      const srcMintDetails = await getTokenPrice(srcMint);
+      userAddress = destAddress; // Use destination address
+      valueUsd = (srcMintDetails.usdPrice * rawAmount) / Math.pow(10, srcMintDetails.decimals); // Price using source
+
+      logger.info(`🏊 [SwapInstructions] Using src amount for pricing but destAddress as user:`, {
+        rawAmount,
+        srcMint,
+        valueUsd,
+        userAddress,
+      });
+    }
+    // Priority 3: If srcAmount is 0, use destination amount and address
+    else if (destMint) {
+      const destMintDetails = await getTokenPrice(destMint);
       const destAmount = Math.abs(
         Number((destBalance?.postAmount || 0n) - (destBalance?.preAmount || 0n)),
       );
 
       valueUsd = (destMintDetails.usdPrice * destAmount) / Math.pow(10, destMintDetails.decimals);
+      userAddress = destAddress; // This can be undefined, but we still price it
 
-      logger.info(`🏊 [SwapInstructions] Using destination amount (srcAmount was 0):`, {
+      logger.info(`🏊 [SwapInstructions] Using destination amount (fallback):`, {
         destAmount,
         destMint,
         valueUsd,
+        userAddress,
       });
-    } else {
-      const srcMintDetails = await getJupPrice(srcMint);
-      valueUsd = (srcMintDetails.usdPrice * rawAmount) / Math.pow(10, srcMintDetails.decimals);
     }
 
     logger.info(`🏊 [SwapInstructions] Single swap analysis:`, {
@@ -480,6 +407,7 @@ async function analyseSwap(decodedInstruction: any, liquidityMathService: Liquid
       destBalance,
       rawAmount,
       valueUsd,
+      userAddress,
     });
 
     return {
@@ -487,10 +415,13 @@ async function analyseSwap(decodedInstruction: any, liquidityMathService: Liquid
       toToken: destMint,
       fromAmount: Math.abs(Number((srcBalance?.postAmount || 0n) - (srcBalance?.preAmount || 0n))),
       toAmount: Math.abs(Number((destBalance?.postAmount || 0n) - (destBalance?.preAmount || 0n))),
-      transactionHash: txHash,
-      poolId: data.accounts.whirlpool,
+      transactionHash: data.txHash,
+      poolId: data.decodedInstruction.accounts.whirlpool,
+      fromAddress: srcAddress,
+      toAddress: destAddress,
       currentTick: currentTick,
       valueUsd: valueUsd,
+      userAddress: userAddress,
       rawAmount: rawAmount.toString(),
     };
   }

@@ -1,4 +1,5 @@
 import { logger, WHITELIST_TOKENS_WITH_COINGECKO_ID } from '@absinthe/common';
+import { TOKEN_DETAILS } from './consts';
 
 interface JupiterResponse {
   usdPrice: number;
@@ -56,8 +57,8 @@ async function getOptimizedTokenPrices(
   //     env.baseConfig.coingeckoApiKey,
   //   );
 
-  const token0Usd = (await getJupPrice(token0Addr)).usdPrice;
-  const token1Usd = (await getJupPrice(token1Addr)).usdPrice;
+  const token0Usd = (await getTokenPrice(token0Addr)).usdPrice;
+  const token1Usd = (await getTokenPrice(token1Addr)).usdPrice;
 
   logger.info(`💰 Anchor price fetch completed in ${Date.now() - anchorStart}ms:`, {
     token0Usd,
@@ -71,6 +72,16 @@ async function getOptimizedTokenPrices(
   });
 
   return [token0Usd, token1Usd];
+}
+
+async function getTokenPrice(mintAddress: string): Promise<{ usdPrice: number; decimals: number }> {
+  const tokenDetails = TOKEN_DETAILS.find(
+    (t) => t.address.toLowerCase() === mintAddress.toLowerCase(),
+  );
+  if (tokenDetails) {
+    return { usdPrice: tokenDetails.price, decimals: tokenDetails.decimals };
+  }
+  return { usdPrice: 0, decimals: 0 };
 }
 
 async function getJupPrice(mintAddress: string): Promise<JupiterResponse> {
@@ -114,4 +125,4 @@ const getCGId = (addr: string) =>
   WHITELIST_TOKENS_WITH_COINGECKO_ID.find((t) => t.address.toLowerCase() === addr.toLowerCase())
     ?.coingeckoId ?? null;
 
-export { getCGId, getOptimizedTokenPrices, getJupPrice };
+export { getCGId, getOptimizedTokenPrices, getJupPrice, getTokenPrice };

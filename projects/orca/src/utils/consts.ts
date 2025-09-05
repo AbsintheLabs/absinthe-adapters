@@ -8,8 +8,39 @@ const TRACKED_TOKENS = {
 
 const WHIRLPOOL_ADDRESSES = [
   '8uGEM2h7s9EV5tYynAFh5kwve1uLiSEs665V9DYX2Lpj',
-  // 'AvVeFoEokqbosw9UWkYEnwpWhTQd96GeWwV48WjFCEMw',
-  // 'HWzqj2vg581nwvAryFKoeB3DaNqtNhtxY98wbb8EjLpC',
+  'AvVeFoEokqbosw9UWkYEnwpWhTQd96GeWwV48WjFCEMw',
+  'HWzqj2vg581nwvAryFKoeB3DaNqtNhtxY98wbb8EjLpC',
 ];
 
-export { TRACKED_TOKENS, FILE_NAME, WHIRLPOOL_ADDRESSES };
+const TOKEN_DETAILS = [
+  {
+    symbol: 'SOLANA',
+    address: 'So11111111111111111111111111111111111111112',
+    coingeckoId: 'solana',
+    price: 200,
+    decimals: 9,
+  },
+  {
+    symbol: 'AM',
+    address: '7ddd3rNWdx36MgnLkoUdwEPNoXt1bi9fszorkZungN2E',
+    coingeckoId: 'am',
+    price: 0.0000118,
+    decimals: 6,
+  },
+  {
+    symbol: 'KOLIN',
+    address: '4q3Z58YxrZEAVMLtMwnm7eHtodSD3LSpSNt3pDnqpump',
+    coingeckoId: 'kolin',
+    price: 0.00123,
+    decimals: 6,
+  },
+  {
+    symbol: 'USDC',
+    address: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+    coingeckoId: 'usd-coin',
+    price: 1,
+    decimals: 6,
+  },
+];
+
+export { TRACKED_TOKENS, FILE_NAME, WHIRLPOOL_ADDRESSES, TOKEN_DETAILS };

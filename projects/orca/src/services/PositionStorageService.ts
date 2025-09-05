@@ -1,4 +1,4 @@
-import { fetchHistoricalUsd } from '@absinthe/common';
+import { fetchHistoricalUsd, logger } from '@absinthe/common';
 import { createClient, RedisClientType } from 'redis';
 import { Token, PositionDetails, PoolDetails } from '../utils/types';
 
@@ -11,6 +11,8 @@ export class PositionStorageService {
       url: process.env.REDIS_URL,
       socket: {
         reconnectStrategy: (retries) => Math.min(retries * 50, 500),
+        connectTimeout: 10000,
+        keepAlive: true,
       },
     });
     this.setupRedis();
@@ -18,6 +20,22 @@ export class PositionStorageService {
 
   private async setupRedis() {
     try {
+      // Add event listeners to track connection state
+      this.redis.on('connect', () => {
+        this.isConnected = true;
+        console.log('Redis connected successfully');
+      });
+
+      this.redis.on('disconnect', () => {
+        this.isConnected = false;
+        console.log('Redis disconnected');
+      });
+
+      this.redis.on('error', (error) => {
+        this.isConnected = false;
+        console.error('Redis error:', error);
+      });
+
       await this.redis.connect();
       this.isConnected = true;
       console.log('Redis connected successfully');
@@ -53,6 +71,8 @@ export class PositionStorageService {
   //pool storage
   async storePool(pool: PoolDetails): Promise<void> {
     const poolKey = `pool:${pool.poolId}`;
+
+    logger.info(`🏊 [StorePool] Pool:`, pool);
     await this.redis.hSet(poolKey, {
       poolId: pool.poolId,
       token0Id: pool.token0Id,
@@ -60,6 +80,14 @@ export class PositionStorageService {
       fee: pool.fee.toString(),
       token0Decimals: pool.token0Decimals.toString(),
       token1Decimals: pool.token1Decimals.toString(),
+      currentTick: pool.currentTick,
+      whirlpoolConfig: pool.whirlpoolConfig.toString(),
+      tickSpacing: pool.tickSpacing.toString(),
+      systemProgram: pool.systemProgram.toString(),
+      tokenVault0: pool.tokenVault0.toString(),
+      tokenVault1: pool.tokenVault1.toString(),
+      funder: pool.funder.toString(),
+      poolType: pool.poolType.toString(),
     });
   }
 
@@ -85,6 +113,13 @@ export class PositionStorageService {
       tokenVault1: data.tokenVault1,
       funder: data.funder,
     };
+  }
+
+  async updatePool(pool: PoolDetails): Promise<void> {
+    const poolKey = `pool:${pool.poolId}`;
+    await this.redis.hSet(poolKey, {
+      currentTick: pool.currentTick,
+    });
   }
 
   //eth price storage
@@ -122,8 +157,11 @@ export class PositionStorageService {
     if (!this.isConnected) {
       throw new Error('Redis not connected');
     }
+
+    const multi = this.redis.multi();
     const positionKey = `pool:${position.poolId}:position:${position.positionId}`;
-    await this.redis.hSet(positionKey, {
+
+    multi.hSet(positionKey, {
       positionId: position.positionId,
       positionMint: position.positionMint,
       owner: position.owner,
@@ -135,8 +173,11 @@ export class PositionStorageService {
       lastUpdatedBlockTs: position.lastUpdatedBlockTs.toString(),
       lastUpdatedBlockHeight: position.lastUpdatedBlockHeight.toString(),
     });
-    await this.redis.set(`positionPool:${position.positionId}`, position.poolId);
-    await this.redis.sAdd(`pool:${position.poolId}:positions`, position.positionId);
+
+    multi.set(`positionPool:${position.positionId}`, position.poolId);
+    multi.sAdd(`pool:${position.poolId}:positions`, position.positionId);
+
+    await multi.exec();
   }
 
   async storeBatchPositions(positions: PositionDetails[]): Promise<void> {
@@ -151,32 +192,54 @@ export class PositionStorageService {
   }
 
   async getPosition(positionId: string, whirlpool: string): Promise<PositionDetails | null> {
-    if (!this.isConnected) return null;
+    logger.info(`🏊 [GetPosition] Getting position ${positionId} in whirlpool ${whirlpool}`);
+    if (!this.isConnected) {
+      logger.info(`❌ [GetPosition] Redis not connected`);
+      return null;
+    }
 
-    const poolId = await this.redis.get(`positionPool:${positionId}`);
-    if (!poolId) return null;
+    try {
+      const poolId = await this.redis.get(`positionPool:${positionId}`);
+      logger.info(`�� [GetPosition] Pool ID: ${poolId} for Position ID: ${positionId}`);
 
-    if (poolId !== whirlpool) return null;
+      if (!poolId) {
+        logger.info(`❌ [GetPosition] No pool ID found for position ${positionId}`);
+        return null;
+      }
 
-    const positionKey = `pool:${poolId}:position:${positionId}`;
-    const data = await this.redis.hGetAll(positionKey);
-    if (!data.positionId) return null;
+      if (poolId !== whirlpool) {
+        logger.info(`❌ [GetPosition] Pool ID mismatch: ${poolId} !== ${whirlpool}`);
+        return null;
+      }
 
-    const position: PositionDetails = {
-      positionId: data.positionId,
-      owner: data.owner,
-      liquidity: data.liquidity,
-      tickLower: parseInt(data.tickLower),
-      tickUpper: parseInt(data.tickUpper),
-      positionMint: data.positionMint,
-      tokenProgram: data.tokenProgram,
-      poolId: data.poolId,
-      isActive: data.isActive,
-      lastUpdatedBlockTs: parseInt(data.lastUpdatedBlockTs),
-      lastUpdatedBlockHeight: parseInt(data.lastUpdatedBlockHeight),
-    };
+      const positionKey = `pool:${poolId}:position:${positionId}`;
+      const data = await this.redis.hGetAll(positionKey);
+      logger.info(`🏊 [GetPosition] Position data:`, data);
 
-    return position;
+      if (!data.positionId) {
+        logger.info(`❌ [GetPosition] No position data found for ${positionId}`);
+        return null;
+      }
+
+      const position: PositionDetails = {
+        positionId: data.positionId,
+        owner: data.owner,
+        liquidity: data.liquidity,
+        tickLower: parseInt(data.tickLower),
+        tickUpper: parseInt(data.tickUpper),
+        positionMint: data.positionMint,
+        tokenProgram: data.tokenProgram,
+        poolId: data.poolId,
+        isActive: data.isActive,
+        lastUpdatedBlockTs: parseInt(data.lastUpdatedBlockTs),
+        lastUpdatedBlockHeight: parseInt(data.lastUpdatedBlockHeight),
+      };
+
+      return position;
+    } catch (error) {
+      logger.error(`❌ [GetPosition] Error getting position ${positionId}:`, error);
+      return null;
+    }
   }
 
   async updatePosition(position: PositionDetails): Promise<void> {

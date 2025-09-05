@@ -2,7 +2,7 @@ import { logger } from '@absinthe/common';
 import { OrcaInstructionData, InitializeData } from '../utils/types';
 import { LiquidityMathService } from '../services/LiquidityMathService';
 import { PositionStorageService } from '../services/PositionStorageService';
-import { getJupPrice } from '../utils/pricing';
+import { getJupPrice, getTokenPrice } from '../utils/pricing';
 
 export async function processPoolInstructions(
   instructionsData: OrcaInstructionData[],
@@ -117,17 +117,15 @@ async function analyseInitialization(
   decodedInstruction: any,
   liquidityMathService: LiquidityMathService,
 ) {
-  //todo: test
-  const token0Decimals = (await getJupPrice(decodedInstruction.accounts.tokenMintA)).decimals;
-  const token1Decimals = (await getJupPrice(decodedInstruction.accounts.tokenMintB)).decimals;
-  //todo: check if this is correct or not
+  const token0Decimals = (await getTokenPrice(decodedInstruction.accounts.tokenMintA)).decimals;
+  const token1Decimals = (await getTokenPrice(decodedInstruction.accounts.tokenMintB)).decimals;
   const currentTick = liquidityMathService.sqrtPriceX64ToTick(
     decodedInstruction.data.initialSqrtPrice,
   );
 
   return {
     poolId: decodedInstruction.accounts.whirlpool,
-    whirlpoolConfig: decodedInstruction.accounts.whirlpoolConfig,
+    whirlpoolConfig: decodedInstruction.accounts.whirlpoolsConfig,
     funder: decodedInstruction.accounts.funder,
     tokenVault0: decodedInstruction.accounts.tokenVaultA,
     tokenVault1: decodedInstruction.accounts.tokenVaultB,
@@ -155,24 +153,15 @@ function getPoolType(decodedInstruction: any): string {
   }
 }
 
-function getTokenProgramInfo(decodedInstruction: any): any {
+function getTokenProgramInfo(decodedInstruction: any): string {
   if (decodedInstruction.accounts.tokenProgramA && decodedInstruction.accounts.tokenProgramB) {
     // V2 or Adaptive: Has separate programs for each token
-    return {
-      tokenProgramA: decodedInstruction.accounts.tokenProgramA,
-      tokenProgramB: decodedInstruction.accounts.tokenProgramB,
-      type: 'separate',
-    };
+    return decodedInstruction.accounts.tokenProgramA;
   } else if (decodedInstruction.accounts.tokenProgram) {
     // V1: Single token program
-    return {
-      tokenProgram: decodedInstruction.accounts.tokenProgram,
-      type: 'single',
-    };
+    return decodedInstruction.accounts.tokenProgram;
   } else {
-    return {
-      type: 'unknown',
-    };
+    return 'unknown';
   }
 }
 

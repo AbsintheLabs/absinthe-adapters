@@ -217,9 +217,6 @@ async function analyzeOpenPosition(
     isActive: isActive(),
     tokenProgram:
       decodedInstruction.accounts.tokenProgram || decodedInstruction.accounts.token2022Program,
-    //todo: check can we add liquidity in the position Initialization step ?
-    // => NO, because I think its because its only added in the first step of increaseLiquidity
-    // Why is it important => because I am setting it = 0
     liquidity: '0',
     owner: decodedInstruction.accounts.owner,
     lastUpdatedBlockTs: timestamp,

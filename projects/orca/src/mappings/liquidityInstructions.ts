@@ -9,8 +9,11 @@ abstract class BaseLiquidityProcessor {
   protected positionStorageService: PositionStorageService;
   protected liquidityMathService: LiquidityMathService;
 
-  constructor(liquidityMathService: LiquidityMathService) {
-    this.positionStorageService = new PositionStorageService();
+  constructor(
+    liquidityMathService: LiquidityMathService,
+    positionStorageService: PositionStorageService,
+  ) {
+    this.positionStorageService = positionStorageService; // Use the passed instance
     this.liquidityMathService = liquidityMathService;
   }
 
@@ -18,6 +21,7 @@ abstract class BaseLiquidityProcessor {
 
   protected async getPositionDetails(position: string, whirlpool: string) {
     const positionDetails = await this.positionStorageService.getPosition(position, whirlpool);
+    logger.info(`🏊 [GetPositionDetails] Position details:`, positionDetails);
     if (!positionDetails) {
       throw new Error(`Position not found: ${position} in whirlpool ${whirlpool}`);
     }
@@ -95,9 +99,9 @@ abstract class BaseLiquidityProcessor {
       endBlockNumber: data.slot,
       txHash: data.txHash,
       windowDurationMs: 0, // TODO: fix this
-      valueUsd: Number(oldLiquidityUSD),
-      balanceBefore: oldLiquidityUSD,
-      balanceAfter: newLiquidityUSD,
+      valueUsd: oldLiquidityUSD,
+      balanceBefore: oldLiquidityUSD.toString(),
+      balanceAfter: newLiquidityUSD.toString(),
       currency: Currency.USD,
       tokenPrice: null,
       tokenDecimals: null,
@@ -153,15 +157,19 @@ class IncreaseLiquidityProcessor extends BaseLiquidityProcessor {
     });
 
     try {
-      const { liquidityAmount, whirlpool, position } = this.analyseLiquidityEvents(
+      const { liquidityAmount, whirlpool, positionId } = this.analyseLiquidityEvents(
         data.decodedInstruction,
       );
 
-      const positionDetails = await this.getPositionDetails(position, whirlpool);
+      const positionDetails = await this.getPositionDetails(positionId, whirlpool);
       const poolDetails = await this.getPool(whirlpool);
+      logger.info(`🏊 [IncreaseLiquidity] Position details:`, {
+        positionDetails,
+        poolDetails,
+      });
 
       if (positionDetails.isActive !== 'true') {
-        logger.warn(`⚠️ [IncreaseLiquidity] Position ${position} is not active`);
+        logger.warn(`⚠️ [IncreaseLiquidity] Position ${positionId} is not active`);
         return;
       }
 
@@ -171,8 +179,8 @@ class IncreaseLiquidityProcessor extends BaseLiquidityProcessor {
 
       const [token0inUSD, token1inUSD] = await this.getTokenPrices(
         whirlpool,
-        poolDetails.token0Id,
-        poolDetails.token1Id,
+        { id: poolDetails.token0Id, decimals: poolDetails.token0Decimals },
+        { id: poolDetails.token1Id, decimals: poolDetails.token1Decimals },
         data.timestamp,
       );
 
@@ -258,7 +266,7 @@ class IncreaseLiquidityProcessor extends BaseLiquidityProcessor {
     return {
       liquidityAmount: BigInt(decodedInstruction.data.liquidityAmount),
       whirlpool: decodedInstruction.accounts.whirlpool,
-      position: decodedInstruction.accounts.position,
+      positionId: decodedInstruction.accounts.position,
       positionTokenAccount: decodedInstruction.accounts.positionTokenAccount,
       positionAuthority: decodedInstruction.accounts.positionAuthority,
     };
@@ -385,10 +393,10 @@ class DecreaseLiquidityProcessor extends BaseLiquidityProcessor {
   private analyseLiquidityEvents(decodedInstruction: any) {
     return {
       liquidityAmount: BigInt(decodedInstruction.data.liquidityAmount),
-      whirlpool: decodedInstruction.data.whirlpool,
-      position: decodedInstruction.data.position,
-      positionTokenAccount: decodedInstruction.data.positionTokenAccount,
-      positionAuthority: decodedInstruction.data.positionAuthority,
+      whirlpool: decodedInstruction.accounts.whirlpool,
+      position: decodedInstruction.accounts.position,
+      positionTokenAccount: decodedInstruction.accounts.positionTokenAccount,
+      positionAuthority: decodedInstruction.accounts.positionAuthority,
     };
   }
 }
@@ -490,12 +498,27 @@ class DecreaseLiquidityV2Processor extends DecreaseLiquidityProcessor {
 export class LiquidityInstructionsProcessor {
   private processors: Map<string, BaseLiquidityProcessor>;
 
-  constructor(liquidityMathService: LiquidityMathService) {
+  constructor(
+    liquidityMathService: LiquidityMathService,
+    positionStorageService: PositionStorageService,
+  ) {
     this.processors = new Map<string, BaseLiquidityProcessor>([
-      ['increaseLiquidity', new IncreaseLiquidityProcessor(liquidityMathService)],
-      ['decreaseLiquidity', new DecreaseLiquidityProcessor(liquidityMathService)],
-      ['increaseLiquidityV2', new IncreaseLiquidityV2Processor(liquidityMathService)],
-      ['decreaseLiquidityV2', new DecreaseLiquidityV2Processor(liquidityMathService)],
+      [
+        'increaseLiquidity',
+        new IncreaseLiquidityProcessor(liquidityMathService, positionStorageService),
+      ],
+      [
+        'decreaseLiquidity',
+        new DecreaseLiquidityProcessor(liquidityMathService, positionStorageService),
+      ],
+      [
+        'increaseLiquidityV2',
+        new IncreaseLiquidityV2Processor(liquidityMathService, positionStorageService),
+      ],
+      [
+        'decreaseLiquidityV2',
+        new DecreaseLiquidityV2Processor(liquidityMathService, positionStorageService),
+      ],
     ]);
   }
 
@@ -527,9 +550,13 @@ export class LiquidityInstructionsProcessor {
 export async function processLiquidityInstructions(
   instructionsData: OrcaInstructionData[],
   protocolStates: Map<string, any>,
+  positionStorageService: PositionStorageService,
   liquidityMathService: LiquidityMathService,
 ): Promise<void> {
-  const processor = new LiquidityInstructionsProcessor(liquidityMathService);
+  const processor = new LiquidityInstructionsProcessor(
+    liquidityMathService,
+    positionStorageService,
+  );
   await processor.processLiquidityInstructions(
     instructionsData,
     protocolStates,

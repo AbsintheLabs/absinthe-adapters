@@ -48,10 +48,10 @@ export const processor = new DataSourceBuilder()
     where: {
       programId: [whirlpoolProgram.programId], // where executed by Whirlpool program
       d8: [
-        whirlpoolProgram.instructions.swap.d8,
-        whirlpoolProgram.instructions.swapV2.d8,
-        whirlpoolProgram.instructions.twoHopSwapV2.d8,
-        whirlpoolProgram.instructions.twoHopSwap.d8,
+        // whirlpoolProgram.instructions.swap.d8,
+        // whirlpoolProgram.instructions.swapV2.d8,
+        // whirlpoolProgram.instructions.twoHopSwapV2.d8,
+        // whirlpoolProgram.instructions.twoHopSwap.d8,
 
         whirlpoolProgram.instructions.increaseLiquidity.d8,
         whirlpoolProgram.instructions.decreaseLiquidity.d8,
