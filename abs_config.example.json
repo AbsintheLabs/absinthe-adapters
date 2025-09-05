@@ -319,6 +319,12 @@
           "contractAddress": "0x506900B4bE61dcdCD11c5ce90DCF16d8fDeC600d",
           "chainId": 8453,
           "fromBlock": 34196308
+        },
+        {
+          "name": "xyz-9",
+          "contractAddress": "0x6e1d3ad0ed9a07d854fa35e832f5eceb58d5c47c",
+          "chainId": 8453,
+          "fromBlock" : 35099681
         }
       ]
     },
