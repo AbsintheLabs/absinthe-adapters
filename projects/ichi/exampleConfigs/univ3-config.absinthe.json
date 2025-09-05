@@ -18,10 +18,6 @@
     "fromBlock": 507584,
     "toBlock": 1600000
   },
-  "pricingRange": {
-    "type": "block",
-    "fromBlock": 1500000
-  },
   "adapterConfig": {
     "name": "uniswap-v3",
     "params": {

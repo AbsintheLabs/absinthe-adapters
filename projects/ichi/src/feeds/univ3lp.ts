@@ -1,6 +1,7 @@
 import { HandlerFactory } from './interface';
 import Big from 'big.js';
 import { log } from '../utils/logger';
+import { EVM_NULL_ADDRESS } from '../utils/conts';
 import assert from 'assert';
 
 // ABIs
@@ -175,7 +176,7 @@ export const univ3lpFactory: HandlerFactory<'univ3lp'> = (resolve) => async (arg
         const poolAddress = await factoryContract.getPool(pos.token0, pos.token1, pos.fee);
         log.debug('🔍 UNIV3LP: Pool address from factory:', poolAddress);
 
-        if (!poolAddress || poolAddress === '0x0000000000000000000000000000000000000000') {
+        if (!poolAddress || poolAddress === EVM_NULL_ADDRESS) {
           throw new Error(
             `No pool found for tokens ${pos.token0}, ${pos.token1} with fee ${pos.fee}`,
           );

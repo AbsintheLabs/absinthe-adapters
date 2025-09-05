@@ -67,8 +67,27 @@ export class CsvSink implements Sink {
   async write(batch: any[]) {
     const flattenedBatch = batch.map((row) => this.flattenObject(row));
     for (const row of flattenedBatch) {
-      this.stream.write(row);
+      const canWrite = this.stream.write(row);
+      if (!canWrite) {
+        await new Promise<void>((resolve) => this.stream.once('drain', resolve));
+      }
     }
+  }
+
+  async flush(): Promise<void> {
+    // No explicit flush API; rely on backpressure handling in write().
+    return Promise.resolve();
+  }
+
+  async close(): Promise<void> {
+    // Ensure all data is flushed to disk before returning
+    await new Promise<void>((resolve, reject) => {
+      const onError = (err: any) => reject(err);
+      this.stream.once('error', onError);
+      this.out.once('error', onError);
+      this.out.once('finish', () => resolve());
+      this.stream.end();
+    });
   }
 }
 // END SINK STUFF

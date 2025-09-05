@@ -179,6 +179,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
 process.env.SQUID_PROCESSOR_EXIT_DISABLED = process.env.SQUID_PROCESSOR_EXIT_DISABLED || 'true';
+console.log('SQUID_PROCESSOR_EXIT_DISABLED: ', process.env.SQUID_PROCESSOR_EXIT_DISABLED);
 
 import { loadConfig } from './config/load';
 import { buildBaseSqdProcessor } from './eprocessorBuilder';

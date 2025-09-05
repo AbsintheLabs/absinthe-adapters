@@ -22,6 +22,31 @@
       "options": {
         "cwd": "${workspaceFolder}"
       }
+    },
+    {
+      "label": "flush redis",
+      "type": "shell",
+      "command": "redis-cli",
+      "args": ["flushall"],
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "clean state and redis",
+      "dependsOrder": "sequence",
+      "dependsOn": ["flush redis", "tsc: build"],
+      "type": "shell",
+      "command": "rm",
+      "args": ["-f", "state/status.txt", "univ3-windows.csv"],
+      "group": "build",
+      "options": {
+        "cwd": "${workspaceFolder}/projects/ichi"
+      }
     }
   ]
 }

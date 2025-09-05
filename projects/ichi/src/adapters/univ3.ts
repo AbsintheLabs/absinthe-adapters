@@ -13,6 +13,7 @@ import { Univ3Projector } from './univ3-projector';
 // New registry imports
 import { defineAdapter, Address } from '../adapter-core';
 import { registerAdapter } from '../adapter-registry';
+import { EVM_NULL_ADDRESS } from '../utils/conts';
 
 export const Univ3Params = z.object({
   kind: z.literal('uniswap-v3'),
@@ -411,60 +412,53 @@ export const univ3 = registerAdapter(
             });
             // }
 
-            // don't track balances for the zero address (mints/burns)
-            if (from !== '0x0000000000000000000000000000000000000000') {
-              await emit.balanceDelta({
-                user: from,
-                asset: assetKey,
-                amount: new Big(-1),
-                meta: {
-                  tokenId: tokenId.toString(),
-                },
-              });
-              // xxx: there's gotta be a better way to do this...
-              const cur = await redis.get(ownerKey);
-              if (
-                cur &&
-                cur.toLowerCase() === from.toLowerCase() &&
-                to === '0x0000000000000000000000000000000000000000'
-              ) {
-                await redis.del(ownerKey);
+            // Handle balance deltas (engine automatically filters null addresses)
+            await emit.balanceDelta({
+              user: from,
+              asset: assetKey,
+              amount: new Big(-1),
+              meta: {
+                tokenId: tokenId.toString(),
+              },
+            });
+            // xxx: there's gotta be a better way to do this...
+            const cur = await redis.get(ownerKey);
+            if (cur && cur.toLowerCase() === from.toLowerCase() && to === EVM_NULL_ADDRESS) {
+              await redis.del(ownerKey);
 
-                // Position is being burned - clean up bounds indexing
-                const labels = await redis.hGetAll(labelsKey);
-                if (labels.pool) {
-                  const poolAddr = labels.pool;
-                  const lowerKey = `pool:${poolAddr}:bounds:lower`;
-                  const upperKey = `pool:${poolAddr}:bounds:upper`;
-                  const posKey = `pos:${assetKey}`;
+              // Position is being burned - clean up bounds indexing
+              const labels = await redis.hGetAll(labelsKey);
+              if (labels.pool) {
+                const poolAddr = labels.pool;
+                const lowerKey = `pool:${poolAddr}:bounds:lower`;
+                const upperKey = `pool:${poolAddr}:bounds:upper`;
+                const posKey = `pos:${assetKey}`;
 
-                  // Remove from bounds indexes
-                  await redis.zRem(lowerKey, assetKey);
-                  await redis.zRem(upperKey, assetKey);
+                // Remove from bounds indexes
+                await redis.zRem(lowerKey, assetKey);
+                await redis.zRem(upperKey, assetKey);
 
-                  // Remove position metadata
-                  await redis.del(posKey);
+                // Remove position metadata
+                await redis.del(posKey);
 
-                  // Remove from pool positions set
-                  const poolIdxKey = `pool:${poolAddr}:positions`;
-                  await redis.sRem(poolIdxKey, assetKey);
+                // Remove from pool positions set
+                const poolIdxKey = `pool:${poolAddr}:positions`;
+                await redis.sRem(poolIdxKey, assetKey);
 
-                  console.log(`Cleaned up burned position ${assetKey} from pool ${poolAddr}`);
-                }
+                console.log(`Cleaned up burned position ${assetKey} from pool ${poolAddr}`);
               }
             }
-            if (to !== '0x0000000000000000000000000000000000000000') {
-              await emit.balanceDelta({
-                user: to,
-                asset: assetKey,
-                amount: new Big(1),
-                meta: {
-                  tokenId: tokenId.toString(),
-                },
-              });
-              // xxx: there's gotta be a better way to do this...
-              await redis.set(ownerKey, to.toLowerCase());
-            }
+
+            // Handle balance deltas (engine automatically filters null addresses)
+            await emit.balanceDelta({
+              user: to,
+              asset: assetKey,
+              amount: new Big(1),
+              meta: {
+                tokenId: tokenId.toString(),
+              },
+            });
+            await redis.set(ownerKey, to.toLowerCase());
           }
         },
         onBatchEnd: async ({ io }) => {

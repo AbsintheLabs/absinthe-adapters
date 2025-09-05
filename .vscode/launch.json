@@ -2,13 +2,14 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "ichi",
+      "name": "run ichi",
       "type": "node",
       "request": "launch",
-      "preLaunchTask": "tsc: build",
-      "program": "${workspaceFolder}/projects/ichi/lib/emain.js",
+      "preLaunchTask": "clean state and redis",
+      "program": "${workspaceFolder}/projects/ichi/lib/main.js",
+      "cwd": "${workspaceFolder}/projects/ichi",
+      "args": ["exampleConfigs/univ3-config.absinthe.json"],
       "runtimeArgs": ["--no-deprecation", "--no-warnings", "--enable-source-maps"],
-      // "console": "integratedTerminal",
       "skipFiles": ["<node_internals>/**", "${workspaceFolder}/**/node_modules/**/*.js"],
       "sourceMaps": true,
       "outFiles": ["${workspaceFolder}/projects/ichi/lib/**/*.js"]

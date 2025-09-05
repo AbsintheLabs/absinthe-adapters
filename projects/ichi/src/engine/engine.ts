@@ -5,6 +5,7 @@ import Big from 'big.js';
 import { createClient, RedisClientType } from 'redis';
 import dotenv from 'dotenv';
 import { log } from '../utils/logger';
+import { EVM_NULL_ADDRESS } from '../utils/conts';
 import { Sink } from '../esink';
 import { RedisTSCache, RedisMetadataCache, RedisHandlerMetadataCache } from '../cache';
 import { PricingEngine } from './pricing-engine';
@@ -184,16 +185,22 @@ export class Engine {
       await this.enrichEvents(ctx);
       await this.sendDataToSink(ctx);
       this.sqdBatchEnd(ctx);
-      this.terminateIfNeeded(ctx);
+      await this.terminateIfNeeded(ctx);
     });
   }
 
-  private terminateIfNeeded(ctx: any) {
+  private async terminateIfNeeded(ctx: any) {
     if (
       this.appCfg.range.toBlock != null &&
       ctx.blocks[ctx.blocks.length - 1].header.height >= this.appCfg.range.toBlock
     ) {
-      log.info('🏁 Processing final batch and exiting...');
+      log.info('🏁 Processing final batch. Flushing sink and exiting...');
+      try {
+        if (this.sink.flush) await this.sink.flush();
+        if (this.sink.close) await this.sink.close();
+      } catch (err) {
+        log.error('Error while flushing/closing sink before exit', err);
+      }
       process.exit(0);
     }
   }
@@ -419,26 +426,22 @@ export class Engine {
     //   txHash: log.transactionHash,
     // };
     const emit: LogEmitFunctions = {
-      balanceDelta: (e: BalanceDelta) =>
-        this.applyBalanceDelta(e, {
-          ts: block.header.timestamp,
-          height: block.header.height,
-          txHash: log.transactionHash,
-        }),
-      positionUpdate: (e: PositionUpdate) =>
+      balanceDelta: (e: BalanceDelta, reason?: string) =>
         this.applyBalanceDelta(
-          {
-            user: e.user,
-            asset: e.asset,
-            amount: new Big(0),
-            meta: e.meta,
-          },
+          e,
           {
             ts: block.header.timestamp,
             height: block.header.height,
             txHash: log.transactionHash,
           },
+          reason,
         ),
+      positionUpdate: (e: PositionUpdate) =>
+        this.applyPositionUpdate(e, {
+          ts: block.header.timestamp,
+          height: block.header.height,
+          txHash: log.transactionHash,
+        }),
       reprice: (e: Reprice) =>
         this.applyReprice(e, {
           ts: block.header.timestamp,
@@ -547,7 +550,11 @@ export class Engine {
     this.events.push(event);
   }
 
-  protected async applyBalanceDelta(e: BalanceDelta, blockData: any): Promise<void> {
+  protected async applyBalanceDelta(
+    e: BalanceDelta,
+    blockData: any,
+    reason: string = 'BALANCE_DELTA',
+  ): Promise<void> {
     const ts = blockData.ts;
     const height = blockData.height;
 
@@ -556,6 +563,11 @@ export class Engine {
     if (this.indexerMode === 'evm') {
       e.user = e.user.toLowerCase();
       e.asset = e.asset.toLowerCase();
+    }
+
+    // Skip balance deltas for null addresses (mints/burns should not be tracked as user balances)
+    if (e.user === EVM_NULL_ADDRESS) {
+      return;
     }
 
     const key = `bal:${e.asset}:${e.user}`;
@@ -588,7 +600,7 @@ export class Engine {
         endTs: ts,
         startBlockNumber: oldHeight,
         endBlockNumber: height,
-        trigger: 'BALANCE_CHANGE',
+        trigger: reason as any,
         balanceBefore: oldAmt.toString(),
         balanceAfter: newAmt.toString(),
         prevTxHash: prevTxHash,
@@ -611,6 +623,21 @@ export class Engine {
       // this.redis.sAdd('assets:tracked', e.asset.toLowerCase()),
       this.redis.hSetNX('assets:tracked', e.asset.toLowerCase(), height.toString()),
     ]);
+  }
+
+  private async applyPositionUpdate(e: PositionUpdate, blockData: any): Promise<void> {
+    // Thin wrapper around applyBalanceDelta to follow DRY principle
+    // Position updates don't change balance but update metadata/timestamps
+    await this.applyBalanceDelta(
+      {
+        user: e.user,
+        asset: e.asset,
+        amount: new Big(0), // No balance change for position updates
+        meta: e.meta,
+      },
+      blockData,
+      'POSITION_UPDATE',
+    );
   }
 
   private async applyPositionStatusChange(e: PositionStatusChange, blockData: any): Promise<void> {
@@ -789,6 +816,7 @@ export class Engine {
     const reachedFinal = finalBlock != null && height === finalBlock;
     const backfilling = finalBlock != null && height < finalBlock;
 
+    log.debug('reached final: ', reachedFinal);
     // If still backfilling, skip for speed
     if (backfilling) return;
 
@@ -844,7 +872,10 @@ export class Engine {
       ];
 
       const amt = new Big(amountStr || '0');
-      if (amt.lte(0)) return; // only flush active balances
+      if (amt.lte(0)) {
+        log.debug('amount is less than or equal to 0, skipping for user');
+        return; // only flush active balances
+      }
 
       const key = balanceKeys[i]!;
       // Parse the Redis key format: 'bal:{asset}:{user}'
@@ -876,7 +907,7 @@ export class Engine {
             endTs: finalTs,
             startBlockNumber: Number(updatedHeightStr),
             endBlockNumber: height,
-            trigger: 'FINAL',
+            trigger: 'FINAL' as any,
             balance: amt.toString(),
             prevTxHash: prevTxHash,
           };
@@ -895,7 +926,7 @@ export class Engine {
             endTs: currentWindowStart,
             startBlockNumber: Number(updatedHeightStr),
             endBlockNumber: height,
-            trigger: 'EXHAUSTED',
+            trigger: 'EXHAUSTED' as any,
             balance: amt.toString(),
             prevTxHash: prevTxHash,
           };

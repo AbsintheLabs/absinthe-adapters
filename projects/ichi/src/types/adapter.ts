@@ -21,7 +21,7 @@ import { MeasureDelta } from './core';
 
 // Emit functions for log handlers
 export interface LogEmitFunctions {
-  balanceDelta: (e: BalanceDelta) => Promise<void>;
+  balanceDelta: (e: BalanceDelta, reason?: string) => Promise<void>;
   positionUpdate: (e: PositionUpdate) => Promise<void>;
   ownershipTransfer: (e: OwnershipTransfer) => Promise<void>;
   positionStatusChange: (e: PositionStatusChange) => Promise<void>;

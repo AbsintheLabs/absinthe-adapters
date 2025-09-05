@@ -2,6 +2,7 @@ import Big from 'big.js';
 import { Adapter } from '../types/adapter';
 import { AssetFeedConfig } from '../types/pricing';
 import * as univ2Abi from '../abi/univ2';
+import { EVM_NULL_ADDRESS } from '../utils/conts';
 
 // Example function to create a Uniswap V2 adapter with LP token pricing
 export function createUniv2Adapter(feedConfig: AssetFeedConfig): Adapter {
@@ -10,14 +11,14 @@ export function createUniv2Adapter(feedConfig: AssetFeedConfig): Adapter {
       // Handle Transfer events (LP token transfers)
       if (log.topics[0] === univ2Abi.events.Transfer.topic) {
         const { from, to, value } = univ2Abi.events.Transfer.decode(log);
-        if (from !== '0x0000000000000000000000000000000000000000') {
+        if (from !== EVM_NULL_ADDRESS) {
           await emit.balanceDelta({
             user: from,
             asset: log.address,
             amount: new Big(value.toString()).neg(),
           });
         }
-        if (to !== '0x0000000000000000000000000000000000000000') {
+        if (to !== EVM_NULL_ADDRESS) {
           await emit.balanceDelta({
             user: to,
             asset: log.address,
