@@ -1,120 +1,59 @@
-How to turn json into the config string easily:
+# Primitives
 
-```bash
-echo "\nINDEXER_CONFIG='$(jq -c . src/config/ichiconfig.json)'" >> .env
-```
+We are tracking assets.
+Each asset can have labels (which is just metadata). These labels do NOT change over time and are immutable.
+Each asset can have multiple metrics associated with it. These metrics can change over time and are mutable.
+Each asset has a price feed definition, which is a way to price an erc20 or erc721 token.
 
-## Architecture Overview
+- Different strategies exist for this. For example, the way you'd price a univ3 nft LP is different from pulling the current price of bitcoin from coingecko.
 
-The system follows a **blockchain indexer → pricing engine → enrichment pipeline → sink** architecture, with Redis serving as the persistent state store and cache layer.
+Different events are used for different things:
 
-### 1. **Entry Point (main.ts)**
+1. BalanceDelta -> Track ownership of the asset (token or nft)
+2. MeasureDelta -> Track a metric of the asset (token or nft)
+3. PositionUpdate -> Indicates that we should emit a new row for a position (a measure doesn't necessarily indicate change to a position)
+4. PositionStatusChange -> Positions can be active or inactive. This event indicates that the status of a position has changed.
+5. Reprice -> Indicates that the price of an asset has changed and should be repriced at this instant.
 
-- **Purpose**: Bootstraps the engine with configuration and adapters
-- **Flow**:
-  - Loads config from command line args
-  - Creates adapter (e.g., `createUniv3Adapter`) with sample configuration
-  - Creates `CsvSink` for output to CSV file
-  - Instantiates `Engine` with adapter, sink, and config
-  - Calls `engine.run()` to start processing
+All of the events above represent changes to the ownership/holding of an asset.
 
-### 2. **Engine (engine.ts) - Core Processing Loop**
+Often, we also want to emit some data for some action that happened on chain.
+These are not necessarily related to ownership of an asset over time, but instead represent some instantaneous action.
+This could be, a contract function call, a swap, a pool creation, an nft mint, an erc20 mint, etc.
 
-- **Purpose**: Orchestrates the entire indexing process
-- **Redis Keys Used**:
-  - **`abs:{indexerId}:flush:boundary`** - Tracks last flush boundary for crash recovery
-  - **`assets:tracked`** - Hash map of `{asset: birthHeight}` tracking all assets seen
-  - **`activebalances`** - Set of actively tracked balance keys (toggled by position status changes)
-  - **`balances:gt0`** - Set of balance keys with non-zero amounts (used for scans/flush)
-  - **`bal:{asset}:{user}`** - Hash with fields: `amount`, `updatedTs`, `updatedHeight`, `txHash`
-  - **`meas:{asset}:{metric}`** - Hash for measure tracking with same fields as balance
-  - **`meas:{asset}:{metric}:d`** - Sorted set for storing measure deltas by block height
-  - **`meas:active`** - Set of active measure keys
-  - **`meas:tracked`** - Hash tracking `{asset:metric: birthHeight}`
+We often want to price these actions as well, but they don't necessarily represent a change in ownership of an asset.
+However, they often DO need to be priced (such as pricing the gas fees of a transaction, the price of a swap, the mint price, etc).
 
-**Processing Flow**:
+Sometimes we know the asset ahead of time, then it's easy.
 
-1. **Block Processing**: For each block, processes logs and transactions
-2. **Balance Tracking**: Updates balance state in Redis for each `BalanceDelta` event
-3. **Measure Tracking**: Updates measure state for `MeasureDelta` events
-4. **Window Creation**: Creates time-weighted balance windows when balances change
-5. **Periodic Flushing**: Periodically flushes completed windows to enrichment pipeline
-6. **Price Backfilling**: Pre-computes prices for all tracked assets in batch
-7. **Enrichment**: Runs enrichment pipeline on windows and events
-8. **Sink Output**: Sends enriched data to sink
+Swaps are tricky since they relate to two assets, and we often only have price feeds for only one of the assets.
+This would require a swap resolver.
 
-### 3. **Pricing Engine (pricing-engine.ts)**
+Instead, let's create a new first-class concept called an "Action".
+Each action is it's own "kind" in a price feed.
+Instead of kind "erc20" or "erc721", we have kind "swap", "mint", etc.
 
-- **Purpose**: Resolves asset prices using configurable feeds with recursion support
-- **Redis Keys Used**:
-  - **`price:{asset}`** - TimeSeries key storing price data points (timestamp → price)
-  - **`metadata:{asset}`** - JSON object storing asset metadata (decimals, etc.)
-  - **`handlerMeta:{handlerName}:{key}`** - Handler-specific cached metadata
+Some examples of actions:
 
-**Key Components**:
+1. Swap
+2. Mint Price
+3. Bridge Amount
+4. Auction Bid
+5. Claim Amount
 
-- **HandlerRegistry**: Manages pricing handlers (coingecko, univ2nav, univ3lp, etc.)
-- **Recursive Resolution**: Handlers can call `recurse()` to price dependencies
-- **Caching Strategy**: Checks cache first, falls back to live pricing, caches results
+Fortunately, most of these will have the same pricing strategy (ex: single asset price).
+Swap is the only exception since we have to define which side of the swap we actually care about in the config.
 
-**Price Resolution Flow**:
+## Next Steps
 
-1. **Cache Check**: `price:{asset}` TimeSeries lookup
-2. **Metadata Resolution**: Get asset decimals from `metadata:{asset}`
-3. **Handler Execution**: Call appropriate pricing handler
-4. **Dependency Pricing**: Recursively price underlying assets if needed
-5. **Cache Storage**: Store result in `price:{asset}` TimeSeries
-
-### 4. **Asset Handlers (engine/asset-handlers.ts)**
-
-- **Purpose**: Resolve asset metadata (decimals, normalization)
-- **Supported Types**: ERC20, ERC721
-- **Redis Keys**: Uses `metadata:{asset}` for caching
-
-### 5. **Enrichment Pipeline (enrichers.ts)**
-
-- **Purpose**: Transform raw data into final output format
-- **Key Enrichers**:
-  - `enrichBaseEventMetadata` - Adds protocol metadata
-  - `enrichWithCommonBaseEventFields` - Adds base fields (version, userId, etc.)
-  - `buildEvents` / `buildTimeWeightedBalanceEvents` - Converts to Absinthe format
-  - `enrichWithPrice` - **Critical**: Adds USD valuation using Redis TimeSeries
-
-**Pricing in Enrichment**:
-
-```typescript
-// Uses Redis TimeSeries aggregation for time-weighted average pricing
-const resp = await context.redis.ts.range(key, start, end, {
-  LATEST: true,
-  AGGREGATION: { type: 'TWA', timeBucket: 4 * 60 * 60 * 1000 }, // 4-hour buckets
-  ALIGN: '0',
-  COUNT: 1,
-});
-```
-
-### 6. **Sink (esink.ts)**
-
-- **Purpose**: Final output destination
-- **Current Implementation**: `CsvSink` writes to CSV file
-- **Future**: Absinthe API sink planned
-
-## Key Redis Key Patterns
-
-1. **Balance Tracking**: `bal:{asset}:{user}` → `{amount, updatedTs, updatedHeight, txHash}`
-2. **Measure Tracking**: `meas:{asset}:{metric}` → `{amount, updatedTs, updatedHeight}`
-3. **Price Storage**: `price:{asset}` → TimeSeries of `(timestamp, price)`
-4. **Metadata Cache**: `metadata:{asset}` → `{decimals: number}`
-5. **Handler Cache**: `handlerMeta:{handler}:{key}` → Handler-specific data
-6. **Asset Registry**: `assets:tracked` → `{asset: birthHeight}`
-7. **Active Balances**: `activebalances` → Set of actively tracked balance keys (toggled by position status changes)
-8. **Balance Keys**: `balances:gt0` → Set of balance keys with non-zero amounts (used for scans/flush)
-9. **Flush State**: `abs:{indexerId}:flush:boundary` → Last processed boundary
-
-## Data Flow Summary
-
-1. **Raw Events** (logs/transactions) → **Engine Processing** → Balance updates in Redis
-2. **Periodic Flush** → Creates time windows → **Enrichment Pipeline**
-3. **Enrichment** → Fetches prices from Redis TimeSeries → Calculates USD values
-4. **Sink** → Outputs enriched data to CSV/Absinthe API
-
-The system is designed for **crash recovery** (flush boundaries), **horizontal scaling** (namespaced keys), and **efficient pricing** (Redis TimeSeries for historical lookups).
+1. Create Action Type and Swap Action Subtype
+2. Emit the action event from the swap
+   1. Add conditionals to not track the LP so that testing is MUCH faster while we're doing this part
+3. Make sure that we can set immutable labels or attributes on the action so we can match the config on them properly
+4. Wire this up so that the proper part of the config gets called for the swap (related to 3)
+5. Add new price resolver for actions (start with swap)
+6. Test it
+7. Start refactoring to fit ports+adapters model so that engine is decoupled properly. Then, we can start running some tests on its component parts.
+8. Need to tell lending / borrowing apart for the same adapter (EVEN THOUGH they are both TWB metrics. don’t assume each adapter will have at most 1 of twb or event based tracking)
+   1. What would tracking multiple TWB's for one adapter look like? What about multiple Actions for one adapter? It should generalize to many.
+9. (edge case) Make sure that index ordering is done correctly (if multiple txs in the same block and the ts will be the same) - order not just on ts but ALSO log index if timestamp is the same (precedence of comparison obv)

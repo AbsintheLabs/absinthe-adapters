@@ -27,14 +27,14 @@ export function buildAdapter(name: string, rawConfig: unknown, io: EngineIO): Bu
 
   try {
     // Parse and validate the config using the adapter's schema
-    const parsed = def.schema.parse(rawConfig);
+    const parsed = def.schema.strict().parse(rawConfig);
     // Build the adapter with validated params
     const built = def.build({ params: parsed, io });
 
     return built;
   } catch (error) {
     if (error instanceof z.ZodError) {
-      throw new Error(`Invalid configuration for adapter '${name}':\n${error.format()}`);
+      throw new Error(`Invalid configuration for adapter '${name}':\n${z.prettifyError(error)}`);
     }
     throw new Error(
       `Failed to build adapter '${name}': ${error instanceof Error ? error.message : String(error)}`,

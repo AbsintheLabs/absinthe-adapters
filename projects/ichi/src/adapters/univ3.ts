@@ -19,7 +19,11 @@ export const Univ3Params = z.object({
   kind: z.literal('uniswap-v3'),
   factoryAddress: Address,
   nonFungiblePositionManagerAddress: Address,
-  trackAllSwaps: z.boolean().default(true),
+  trackSwaps: z.boolean().default(true),
+  lpTracking: z.object({
+    enabled: z.boolean().default(true),
+    onlyInRange: z.boolean().default(true),
+  }),
   // tbd...add more config details here as needed
 });
 
@@ -107,12 +111,14 @@ export const univ3 = registerAdapter(
             });
           };
 
+          // POOL CREATED EVENT
           if (log.topics[0] === poolCreatedTopic) {
             const { pool } = univ3factoryAbi.events.PoolCreated.decode(log);
             const poolAddress = pool.toLowerCase();
             await redis.sAdd(ctx.poolIdxKey, poolAddress);
           }
 
+          // SWAP EVENT
           // Handle change in ticks (Swap events) - detect tick crossings and toggle position status
           if (log.topics[0] === swapTopic) {
             // first check if the pool is one created by our factory contract
@@ -138,6 +144,19 @@ export const univ3 = registerAdapter(
             const pool = log.address.toLowerCase();
             const curTick = Number(tickBN.toString());
 
+            // SWAP VOLUME TRACKING
+            if (params.trackSwaps) {
+              // we have to figure out which side of the swap to track
+              await emit.event({
+                user: sender,
+                asset0: token0,
+                asset1: token1,
+                amount0: new Big(amount0.toString()),
+                amount1: new Big(amount1.toString()),
+              });
+            }
+
+            // TICK TRACKING FOR LP ACTIVE/INACTIVE STATUS
             // Store the tick + sqrtPriceX96 in Redis for lookup later (without having to make rpc calls)
             const blockHeight = block.header.height;
             const poolPriceKey = `pool:${pool}:price:${blockHeight}`;

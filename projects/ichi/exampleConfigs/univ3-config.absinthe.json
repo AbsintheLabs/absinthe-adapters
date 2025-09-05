@@ -24,7 +24,11 @@
       "kind": "uniswap-v3",
       "factoryAddress": "0xCdBCd51a5E8728E0AF4895ce5771b7d17fF71959",
       "nonFungiblePositionManagerAddress": "0xe43ca1dee3f0fc1e2df73a0745674545f11a59f5",
-      "trackAllSwaps": true
+      "trackSwaps": true,
+      "lpTracking": {
+        "enabled": true,
+        "onlyInRange": true
+      }
     }
   },
   "assetFeedConfig": [
@@ -76,3 +80,34 @@
     }
   ]
 }
+
+/* example action config
+
+{
+match: {
+  matchExpressions: [
+    {
+      key: "protocol",
+      op: "In",
+      values: ["uniswap-v3"]
+    }
+  ]
+},
+"config": {
+  "assetType": "swap",
+  "priceFeed": {
+    "kind": "swap",
+    "tokenSelector": "token1",
+    "token": {
+      "assetType": "erc20",
+      "priceFeed": {
+        "kind": "pegged",
+        "usdPegValue": 1
+      }
+    }
+  }
+}
+}
+
+
+*/

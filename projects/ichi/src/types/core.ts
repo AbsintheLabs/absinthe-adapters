@@ -30,6 +30,15 @@ export type OwnershipTransfer = {
   asset: string;
 };
 
+export type Swap = {
+  user: string;
+  asset0: string;
+  asset1: string;
+  amount0: Big;
+  amount1: Big;
+  meta?: Record<string, MetadataValue>;
+};
+
 export type PositionStatusChange = {
   user: string;
   asset: string;
