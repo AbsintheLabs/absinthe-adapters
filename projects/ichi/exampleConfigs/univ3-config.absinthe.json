@@ -1,0 +1,82 @@
+{
+  "$schema": "../absinthe-app.schema.json",
+  "kind": "evm",
+  "indexerId": "univ3-hemi-indexer",
+  "flushMs": 259200000,
+  "redisUrl": "redis://localhost:6379",
+  "sinkConfig": {
+    "sinkType": "csv",
+    "path": "univ3-windows.csv"
+  },
+  "network": {
+    "chainId": 43111,
+    "gatewayUrl": "https://v2.archive.subsquid.io/network/hemi-mainnet",
+    "rpcUrl": "https://rpc.hemi.network/rpc",
+    "finality": 75
+  },
+  "range": {
+    "fromBlock": 507584,
+    "toBlock": 1600000
+  },
+  "pricingRange": {
+    "type": "block",
+    "fromBlock": 1500000
+  },
+  "adapterConfig": {
+    "name": "uniswap-v3",
+    "params": {
+      "kind": "uniswap-v3",
+      "factoryAddress": "0xCdBCd51a5E8728E0AF4895ce5771b7d17fF71959",
+      "nonFungiblePositionManagerAddress": "0xe43ca1dee3f0fc1e2df73a0745674545f11a59f5",
+      "trackAllSwaps": true
+    }
+  },
+  "assetFeedConfig": [
+    {
+      "match": {
+        "matchExpressions": [
+          {
+            "key": "protocol",
+            "op": "In",
+            "values": ["uniswap-v3"]
+          },
+          {
+            "key": "token0",
+            "op": "In",
+            "values": ["0x4200000000000000000000000000000000000006"]
+          },
+          {
+            "key": "tickUpper",
+            "op": "In",
+            "values": ["-202653"]
+          },
+          {
+            "key": "tickLower",
+            "op": "In",
+            "values": ["-202673"]
+          },
+          {
+            "key": "token1",
+            "op": "In",
+            "values": ["0xad11a8beb98bbf61dbb1aa0f6d6f2ecd87b35afa"]
+          }
+        ]
+      },
+      "config": {
+        "assetType": "erc721",
+        "priceFeed": {
+          "kind": "univ3lp",
+          "nonfungiblepositionmanager": "0xe43ca1dee3f0fc1e2df73a0745674545f11a59f5",
+          "tokenSelector": "token1",
+          "token": {
+            "assetType": "erc20",
+            "priceFeed": {
+              "kind": "pegged",
+              "usdPegValue": 1
+            }
+          }
+        }
+      }
+    }
+  ]
+}

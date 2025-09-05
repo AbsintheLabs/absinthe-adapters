@@ -29,7 +29,6 @@ export function createUniv2Adapter(feedConfig: AssetFeedConfig): Adapter {
         // await emit.reprice();
       }
     },
-    topic0s: [univ2Abi.events.Sync.topic, univ2Abi.events.Transfer.topic],
     feedConfig,
     // univ2nav feed is now officially registered in the pricing engine
   };

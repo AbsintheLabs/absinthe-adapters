@@ -10,13 +10,14 @@ import { RedisTSCache, RedisMetadataCache, RedisHandlerMetadataCache } from '../
 import { PricingEngine } from './pricing-engine';
 import { AppConfig } from '../config/schema';
 import { loadConfig } from '../config/load';
-import { buildProcessor } from '../eprocessorBuilder';
+import { buildBaseSqdProcessor } from '../eprocessorBuilder';
 import {
   Adapter,
   LogEmitFunctions,
   TransactionEmitFunctions,
   Projector,
   ProjectorContext,
+  AdapterV2,
 } from '../types/adapter';
 import { PositionUpdate } from '../types/core';
 import {
@@ -48,6 +49,8 @@ import {
   enrichWithPrice,
   filterOutZeroValueEvents,
 } from '../enrichers';
+import { EngineDeps } from '../main';
+import { BuiltAdapter } from '../adapter-core';
 
 dotenv.config();
 
@@ -57,8 +60,8 @@ export class Engine {
   private static readonly ACTIVE_SET_KEY = 'activebalances';
   private static readonly INACTIVE_SET_KEY = 'inactivebalances';
   protected db: Database<any, any>;
-  // fixme: why is adapter typed with !
-  protected adapter!: Adapter;
+  protected adapter: BuiltAdapter;
+
   // State file path for Subsquid processor checkpoint persistence
   // Each containerized indexer instance uses the same local path since they run in isolation
   // The actual file will be 'status.txt' containing block height and hash for crash recovery
@@ -95,70 +98,33 @@ export class Engine {
   private appCfg: AppConfig;
   private sqdProcessor: any;
 
-  constructor(
-    // keep only run-time knobs that are not part of AppConfig (or read them from appCfg.processor if you prefer)
-    adapter: Adapter,
-    sink: Sink,
-    appCfg: AppConfig,
-  ) {
-    // 1) Use provided config
-    this.appCfg = appCfg; // uses your Zod discriminated union (evm|solana)
-
-    // 2) Build processor from config with adapter's topic0s
-    this.sqdProcessor = buildProcessor(this.appCfg, adapter.topic0s); // picks EVM or Solana branch based on cfg.kind
-    this.indexerMode = this.appCfg.kind === 'evm' ? 'evm' : 'solana';
-
-    // 3) State path and DB, namespaced by indexerId to avoid collisions
-    // const statePath = `${Engine.STATE_DIR_BASE}/${this.appCfg.indexerId}`;
+  constructor(deps: EngineDeps) {
+    // todo: prefix with the indexer hash id to avoid collisions if running multiple instances on the same machine
     const statePath = Engine.STATE_FILE_PATH;
-    // don't need tables since we're relying on redis for persistence
+    // don't need tables since we're relying on redis for persistence. This can be hardcoded, this is fine.
     this.db = new Database({ tables: {}, dest: new LocalDest(statePath) });
 
-    // 4) Adapter + feedConfig normalization (keep as AssetFeedRule[] for rule matching)
-    let normalizedFeedConfig = adapter.feedConfig || [];
+    // this is kind of an old relic
+    this.indexerMode = deps.appCfg.kind === 'evm' ? 'evm' : 'solana';
 
-    // allow overrides from env JSON if provided
-    if (this.appCfg.feedConfigJson && this.appCfg.kind === 'evm') {
-      const fromEnv = JSON.parse(this.appCfg.feedConfigJson) as AssetFeedRule[];
-      // Merge env rules with adapter rules (env rules take precedence)
-      normalizedFeedConfig = [...fromEnv, ...normalizedFeedConfig];
-    }
-    this.adapter = { ...adapter, feedConfig: normalizedFeedConfig };
-
-    // 4.5) Register projectors
-    if (this.adapter.projectors) {
-      for (const projector of this.adapter.projectors) {
-        this.projectors.set(projector.namespace, projector);
-      }
-    }
+    // // 4.5) Register projectors
+    // if (this.adapter.projectors) {
+    //   for (const projector of this.adapter.projectors) {
+    //     this.projectors.set(projector.namespace, projector);
+    //   }
+    // }
 
     // 5) Infra
-    // fixme: make this more robust (don't depend on the passed in indexer id)
-    const redisPrefix = `abs:${this.appCfg.indexerId}:`;
-    this.redis = createClient({});
-    this.sink = sink;
-
+    this.redis = deps.redis;
+    this.sink = deps.sink;
+    this.appCfg = deps.appCfg;
+    this.adapter = deps.adapter;
+    this.sqdProcessor = deps.sqdProcessor;
     // 6) Pricing + caches
     this.pricingEngine = new PricingEngine(this.adapter.customFeeds);
     this.priceCache = new RedisTSCache(this.redis);
     this.metadataCache = new RedisMetadataCache(this.redis);
     this.handlerMetadataCache = new RedisHandlerMetadataCache(this.redis);
-  }
-
-  private async init() {
-    await this.redis.connect();
-
-    // Add error handling for Redis connection
-    this.redis.on('error', (err) => {
-      log.error('Redis Client Error:', err);
-    });
-
-    // Graceful shutdown
-    process.on('SIGTERM', async () => {
-      log.info('SIGTERM received, closing Redis connection...');
-      await this.redis.quit();
-      process.exit(0);
-    });
   }
 
   /**
@@ -181,9 +147,6 @@ export class Engine {
   // can make a builder class for evm + solana that gently wraps over the subsquid methods to make sure that we're exposing the right ones
   // this will likely be a simple wrapper on top of the sqd methods on the sqd processor class
   async run() {
-    // pre-loop initialization
-    await this.init();
-
     // main loop
     this.sqdProcessor.run(this.db, async (ctx: any) => {
       log.debug(`🏁 START BATCH. Blocks: ${ctx.blocks.length}.`);
@@ -205,7 +168,13 @@ export class Engine {
         }
       }
 
-      await this.adapter.onBatchEnd?.(this.redis);
+      await this.adapter.onBatchEnd?.({
+        io: {
+          redis: this.redis,
+          log: log.debug,
+        },
+        ctx,
+      });
       // we only need to get the timestamp at the end of the batch, rather than every single block
       const lastBlock = ctx.blocks[ctx.blocks.length - 1];
       // fixme: ensure that this checks if the toBlock is set.
@@ -215,7 +184,18 @@ export class Engine {
       await this.enrichEvents(ctx);
       await this.sendDataToSink(ctx);
       this.sqdBatchEnd(ctx);
+      this.terminateIfNeeded(ctx);
     });
+  }
+
+  private terminateIfNeeded(ctx: any) {
+    if (
+      this.appCfg.range.toBlock != null &&
+      ctx.blocks[ctx.blocks.length - 1].header.height >= this.appCfg.range.toBlock
+    ) {
+      log.info('🏁 Processing final batch and exiting...');
+      process.exit(0);
+    }
   }
 
   async backfillPriceDataForBatch(blocks: any[]) {
@@ -244,7 +224,27 @@ export class Engine {
     const tasks: Task[] = [];
     for (const block of blocksOfWindowStarts) {
       const ts = block.header.timestamp;
-      const eligible = assets.filter((a) => a.birth <= block.header.height);
+      const height = block.header.height;
+
+      // Check pricing range - skip pricing if before the specified range
+      if (this.appCfg.pricingRange) {
+        let shouldPrice = false;
+
+        if (this.appCfg.pricingRange.type === 'block') {
+          shouldPrice = height >= this.appCfg.pricingRange.fromBlock;
+        } else if (this.appCfg.pricingRange.type === 'timestamp') {
+          shouldPrice = ts >= this.appCfg.pricingRange.fromTimestamp;
+        }
+
+        if (!shouldPrice) {
+          log.debug(
+            `💰 Skipping pricing for block ${height} (${new Date(ts).toISOString()}) - before pricing range`,
+          );
+          continue;
+        }
+      }
+
+      const eligible = assets.filter((a) => a.birth <= height);
       for (const a of eligible) tasks.push({ block, ts, asset: a.asset });
     }
 
@@ -282,7 +282,7 @@ export class Engine {
 
     // Use rule-based matching to find the appropriate config for this asset
     const assetConfig = findConfig(
-      this.adapter.feedConfig || [],
+      this.appCfg.assetFeedConfig || [],
       asset,
       (assetKey: string) => labels,
     );
@@ -398,7 +398,16 @@ export class Engine {
           to: transaction.to,
         }),
     };
-    await this.adapter.onTransaction?.(block, transaction, emit);
+    await this.adapter.onTransaction?.({
+      block,
+      transaction,
+      emit,
+      rpcCtx: {
+        _chain: this.ctx._chain,
+        block: { height: block.header.height },
+      },
+      redis: this.redis,
+    });
   }
 
   // Subsquid hands logs to this
@@ -474,18 +483,19 @@ export class Engine {
         }
       },
     };
-    await this.adapter.onLog?.(
+    // invoke the adpater provided onLog hook here
+    await this.adapter.onLog?.({
       block,
       log,
       emit,
-      {
+      rpcCtx: {
         _chain: this.ctx._chain,
         block: {
           height: block.header.height,
         },
       },
-      this.redis,
-    );
+      redis: this.redis,
+    });
   }
 
   protected async sqdBatchEnd(ctx: any) {
@@ -542,6 +552,7 @@ export class Engine {
     const height = blockData.height;
 
     // data cleaning:
+    // fixme: we should probably do this in the emit functions before we call it in the applyBalanceDelta function
     if (this.indexerMode === 'evm') {
       e.user = e.user.toLowerCase();
       e.asset = e.asset.toLowerCase();
@@ -741,7 +752,26 @@ export class Engine {
 
   private async applyReprice(e: Reprice, blockData: any): Promise<void> {
     const ts = blockData.ts;
+    const height = blockData.height;
     log.debug('applyReprice: ', e.asset, ts, blockData);
+
+    // Check pricing range - skip repricing if before the specified range
+    if (this.appCfg.pricingRange) {
+      let shouldPrice = false;
+
+      if (this.appCfg.pricingRange.type === 'block') {
+        shouldPrice = height >= this.appCfg.pricingRange.fromBlock;
+      } else if (this.appCfg.pricingRange.type === 'timestamp') {
+        shouldPrice = ts >= this.appCfg.pricingRange.fromTimestamp;
+      }
+
+      if (!shouldPrice) {
+        log.debug(
+          `💰 Skipping repricing for asset ${e.asset} at block ${height} (${new Date(ts).toISOString()}) - before pricing range`,
+        );
+        return;
+      }
+    }
 
     // We want to bypass the top level cache here as we're repricing!
     await this.priceAsset(e.asset, ts, blockData.block, true);
@@ -784,6 +814,13 @@ export class Engine {
     if (balanceKeys.length === 0) {
       log.debug('No balance keys found in flushPeriodic()');
       return;
+    }
+
+    for (const key of balanceKeys) {
+      log.debug('balanceKey in the final flush: ', key);
+      if (key.includes(':1675')) {
+        log.debug('found 1675 in balance key', key);
+      }
     }
 
     // ---- READ PHASE (auto-pipelined) ----

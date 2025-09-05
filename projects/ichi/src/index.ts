@@ -37,7 +37,7 @@ export { PricingEngine, HandlerRegistry } from './engine/pricing-engine';
 export { metadataResolver, erc20Handler } from './engine/asset-handlers';
 
 // Adapters
-export { createIchiAdapter, createHemiAdapter } from './adapters';
+// export { createIchiAdapter, createHemiAdapter } from './adapters';
 
 // Configurations
 export { defaultFeedConfig, gammaVaultsFeedConfig, ichiVaultsFeedConfig } from './config/pricing';

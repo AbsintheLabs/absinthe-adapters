@@ -3,37 +3,42 @@ import { EvmBatchProcessor } from '@subsquid/evm-processor';
 // import { SolanaBatchProcessor } from '@subsquid/solana-processor';
 import type { AppConfig } from './config/schema';
 
-export function buildProcessor(cfg: AppConfig, adapterTopic0s?: string[]) {
-  if (cfg.kind === 'evm') {
-    const p = new EvmBatchProcessor()
-      .setGateway(cfg.network.gatewayUrl)
-      .setRpcEndpoint(cfg.network.rpcUrl)
-      .setFinalityConfirmation(cfg.network.finality)
-      .includeAllBlocks() // needed for proper price backfilling
-      .setBlockRange({
-        from: cfg.range.fromBlock,
-        ...(cfg.range.toBlock ? { to: cfg.range.toBlock } : {}),
-      });
+// Generic processor type that can handle both EVM and Solana
+export type BaseProcessor = EvmBatchProcessor;
+// export type BaseProcessor = EvmBatchProcessor | SolanaBatchProcessor; // Future: support both
 
-    // for (const l of cfg.subscriptions.logs)
-    //   p.addLog({
-    //     address: l.addresses,
-    //     ...(adapterTopic0s && adapterTopic0s.length > 0 ? { topic0: adapterTopic0s } : {}),
-    //   });
-
-    // for (const t of cfg.subscriptions.functionCalls)
-    //   p.addTransaction({
-    //     to: t.to,
-    //     sighash: t.sighash,
-    //   });
-
-    p.setFields({
-      log: { transactionHash: true },
-      transaction: { to: true, from: true, gas: true, gasPrice: true, gasUsed: true, status: true },
+export function buildBaseSqdProcessor(cfg: AppConfig): BaseProcessor {
+  // export function buildBaseSqdProcessor(cfg: AppConfig): typeof EvmBatchProcessor | typeof SolanaBatchProcessor {
+  // if (cfg.kind === 'evm') {
+  const p = new EvmBatchProcessor()
+    .setGateway(cfg.network.gatewayUrl)
+    .setRpcEndpoint(cfg.network.rpcUrl)
+    .setFinalityConfirmation(cfg.network.finality)
+    .includeAllBlocks() // needed for proper price backfilling
+    .setBlockRange({
+      from: cfg.range.fromBlock,
+      ...(cfg.range.toBlock ? { to: cfg.range.toBlock } : {}),
     });
 
-    return p;
-  }
+  // for (const l of cfg.subscriptions.logs)
+  //   p.addLog({
+  //     address: l.addresses,
+  //     ...(adapterTopic0s && adapterTopic0s.length > 0 ? { topic0: adapterTopic0s } : {}),
+  //   });
+
+  // for (const t of cfg.subscriptions.functionCalls)
+  //   p.addTransaction({
+  //     to: t.to,
+  //     sighash: t.sighash,
+  //   });
+
+  p.setFields({
+    log: { transactionHash: true },
+    transaction: { to: true, from: true, gas: true, gasPrice: true, gasUsed: true, status: true },
+  });
+
+  return p;
+  // }
 
   // Solana branch (outline)
   // const s = new SolanaBatchProcessor()

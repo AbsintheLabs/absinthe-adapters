@@ -1,5 +1,6 @@
 import fs from 'fs';
 import { format } from '@fast-csv/format';
+import { SinkConfig } from './config/schema';
 
 export interface Sink {
   init?(): Promise<void>;
@@ -8,20 +9,15 @@ export interface Sink {
   close?(): Promise<void>;
 }
 
-// Factory input selected at engine construction
-export type SinkConfig =
-  | { kind: 'csv'; path: string }
-  | { kind: 'absinthe'; url: string; apiKey?: string; rateLimit?: number; batchSize?: number };
-
 export class SinkFactory {
   static create(cfg: SinkConfig): Sink {
-    switch (cfg.kind) {
+    switch (cfg.sinkType) {
       case 'csv':
         return new CsvSink(cfg.path);
       case 'absinthe':
         throw new Error('Absinthe sink not implemented yet');
       default:
-        throw new Error(`Unknown sink kind: ${(cfg as any).kind}`);
+        throw new Error(`Unknown sink kind: ${(cfg as any).sinkType}`);
     }
   }
 }

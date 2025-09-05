@@ -11,7 +11,7 @@ import {
 } from './core';
 import { AssetFeedConfig } from './pricing';
 import { HandlerFactory } from '../feeds/interface';
-import { Block, Log, Transaction } from '../processor';
+import { Block, Log, processor, Transaction } from '../processor';
 import { RedisClientType } from 'redis';
 import { MeasureDelta } from './core';
 
@@ -68,8 +68,43 @@ export interface RpcContext {
   };
 }
 
+export type MountCtx = {
+  // App configuration (already validated by Zod)
+  appCfg: any;
+
+  // Subsquid processor instance to extend with .addLog/.addTransaction handlers
+  processor: any;
+
+  // Shared infra
+  redis: RedisClientType;
+  rpc: unknown;
+
+  // Engine emit API (same functions you use today)
+  emit: LogEmitFunctions;
+
+  // Until feeds live in config, Engine can pass them through here
+  assetFeeds: AssetFeedConfig;
+};
+
+// XXX: we support both for now, but we will migrate all to the new adapter interface (v2)
+export type Adapter = AdapterV2 | AdapterLegacy;
+
+export interface AdapterV2 {
+  // Called once at boot. Adapter registers all subscriptions and handlers on the processor.
+  buildProcessor: (base: typeof processor) => typeof processor;
+
+  // Optional end-of-batch hook for deferred work (e.g., draining queues)
+  onBatchEnd?: (redis: RedisClientType) => Promise<void>;
+
+  // Optional custom pricing feed handlers
+  customFeeds?: CustomFeedHandlers;
+
+  // Optional projectors for custom event processing
+  projectors?: Projector[];
+}
+
 // Adapter interface (you implement this per protocol)
-export interface Adapter {
+export interface AdapterLegacy {
   onLog?(
     block: Block,
     log: Log,
@@ -85,8 +120,6 @@ export interface Adapter {
   ): Promise<void>;
   // Called at the end of each batch for cleanup/deferred operations
   onBatchEnd?(redis: RedisClientType): Promise<void>;
-  // xxx: this should not be optional as its a core part of each integration, but i dont want everything to break right now
-  topic0s?: string[];
   feedConfig: AssetFeedConfig;
   // Optional custom pricing feed handlers
   customFeeds?: CustomFeedHandlers;
