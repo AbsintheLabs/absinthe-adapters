@@ -324,7 +324,7 @@
           "name": "xyz-9",
           "contractAddress": "0x6e1d3ad0ed9a07d854fa35e832f5eceb58d5c47c",
           "chainId": 8453,
-          "fromBlock" : 35099681
+          "fromBlock": 35099681
         }
       ]
     },
