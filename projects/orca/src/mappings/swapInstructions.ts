@@ -133,6 +133,17 @@ async function processSwapCommon(
     gasFeeUsd: 0, //todo: fix
   };
 
+  const protocolState = protocolStates.get(analysis!.poolId);
+  if (protocolState) {
+    protocolState.transactions.push(transactionSchema);
+  } else {
+    protocolStates.set(analysis!.poolId, {
+      balanceWindows: [],
+      transactions: [transactionSchema],
+    });
+    logger.info(`📊 [SwapInstructions] Added transaction for pool ${analysis!.poolId}`);
+  }
+
   const positionsToActivate: PositionDetails[] = [];
   const positionsToDeactivate: PositionDetails[] = [];
 

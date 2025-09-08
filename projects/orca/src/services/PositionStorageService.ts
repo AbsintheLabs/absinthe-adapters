@@ -192,29 +192,23 @@ export class PositionStorageService {
   }
 
   async getPosition(positionId: string, whirlpool: string): Promise<PositionDetails | null> {
-    logger.info(`🏊 [GetPosition] Getting position ${positionId} in whirlpool ${whirlpool}`);
     if (!this.isConnected) {
-      logger.info(`❌ [GetPosition] Redis not connected`);
       return null;
     }
 
     try {
       const poolId = await this.redis.get(`positionPool:${positionId}`);
-      logger.info(`�� [GetPosition] Pool ID: ${poolId} for Position ID: ${positionId}`);
 
       if (!poolId) {
-        logger.info(`❌ [GetPosition] No pool ID found for position ${positionId}`);
         return null;
       }
 
       if (poolId !== whirlpool) {
-        logger.info(`❌ [GetPosition] Pool ID mismatch: ${poolId} !== ${whirlpool}`);
         return null;
       }
 
       const positionKey = `pool:${poolId}:position:${positionId}`;
       const data = await this.redis.hGetAll(positionKey);
-      logger.info(`🏊 [GetPosition] Position data:`, data);
 
       if (!data.positionId) {
         logger.info(`❌ [GetPosition] No position data found for ${positionId}`);

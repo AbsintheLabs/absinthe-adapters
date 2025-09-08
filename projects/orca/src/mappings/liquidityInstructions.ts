@@ -21,7 +21,6 @@ abstract class BaseLiquidityProcessor {
 
   protected async getPositionDetails(position: string, whirlpool: string) {
     const positionDetails = await this.positionStorageService.getPosition(position, whirlpool);
-    logger.info(`🏊 [GetPositionDetails] Position details:`, positionDetails);
     if (!positionDetails) {
       throw new Error(`Position not found: ${position} in whirlpool ${whirlpool}`);
     }
