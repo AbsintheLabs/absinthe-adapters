@@ -18,6 +18,8 @@ const chainConfig = {
 };
 
 const WINDOW_DURATION_MS = baseConfig.balanceFlushIntervalHours * HOURS_TO_MS;
+
+console.log('Start Orca Processor');
 const orcaProcessor = new OrcaProcessor(
   orcaProtocol,
   WINDOW_DURATION_MS,
@@ -26,3 +28,5 @@ const orcaProcessor = new OrcaProcessor(
   chainConfig,
 );
 orcaProcessor.run();
+
+// 8ecf5656-32e2-4b43-b055-ed41906fa175
