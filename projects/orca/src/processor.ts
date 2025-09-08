@@ -48,10 +48,10 @@ export const processor = new DataSourceBuilder()
     where: {
       programId: [whirlpoolProgram.programId], // where executed by Whirlpool program
       d8: [
-        // whirlpoolProgram.instructions.swap.d8,
-        // whirlpoolProgram.instructions.swapV2.d8,
-        // whirlpoolProgram.instructions.twoHopSwapV2.d8,
-        // whirlpoolProgram.instructions.twoHopSwap.d8,
+        whirlpoolProgram.instructions.swap.d8,
+        whirlpoolProgram.instructions.swapV2.d8,
+        whirlpoolProgram.instructions.twoHopSwapV2.d8,
+        whirlpoolProgram.instructions.twoHopSwap.d8,
 
         whirlpoolProgram.instructions.increaseLiquidity.d8,
         whirlpoolProgram.instructions.decreaseLiquidity.d8,
@@ -85,18 +85,10 @@ export const processor = new DataSourceBuilder()
       ],
 
       // ...whirlpoolProgram.instructions.swap.accountSelection({
-      //   whirlpool: [
-      //     '7qbRF6YsyGuLUVs6Y1q64bdVrfe4ZcUUz1JRdoVNUJnm',
-      //     '6mEmjfJFXgvusacn3QPsr5swUNu3c55VMJfiPz8ovBag',
-      //     '2SGwaJDNtZfVrRYdzAZv3xMPwz6YeXp8wJQQZgxridrR',
-      //   ],
+      //   whirlpool: WHIRLPOOL_ADDRESSES,
       // }),
       // ...whirlpoolProgram.instructions.swapV2.accountSelection({
-      //   whirlpool: [
-      //     '3ndjN1nJVUKGrJBc1hhVpER6kWTZKHdyDrPyCJyX3CXK',
-      //     '6mEmjfJFXgvusacn3QPsr5swUNu3c55VMJfiPz8ovBag',
-      //     '2SGwaJDNtZfVrRYdzAZv3xMPwz6YeXp8wJQQZgxridrR',
-      //   ],
+      //   whirlpool: WHIRLPOOL_ADDRESSES,
       // }),
 
       // //NOTE: This will capture all two-hop swaps that start with the USDC-SOL pool, regardless of where they go next. This gives you a good view of all swaps involving that specific pool as the first hop.
@@ -150,3 +142,5 @@ export const processor = new DataSourceBuilder()
     },
   })
   .build();
+
+//335147643
