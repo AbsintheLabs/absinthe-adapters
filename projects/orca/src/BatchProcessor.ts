@@ -14,6 +14,7 @@ import {
   PriceFeed,
   TokenPreference,
   toTimeWeightedBalance,
+  TimeWindowTrigger,
 } from '@absinthe/common';
 import * as whirlpoolProgram from './abi/whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc';
 import * as tokenProgram from './abi/TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
@@ -21,7 +22,13 @@ import { processor } from './processor';
 import { createHash } from 'crypto';
 import { TypeormDatabase } from '@subsquid/typeorm-store';
 
-import { OrcaProtocol, ProtocolStateOrca, OrcaInstructionData } from './utils/types';
+import {
+  OrcaProtocol,
+  ProtocolStateOrca,
+  OrcaInstructionData,
+  PositionDetails,
+  PoolDetails,
+} from './utils/types';
 import { augmentBlock } from '@subsquid/solana-objects';
 import { TRACKED_TOKENS, WHIRLPOOL_ADDRESSES } from './utils/consts';
 import { TokenBalance } from './utils/types';
@@ -35,6 +42,7 @@ import { processPoolInstructions } from './mappings/poolInstructions';
 import { processTransferInstructions } from './mappings/transferInstruction';
 import { LiquidityMathService } from './services/LiquidityMathService';
 import { PositionStorageService } from './services/PositionStorageService';
+import { getOptimizedTokenPrices } from './utils/pricing';
 export class OrcaProcessor {
   private readonly protocol: OrcaProtocol;
   private readonly schemaName: string;
@@ -125,8 +133,13 @@ export class OrcaProcessor {
       if (blockInstructions.length > 0) {
         await this.processBlockInstructions(blockInstructions, protocolStates);
       }
-    }
 
+      await this.processPeriodicBalanceFlush(
+        block.header.height,
+        block.header.timestamp,
+        protocolStates,
+      );
+    }
     await this.finalizeBatch(ctx, protocolStates);
   }
 
@@ -139,13 +152,6 @@ export class OrcaProcessor {
         balanceWindows: [],
         transactions: [],
       });
-    }
-
-    logger.info(
-      `🏊 [InitializeProtocolStates] Protocol states initialized for ${protocolStates.size} pools`,
-    );
-    for (const [pool, state] of protocolStates) {
-      logger.info(`🏊 [InitializeProtocolStates] Pool: ${pool}, State: ${JSON.stringify(state)}`);
     }
 
     return protocolStates;
@@ -585,14 +591,14 @@ export class OrcaProcessor {
       ].includes(data.type),
     );
 
-    const positionInstructions = blockInstructions.filter((data) =>
-      [
-        'openPosition',
-        'closePosition',
-        'openPositionWithTokenExtensions',
-        'closePositionWithTokenExtensions',
-        'openPositionWithMetadata',
-      ].includes(data.type),
+    const openPositionInstructions = blockInstructions.filter((data) =>
+      ['openPosition', 'openPositionWithTokenExtensions', 'openPositionWithMetadata'].includes(
+        data.type,
+      ),
+    );
+
+    const closePositionInstructions = blockInstructions.filter((data) =>
+      ['closePosition', 'closePositionWithTokenExtensions'].includes(data.type),
     );
 
     const poolInstructions = blockInstructions.filter((data) =>
@@ -626,12 +632,12 @@ export class OrcaProcessor {
     //   await processTransferInstructions(transferInstructions, protocolStates);
     // }
 
-    if (positionInstructions.length > 0) {
+    if (openPositionInstructions.length > 0) {
       logger.info(
-        `🏊 [ProcessBlockInstructions] Processing ${positionInstructions.length} position instructions`,
+        `🏊 [ProcessBlockInstructions] Processing ${openPositionInstructions.length} open position instructions`,
       );
       await processPositionInstructions(
-        positionInstructions,
+        openPositionInstructions,
         protocolStates,
         this.positionStorageService,
       );
@@ -646,13 +652,164 @@ export class OrcaProcessor {
       );
     }
 
+    if (closePositionInstructions.length > 0) {
+      logger.info(
+        `🏊 [ProcessBlockInstructions] Processing ${closePositionInstructions.length} close position instructions`,
+      );
+      await processPositionInstructions(
+        closePositionInstructions,
+        protocolStates,
+        this.positionStorageService,
+      );
+    }
+
     if (feeInstructions.length > 0) {
       await processFeeInstructions(feeInstructions, protocolStates);
     }
   }
 
-  //todo: after each batch processing, add the logic for flush Interval
+  private async processPeriodicBalanceFlush(
+    slot: number,
+    timestamp: number,
+    protocolStates: Map<string, ProtocolStateOrca>,
+  ): Promise<void> {
+    for (const [contractAddress, protocolState] of protocolStates.entries()) {
+      const positionsByPoolId =
+        await this.positionStorageService.getAllPositionsByPoolId(contractAddress);
+      const pool = await this.positionStorageService.getPool(contractAddress);
 
+      if (positionsByPoolId.length === 0) {
+        continue;
+      }
+
+      for (const position of positionsByPoolId) {
+        if (position.isActive === 'true') {
+          await this.processPositionExhaustion(position, pool!, slot, timestamp, protocolStates);
+        }
+      }
+    }
+  }
+
+  private async processPositionExhaustion(
+    position: PositionDetails,
+    pool: PoolDetails,
+    slot: number,
+    timestamp: number,
+    protocolStates: Map<string, ProtocolStateOrca>,
+  ): Promise<void> {
+    const currentTs = timestamp;
+
+    if (!position.lastUpdatedBlockTs) {
+      position.lastUpdatedBlockTs = currentTs;
+      await this.positionStorageService.updatePosition(position);
+      return;
+    }
+
+    while (
+      position.lastUpdatedBlockTs &&
+      Number(position.lastUpdatedBlockTs) + this.refreshWindow <= currentTs
+    ) {
+      const windowsSinceEpoch = Math.floor(
+        Number(position.lastUpdatedBlockTs) / this.refreshWindow,
+      );
+      const nextBoundaryTs: number = (windowsSinceEpoch + 1) * this.refreshWindow;
+      if (!pool.token0Id || !pool.token1Id) {
+        logger.warn(`❌ Skipping position ${position.positionId} - missing token data:`, {
+          token0Exists: !!pool.token0Id,
+          token0Id: pool.token0Id,
+        });
+        return;
+      }
+      const liquidity = BigInt(position.liquidity);
+
+      const { humanAmount0: oldHumanAmount0, humanAmount1: oldHumanAmount1 } =
+        this.liquidityMathService.getAmountsForLiquidityRaw(
+          liquidity,
+          position.tickLower,
+          position.tickUpper,
+          pool.currentTick,
+          pool.token0Decimals,
+          pool.token1Decimals,
+        );
+
+      const [token0inUSD, token1inUSD] = await getOptimizedTokenPrices(
+        position.poolId,
+        { id: pool.token0Id, decimals: pool.token0Decimals },
+        { id: pool.token1Id, decimals: pool.token1Decimals },
+        timestamp,
+        'solana',
+      );
+
+      const oldLiquidityUSD =
+        Number(oldHumanAmount0) * token0inUSD + Number(oldHumanAmount1) * token1inUSD;
+
+      if (oldLiquidityUSD > 0 && position.lastUpdatedBlockTs < nextBoundaryTs) {
+        const balanceWindow = {
+          userAddress: position.owner,
+          deltaAmount: 0,
+          trigger: TimeWindowTrigger.EXHAUSTED,
+          startTs: position.lastUpdatedBlockTs,
+          endTs: nextBoundaryTs,
+          windowDurationMs: this.refreshWindow,
+          startBlockNumber: position.lastUpdatedBlockHeight,
+          endBlockNumber: slot,
+          txHash: null,
+          currency: Currency.USD,
+          valueUsd: Number(oldLiquidityUSD),
+          balanceBefore: oldLiquidityUSD.toString(),
+          balanceAfter: oldLiquidityUSD.toString(),
+          tokenPrice: 0,
+          tokenDecimals: 0,
+          tokens: {
+            isActive: {
+              value: 'true',
+              type: 'boolean',
+            },
+            currentTick: {
+              value: pool.currentTick.toString(),
+              type: 'number',
+            },
+            tickLower: {
+              value: position.tickLower.toString(),
+              type: 'number',
+            },
+            tickUpper: {
+              value: position.tickUpper.toString(),
+              type: 'number',
+            },
+            liquidity: {
+              value: position.liquidity.toString(),
+              type: 'number',
+            },
+            token0Id: {
+              value: pool.token0Id,
+              type: 'string',
+            },
+            token1Id: {
+              value: pool.token1Id,
+              type: 'string',
+            },
+          },
+        };
+
+        const poolState = protocolStates.get(position.poolId);
+
+        if (poolState) {
+          poolState.balanceWindows.push(balanceWindow);
+        } else {
+          protocolStates.set(position.poolId, {
+            balanceWindows: [balanceWindow],
+            transactions: [],
+          });
+        }
+      }
+
+      position.lastUpdatedBlockTs = nextBoundaryTs;
+      position.lastUpdatedBlockHeight = slot;
+
+      await this.positionStorageService.updatePosition(position);
+    }
+  }
   private async finalizeBatch(
     ctx: any,
     protocolStates: Map<string, ProtocolStateOrca>,
@@ -717,9 +874,9 @@ export class OrcaProcessor {
         this.chainConfig,
       );
 
-      // logger.info(
-      //   `🏊 [FinalizeBatch] Pool: ${pool}, Transactions: ${JSON.stringify(transactions, null, 2)}, Balances: ${JSON.stringify(balances, null, 2)}`,
-      // );
+      logger.info(
+        `🏊 [FinalizeBatch] Pool: ${pool}, Transactions: ${transactions.length}, Balances: ${balances.length}`,
+      );
 
       await this.apiClient.send(transactions);
       await this.apiClient.send(balances);

@@ -310,8 +310,8 @@ class DecreaseLiquidityProcessor extends BaseLiquidityProcessor {
 
       const [token0inUSD, token1inUSD] = await this.getTokenPrices(
         whirlpool,
-        poolDetails.token0Id,
-        poolDetails.token1Id,
+        { id: poolDetails.token0Id, decimals: poolDetails.token0Decimals },
+        { id: poolDetails.token1Id, decimals: poolDetails.token1Decimals },
         data.timestamp,
       );
 

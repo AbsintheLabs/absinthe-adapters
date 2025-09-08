@@ -1,0 +1,62 @@
+FROM node:20-slim AS base
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
+
+# Copy workspace files needed for dependency resolution
+FROM base AS deps
+WORKDIR /app
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY tsconfig.base.json ./
+COPY packages/common/package.json ./packages/common/
+COPY packages/common/tsconfig.json ./packages/common/
+COPY projects/orca/package.json ./projects/orca/
+COPY projects/orca/tsconfig.json ./projects/orca/
+
+# Install all dependencies (including workspace deps)
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --no-frozen-lockfile
+
+# Build stage - build common package and current project
+FROM base AS build
+WORKDIR /app
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY tsconfig.base.json ./
+COPY packages/ ./packages/
+COPY projects/orca/ ./projects/orca/
+
+# Copy node_modules from deps stage
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/packages/common/node_modules ./packages/common/node_modules
+COPY --from=deps /app/projects/orca/node_modules ./projects/orca/node_modules
+
+# Generate TypeScript clients for uniswapv2 project ABIs and codegen
+WORKDIR /app/projects/orca
+RUN pnpm dlx @subsquid/solana-typegen src/abi TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
+RUN pnpm dlx @subsquid/solana-typegen src/abi whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc
+
+# Build the common package first, then uniswapv2
+WORKDIR /app
+RUN pnpm --filter @absinthe/common build
+RUN pnpm --filter @absinthe/orca build
+
+# Production stage
+FROM base AS production
+WORKDIR /app
+
+# Copy only production dependencies
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/packages/common/node_modules ./packages/common/node_modules
+COPY --from=deps /app/projects/orca/node_modules ./projects/orca/node_modules
+
+# Copy built artifacts
+COPY --from=build /app/packages/common/lib ./packages/common/lib
+COPY --from=build /app/packages/common/package.json ./packages/common/
+COPY --from=build /app/projects/orca/lib ./projects/orca/lib
+COPY --from=build /app/projects/orca/package.json ./projects/orca/
+
+# Copy source files needed for migrations
+COPY --from=build /app/projects/orca/src ./projects/orca/src
+WORKDIR /app/projects/orca
+
+# Use exec form and proper exit handling
+CMD ["node", "lib/main.js"]
