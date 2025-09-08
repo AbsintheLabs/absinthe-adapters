@@ -6,8 +6,8 @@ import {
   PositionUpdate,
   OnChainEvent,
   OnChainTransaction,
-  OwnershipTransfer,
   Reprice,
+  ActionEvent,
 } from './core';
 import { AssetFeedConfig } from './pricing';
 import { HandlerFactory } from '../feeds/interface';
@@ -23,12 +23,12 @@ import { MeasureDelta } from './core';
 export interface LogEmitFunctions {
   balanceDelta: (e: BalanceDelta, reason?: string) => Promise<void>;
   positionUpdate: (e: PositionUpdate) => Promise<void>;
-  ownershipTransfer: (e: OwnershipTransfer) => Promise<void>;
   positionStatusChange: (e: PositionStatusChange) => Promise<void>;
   measureDelta: (e: MeasureDelta) => Promise<void>;
-  event: (e: OnChainEvent) => Promise<void>;
+  // event: (e: OnChainEvent) => Promise<void>;
   reprice: (e: Reprice) => Promise<void>;
   custom: (namespace: string, type: string, payload: any) => Promise<void>;
+  action: (e: ActionEvent) => Promise<void>;
   // add more here as scope grows
 }
 

@@ -1,5 +1,11 @@
 // processor/build.ts
-import { EvmBatchProcessor } from '@subsquid/evm-processor';
+import {
+  BlockData,
+  Log as _Log,
+  Transaction as _Transaction,
+  EvmBatchProcessorFields,
+  EvmBatchProcessor,
+} from '@subsquid/evm-processor';
 // import { SolanaBatchProcessor } from '@subsquid/solana-processor';
 import type { AppConfig } from './config/schema';
 
@@ -33,8 +39,17 @@ export function buildBaseSqdProcessor(cfg: AppConfig): BaseProcessor {
   //   });
 
   p.setFields({
-    log: { transactionHash: true },
-    transaction: { to: true, from: true, gas: true, gasPrice: true, gasUsed: true, status: true },
+    log: {
+      transactionHash: true,
+    },
+    transaction: {
+      to: true,
+      from: true,
+      gas: true,
+      gasPrice: true,
+      gasUsed: true,
+      status: true,
+    },
   });
 
   return p;
@@ -50,3 +65,9 @@ export function buildBaseSqdProcessor(cfg: AppConfig): BaseProcessor {
   // for (const lg of cfg.subscriptions.logs) s.addLogMessages(lg);
   // return s;
 }
+
+export type Fields = EvmBatchProcessorFields<typeof buildBaseSqdProcessor>;
+export type Block = BlockData<Fields>;
+export type Log = _Log<Fields>;
+export type Transaction = _Transaction<Fields>;
+// export type ProcessorContext<S> = DataHandlerContext<S, Fields>;

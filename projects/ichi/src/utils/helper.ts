@@ -2,6 +2,7 @@ import { ActiveBalance } from '@absinthe/common';
 // import { TOKEN_METADATA } from './conts';
 import { TokenMetadata } from './types';
 import { log } from './logger';
+import { createHash } from 'crypto';
 
 function flattenNestedMap(
   nestedMap: Map<string, Map<string, ActiveBalance>>,
@@ -13,6 +14,10 @@ function flattenNestedMap(
     }
   }
   return flatMap;
+}
+
+export function md5Hash(input: string): string {
+  return createHash('md5').update(input).digest('hex');
 }
 
 // function checkToken(token: string): TokenMetadata | null {

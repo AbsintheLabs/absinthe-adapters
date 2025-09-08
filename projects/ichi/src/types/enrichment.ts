@@ -9,6 +9,7 @@ import {
 } from '@absinthe/common';
 import Big from 'big.js';
 import { MetadataCache, PriceCacheTS, HandlerMetadataCache } from './pricing';
+import { ActionRole } from './core';
 
 // ------------------------------------------------------------
 // RAW OBJECTS (from engine before enrichment)
@@ -45,10 +46,12 @@ export interface RawMeasureWindow {
   txHash?: string | null;
 }
 
-export interface RawEvent {
+export interface RawAction {
+  key: string;
   user: string;
+  priceable: boolean;
   asset?: string;
-  amount: string;
+  amount?: string;
   meta?: Record<string, any>;
   ts: number;
   height: number;
@@ -58,6 +61,7 @@ export interface RawEvent {
   logIndex?: number;
   gasUsed?: string;
   gasPrice?: string;
+  role?: ActionRole;
   from?: string;
   to?: string;
 }
@@ -84,7 +88,7 @@ export type Enricher<TInput = any, TOutput = any> = (
 
 export type WindowEnricher = Enricher<RawBalanceWindow, any>;
 export type MeasureWindowEnricher = Enricher<RawMeasureWindow, any>;
-export type EventEnricher = Enricher<RawEvent, any>;
+export type ActionEnricher = Enricher<RawAction, any>;
 
 // ------------------------------------------------------------
 // INTERMEDIATE ENRICHED OBJECTS
@@ -213,4 +217,4 @@ export type EnrichmentPipeline<TInput, TOutput> = (
 
 export type WindowPipeline = EnrichmentPipeline<RawBalanceWindow, PricedBalanceWindow>;
 export type MeasureWindowPipeline = EnrichmentPipeline<RawMeasureWindow, PricedMeasureWindow>;
-export type EventPipeline = EnrichmentPipeline<RawEvent, PricedEvent>;
+export type EventPipeline = EnrichmentPipeline<RawAction, PricedEvent>;

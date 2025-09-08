@@ -33,6 +33,11 @@ export type OnTransactionArgs = OnArgs & {
   emit: TransactionEmitFunctions;
 };
 
+export type OnInitArgs = {
+  rpcCtx: RpcContext;
+  redis: RedisClientType;
+};
+
 // Adapter hooks that define the contract for all adapters
 export type AdapterHooks = {
   // Zod schema for validating adapter configuration
@@ -40,6 +45,9 @@ export type AdapterHooks = {
 
   // Function to extend the base processor with adapter-specific subscriptions
   buildProcessor: (base: BaseProcessor) => BaseProcessor;
+
+  // Optional hook called when the adapter is initialized
+  onInit?: (args: OnInitArgs) => Promise<void>;
 
   // Optional hook called for each log event
   onLog?: (args: OnLogArgs) => Promise<void>;

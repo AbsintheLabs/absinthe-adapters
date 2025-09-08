@@ -10,7 +10,6 @@ export function loadConfig(filename?: string) {
   // Priority 1: Explicitly provided file path (from command line args)
   if (filename) {
     const explicitConfigPath = join(process.cwd(), filename);
-    console.log('cwd: ', process.cwd());
     if (existsSync(explicitConfigPath)) {
       try {
         const configContent = readFileSync(explicitConfigPath, 'utf-8');

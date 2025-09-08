@@ -20,26 +20,25 @@ import {
   ProjectorContext,
   AdapterV2,
 } from '../types/adapter';
-import { PositionUpdate } from '../types/core';
+import { ActionEventPriced, Amount, PositionUpdate } from '../types/core';
 import {
   IndexerMode,
   BalanceDelta,
-  OwnershipTransfer,
   PositionStatusChange,
   MeasureDelta,
-  OnChainEvent,
-  OnChainTransaction,
   Reprice,
+  ActionEvent,
 } from '../types/core';
 import { AssetConfig, ResolveContext, findConfig, AssetFeedRule } from '../types/pricing';
 import {
   EnrichmentContext,
   RawBalanceWindow,
-  RawEvent,
+  RawAction,
   PricedBalanceWindow,
   PricedEvent,
 } from '../types/enrichment';
-import { Block, Log, Transaction } from '../processor';
+import { Block } from '../processor';
+import { Log, Transaction } from '../eprocessorBuilder';
 import {
   buildEvents,
   buildTimeWeightedBalanceEvents,
@@ -47,8 +46,10 @@ import {
   enrichWithRunnerInfo,
   pipeline,
   enrichWithCommonBaseEventFields,
-  enrichWithPrice,
+  enrichWindowsWithPrice,
   filterOutZeroValueEvents,
+  dedupeActions,
+  enrichActionsWithPrice,
 } from '../enrichers';
 import { EngineDeps } from '../main';
 import { BuiltAdapter } from '../adapter-core';
@@ -74,7 +75,7 @@ export class Engine {
   // todo: change number to bigint/something that encodes token info
   protected redis: RedisClientType;
   protected windows: RawBalanceWindow[] = [];
-  private events: RawEvent[] = [];
+  private events: RawAction[] = [];
 
   // Projectors for custom event processing
   private projectors: Map<string, Projector> = new Map();
@@ -149,6 +150,7 @@ export class Engine {
   // this will likely be a simple wrapper on top of the sqd methods on the sqd processor class
   async run() {
     // main loop
+    // FIXME: add typing in here
     this.sqdProcessor.run(this.db, async (ctx: any) => {
       log.debug(`🏁 START BATCH. Blocks: ${ctx.blocks.length}.`);
       log.debug(`Starting block: ${ctx.blocks[0].header.height}.`);
@@ -215,6 +217,12 @@ export class Engine {
       if (!windowToFirstBlock.has(windowStart)) windowToFirstBlock.set(windowStart, block);
     }
     const blocksOfWindowStarts = Array.from(windowToFirstBlock.values());
+    // add the last block to the list of blocks of window starts if it's not already in the list.
+    // this solves a bug where we don't price the last block of the batch.
+    const lastBlock = blocks[blocks.length - 1];
+    if (!windowToFirstBlock.has(lastBlock.header.timestamp)) {
+      blocksOfWindowStarts.push(lastBlock);
+    }
 
     // 2) collect assets
     // fixme: this will need to change in the future based on how we support these multiple assets on diff chains
@@ -225,6 +233,7 @@ export class Engine {
     }));
 
     log.debug(`💰 Collected ${assets.length} assets to backfill`);
+    log.debug(`💰 Assets: ${assets.map((a) => a.asset).join(', ')}`);
 
     // 3) build tasks
     type Task = { block: any; ts: number; asset: string };
@@ -251,7 +260,17 @@ export class Engine {
         }
       }
 
+      // BUG: this is the problematic line that's causing drops in our prices
       const eligible = assets.filter((a) => a.birth <= height);
+      log.debug(`💰 Eligible assets: ${eligible.length}`);
+      log.debug(`💰 assets with birth: ${assets.map((a) => JSON.stringify(a)).join(', ')}`);
+      log.debug('height: ', height);
+      log.debug('blockstart: ', blocks[0].header.height);
+      log.debug('blockend: ', blocks[blocks.length - 1].header.height);
+      log.debug(
+        'blockofwindowstarts: ',
+        blocksOfWindowStarts.map((b) => b.header.height).join(', '),
+      );
       for (const a of eligible) tasks.push({ block, ts, asset: a.asset });
     }
 
@@ -343,6 +362,8 @@ export class Engine {
       enrichWithRunnerInfo,
       enrichBaseEventMetadata,
       buildEvents,
+      dedupeActions,
+      enrichActionsWithPrice,
       // filterOutZeroValueEvents,
     )(this.events, enrichCtx);
 
@@ -370,7 +391,7 @@ export class Engine {
       enrichWithRunnerInfo,
       enrichBaseEventMetadata,
       buildTimeWeightedBalanceEvents,
-      enrichWithPrice,
+      enrichWindowsWithPrice,
       // filterOutZeroValueEvents,
     )(this.windows, enrichCtx);
 
@@ -393,17 +414,19 @@ export class Engine {
 
   async ingestTransaction(block: Block, transaction: Transaction) {
     const emit: TransactionEmitFunctions = {
-      event: (e: OnChainTransaction) =>
-        this.applyEvent(e, transaction, {
-          ts: block.header.timestamp,
-          height: block.header.height,
-          txHash: transaction.hash,
-          blockHash: block.header.hash,
-          gasUsed: transaction.gasUsed,
-          gasPrice: transaction.gasPrice,
-          from: transaction.from,
-          to: transaction.to,
-        }),
+      event: async (e: ActionEvent) => {
+        /* dummy fill in for now */
+      },
+      // this.applyEvent(e, transaction, {
+      //   ts: block.header.timestamp,
+      //   height: block.header.height,
+      //   txHash: transaction.hash,
+      //   blockHash: block.header.hash,
+      //   gasUsed: transaction.gasUsed,
+      //   gasPrice: transaction.gasPrice,
+      //   from: transaction.from,
+      //   to: transaction.to,
+      // }),
     };
     await this.adapter.onTransaction?.({
       block,
@@ -418,6 +441,7 @@ export class Engine {
   }
 
   // Subsquid hands logs to this
+  // async ingestLog(block: Block, log: Log, tx: Transaction) {
   async ingestLog(block: Block, log: Log) {
     // todo: later, we can make this a bit more readable by passing in the same interface into all the events
     // const commonEventCtx = {
@@ -449,8 +473,6 @@ export class Engine {
           txHash: log.transactionHash,
           block: block, // fixme: this differs, so we should probably pass in block to all of the events just for consistency?
         }),
-      // fixme: we should probably remove this event? not necessary anymore
-      ownershipTransfer: (e: OwnershipTransfer) => Promise.resolve(),
       positionStatusChange: (e: PositionStatusChange) =>
         this.applyPositionStatusChange(e, {
           ts: block.header.timestamp,
@@ -464,27 +486,28 @@ export class Engine {
           height: block.header.height,
           txHash: log.transactionHash,
         }),
-      event: (e: OnChainEvent) =>
-        // XXX: apply event needs to work for both transaction and for log events
-        // XXX: typing needs to be fixed here!!!
-        this.applyEvent(e, log, {
+      custom: async (namespace: string, type: string, payload: any) => {
+        /* dummy fill in for now */
+      },
+      // custom: async (namespace: string, type: string, payload: any) => {
+      //   const projector = this.projectors.get(namespace);
+      //   if (projector) {
+      //     const ctx: ProjectorContext = {
+      //       redis: this.redis,
+      //       emit: emit,
+      //       block: block,
+      //       log: log,
+      //     };
+      //     await projector.onCustom(type, payload, ctx);
+      //   }
+      // },
+      action: (e: ActionEvent) =>
+        this.applyAction(e, log, {
           ts: block.header.timestamp,
           height: block.header.height,
           txHash: log.transactionHash,
           blockHash: block.header.hash,
         }),
-      custom: async (namespace: string, type: string, payload: any) => {
-        const projector = this.projectors.get(namespace);
-        if (projector) {
-          const ctx: ProjectorContext = {
-            redis: this.redis,
-            emit: emit,
-            block: block,
-            log: log,
-          };
-          await projector.onCustom(type, payload, ctx);
-        }
-      },
     };
     // invoke the adpater provided onLog hook here
     await this.adapter.onLog?.({
@@ -513,39 +536,53 @@ export class Engine {
     ctx.store.setForceFlush(true);
   }
 
-  private async applyEvent(
-    e: OnChainTransaction,
-    transactionOrLog: Transaction | Log,
+  private async applyAction(
+    e: ActionEvent,
+    sqdLog: Log,
+    // sqdTx: Transaction,
     blockData: any,
   ): Promise<void> {
-    // xxx: need to make sure that we do the proper balance tracking in here as we do with balance deltas with redis
-    let { user, asset, amount, meta } = e;
+    let { key, user, meta, role, priceable } = e;
+
+    let amount: Amount | null = null;
+    if (e.priceable) {
+      amount = e.amount;
+    }
 
     // data cleaning:
     if (this.indexerMode === 'evm') {
-      // For transactions, use transaction.from; for logs, use transaction.from from the log's transaction
-      const transaction =
-        'from' in transactionOrLog ? transactionOrLog : transactionOrLog.transaction;
-      user = (user || transaction?.from || '').toLowerCase();
-      asset = asset?.toLowerCase();
+      user = user.toLowerCase();
+      if (amount) {
+        amount.asset = amount.asset.toLowerCase();
+      }
     }
 
-    const event: RawEvent = {
-      user: user || '',
-      asset,
-      amount: amount?.toString() || '0',
-      meta,
+    if (amount) {
+      await this.redis.hSetNX(
+        'assets:tracked',
+        amount.asset.toLowerCase(),
+        blockData.height.toString(),
+      );
+    }
+
+    const event: RawAction = {
+      key: key,
+      user: user,
+      asset: amount?.asset,
+      amount: amount?.amount.toString(),
+      priceable: priceable,
+      meta: meta,
       ts: blockData.ts,
       height: blockData.height,
       txHash: blockData.txHash,
-      // logIndex: log.logIndex,
+      logIndex: sqdLog.logIndex,
       blockNumber: blockData.height,
       blockHash: blockData.blockHash,
-      // gasUsed: log.gasUsed,
-      gasUsed: blockData.gasUsed,
-      gasPrice: blockData.gasPrice,
-      from: blockData.from,
-      to: blockData.to,
+      gasUsed: sqdLog.transaction?.gasUsed?.toString(),
+      gasPrice: sqdLog.transaction?.gasPrice?.toString(),
+      role: role,
+      from: sqdLog.transaction?.from,
+      to: sqdLog.transaction?.to,
     };
     this.events.push(event);
   }

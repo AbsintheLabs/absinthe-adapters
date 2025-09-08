@@ -61,14 +61,15 @@ export type AssetFeedConfig = AssetFeedRule[];
  * Convert a glob pattern to a RegExp for asset key matching
  */
 export function globToRegex(glob: string): RegExp {
-  return new RegExp(
-    '^' +
-      glob
-        .split('*')
-        .map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-        .join('.*') +
-      '$',
+  // Split by | for OR logic, then process each part as a glob
+  const alternatives = glob.split('|').map((part) =>
+    part
+      .split('*')
+      .map((s) => s.replace(/[.*+?^${}()[\]\\]/g, '\\$&'))
+      .join('.*'),
   );
+
+  return new RegExp('^(' + alternatives.join('|') + ')$');
 }
 
 /**

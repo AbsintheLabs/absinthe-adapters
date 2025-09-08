@@ -15,7 +15,7 @@
     "finality": 75
   },
   "range": {
-    "fromBlock": 507584,
+    "fromBlock": 1200000,
     "toBlock": 1600000
   },
   "adapterConfig": {
@@ -25,13 +25,46 @@
       "factoryAddress": "0xCdBCd51a5E8728E0AF4895ce5771b7d17fF71959",
       "nonFungiblePositionManagerAddress": "0xe43ca1dee3f0fc1e2df73a0745674545f11a59f5",
       "trackSwaps": true,
-      "lpTracking": {
-        "enabled": true,
-        "onlyInRange": true
-      }
+      "lpTracking": "disabled"
     }
   },
   "assetFeedConfig": [
+    {
+      "match": {
+        "key": "0x4200000000000000000000000000000000000006"
+      },
+      "config": {
+        "assetType": "erc20",
+        "priceFeed": {
+          "kind": "pegged",
+          "usdPegValue": 4000
+        }
+      }
+    },
+    {
+      "match": {
+        "key": "0xad11a8beb98bbf61dbb1aa0f6d6f2ecd87b35afa|0x7a06c4aef988e7925575c50261297a946ad204a8"
+      },
+      "config": {
+        "assetType": "erc20",
+        "priceFeed": {
+          "kind": "pegged",
+          "usdPegValue": 1
+        }
+      }
+    },
+    {
+      "match": {
+        "key": "0x03c7054bcb39f7b2e5b2c7acb37583e32d70cfa3"
+      },
+      "config": {
+        "assetType": "erc20",
+        "priceFeed": {
+          "kind": "pegged",
+          "usdPegValue": 111651
+        }
+      }
+    },
     {
       "match": {
         "matchExpressions": [
@@ -80,34 +113,3 @@
     }
   ]
 }
-
-/* example action config
-
-{
-match: {
-  matchExpressions: [
-    {
-      key: "protocol",
-      op: "In",
-      values: ["uniswap-v3"]
-    }
-  ]
-},
-"config": {
-  "assetType": "swap",
-  "priceFeed": {
-    "kind": "swap",
-    "tokenSelector": "token1",
-    "token": {
-      "assetType": "erc20",
-      "priceFeed": {
-        "kind": "pegged",
-        "usdPegValue": 1
-      }
-    }
-  }
-}
-}
-
-
-*/

@@ -2,9 +2,7 @@
 
 import Big from 'big.js';
 
-// ------------------------------------------------------------
-// METADATA TYPES
-// ------------------------------------------------------------
+// TWB RELATED TYPES
 
 type MetadataValue = number | string;
 
@@ -24,21 +22,6 @@ export type PositionUpdate = {
   meta?: Record<string, MetadataValue>;
 };
 
-export type OwnershipTransfer = {
-  // oldOwner: string;
-  newOwner: string;
-  asset: string;
-};
-
-export type Swap = {
-  user: string;
-  asset0: string;
-  asset1: string;
-  amount0: Big;
-  amount1: Big;
-  meta?: Record<string, MetadataValue>;
-};
-
 export type PositionStatusChange = {
   user: string;
   asset: string;
@@ -55,22 +38,61 @@ export type MeasureDelta = {
   user?: string;
 };
 
+// ACTION RELATED TYPES
+// export type ActionType = 'swap' | 'generic';
+
+// the following is a non-exhaustive list of "nice to haves" to identify the role of the asset in action
+export type ActionRole =
+  | 'input'
+  | 'output'
+  | 'payment'
+  | 'reward'
+  | 'bridge'
+  | 'bid'
+  | 'fee'
+  | 'liquidation'
+  | 'delegate'
+  | 'slash'
+  | 'stake'
+  | 'harvest'
+  | 'claim'
+  | 'verify'
+  | string;
+
+export type Amount = {
+  asset: string;
+  amount: Big;
+};
+
+// export type ActionEvent = {
+//   key: string;
+//   user: string;
+//   amount: Amount;
+//   role?: ActionRole;
+//   meta?: Record<string, MetadataValue>;
+//   // attrs?: Record<string, string | number | boolean>; // flat attributes for matching
+// }
+
+export type ActionEventBase = {
+  key: string;
+  user: string;
+  role?: ActionRole;
+  meta?: Record<string, MetadataValue>;
+};
+
+export type ActionEventPriced = ActionEventBase & {
+  priceable: true;
+  amount: Amount;
+};
+
+export type ActionEventUnpriced = ActionEventBase & {
+  priceable: false;
+};
+
+export type ActionEvent = ActionEventPriced | ActionEventUnpriced;
+
 export type Reprice = {
   asset: string;
-};
-
-export type OnChainEvent = {
-  user: string;
-  asset?: string;
-  amount: Big;
-  meta?: Record<string, MetadataValue>;
-};
-
-export type OnChainTransaction = {
-  user?: string;
-  asset?: string;
-  amount?: Big;
-  meta?: Record<string, MetadataValue>;
 };
 
 // ------------------------------------------------------------

@@ -11,9 +11,9 @@ import {
   EnrichmentContext,
   Enricher,
   WindowEnricher,
-  EventEnricher,
+  ActionEnricher,
   RawBalanceWindow,
-  RawEvent,
+  RawAction,
   EnrichedBalanceWindow,
   EnrichedEvent,
   PricedBalanceWindow,
@@ -57,14 +57,15 @@ export const enrichBaseEventMetadata: Enricher<BaseEnrichedFields, BaseEnrichedF
 };
 
 export const enrichWithCommonBaseEventFields: Enricher<
-  RawBalanceWindow | RawEvent,
+  RawBalanceWindow | RawAction,
   BaseEnrichedFields
 > = async (items, context) => {
   return items.map((item) => ({
     ...item,
     base: {
       version: '1.0.0',
-      eventId: '', // fixme: figure out how we do it in the other adapters
+      // xxx: figure out how we do it in the other adapters. it should be a hash of the entire event, so probably would benefit being another enrichment step
+      eventId: '',
       userId: (item as any).user,
       currency: Currency.USD,
     },
@@ -80,6 +81,7 @@ export const enrichWithRunnerInfo: Enricher<BaseEnrichedFields, BaseEnrichedFiel
     base: {
       ...item.base,
       runner: {
+        // xxx: this also needs to be properly implemented here
         runnerId: '1',
         apiKeyHash: '1',
       },
@@ -87,11 +89,14 @@ export const enrichWithRunnerInfo: Enricher<BaseEnrichedFields, BaseEnrichedFiel
   }));
 };
 
-export const buildEvents: EventEnricher = async (events, context) => {
+export const buildEvents: ActionEnricher = async (events, context) => {
   return events.map((e) => ({
     ...e,
     eventType: MessageType.TRANSACTION,
+    asset: e.asset,
     rawAmount: e.amount,
+    role: e.role,
+    priceable: e.priceable,
     // fixme: figure out what this should be (perhaps in the decimals step?)
     // displayAmount: Number(e.amount),
     unixTimestampMs: e.ts,
@@ -103,6 +108,7 @@ export const buildEvents: EventEnricher = async (events, context) => {
     // fixme: figure out what this should be (perhaps in the pricing step?)
     // gasFeeUsd: e.gasFeeUsd,
     currency: Currency.USD,
+    base: (e as any).base,
   })) as EnrichedEvent[];
 };
 
@@ -164,10 +170,19 @@ type TSPoint = { timestamp: number; value: number };
 
 async function getPrevSample(redis: any, key: string, ts: number): Promise<TSPoint | null> {
   // TS.REVRANGE key - ts COUNT 1
-  const resp = await redis.ts.revRange(key, 0, ts, { COUNT: 1 });
+  let resp = await redis.ts.revRange(key, 0, ts, { COUNT: 1 });
   if (Array.isArray(resp) && resp.length) {
     return { timestamp: Number(resp[0].timestamp), value: Number(resp[0].value) };
   }
+
+  // If no previous sample, get the next one after ts
+  // TODO: need to sanity check that this logic is sound
+  resp = await redis.ts.range(key, ts, '+', { COUNT: 1 });
+
+  if (Array.isArray(resp) && resp.length) {
+    return { timestamp: Number(resp[0].timestamp), value: Number(resp[0].value) };
+  }
+
   return null;
 }
 
@@ -241,7 +256,54 @@ function twaFromSamples(
   return { avg: area / coveredMs, coveredMs };
 }
 
-export const enrichWithPrice: WindowEnricher = async (windows, context) => {
+export const enrichActionsWithPrice: ActionEnricher = async (actions, context) => {
+  const out = [];
+  for (const a of actions) {
+    // don't price non-priceable actions
+    if (!a.priceable) {
+      out.push({ ...a, valueUsd: null, totalPosition: null });
+    }
+
+    // continue with pricing logic
+    const key = `price:${a.asset}`; // e.g., "price:erc721:0x...:tokenId" or "price:erc20:0x..."
+    const time = a.ts;
+    const exists = await context.redis.exists(key);
+    if (!exists) {
+      log.debug(
+        `💰 ENRICH: No price data found for asset ${a.asset} (key: ${key}), user: ${a.user ?? 'unknown'}, setting valueUsd to null`,
+      );
+      out.push({ ...a, valueUsd: null, totalPosition: null });
+      continue;
+    }
+    // get price at the time
+    const price = await getPrevSample(context.redis, key, time);
+    if (!price) {
+      log.debug(
+        `💰 ENRICH: No price data found for asset ${a.asset} (key: ${key}), user: ${a.user ?? 'unknown'}, setting valueUsd to null`,
+      );
+      out.push({ ...a, valueUsd: null, totalPosition: null });
+      continue;
+    }
+
+    if (!a.asset) {
+      log.debug(
+        `💰 ENRICH: No asset specified for action, user: ${a.user ?? 'unknown'}, setting valueUsd to null`,
+      );
+      out.push({ ...a, valueUsd: null, totalPosition: null });
+      continue;
+    }
+    const metadata = await context.metadataCache.get(a.asset);
+    const decimals = metadata?.decimals ?? 0;
+
+    const tokens = new Big(a.amount || '0').div(new Big(10).pow(decimals));
+    const totalPosition = tokens.times(price.value);
+
+    out.push({ ...a, valueUsd: price.value, totalPosition: totalPosition.toNumber() });
+  }
+  return out;
+};
+
+export const enrichWindowsWithPrice: WindowEnricher = async (windows, context) => {
   log.debug(`💰 ENRICH: Starting price enrichment for ${windows.length} windows`);
   const out = [];
 
@@ -314,6 +376,16 @@ export const enrichWithPrice: WindowEnricher = async (windows, context) => {
   }
 
   return out as PricedBalanceWindow[];
+};
+
+export const dedupeActions: ActionEnricher = async (actions, context) => {
+  const seen = new Set<string>();
+  return actions.filter((a) => {
+    if (!a.key) return true; // fallback: keep if no key
+    if (seen.has(a.key)) return false;
+    seen.add(a.key);
+    return true;
+  });
 };
 
 export const filterOutZeroValueEvents: Enricher<PricedBalanceWindow, PricedBalanceWindow> = async (
