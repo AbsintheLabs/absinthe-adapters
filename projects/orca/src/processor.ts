@@ -144,3 +144,4 @@ export const processor = new DataSourceBuilder()
   .build();
 
 //335147643
+// ABS_CONFIG='{"balanceFlushIntervalHours":48,"type":"orca","name":"orca","toBlock":0,"contractAddress":"whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc","chainId":1000,"fromBlock":335147643}'
