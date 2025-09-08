@@ -318,21 +318,27 @@ What does this require?
 - given how annoying this is, and it could just be a param, let's avoid doing this for now
 
 Next protocols to derisk primitives before we start cleaning:
-[ ] Demos contract verification (no asset + transaction based)
+[x] Demos contract verification (no asset + transaction based)
 [-] Passing in 'priceable' flag into the action so we know whether we should later price it or not (should this automatically change the currency to something else?) - NOT TESTED!! ❌
 [ ] Aave v3 lending and borrowing (each erc20 asset has to be priced separately) + introducing new primitives for lending and borrowing
 [ ] Raw erc20 token tracking (what happens when we don't want to price the tokens at all?)
 [ ] Layer3 cubes erc721 tracking
 [ ] Curve - YAP (yet another protocol) to add into the mix
+[ ] Require a separate asset even for each erc20 token for variable debt token since they cannot be transferred and need to be priced separately
+[ ] Curve needs separate lp price adapter. aTokens are easy since they can be priced 1:1 via underlying
 [ ] re-introduce ichi + gamma as they are already written (but with configuration built in)
 
 ### Refactoring Problems
+
+[x] Figure out why univ3 stopped running with the new changes - // BUG!!
 
 [ ] Enrichment types are horribly fucked and need reworking
 [ ] Enrichment does not support things like api key, runnerid, eventid hashing, etc
 [ ] Univ3 adapter is horribly complicated to read + understand. Would benefit from refactoring and/or further abstractions.
 [ ] Cross reference the actual final data we want. Things we might be missing:
-[ ] event name
+[ ] event name on actions
+[ ] Registration of adapter happens in adapters/index.ts. Can we do this on the adapter itself? What if we want to add an adapter that we don't know of yet? maybe this is fine, can't have too many things happen at runtime...
+[ ] remove the io / projectors from the adapter definition, they currently muddy things up and are confusing
 [ ] protocol type
 [ ] metadata on actions
 [ ] metadata on twb
@@ -341,11 +347,55 @@ Next protocols to derisk primitives before we start cleaning:
 
 [ ] Redis doesn't have key prefixing. Either we connect to another internal DB (easiest solution) or support key prefixing so that we can use instance for many adapters
 [ ] Auto-promise resolver with jitter + exponential backoff. Nice utility function we can use around the indexer
+[ ] Some params from the config should actually be loaded in from the env (like the rpc url if it's api key gated)
 [ ] Support proper indexer ordering (by logindex if multiple txs in the same block)
 
 ### Next Extensions
 
 [ ] Create a univ3 price feed that resolves the price to the other token (it will only make sense if you tie it to a stable pair to get the usd price)
+
+## The transaction/log metadata problem
+
+The sqd processor returns essentially 2 arrays: an array of event logs and an array of transactions that we're tracking.
+We currently have a handler called onLog() that runs over every single event log emitted.
+
+The reason we have these handlers is because they attach metadata to the events that we want to track: (for example, which block did something come from?) what was the block hash? what's the txhash? what's the time stamp? what about the gas of the transaction?
+
+I don't want to create separate functions between logs and transactions since events are independent of where they come from.
+
+What the applyLog does is attach metadata that is used for visibility later.
+
+The easiest thing to do would be to have transactions + logs have the same handler, and fields that don't apply by one or the other are just null.
+We COULD have separate handlers and a router between them, but I don't think it's worth the complexity given that Solana data is going to break our mental model around this very soon anyway.
+
+We probably want to keep onLog and onTransaction separate, since it makes it much easier to reason about where data is coming from.
+
+We want the same emit events to be returned from both onLog and onTransaction.
+
+I had to look into ts type narrowing to understand and how ts-pattern does clean pattern matching. Research time was helpful in this regard.
+
+In the engine, every time we see a log or a transaction, we route it to the adapter onLog handler.
+This call path is a bit confusing, but is really where the adapter library shines.
+
+1. sqd run() process sees a log
+2. engine.ingest() is called
+3. ingest() calls the adapters onLog or onTransaction handler and passes in the engine internals as the context
+4. if the onLog adapter code calls any emit functions, the engine will then call the appropriate internal engine method to update any state that it might need to
+
+The event handlers typically take in a context that holds the txHash, blockheight, ts.
+
+We can abstract this so that regardless of whether we're calling onLog, onTransaction, or if we have an EVM context or a solana context, we can still get this to work.
+
+For now, we are passing in the entire block, but this could prove problematic if we want to include solana later since we're passing in a huge unstructured object deep into the call stack, only to use some parameters. This makes separation of concerns quite difficult.
+
+there's a few paths:
+
+1. construct the normalized ctx based on whether it's a log, a transaction, or solana
+   1. this feels like the perfect use case for factory pattern (or factory function)
+      ex. if 'evmlog' do this. if 'evmtx' do this. if 'solanalog' do this.
+      [ ] need to create a normalized ctx type
+2. pass in ctx to each of the emit functions that require it
+3. FOR NOW, keep block in there but make a note to remove it with //xxx:
 
 ## The priceable problem
 

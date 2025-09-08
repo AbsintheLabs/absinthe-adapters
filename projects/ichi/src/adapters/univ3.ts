@@ -196,21 +196,23 @@ export const univ3 = registerAdapter(
                 const amount1Big = new Big(amount1.toString());
                 await emit.action({
                   key: md5Hash(`${log.transactionHash}${log.logIndex}`), // same key for idempotency
+                  priceable: true,
                   user: sender,
                   amount: {
                     amount: amount0Big.abs(),
                     asset: token0,
-                    role: amount0Big.gt(0) ? 'input' : 'output',
                   },
+                  role: amount0Big.gt(0) ? 'input' : 'output',
                 });
                 await emit.action({
                   key: md5Hash(`${log.transactionHash}${log.logIndex}`), // same key for idempotency
+                  priceable: true,
                   user: sender,
                   amount: {
                     amount: amount1Big.abs(),
                     asset: token1,
-                    role: amount1Big.gt(0) ? 'input' : 'output',
                   },
+                  role: amount1Big.gt(0) ? 'input' : 'output',
                 });
               } else {
                 console.warn(`Token addresses not found for pool ${pool}`);

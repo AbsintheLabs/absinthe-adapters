@@ -41,6 +41,7 @@ export function buildBaseSqdProcessor(cfg: AppConfig): BaseProcessor {
   p.setFields({
     log: {
       transactionHash: true,
+      transaction: true,
     },
     transaction: {
       to: true,

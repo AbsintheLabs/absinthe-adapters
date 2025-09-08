@@ -262,6 +262,7 @@ export const enrichActionsWithPrice: ActionEnricher = async (actions, context) =
     // don't price non-priceable actions
     if (!a.priceable) {
       out.push({ ...a, valueUsd: null, totalPosition: null });
+      continue;
     }
 
     // continue with pricing logic

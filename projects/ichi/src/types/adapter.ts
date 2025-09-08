@@ -1,14 +1,6 @@
 // Adapter interface and related types
 
-import {
-  BalanceDelta,
-  PositionStatusChange,
-  PositionUpdate,
-  OnChainEvent,
-  OnChainTransaction,
-  Reprice,
-  ActionEvent,
-} from './core';
+import { BalanceDelta, PositionStatusChange, PositionUpdate, Reprice, ActionEvent } from './core';
 import { AssetFeedConfig } from './pricing';
 import { HandlerFactory } from '../feeds/interface';
 import { Block, Log, processor, Transaction } from '../processor';
@@ -33,9 +25,9 @@ export interface LogEmitFunctions {
 }
 
 // Emit functions for transaction handlers
-export interface TransactionEmitFunctions {
-  event: (e: OnChainTransaction) => Promise<void>;
-}
+// export interface TransactionEmitFunctions {
+//   event: (e: OnChainTransaction) => Promise<void>;
+// }
 
 // ------------------------------------------------------------
 // ADAPTER INTERFACE
@@ -113,11 +105,7 @@ export interface AdapterLegacy {
     redis: RedisClientType,
   ): Promise<void>;
   // note: transaction tracking only supports event-based tracking, not time-weighted
-  onTransaction?(
-    block: Block,
-    transaction: Transaction,
-    emit: TransactionEmitFunctions,
-  ): Promise<void>;
+  onTransaction?(block: Block, transaction: Transaction, emit: LogEmitFunctions): Promise<void>;
   // Called at the end of each batch for cleanup/deferred operations
   onBatchEnd?(redis: RedisClientType): Promise<void>;
   feedConfig: AssetFeedConfig;

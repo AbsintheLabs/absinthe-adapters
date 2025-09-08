@@ -12,15 +12,15 @@ import { PricingEngine } from './pricing-engine';
 import { AppConfig } from '../config/schema';
 import { loadConfig } from '../config/load';
 import { buildBaseSqdProcessor } from '../eprocessorBuilder';
+import { match } from 'ts-pattern';
 import {
   Adapter,
   LogEmitFunctions,
-  TransactionEmitFunctions,
   Projector,
   ProjectorContext,
   AdapterV2,
 } from '../types/adapter';
-import { ActionEventPriced, Amount, PositionUpdate } from '../types/core';
+import { ActionEventPriced, Amount, NormalizedEventContext, PositionUpdate } from '../types/core';
 import {
   IndexerMode,
   BalanceDelta,
@@ -122,6 +122,18 @@ export class Engine {
     this.appCfg = deps.appCfg;
     this.adapter = deps.adapter;
     this.sqdProcessor = deps.sqdProcessor;
+
+    // hack: add transaction: true for each addLog method of the sqdProcessor
+    const p = deps.sqdProcessor;
+    for (const request of p['requests']) {
+      if (request.request.logs) {
+        request.request.logs.forEach((log: any) => {
+          log.transaction = true;
+        });
+      }
+    }
+
+    log.debug('sqdProcessor: ', p);
     // 6) Pricing + caches
     this.pricingEngine = new PricingEngine(this.adapter.customFeeds);
     this.priceCache = new RedisTSCache(this.redis);
@@ -160,13 +172,14 @@ export class Engine {
       // XXX: this will change when we add solana support (will it always be blocks, logs, transactions?)
       for (const block of ctx.blocks) {
         for (const log of block.logs) {
-          await this.ingestLog(block, log);
+          await this.ingest(block, log);
         }
         // even if no work is done, empty for loop in v8 is very fast
         for (const transaction of block.transactions) {
           // only process successful function calls
           if (transaction.status === 1) {
-            await this.ingestTransaction(block, transaction);
+            await this.ingest(block, transaction);
+            // await this.ingestTransaction(block, transaction, 'transaction');
           }
         }
       }
@@ -412,116 +425,76 @@ export class Engine {
     }
   }
 
-  async ingestTransaction(block: Block, transaction: Transaction) {
-    const emit: TransactionEmitFunctions = {
-      event: async (e: ActionEvent) => {
-        /* dummy fill in for now */
-      },
-      // this.applyEvent(e, transaction, {
-      //   ts: block.header.timestamp,
-      //   height: block.header.height,
-      //   txHash: transaction.hash,
-      //   blockHash: block.header.hash,
-      //   gasUsed: transaction.gasUsed,
-      //   gasPrice: transaction.gasPrice,
-      //   from: transaction.from,
-      //   to: transaction.to,
-      // }),
-    };
-    await this.adapter.onTransaction?.({
-      block,
-      transaction,
-      emit,
-      rpcCtx: {
-        _chain: this.ctx._chain,
-        block: { height: block.header.height },
-      },
-      redis: this.redis,
-    });
-  }
-
   // Subsquid hands logs to this
-  // async ingestLog(block: Block, log: Log, tx: Transaction) {
-  async ingestLog(block: Block, log: Log) {
-    // todo: later, we can make this a bit more readable by passing in the same interface into all the events
-    // const commonEventCtx = {
-    //   ts: block.header.timestamp,
-    //   height: block.header.height,
-    //   txHash: log.transactionHash,
-    // };
-    const emit: LogEmitFunctions = {
-      balanceDelta: (e: BalanceDelta, reason?: string) =>
-        this.applyBalanceDelta(
-          e,
-          {
-            ts: block.header.timestamp,
-            height: block.header.height,
-            txHash: log.transactionHash,
-          },
-          reason,
-        ),
-      positionUpdate: (e: PositionUpdate) =>
-        this.applyPositionUpdate(e, {
+  async ingest(block: Block, logOrTx: Log | Transaction) {
+    const commonEventCtx = match(logOrTx)
+      .returnType<NormalizedEventContext>()
+      .when(
+        (x): x is Log => 'logIndex' in x,
+        (log) => ({
+          eventType: 'log',
           ts: block.header.timestamp,
           height: block.header.height,
           txHash: log.transactionHash,
+          logIndex: log.logIndex,
+          block: block,
         }),
-      reprice: (e: Reprice) =>
-        this.applyReprice(e, {
+      )
+      .when(
+        (x): x is Transaction => 'hash' in x,
+        (tx) => ({
+          eventType: 'transaction',
           ts: block.header.timestamp,
           height: block.header.height,
-          txHash: log.transactionHash,
-          block: block, // fixme: this differs, so we should probably pass in block to all of the events just for consistency?
+          block: block,
+          txHash: tx.hash,
         }),
-      positionStatusChange: (e: PositionStatusChange) =>
-        this.applyPositionStatusChange(e, {
-          ts: block.header.timestamp,
-          height: block.header.height,
-          txHash: log.transactionHash,
-          // fixme: add logindex so we have deterministic behavior for actions in the same block
-        }),
-      measureDelta: (e: MeasureDelta) =>
-        this.applyMeasureDelta(e, {
-          ts: block.header.timestamp,
-          height: block.header.height,
-          txHash: log.transactionHash,
-        }),
-      custom: async (namespace: string, type: string, payload: any) => {
-        /* dummy fill in for now */
-      },
-      // custom: async (namespace: string, type: string, payload: any) => {
-      //   const projector = this.projectors.get(namespace);
-      //   if (projector) {
-      //     const ctx: ProjectorContext = {
-      //       redis: this.redis,
-      //       emit: emit,
-      //       block: block,
-      //       log: log,
-      //     };
-      //     await projector.onCustom(type, payload, ctx);
-      //   }
-      // },
-      action: (e: ActionEvent) =>
-        this.applyAction(e, log, {
-          ts: block.header.timestamp,
-          height: block.header.height,
-          txHash: log.transactionHash,
-          blockHash: block.header.hash,
-        }),
-    };
-    // invoke the adpater provided onLog hook here
-    await this.adapter.onLog?.({
-      block,
-      log,
-      emit,
-      rpcCtx: {
-        _chain: this.ctx._chain,
-        block: {
-          height: block.header.height,
+      )
+      .exhaustive();
+
+    // step 1: first define which emit functions are mapped to which internal engine methods
+    // fixme: later rename LogEmitFunctions to just EmitFunctions for consistent naming
+    // fixme: we are passing in the entire block, but this is unecessary and makes things brittle
+    // fixme: need to add logindex to the context so we have deterministic behavior for actions in the same block
+    const emit = this.createEmitFunctions(commonEventCtx, logOrTx);
+
+    // step 2: invoke the handler
+    await match(logOrTx)
+      .when(
+        (x): x is Log => 'logIndex' in x,
+        async (log) => {
+          if (this.adapter.onLog) {
+            await this.adapter.onLog({
+              block,
+              log, // Correctly named for OnLogArgs
+              emit,
+              rpcCtx: {
+                _chain: this.ctx._chain,
+                block: { height: block.header.height },
+              },
+              redis: this.redis,
+            });
+          }
         },
-      },
-      redis: this.redis,
-    });
+      )
+      .when(
+        (x): x is Transaction => 'hash' in x,
+        async (tx) => {
+          if (this.adapter.onTransaction) {
+            await this.adapter.onTransaction({
+              block,
+              transaction: tx, // Correctly named for OnTransactionArgs
+              emit,
+              rpcCtx: {
+                _chain: this.ctx._chain,
+                block: { height: block.header.height },
+              },
+              redis: this.redis,
+            });
+          }
+        },
+      )
+      .exhaustive();
   }
 
   protected async sqdBatchEnd(ctx: any) {
@@ -538,12 +511,12 @@ export class Engine {
 
   private async applyAction(
     e: ActionEvent,
-    sqdLog: Log,
-    // sqdTx: Transaction,
-    blockData: any,
+    sqdLogOrTx: Log | Transaction,
+    ctx: NormalizedEventContext,
   ): Promise<void> {
     let { key, user, meta, role, priceable } = e;
 
+    // we have to check if the action is a priceable action or not
     let amount: Amount | null = null;
     if (e.priceable) {
       amount = e.amount;
@@ -558,36 +531,43 @@ export class Engine {
     }
 
     if (amount) {
-      await this.redis.hSetNX(
-        'assets:tracked',
-        amount.asset.toLowerCase(),
-        blockData.height.toString(),
-      );
+      await this.redis.hSetNX('assets:tracked', amount.asset.toLowerCase(), ctx.height.toString());
     }
 
+    // type narrowing
+    const logIndex = 'logIndex' in sqdLogOrTx ? sqdLogOrTx.logIndex : undefined;
+    const transaction = (
+      'transaction' in sqdLogOrTx ? sqdLogOrTx.transaction : sqdLogOrTx
+    ) as Transaction;
+
     const event: RawAction = {
+      // engine stuff
       key: key,
       user: user,
+      meta: meta,
+      role: role,
+      // asset stuff
       asset: amount?.asset,
       amount: amount?.amount.toString(),
       priceable: priceable,
-      meta: meta,
-      ts: blockData.ts,
-      height: blockData.height,
-      txHash: blockData.txHash,
-      logIndex: sqdLog.logIndex,
-      blockNumber: blockData.height,
-      blockHash: blockData.blockHash,
-      gasUsed: sqdLog.transaction?.gasUsed?.toString(),
-      gasPrice: sqdLog.transaction?.gasPrice?.toString(),
-      role: role,
-      from: sqdLog.transaction?.from,
-      to: sqdLog.transaction?.to,
+      // block stuff
+      ts: ctx.ts,
+      height: ctx.height,
+      blockNumber: ctx.height, // fixme: we have a duplicate field for blocknumber (we have one already for height)
+      txHash: ctx.txHash,
+      blockHash: ctx.block.header.hash, // todo: do we really need this? we can omit to keep the normalized context smaller
+      // transaction stuff
+      gasUsed: transaction?.gasUsed?.toString(),
+      gasPrice: transaction?.gasPrice?.toString(),
+      from: transaction?.from,
+      to: transaction?.to,
+      // log stuff
+      ...(logIndex ? { logIndex: logIndex } : {}), // only include logIndex if it exists
     };
     this.events.push(event);
   }
 
-  protected async applyBalanceDelta(
+  private async applyBalanceDelta(
     e: BalanceDelta,
     blockData: any,
     reason: string = 'BALANCE_DELTA',
@@ -986,5 +966,24 @@ export class Engine {
     if (writePromises.length) {
       await Promise.all(writePromises);
     }
+  }
+
+  private createEmitFunctions(
+    this: Engine,
+    ctx: NormalizedEventContext,
+    // note: we'll later need to clean this up to work cleanly with solana
+    logOrTx: Log | Transaction,
+  ): LogEmitFunctions {
+    return {
+      balanceDelta: (e: BalanceDelta, reason?: string) => this.applyBalanceDelta(e, ctx, reason),
+      positionUpdate: (e: PositionUpdate) => this.applyPositionUpdate(e, ctx),
+      reprice: (e: Reprice) => this.applyReprice(e, ctx),
+      positionStatusChange: (e: PositionStatusChange) => this.applyPositionStatusChange(e, ctx),
+      measureDelta: (e: MeasureDelta) => this.applyMeasureDelta(e, ctx),
+      action: (e: ActionEvent) => this.applyAction(e, logOrTx, ctx),
+      custom: async (namespace: string, type: string, payload: any) => {
+        /* dummy fill in for now */
+      },
+    };
   }
 }

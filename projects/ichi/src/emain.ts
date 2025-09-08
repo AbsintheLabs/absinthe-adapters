@@ -14,13 +14,7 @@ export * from './main';
 // Re-export the main components for backward compatibility
 export { Engine } from './engine';
 export { Adapter } from './types/adapter';
-export type {
-  BalanceDelta,
-  PositionStatusChange,
-  OnChainEvent,
-  OnChainTransaction,
-  IndexerMode,
-} from './types/core';
+export type { BalanceDelta, PositionStatusChange, IndexerMode } from './types/core';
 
 export type {
   AssetFeedConfig,

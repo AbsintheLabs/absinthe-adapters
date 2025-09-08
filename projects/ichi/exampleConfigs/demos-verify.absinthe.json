@@ -1,0 +1,28 @@
+{
+  "$schema": "../absinthe-app.schema.json",
+  "kind": "evm",
+  "indexerId": "demos-verify-hemi-indexer",
+  "flushMs": 86400000,
+  "redisUrl": "redis://localhost:6379",
+  "sinkConfig": {
+    "sinkType": "csv",
+    "path": "demos-verify-events.csv"
+  },
+  "network": {
+    "chainId": 43111,
+    "gatewayUrl": "https://v2.archive.subsquid.io/network/hemi-mainnet",
+    "rpcUrl": "https://rpc.hemi.network/rpc",
+    "finality": 75
+  },
+  "range": {
+    "fromBlock": 1000000,
+    "toBlock": 2600000
+  },
+  "adapterConfig": {
+    "name": "demos-verify",
+    "params": {
+      "kind": "demos-verification",
+      "onlyMeIdAddress": "0x70468F06CF32B776130E2Da4C0D7DD08983282EC"
+    }
+  }
+}

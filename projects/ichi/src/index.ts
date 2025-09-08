@@ -4,14 +4,7 @@
 export { Engine } from './engine';
 
 // Types
-export type {
-  BalanceDelta,
-  PositionStatusChange,
-  OnChainEvent,
-  OnChainTransaction,
-  IndexerMode,
-  AssetMetadata,
-} from './types/core';
+export type { BalanceDelta, PositionStatusChange, IndexerMode, AssetMetadata } from './types/core';
 
 export type {
   AssetKey,

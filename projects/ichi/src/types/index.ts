@@ -1,14 +1,7 @@
 // Types module exports
 
 // Core types
-export type {
-  BalanceDelta,
-  PositionStatusChange,
-  OnChainEvent,
-  OnChainTransaction,
-  IndexerMode,
-  AssetMetadata,
-} from './core';
+export type { BalanceDelta, PositionStatusChange, IndexerMode, AssetMetadata } from './core';
 
 // Pricing types
 export type {

@@ -2,6 +2,19 @@
 
 import Big from 'big.js';
 
+// Normalized Context
+export interface NormalizedEventContext {
+  ts: number;
+  height: number;
+  txHash: string;
+  logIndex?: number;
+  // chainType: 'evm' | 'solana';
+  // eventType: 'log' | 'transaction' | 'instruction';
+  eventType: 'log' | 'transaction';
+  // XXX: Remove block later when we don't need the full object
+  block: any;
+}
+
 // TWB RELATED TYPES
 
 type MetadataValue = number | string;
@@ -57,7 +70,7 @@ export type ActionRole =
   | 'harvest'
   | 'claim'
   | 'verify'
-  | string;
+  | (string & {});
 
 export type Amount = {
   asset: string;

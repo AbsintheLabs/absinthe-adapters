@@ -167,7 +167,7 @@ const Common = z.object({
     sinkType: 'csv',
     path: 'windows.csv',
   }),
-  assetFeedConfig: AssetFeedConfig,
+  assetFeedConfig: AssetFeedConfig.optional(),
   adapterConfig: z.object({
     name: z.string(), // "uniswap-v3", "compound-v2", etc.
     params: z.unknown(), // Will be validated by the specific adapter

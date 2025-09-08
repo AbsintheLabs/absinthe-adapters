@@ -1,13 +1,7 @@
 // adapter-core.ts - Core types and utilities for the adapter registry pattern
 import { z, ZodTypeAny } from 'zod';
 import { RedisClientType } from 'redis';
-import {
-  LogEmitFunctions,
-  RpcContext,
-  Projector,
-  CustomFeedHandlers,
-  TransactionEmitFunctions,
-} from './types/adapter';
+import { LogEmitFunctions, RpcContext, Projector, CustomFeedHandlers } from './types/adapter';
 import { Block, Log, Transaction } from './processor';
 import { BaseProcessor } from './eprocessorBuilder';
 
@@ -30,7 +24,7 @@ export type OnLogArgs = OnArgs & {
 
 export type OnTransactionArgs = OnArgs & {
   transaction: Transaction;
-  emit: TransactionEmitFunctions;
+  emit: LogEmitFunctions;
 };
 
 export type OnInitArgs = {
