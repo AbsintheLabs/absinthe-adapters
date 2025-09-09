@@ -48,15 +48,15 @@ export const processor = new DataSourceBuilder()
     where: {
       programId: [whirlpoolProgram.programId], // where executed by Whirlpool program
       d8: [
-        // whirlpoolProgram.instructions.swap.d8,
-        // whirlpoolProgram.instructions.swapV2.d8,
+        whirlpoolProgram.instructions.swap.d8,
+        whirlpoolProgram.instructions.swapV2.d8,
         whirlpoolProgram.instructions.twoHopSwapV2.d8,
         whirlpoolProgram.instructions.twoHopSwap.d8,
 
-        // whirlpoolProgram.instructions.increaseLiquidity.d8,
-        // whirlpoolProgram.instructions.decreaseLiquidity.d8,
-        // whirlpoolProgram.instructions.decreaseLiquidityV2.d8,
-        // whirlpoolProgram.instructions.increaseLiquidityV2.d8,
+        whirlpoolProgram.instructions.increaseLiquidity.d8,
+        whirlpoolProgram.instructions.decreaseLiquidity.d8,
+        whirlpoolProgram.instructions.decreaseLiquidityV2.d8,
+        whirlpoolProgram.instructions.increaseLiquidityV2.d8,
 
         //todo: add fee instructions in future
         // whirlpoolProgram.instructions.collectFees.d8,
@@ -66,19 +66,19 @@ export const processor = new DataSourceBuilder()
         // whirlpoolProgram.instructions.collectProtocolFeesV2.d8,
         // whirlpoolProgram.instructions.collectProtocolFees.d8,
 
-        // whirlpoolProgram.instructions.openPosition.d8,
-        // whirlpoolProgram.instructions.closePosition.d8,
-        // whirlpoolProgram.instructions.openPositionWithTokenExtensions.d8,
-        // whirlpoolProgram.instructions.closePositionWithTokenExtensions.d8,
-        // whirlpoolProgram.instructions.openPositionWithMetadata.d8,
+        whirlpoolProgram.instructions.openPosition.d8,
+        whirlpoolProgram.instructions.closePosition.d8,
+        whirlpoolProgram.instructions.openPositionWithTokenExtensions.d8,
+        whirlpoolProgram.instructions.closePositionWithTokenExtensions.d8,
+        whirlpoolProgram.instructions.openPositionWithMetadata.d8,
 
-        // whirlpoolProgram.instructions.initializePoolV2.d8,
-        // whirlpoolProgram.instructions.initializePool.d8,
-        // whirlpoolProgram.instructions.initializePoolWithAdaptiveFee.d8,
+        whirlpoolProgram.instructions.initializePoolV2.d8,
+        whirlpoolProgram.instructions.initializePool.d8,
+        whirlpoolProgram.instructions.initializePoolWithAdaptiveFee.d8,
 
-        // whirlpoolProgram.instructions.lockPosition.d8,
-        // whirlpoolProgram.instructions.resetPositionRange.d8,
-        // whirlpoolProgram.instructions.transferLockedPosition.d8,
+        whirlpoolProgram.instructions.lockPosition.d8,
+        whirlpoolProgram.instructions.resetPositionRange.d8,
+        whirlpoolProgram.instructions.transferLockedPosition.d8,
       ],
 
       // ...whirlpoolProgram.instructions.swap.accountSelection({
