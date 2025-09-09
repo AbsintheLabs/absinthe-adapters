@@ -10,9 +10,8 @@ const WHIRLPOOL_ADDRESSES = [
   '8uGEM2h7s9EV5tYynAFh5kwve1uLiSEs665V9DYX2Lpj',
   'AvVeFoEokqbosw9UWkYEnwpWhTQd96GeWwV48WjFCEMw',
   'HWzqj2vg581nwvAryFKoeB3DaNqtNhtxY98wbb8EjLpC',
+  'H3TyEdmcRPqU5zHR1cXgp7dD61fsyxPGPRUUgDG6wpR3',
 ];
-
-// const WHIRLPOOL_ADDRESSES = ['H3TyEdmcRPqU5zHR1cXgp7dD61fsyxPGPRUUgDG6wpR3'];
 
 const TOKEN_DETAILS = [
   {

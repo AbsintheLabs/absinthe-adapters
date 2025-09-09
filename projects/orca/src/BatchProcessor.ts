@@ -417,10 +417,25 @@ export class OrcaProcessor {
             inner: ins.inner,
           });
           const decodedTwoHopSwapV2 = whirlpoolProgram.instructions.twoHopSwapV2.decode(ins);
-          // if (!this.isTargetPoolInstruction(decodedTwoHopSwapV2.accounts.whirlpoolOne)) {
-          //   return null;
-          // }
-          const innerTransfersTwoHopSwapV2 = ins.inner
+
+          // Check if either whirlpoolOne or whirlpoolTwo is our target pool
+          const isWhirlpoolOneTargetV2 = this.isTargetPoolInstruction(
+            decodedTwoHopSwapV2.accounts.whirlpoolOne,
+          );
+          const isWhirlpoolTwoTargetV2 = this.isTargetPoolInstruction(
+            decodedTwoHopSwapV2.accounts.whirlpoolTwo,
+          );
+
+          if (!isWhirlpoolOneTargetV2 && !isWhirlpoolTwoTargetV2) {
+            return null;
+          }
+
+          // Determine which pool we're tracking and filter transfers accordingly
+          const targetPoolAddressV2 = isWhirlpoolOneTargetV2
+            ? decodedTwoHopSwapV2.accounts.whirlpoolOne
+            : decodedTwoHopSwapV2.accounts.whirlpoolTwo;
+
+          const allTransfersV2 = ins.inner
             ? ins.inner
                 .map((inner: any) => {
                   try {
@@ -455,15 +470,49 @@ export class OrcaProcessor {
                 .filter((t: any) => t !== null)
             : [];
 
-          logger.info(`🏊 [ProcessBatch] Inner transfers twoHopSwapV2:`, {
-            innerTransfersTwoHopSwapV2,
-          });
+          // For twoHopSwapV2, extract only the 2 transfers relevant to our target pool
+          // If we're tracking the first hop, take transfers 0 and 1
+          // If we're tracking the second hop, take transfers 1 and 2
+          let relevantTransfersV2: any[] = [];
+          if (isWhirlpoolOneTargetV2) {
+            // First hop: take first two transfers
+            relevantTransfersV2 = allTransfersV2.slice(0, 2);
+          } else if (isWhirlpoolTwoTargetV2) {
+            // Second hop: take last two transfers
+            relevantTransfersV2 = allTransfersV2.slice(-2);
+          }
+
+          logger.info(
+            `🏊 [ProcessBatch] Filtered transfers for target pool ${targetPoolAddressV2}:`,
+            {
+              allTransfers: allTransfersV2.length,
+              relevantTransfers: relevantTransfersV2.length,
+              targetPool: targetPoolAddressV2,
+              isFirstHop: isWhirlpoolOneTargetV2,
+            },
+          );
+
+          // Create a modified decoded instruction that points to our target pool
+          const modifiedDecodedInstructionV2 = {
+            ...decodedTwoHopSwapV2,
+            accounts: {
+              ...decodedTwoHopSwapV2.accounts,
+              whirlpool: targetPoolAddressV2, // Set the whirlpool to our target pool
+            },
+            data: {
+              ...decodedTwoHopSwapV2.data,
+              // Use the appropriate sqrtPriceLimit based on which hop we're tracking
+              sqrtPriceLimit: isWhirlpoolOneTargetV2
+                ? decodedTwoHopSwapV2.data.sqrtPriceLimitOne
+                : decodedTwoHopSwapV2.data.sqrtPriceLimitTwo,
+            },
+          };
 
           return {
             ...baseData,
             type: 'twoHopSwapV2',
-            transfers: innerTransfersTwoHopSwapV2,
-            decodedInstruction: decodedTwoHopSwapV2,
+            transfers: relevantTransfersV2,
+            decodedInstruction: modifiedDecodedInstructionV2,
           } as OrcaInstructionData;
 
         case whirlpoolProgram.instructions.twoHopSwap.d8:
@@ -471,10 +520,25 @@ export class OrcaProcessor {
             inner: ins.inner,
           });
           const decodedTwoHopSwap = whirlpoolProgram.instructions.twoHopSwap.decode(ins);
-          // if (!this.isTargetPoolInstruction(decodedTwoHopSwap.accounts.whirlpoolOne)) {
-          //   return null;
-          // }
-          const twoHopTransfers = ins.inner
+
+          // Check if either whirlpoolOne or whirlpoolTwo is our target pool
+          const isWhirlpoolOneTarget = this.isTargetPoolInstruction(
+            decodedTwoHopSwap.accounts.whirlpoolOne,
+          );
+          const isWhirlpoolTwoTarget = this.isTargetPoolInstruction(
+            decodedTwoHopSwap.accounts.whirlpoolTwo,
+          );
+
+          if (!isWhirlpoolOneTarget && !isWhirlpoolTwoTarget) {
+            return null;
+          }
+
+          // Determine which pool we're tracking and filter transfers accordingly
+          const targetPoolAddress = isWhirlpoolOneTarget
+            ? decodedTwoHopSwap.accounts.whirlpoolOne
+            : decodedTwoHopSwap.accounts.whirlpoolTwo;
+
+          const allTransfers = ins.inner
             ? ins.inner
                 .map((inner: any) => {
                   try {
@@ -509,15 +573,49 @@ export class OrcaProcessor {
                 .filter((t: any) => t !== null)
             : [];
 
-          logger.info(`🏊 [ProcessBatch] Inner transfers twoHopSwap:`, {
-            twoHopTransfers,
-          });
+          // For twoHopSwap, extract only the 2 transfers relevant to our target pool
+          // If we're tracking the first hop, take transfers 0 and 1
+          // If we're tracking the second hop, take transfers 1 and 2
+          let relevantTransfers: any[] = [];
+          if (isWhirlpoolOneTarget) {
+            // First hop: take first two transfers
+            relevantTransfers = allTransfers.slice(0, 2);
+          } else if (isWhirlpoolTwoTarget) {
+            // Second hop: take last two transfers
+            relevantTransfers = allTransfers.slice(-2);
+          }
+
+          logger.info(
+            `🏊 [ProcessBatch] Filtered transfers for target pool ${targetPoolAddress}:`,
+            {
+              allTransfers: allTransfers.length,
+              relevantTransfers: relevantTransfers.length,
+              targetPool: targetPoolAddress,
+              isFirstHop: isWhirlpoolOneTarget,
+            },
+          );
+
+          // Create a modified decoded instruction that points to our target pool
+          const modifiedDecodedInstruction = {
+            ...decodedTwoHopSwap,
+            accounts: {
+              ...decodedTwoHopSwap.accounts,
+              whirlpool: targetPoolAddress, // Set the whirlpool to our target pool
+            },
+            data: {
+              ...decodedTwoHopSwap.data,
+              // Use the appropriate sqrtPriceLimit based on which hop we're tracking
+              sqrtPriceLimit: isWhirlpoolOneTarget
+                ? decodedTwoHopSwap.data.sqrtPriceLimitOne
+                : decodedTwoHopSwap.data.sqrtPriceLimitTwo,
+            },
+          };
 
           return {
             ...baseData,
             type: 'twoHopSwap',
-            transfers: twoHopTransfers,
-            decodedInstruction: decodedTwoHopSwap,
+            transfers: relevantTransfers,
+            decodedInstruction: modifiedDecodedInstruction,
           } as OrcaInstructionData;
 
         case whirlpoolProgram.instructions.openPosition.d8:
