@@ -320,7 +320,9 @@ What does this require?
 Next protocols to derisk primitives before we start cleaning:
 [x] Demos contract verification (no asset + transaction based)
 [-] Passing in 'priceable' flag into the action so we know whether we should later price it or not (should this automatically change the currency to something else?) - NOT TESTED!! ❌
-[ ] Aave v3 lending and borrowing (each erc20 asset has to be priced separately) + introducing new primitives for lending and borrowing
+[x] Aave v3 lending and borrowing (each erc20 asset has to be priced separately) + introducing new primitives for lending and borrowing
+[-] Remove dust pipeline filter (optional in common schema config)
+[x] New event for new token position (rather than only summing deltas)
 [ ] Raw erc20 token tracking (what happens when we don't want to price the tokens at all?)
 [ ] Layer3 cubes erc721 tracking
 [ ] Curve - YAP (yet another protocol) to add into the mix
@@ -332,27 +334,46 @@ Next protocols to derisk primitives before we start cleaning:
 
 [x] Figure out why univ3 stopped running with the new changes - // BUG!!
 
-[ ] Enrichment types are horribly fucked and need reworking
-[ ] Enrichment does not support things like api key, runnerid, eventid hashing, etc
-[ ] Univ3 adapter is horribly complicated to read + understand. Would benefit from refactoring and/or further abstractions.
+[ ] It's very hard to write new pricing adapters, and the steps to do so are very unclear.
+[ ] It
+
+[ ] Enrichment types are horribly fucked and need reworking <<<<<
+[ ] Enrichment does not support things like api key, runnerid, eventid hashing, etc<<<<<
+[ ] We might want the price resolvers to return Big instead of number to prevent a whole host of overflow + precision loss
+[ ] Univ3 adapter is horribly complicated to read + understand. Would benefit from refactoring and/or further abstractions. <<<<<
+[ ] Ability to use the params inside the assetFeedConfig (not just inside the adapter itself)
+[ ] New pricing adapter is too hard and clunky to create.
 [ ] Cross reference the actual final data we want. Things we might be missing:
 [ ] event name on actions
-[ ] Registration of adapter happens in adapters/index.ts. Can we do this on the adapter itself? What if we want to add an adapter that we don't know of yet? maybe this is fine, can't have too many things happen at runtime...
+[-] Registration of adapter happens in adapters/index.ts. Can we do this on the adapter itself? What if we want to add an adapter that we don't know of yet? maybe this is fine, can't have too many things happen at runtime...
+[ ] Better key naming for assets (right now, it's not standardized at all): ex for aave v3
 [ ] remove the io / projectors from the adapter definition, they currently muddy things up and are confusing
+[ ] Clean up the typing for 'reason' in emit.balanceDelta (this should be an enum)
 [ ] protocol type
-[ ] metadata on actions
+[ ] metadata on actionsj
 [ ] metadata on twb
+
+[ ] <Important!> Don't require to fetch all blocks for proper price interpolation. this will make processing significantly faster (and nearly necessary for solana)
 
 ### Future down the road problems (not for right now)
 
-[ ] Redis doesn't have key prefixing. Either we connect to another internal DB (easiest solution) or support key prefixing so that we can use instance for many adapters
-[ ] Auto-promise resolver with jitter + exponential backoff. Nice utility function we can use around the indexer
+[ ] Redis doesn't have key prefixing. Either we connect to another internal DB (easiest solution) or support key prefixing so that we can use instance for many adapters. Instead, lets use different redis databases to keep each indexer completely separate. Have a function that hashes the config and bumps the db number until it finds an open db. Not sure how exactly, but can do something like this here. <<<<<
+[ ] Auto-promise resolver with jitter + exponential backoff. Nice utility function we can use around the indexer. Could use p-retry here?
 [ ] Some params from the config should actually be loaded in from the env (like the rpc url if it's api key gated)
 [ ] Support proper indexer ordering (by logindex if multiple txs in the same block)
 
 ### Next Extensions
 
 [ ] Create a univ3 price feed that resolves the price to the other token (it will only make sense if you tie it to a stable pair to get the usd price)
+
+### Aave Lending/Borrowing Problem
+
+Aave allows us to lend and borrow at the same time. Both of these are TWB metrics.
+So here we have an adapter that can emit both of these metrics from the same time.
+
+[ ] We should have a way to distinguish based on the action (or the type of metric it is). This way, we can know what is lending and what is borrowing.
+
+[ ]
 
 ## The transaction/log metadata problem
 

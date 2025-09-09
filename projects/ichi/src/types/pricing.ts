@@ -164,7 +164,15 @@ export type CoreFeedSelector =
       nonfungiblepositionmanager: string;
       tokenSelector: 'token0' | 'token1';
       token: TokenSelector;
+    }
+  | {
+      kind: 'aavev3vardebt';
+      debtTokenAddress: string;
+      underlyingTokenAddress: string;
+      poolAddress: string;
+      underlyingTokenFeed: TokenSelector;
     };
+
 // | { kind: 'univ3lp'; nonfungiblepositionmanager: string; tokens: { address: string, tokenSelector: TokenSelector }[] };
 // ...
 // add coinpaprika, defillama, codex, etc here.

@@ -8,7 +8,7 @@
       "preLaunchTask": "clean state and redis",
       "program": "${workspaceFolder}/projects/ichi/lib/main.js",
       "cwd": "${workspaceFolder}/projects/ichi",
-      "args": ["exampleConfigs/univ3-config.absinthe.json"],
+      "args": ["exampleConfigs/aavev3.absinthe.json"],
       "runtimeArgs": ["--no-deprecation", "--no-warnings", "--enable-source-maps"],
       "skipFiles": ["<node_internals>/**", "${workspaceFolder}/**/node_modules/**/*.js"],
       "sourceMaps": true,

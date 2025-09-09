@@ -1,0 +1,118 @@
+// common imports
+import z from 'zod';
+import Big from 'big.js';
+
+// AaveV3 ABI imports (these need to be added to the abi directory)
+// aToken can use regular erc20 abi
+import * as erc20Abi from '../abi/erc20';
+// variable debt token needs to use aavev3variabledebttoken abi
+import * as aaveV3VarDebtAbi from '../abi/aavev3variabledebttoken';
+
+// New registry imports
+import { defineAdapter, Address } from '../adapter-core';
+import { registerAdapter } from '../adapter-registry';
+
+export const AaveV3Params = z
+  .object({
+    kind: z.literal('aave-v3'),
+    // poolDataProviderAddress: Address,
+    aTokenAddress: Address.optional(),
+    variableDebtTokenAddress: Address.optional(),
+  })
+  .refine((params) => !!params.aTokenAddress || !!params.variableDebtTokenAddress, {
+    message: 'At least one of aTokenAddress or variableDebtTokenAddress must be provided',
+    path: ['aTokenAddress', 'variableDebtTokenAddress'],
+  });
+
+export type AaveV3Params = z.infer<typeof AaveV3Params>;
+
+function createVarDebtTokenKey(debtTokenAddress: string, userAddress: string) {
+  return `aavev3:varDebtToken:${debtTokenAddress}:${userAddress}`;
+}
+
+export const aavev3 = registerAdapter(
+  defineAdapter({
+    name: 'aave-v3',
+    schema: AaveV3Params,
+    build: ({ params, io }) => {
+      // Event topics would be defined here based on actual ABI
+      const transferTopic = erc20Abi.events.Transfer.topic;
+      const varMintTopic = aaveV3VarDebtAbi.events.Mint.topic;
+      const varBurnTopic = aaveV3VarDebtAbi.events.Burn.topic;
+      const RAY = Big(10).pow(27);
+
+      return {
+        __adapterName: 'aave-v3',
+        adapterCustomConfig: AaveV3Params,
+        buildProcessor: (base) => {
+          if (params.variableDebtTokenAddress) {
+            base.addLog({
+              address: [params.variableDebtTokenAddress],
+              topic0: [varMintTopic, varBurnTopic],
+            });
+          }
+          if (params.aTokenAddress) {
+            base.addLog({
+              address: [params.aTokenAddress],
+              topic0: [transferTopic],
+            });
+          }
+          return base;
+        },
+        onInit: async ({ rpcCtx: rpc, redis }) => {
+          // Initialize any required state
+        },
+        onLog: async ({ block, log, emit, rpcCtx: rpc, redis }) => {
+          // Lending
+          if (params.aTokenAddress) {
+            if (log.topics[0] === transferTopic) {
+              const { from, to, value } = erc20Abi.events.Transfer.decode(log);
+              await emit.balanceDelta({
+                user: from,
+                asset: params.aTokenAddress,
+                amount: Big(value.toString()),
+              });
+            }
+          }
+
+          // Borrowing
+          // mint
+          if (params.variableDebtTokenAddress) {
+            if (log.topics[0] === varMintTopic) {
+              const { value, index, onBehalfOf } = aaveV3VarDebtAbi.events.Mint.decode(log);
+              const scaledAmt = Big(value.toString())
+                .mul(RAY)
+                .div(Big(index.toString()))
+                .round(0, Big.roundUp);
+              await emit.balanceDelta({
+                user: onBehalfOf,
+                // asset: createVarDebtTokenKey(params.variableDebtTokenAddress, onBehalfOf),
+                asset: params.variableDebtTokenAddress,
+                amount: scaledAmt,
+              });
+            }
+            // burn
+            if (log.topics[0] === varBurnTopic) {
+              const { value, index, from } = aaveV3VarDebtAbi.events.Burn.decode(log);
+              const scaledAmt = Big(value.toString())
+                .mul(RAY)
+                .div(Big(index.toString()))
+                .round(0, Big.roundDown);
+              await emit.balanceDelta({
+                user: from,
+                // asset: createVarDebtTokenKey(params.variableDebtTokenAddress, from),
+                asset: params.variableDebtTokenAddress,
+                amount: scaledAmt.neg(),
+              });
+            }
+            // no transfer since variable debt token is not transferable
+          }
+        },
+        onBatchEnd: async ({ io }) => {
+          // Any cleanup operations
+        },
+        projectors: [], // Add projectors if needed
+      };
+    },
+  }),
+);

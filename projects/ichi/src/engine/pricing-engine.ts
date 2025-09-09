@@ -21,6 +21,7 @@ import { coinGeckoFactory } from '../feeds/coingecko';
 import { peggedFactory } from '../feeds/pegged';
 import { ichinavFactory } from '../feeds/ichinav';
 import { univ2NavFactory } from '../feeds/univ2nav';
+import { aavev3varDebtFactory } from '../feeds/aavev3varDebtToken';
 
 type Key = string; // stable cache key for a selector
 
@@ -102,6 +103,7 @@ export class PricingEngine {
     this.registry.register('ichinav', ichinavFactory);
     this.registry.register('univ2nav', univ2NavFactory);
     this.registry.register('univ3lp', univ3lpFactory);
+    this.registry.register('aavev3vardebt', aavev3varDebtFactory);
     // add more handlers here...
 
     // Register custom feeds if provided
