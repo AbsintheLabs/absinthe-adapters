@@ -43,6 +43,8 @@ import { processTransferInstructions } from './mappings/transferInstruction';
 import { LiquidityMathService } from './services/LiquidityMathService';
 import { PositionStorageService } from './services/PositionStorageService';
 import { getOptimizedTokenPrices } from './utils/pricing';
+
+const TOKEN_EXTENSION_PROGRAM_ID = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
 export class OrcaProcessor {
   private readonly protocol: OrcaProtocol;
   private readonly schemaName: string;
@@ -191,11 +193,31 @@ export class OrcaProcessor {
             ? ins.inner
                 .map((inner: any) => {
                   try {
-                    return tokenProgram.instructions.transfer.decode({
-                      accounts: inner.accounts,
-                      data: inner.data,
+                    if (
+                      (inner.programId === tokenProgram.programId ||
+                        inner.programId === TOKEN_EXTENSION_PROGRAM_ID) &&
+                      inner.d1 === tokenProgram.instructions.transfer.d1
+                    ) {
+                      return tokenProgram.instructions.transfer.decode({
+                        accounts: inner.accounts,
+                        data: inner.data,
+                      });
+                    } else if (
+                      (inner.programId === tokenProgram.programId ||
+                        inner.programId === TOKEN_EXTENSION_PROGRAM_ID) &&
+                      inner.d1 === tokenProgram.instructions.transferChecked.d1
+                    ) {
+                      return tokenProgram.instructions.transferChecked.decode({
+                        accounts: inner.accounts,
+                        data: inner.data,
+                      });
+                    }
+                    return null;
+                  } catch (error) {
+                    logger.warn(`Failed to decode transfer:`, {
+                      error: error,
+                      programId: inner.programId,
                     });
-                  } catch {
                     return null;
                   }
                 })
@@ -227,11 +249,31 @@ export class OrcaProcessor {
             ? ins.inner
                 .map((inner: any) => {
                   try {
-                    return tokenProgram.instructions.transfer.decode({
-                      accounts: inner.accounts,
-                      data: inner.data,
+                    if (
+                      (inner.programId === tokenProgram.programId ||
+                        inner.programId === TOKEN_EXTENSION_PROGRAM_ID) &&
+                      inner.d1 === tokenProgram.instructions.transfer.d1
+                    ) {
+                      return tokenProgram.instructions.transfer.decode({
+                        accounts: inner.accounts,
+                        data: inner.data,
+                      });
+                    } else if (
+                      (inner.programId === tokenProgram.programId ||
+                        inner.programId === TOKEN_EXTENSION_PROGRAM_ID) &&
+                      inner.d1 === tokenProgram.instructions.transferChecked.d1
+                    ) {
+                      return tokenProgram.instructions.transferChecked.decode({
+                        accounts: inner.accounts,
+                        data: inner.data,
+                      });
+                    }
+                    return null;
+                  } catch (error) {
+                    logger.warn(`Failed to decode transfer:`, {
+                      error: error,
+                      programId: inner.programId,
                     });
-                  } catch {
                     return null;
                   }
                 })

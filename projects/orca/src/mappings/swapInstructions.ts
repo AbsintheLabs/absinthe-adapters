@@ -246,6 +246,7 @@ async function analyseSwap(data: any, liquidityMathService: LiquidityMathService
     decodedInstruction: data.decodedInstruction.data,
     sqrtPriceLimit: data.decodedInstruction.data.sqrtPriceLimit,
     sqrtPriceLimitOne: data.decodedInstruction.data.sqrtPriceLimitOne,
+    txHash: data.txHash,
   });
 
   const currentTick = liquidityMathService.sqrtPriceX64ToTick(
@@ -364,19 +365,54 @@ async function analyseSwap(data: any, liquidityMathService: LiquidityMathService
       };
     }
   } else if (data.transfers.length === 2) {
-    let srcBalance = data.tokenBalances.find(
-      (tb: any) => tb.account == data.transfers[0].accounts.source,
-    );
-    let destBalance = data.tokenBalances.find(
-      (tb: any) => tb.account === data.transfers[1].accounts.destination,
-    );
+    let srcBalance, destBalance, srcMint, destMint;
 
-    let srcMint = data.tokenBalances.find(
-      (tb: any) => tb.account === data.transfers[0].accounts.destination,
-    )?.preMint;
-    let destMint = data.tokenBalances.find(
-      (tb: any) => tb.account === data.transfers[1].accounts.source,
-    )?.preMint;
+    // Detect transfer type by checking if tokenMint field exists
+    const hasTokenMint = data.transfers[0].accounts.tokenMint !== undefined;
+
+    if (hasTokenMint) {
+      // transferChecked instructions - use owner + tokenMint matching
+      srcBalance = data.tokenBalances.find(
+        (tb: any) =>
+          tb.preOwner === data.transfers[0].accounts.owner &&
+          tb.preMint === data.transfers[0].accounts.tokenMint,
+      );
+      destBalance = data.tokenBalances.find(
+        (tb: any) =>
+          tb.preOwner === data.transfers[1].accounts.owner &&
+          tb.preMint === data.transfers[1].accounts.tokenMint,
+      );
+      srcMint = data.transfers[0].accounts.tokenMint;
+      destMint = data.transfers[1].accounts.tokenMint;
+
+      logger.info(`🔄 [SwapInstructions] Using transferChecked matching:`, {
+        transfer0: data.transfers[0].accounts,
+        transfer1: data.transfers[1].accounts,
+        srcBalance: srcBalance?.account,
+        destBalance: destBalance?.account,
+      });
+    } else {
+      // Regular transfer instructions - use account address matching
+      srcBalance = data.tokenBalances.find(
+        (tb: any) => tb.account === data.transfers[0].accounts.source,
+      );
+      destBalance = data.tokenBalances.find(
+        (tb: any) => tb.account === data.transfers[1].accounts.destination,
+      );
+      srcMint = data.tokenBalances.find(
+        (tb: any) => tb.account === data.transfers[0].accounts.destination,
+      )?.preMint;
+      destMint = data.tokenBalances.find(
+        (tb: any) => tb.account === data.transfers[1].accounts.source,
+      )?.preMint;
+
+      logger.info(`🔄 [SwapInstructions] Using transfer matching:`, {
+        transfer0: data.transfers[0].accounts,
+        transfer1: data.transfers[1].accounts,
+        srcBalance: srcBalance?.account,
+        destBalance: destBalance?.account,
+      });
+    }
 
     // Calculate source amount
     let rawAmount = Math.abs(
