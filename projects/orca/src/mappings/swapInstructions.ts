@@ -76,111 +76,133 @@ async function processSwapCommon(
     analysis,
   });
 
-  if (!analysis?.userAddress) {
-    logger.warn(`⚠️ [SwapInstructions] Skipping transaction schema - userAddress is undefined`, {
+  // Only create transaction schema if we have a userAddress
+  if (analysis?.userAddress) {
+    const poolDetails = await positionStorageService.getPool(analysis.poolId);
+
+    const transactionSchema = {
+      eventType: MessageType.TRANSACTION,
+      eventName: data.type,
+      tokens: {
+        token0Decimals: {
+          value: poolDetails!.token0Decimals.toString(),
+          type: 'number',
+        },
+        token0Address: {
+          value: poolDetails!.token0Id,
+          type: 'string',
+        },
+        token1Decimals: {
+          value: poolDetails!.token1Decimals.toString(),
+          type: 'number',
+        },
+        token1Address: {
+          value: poolDetails!.token1Id,
+          type: 'string',
+        },
+        amount0: {
+          value: analysis.fromAmount.toString(),
+          type: 'number',
+        },
+        amount1: {
+          value: analysis.toAmount.toString(),
+          type: 'number',
+        },
+        currentTick: {
+          value: analysis.currentTick.toString(),
+          type: 'number',
+        },
+      },
+      rawAmount: analysis.fromAmount.toString(),
+      displayAmount: analysis.valueUsd,
+      unixTimestampMs: data.timestamp,
       txHash: data.txHash,
-      analysis,
-    });
-    return;
-  }
+      logIndex: data.logIndex,
+      blockNumber: data.slot,
+      blockHash: data.blockHash,
+      userId: analysis.userAddress,
+      currency: Currency.USD,
+      valueUsd: analysis.valueUsd,
+      gasUsed: 0, //todo: fix
+      gasFeeUsd: 0, //todo: fix
+    };
 
-  const poolDetails = await positionStorageService.getPool(analysis!.poolId);
-
-  const transactionSchema = {
-    eventType: MessageType.TRANSACTION,
-    eventName: data.type,
-    tokens: {
-      token0Decimals: {
-        value: poolDetails!.token0Decimals.toString(),
-        type: 'number',
-      },
-      token0Address: {
-        value: poolDetails!.token0Id,
-        type: 'string',
-      },
-      token1Decimals: {
-        value: poolDetails!.token1Decimals.toString(),
-        type: 'number',
-      },
-      token1Address: {
-        value: poolDetails!.token1Id,
-        type: 'string',
-      },
-      amount0: {
-        value: analysis!.fromAmount.toString(),
-        type: 'number',
-      },
-      amount1: {
-        value: analysis!.toAmount.toString(),
-        type: 'number',
-      },
-      currentTick: {
-        value: analysis!.currentTick.toString(),
-        type: 'number',
-      },
-    },
-    rawAmount: analysis!.fromAmount.toString(),
-    displayAmount: analysis!.valueUsd.toString(),
-    unixTimestampMs: data.timestamp,
-    txHash: data.txHash,
-    logIndex: data.logIndex,
-    blockNumber: data.slot,
-    blockHash: data.blockHash,
-    userId: analysis!.userAddress,
-    currency: Currency.USD,
-    valueUsd: analysis!.valueUsd,
-    gasUsed: 0, //todo: fix
-    gasFeeUsd: 0, //todo: fix
-  };
-
-  const protocolState = protocolStates.get(analysis!.poolId);
-  if (protocolState) {
-    protocolState.transactions.push(transactionSchema);
-  } else {
-    protocolStates.set(analysis!.poolId, {
-      balanceWindows: [],
-      transactions: [transactionSchema],
-    });
-    logger.info(`📊 [SwapInstructions] Added transaction for pool ${analysis!.poolId}`);
-  }
-
-  const positionsToActivate: PositionDetails[] = [];
-  const positionsToDeactivate: PositionDetails[] = [];
-
-  const positions = await positionStorageService.getAllPositionsByPoolId(analysis!.poolId);
-
-  for (const position of positions) {
-    const wasActive = position.isActive === 'true';
-    const isNowActive =
-      position.tickLower <= analysis!.currentTick && position.tickUpper > analysis!.currentTick;
-
-    if (!wasActive && isNowActive) {
-      positionsToActivate.push(position);
-    } else if (wasActive && !isNowActive) {
-      positionsToDeactivate.push(position);
+    const protocolState = protocolStates.get(analysis.poolId);
+    if (protocolState) {
+      protocolState.transactions.push(transactionSchema);
+    } else {
+      protocolStates.set(analysis.poolId, {
+        balanceWindows: [],
+        transactions: [transactionSchema],
+      });
+      logger.info(`📊 [SwapInstructions] Added transaction for pool ${analysis.poolId}`);
     }
+  } else {
+    logger.warn(
+      `⚠️ [SwapInstructions] Skipping transaction schema - userAddress is undefined, but still processing liquidity changes`,
+      {
+        txHash: data.txHash,
+        analysis,
+      },
+    );
   }
 
-  await Promise.all([
-    activatePosition(
-      data.slot,
-      data.timestamp,
-      analysis!.currentTick,
-      positionsToActivate,
-      poolDetails!,
-      positionStorageService,
-    ),
-    deactivatePosition(
-      data.slot,
-      data.timestamp,
-      analysis!.currentTick,
-      positionsToDeactivate,
-      poolDetails!,
-      protocolStates,
-      positionStorageService,
-      liquidityMathService,
-    ),
-  ]);
+  // ALWAYS process position activation/deactivation regardless of userAddress
+  if (analysis?.poolId && analysis?.currentTick !== undefined) {
+    const poolDetails = await positionStorageService.getPool(analysis.poolId);
+    const positionsToActivate: PositionDetails[] = [];
+    const positionsToDeactivate: PositionDetails[] = [];
+
+    const positions = await positionStorageService.getAllPositionsByPoolId(analysis.poolId);
+
+    for (const position of positions) {
+      const wasActive = position.isActive === 'true';
+      const isNowActive =
+        position.tickLower <= analysis.currentTick! && position.tickUpper > analysis.currentTick!;
+
+      if (!wasActive && isNowActive) {
+        positionsToActivate.push(position);
+      } else if (wasActive && !isNowActive) {
+        positionsToDeactivate.push(position);
+      }
+    }
+
+    await Promise.all([
+      activatePosition(
+        data.slot,
+        data.timestamp,
+        analysis.currentTick!,
+        positionsToActivate,
+        poolDetails!,
+        positionStorageService,
+      ),
+      deactivatePosition(
+        data.slot,
+        data.timestamp,
+        analysis.currentTick!,
+        positionsToDeactivate,
+        poolDetails!,
+        protocolStates,
+        positionStorageService,
+        liquidityMathService,
+      ),
+    ]);
+
+    logger.info(`🔄 [SwapInstructions] Processed liquidity changes for pool ${analysis.poolId}`, {
+      currentTick: analysis.currentTick,
+      positionsActivated: positionsToActivate.length,
+      positionsDeactivated: positionsToDeactivate.length,
+    });
+  } else {
+    logger.warn(
+      `⚠️ [SwapInstructions] Cannot process liquidity changes - missing poolId or currentTick`,
+      {
+        poolId: analysis?.poolId,
+        currentTick: analysis?.currentTick,
+        txHash: data.txHash,
+      },
+    );
+  }
 }
 
 async function processSwap(
@@ -223,11 +245,11 @@ async function analyseSwap(data: any, liquidityMathService: LiquidityMathService
   logger.info(`🏊 [SwapInstructions] Decoded instruction:`, {
     decodedInstruction: data.decodedInstruction.data,
     sqrtPriceLimit: data.decodedInstruction.data.sqrtPriceLimit,
-    sqrtPriceLimitOne: data.decodedInstruction.data.sqrtPriceLimitOne,
+    txHash: data.txHash,
   });
 
   const currentTick = liquidityMathService.sqrtPriceX64ToTick(
-    data.decodedInstruction.data.sqrtPriceLimit || data.decodedInstruction.data.sqrtPriceLimitOne,
+    data.decodedInstruction.data.sqrtPriceLimit,
   );
   logger.info(`🏊 [SwapInstructions] Transfers:`, {
     transfers: data.transfers,
@@ -235,126 +257,55 @@ async function analyseSwap(data: any, liquidityMathService: LiquidityMathService
     baseDataTokenBalances: data.tokenBalances,
   });
 
-  if (data.transfers.length > 2) {
-    // First transfer: source -> intermediate
-    let firstTransfer = data.transfers[0];
-    // Last transfer: intermediate -> destination
+  if (data.transfers.length === 2) {
+    let srcBalance, destBalance, srcMint, destMint;
 
-    // Find token balances for the first and last transfers
-    let sourceBalance = data.tokenBalances.find(
-      (tb: any) => tb.account === firstTransfer.accounts.source,
-    );
+    // Detect transfer type by checking if tokenMint field exists
+    const hasTokenMint = data.transfers[0].accounts.tokenMint !== undefined;
 
-    let destBalance = data.tokenBalances.find(
-      (tb: any) => tb.account === data.transfers[data.transfers.length - 1].accounts.destination,
-    );
-
-    // Find the intermediate token (the destination of first transfer)
-    let intermediateBalance = data.tokenBalances.find(
-      (tb: any) => tb.account === firstTransfer.accounts.destination,
-    );
-
-    let sourceMint = sourceBalance?.preMint;
-    let intermediateMint = intermediateBalance?.preMint;
-
-    let sourceUserAddress = sourceBalance?.preOwner;
-    let destinationUserAddress = intermediateBalance?.preOwner;
-
-    let userAddress: string | undefined;
-
-    const srcMintDetails = await getTokenPrice(sourceMint);
-
-    // Calculate source amount
-    let srcAmount = Math.abs(
-      Number((sourceBalance?.preAmount || 0n) - (sourceBalance?.postAmount || 0n)),
-    );
-
-    let srcAmountUsd: number = 0;
-
-    // Priority 1: Use source amount and source user address if both are available
-    if (srcAmount > 0 && sourceUserAddress) {
-      userAddress = sourceUserAddress;
-      srcAmountUsd = (srcMintDetails.usdPrice * srcAmount) / Math.pow(10, srcMintDetails.decimals);
-
-      logger.info(`🏊 [SwapInstructions] Using source amount and address:`, {
-        srcAmount,
-        srcMint: sourceMint,
-        srcAmountUsd,
-        userAddress,
-      });
-    }
-    // Priority 2: If srcAmount > 0 but srcAddress is null, price it for srcBalance but user should be destBalance
-    else if (srcAmount > 0 && !sourceUserAddress) {
-      userAddress = destBalance?.preOwner; // Use destination address
-      srcAmountUsd = (srcMintDetails.usdPrice * srcAmount) / Math.pow(10, srcMintDetails.decimals); // Price using source
-
-      logger.info(`🏊 [SwapInstructions] Using src amount for pricing but destAddress as user:`, {
-        srcAmount,
-        srcMint: sourceMint,
-        srcAmountUsd,
-        userAddress,
-      });
-    }
-    // Priority 3: If srcAmount is 0, use intermediate amount and destination address
-    else if (intermediateMint) {
-      const intermediateMintDetails = await getTokenPrice(intermediateMint);
-      const intermediateAmount = Math.abs(
-        Number((intermediateBalance?.preAmount || 0n) - (intermediateBalance?.postAmount || 0n)),
+    if (hasTokenMint) {
+      // transferChecked instructions - use owner + tokenMint matching
+      srcBalance = data.tokenBalances.find(
+        (tb: any) =>
+          tb.preOwner === data.transfers[0].accounts.owner &&
+          tb.preMint === data.transfers[0].accounts.tokenMint,
       );
-      userAddress = destinationUserAddress; // This can be undefined, but we still price it
+      destBalance = data.tokenBalances.find(
+        (tb: any) =>
+          tb.preOwner === data.transfers[1].accounts.owner &&
+          tb.preMint === data.transfers[1].accounts.tokenMint,
+      );
+      srcMint = data.transfers[0].accounts.tokenMint;
+      destMint = data.transfers[1].accounts.tokenMint;
 
-      srcAmountUsd =
-        (intermediateMintDetails.usdPrice * intermediateAmount) /
-        Math.pow(10, intermediateMintDetails.decimals);
+      logger.info(`🔄 [SwapInstructions] Using transferChecked matching:`, {
+        transfer0: data.transfers[0].accounts,
+        transfer1: data.transfers[1].accounts,
+        srcBalance: srcBalance?.account,
+        destBalance: destBalance?.account,
+      });
+    } else {
+      // Regular transfer instructions - use account address matching
+      srcBalance = data.tokenBalances.find(
+        (tb: any) => tb.account === data.transfers[0].accounts.source,
+      );
+      destBalance = data.tokenBalances.find(
+        (tb: any) => tb.account === data.transfers[1].accounts.destination,
+      );
+      srcMint = data.tokenBalances.find(
+        (tb: any) => tb.account === data.transfers[0].accounts.destination,
+      )?.preMint;
+      destMint = data.tokenBalances.find(
+        (tb: any) => tb.account === data.transfers[1].accounts.source,
+      )?.preMint;
 
-      logger.info(`🏊 [SwapInstructions] Using intermediate amount (fallback):`, {
-        intermediateAmount,
-        intermediateMint,
-        srcAmountUsd,
-        userAddress,
+      logger.info(`🔄 [SwapInstructions] Using transfer matching:`, {
+        transfer0: data.transfers[0].accounts,
+        transfer1: data.transfers[1].accounts,
+        srcBalance: srcBalance?.account,
+        destBalance: destBalance?.account,
       });
     }
-
-    logger.info(`🔗 [SwapInstructions] Two-hop analysis:`, {
-      sourceMint,
-      intermediateMint,
-      srcAmount,
-      valueUsd: srcAmountUsd,
-      userAddress,
-    });
-
-    if (sourceMint && intermediateMint && destBalance?.postMint) {
-      return {
-        fromToken: sourceMint,
-        toToken: intermediateMint,
-        fromAmount: srcAmount,
-        toAmount: Math.abs(
-          Number((destBalance?.postAmount || 0n) - (destBalance?.preAmount || 0n)),
-        ),
-        valueUsd: srcAmountUsd,
-        rawAmount: srcAmount.toString(),
-        userAddress: userAddress,
-        transactionHash: data.txHash,
-        poolId: data.accounts.whirlpool,
-        fromAddress: sourceUserAddress,
-        toAddress: destinationUserAddress,
-        currentTick: currentTick,
-      };
-    }
-  } else if (data.transfers.length === 2) {
-    let srcBalance = data.tokenBalances.find(
-      (tb: any) => tb.account == data.transfers[0].accounts.source,
-    );
-    let destBalance = data.tokenBalances.find(
-      (tb: any) => tb.account === data.transfers[1].accounts.destination,
-    );
-
-    let srcMint = data.tokenBalances.find(
-      (tb: any) => tb.account === data.transfers[0].accounts.destination,
-    )?.preMint;
-    let destMint = data.tokenBalances.find(
-      (tb: any) => tb.account === data.transfers[1].accounts.source,
-    )?.preMint;
 
     // Calculate source amount
     let rawAmount = Math.abs(

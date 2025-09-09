@@ -43,6 +43,8 @@ import { processTransferInstructions } from './mappings/transferInstruction';
 import { LiquidityMathService } from './services/LiquidityMathService';
 import { PositionStorageService } from './services/PositionStorageService';
 import { getOptimizedTokenPrices } from './utils/pricing';
+
+const TOKEN_EXTENSION_PROGRAM_ID = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
 export class OrcaProcessor {
   private readonly protocol: OrcaProtocol;
   private readonly schemaName: string;
@@ -191,11 +193,31 @@ export class OrcaProcessor {
             ? ins.inner
                 .map((inner: any) => {
                   try {
-                    return tokenProgram.instructions.transfer.decode({
-                      accounts: inner.accounts,
-                      data: inner.data,
+                    if (
+                      (inner.programId === tokenProgram.programId ||
+                        inner.programId === TOKEN_EXTENSION_PROGRAM_ID) &&
+                      inner.d1 === tokenProgram.instructions.transfer.d1
+                    ) {
+                      return tokenProgram.instructions.transfer.decode({
+                        accounts: inner.accounts,
+                        data: inner.data,
+                      });
+                    } else if (
+                      (inner.programId === tokenProgram.programId ||
+                        inner.programId === TOKEN_EXTENSION_PROGRAM_ID) &&
+                      inner.d1 === tokenProgram.instructions.transferChecked.d1
+                    ) {
+                      return tokenProgram.instructions.transferChecked.decode({
+                        accounts: inner.accounts,
+                        data: inner.data,
+                      });
+                    }
+                    return null;
+                  } catch (error) {
+                    logger.warn(`Failed to decode transfer:`, {
+                      error: error,
+                      programId: inner.programId,
                     });
-                  } catch {
                     return null;
                   }
                 })
@@ -227,11 +249,31 @@ export class OrcaProcessor {
             ? ins.inner
                 .map((inner: any) => {
                   try {
-                    return tokenProgram.instructions.transfer.decode({
-                      accounts: inner.accounts,
-                      data: inner.data,
+                    if (
+                      (inner.programId === tokenProgram.programId ||
+                        inner.programId === TOKEN_EXTENSION_PROGRAM_ID) &&
+                      inner.d1 === tokenProgram.instructions.transfer.d1
+                    ) {
+                      return tokenProgram.instructions.transfer.decode({
+                        accounts: inner.accounts,
+                        data: inner.data,
+                      });
+                    } else if (
+                      (inner.programId === tokenProgram.programId ||
+                        inner.programId === TOKEN_EXTENSION_PROGRAM_ID) &&
+                      inner.d1 === tokenProgram.instructions.transferChecked.d1
+                    ) {
+                      return tokenProgram.instructions.transferChecked.decode({
+                        accounts: inner.accounts,
+                        data: inner.data,
+                      });
+                    }
+                    return null;
+                  } catch (error) {
+                    logger.warn(`Failed to decode transfer:`, {
+                      error: error,
+                      programId: inner.programId,
                     });
-                  } catch {
                     return null;
                   }
                 })
@@ -371,53 +413,209 @@ export class OrcaProcessor {
           } as OrcaInstructionData;
 
         case whirlpoolProgram.instructions.twoHopSwapV2.d8:
+          logger.info(`🏊 [ProcessBatch] Inner instructions twoHopSwapV2:`, {
+            inner: ins.inner,
+          });
           const decodedTwoHopSwapV2 = whirlpoolProgram.instructions.twoHopSwapV2.decode(ins);
-          if (!this.isTargetPoolInstruction(decodedTwoHopSwapV2.accounts.whirlpoolOne)) {
+
+          // Check if either whirlpoolOne or whirlpoolTwo is our target pool
+          const isWhirlpoolOneTargetV2 = this.isTargetPoolInstruction(
+            decodedTwoHopSwapV2.accounts.whirlpoolOne,
+          );
+          const isWhirlpoolTwoTargetV2 = this.isTargetPoolInstruction(
+            decodedTwoHopSwapV2.accounts.whirlpoolTwo,
+          );
+
+          if (!isWhirlpoolOneTargetV2 && !isWhirlpoolTwoTargetV2) {
             return null;
           }
-          const innerTransfersTwoHopSwapV2 = ins.inner
+
+          // Determine which pool we're tracking and filter transfers accordingly
+          const targetPoolAddressV2 = isWhirlpoolOneTargetV2
+            ? decodedTwoHopSwapV2.accounts.whirlpoolOne
+            : decodedTwoHopSwapV2.accounts.whirlpoolTwo;
+
+          const allTransfersV2 = ins.inner
             ? ins.inner
                 .map((inner: any) => {
                   try {
-                    return tokenProgram.instructions.transfer.decode(inner);
-                  } catch {
+                    if (
+                      (inner.programId === tokenProgram.programId ||
+                        inner.programId === TOKEN_EXTENSION_PROGRAM_ID) &&
+                      inner.d1 === tokenProgram.instructions.transfer.d1
+                    ) {
+                      return tokenProgram.instructions.transfer.decode({
+                        accounts: inner.accounts,
+                        data: inner.data,
+                      });
+                    } else if (
+                      (inner.programId === tokenProgram.programId ||
+                        inner.programId === TOKEN_EXTENSION_PROGRAM_ID) &&
+                      inner.d1 === tokenProgram.instructions.transferChecked.d1
+                    ) {
+                      return tokenProgram.instructions.transferChecked.decode({
+                        accounts: inner.accounts,
+                        data: inner.data,
+                      });
+                    }
+                    return null;
+                  } catch (error) {
+                    logger.warn(`Failed to decode transfer:`, {
+                      error: error,
+                      programId: inner.programId,
+                    });
                     return null;
                   }
                 })
                 .filter((t: any) => t !== null)
             : [];
+
+          // For twoHopSwapV2, extract only the 2 transfers relevant to our target pool
+          // If we're tracking the first hop, take transfers 0 and 1
+          // If we're tracking the second hop, take transfers 1 and 2
+          let relevantTransfersV2: any[] = [];
+          if (isWhirlpoolOneTargetV2) {
+            // First hop: take first two transfers
+            relevantTransfersV2 = allTransfersV2.slice(0, 2);
+          } else if (isWhirlpoolTwoTargetV2) {
+            // Second hop: take last two transfers
+            relevantTransfersV2 = allTransfersV2.slice(-2);
+          }
+
+          logger.info(
+            `🏊 [ProcessBatch] Filtered transfers for target pool ${targetPoolAddressV2}:`,
+            {
+              allTransfers: allTransfersV2.length,
+              relevantTransfers: relevantTransfersV2.length,
+              targetPool: targetPoolAddressV2,
+              isFirstHop: isWhirlpoolOneTargetV2,
+            },
+          );
+
+          // Create a modified decoded instruction that points to our target pool
+          const modifiedDecodedInstructionV2 = {
+            ...decodedTwoHopSwapV2,
+            accounts: {
+              ...decodedTwoHopSwapV2.accounts,
+              whirlpool: targetPoolAddressV2, // Set the whirlpool to our target pool
+            },
+            data: {
+              ...decodedTwoHopSwapV2.data,
+              // Use the appropriate sqrtPriceLimit based on which hop we're tracking
+              sqrtPriceLimit: isWhirlpoolOneTargetV2
+                ? decodedTwoHopSwapV2.data.sqrtPriceLimitOne
+                : decodedTwoHopSwapV2.data.sqrtPriceLimitTwo,
+            },
+          };
+
           return {
             ...baseData,
             type: 'twoHopSwapV2',
-            transfers: innerTransfersTwoHopSwapV2,
-            decodedInstruction: decodedTwoHopSwapV2,
+            transfers: relevantTransfersV2,
+            decodedInstruction: modifiedDecodedInstructionV2,
           } as OrcaInstructionData;
 
         case whirlpoolProgram.instructions.twoHopSwap.d8:
+          logger.info(`🏊 [ProcessBatch] Inner instructions twoHopSwap:`, {
+            inner: ins.inner,
+          });
           const decodedTwoHopSwap = whirlpoolProgram.instructions.twoHopSwap.decode(ins);
-          if (!this.isTargetPoolInstruction(decodedTwoHopSwap.accounts.whirlpoolOne)) {
+
+          // Check if either whirlpoolOne or whirlpoolTwo is our target pool
+          const isWhirlpoolOneTarget = this.isTargetPoolInstruction(
+            decodedTwoHopSwap.accounts.whirlpoolOne,
+          );
+          const isWhirlpoolTwoTarget = this.isTargetPoolInstruction(
+            decodedTwoHopSwap.accounts.whirlpoolTwo,
+          );
+
+          if (!isWhirlpoolOneTarget && !isWhirlpoolTwoTarget) {
             return null;
           }
-          const twoHopTransfers = ins.inner
+
+          // Determine which pool we're tracking and filter transfers accordingly
+          const targetPoolAddress = isWhirlpoolOneTarget
+            ? decodedTwoHopSwap.accounts.whirlpoolOne
+            : decodedTwoHopSwap.accounts.whirlpoolTwo;
+
+          const allTransfers = ins.inner
             ? ins.inner
                 .map((inner: any) => {
                   try {
-                    return tokenProgram.instructions.transfer.decode({
-                      accounts: inner.accounts,
-                      data: inner.data,
+                    if (
+                      (inner.programId === tokenProgram.programId ||
+                        inner.programId === TOKEN_EXTENSION_PROGRAM_ID) &&
+                      inner.d1 === tokenProgram.instructions.transfer.d1
+                    ) {
+                      return tokenProgram.instructions.transfer.decode({
+                        accounts: inner.accounts,
+                        data: inner.data,
+                      });
+                    } else if (
+                      (inner.programId === tokenProgram.programId ||
+                        inner.programId === TOKEN_EXTENSION_PROGRAM_ID) &&
+                      inner.d1 === tokenProgram.instructions.transferChecked.d1
+                    ) {
+                      return tokenProgram.instructions.transferChecked.decode({
+                        accounts: inner.accounts,
+                        data: inner.data,
+                      });
+                    }
+                    return null;
+                  } catch (error) {
+                    logger.warn(`Failed to decode transfer:`, {
+                      error: error,
+                      programId: inner.programId,
                     });
-                  } catch {
                     return null;
                   }
                 })
                 .filter((t: any) => t !== null)
             : [];
+
+          // For twoHopSwap, extract only the 2 transfers relevant to our target pool
+          // If we're tracking the first hop, take transfers 0 and 1
+          // If we're tracking the second hop, take transfers 1 and 2
+          let relevantTransfers: any[] = [];
+          if (isWhirlpoolOneTarget) {
+            // First hop: take first two transfers
+            relevantTransfers = allTransfers.slice(0, 2);
+          } else if (isWhirlpoolTwoTarget) {
+            // Second hop: take last two transfers
+            relevantTransfers = allTransfers.slice(-2);
+          }
+
+          logger.info(
+            `🏊 [ProcessBatch] Filtered transfers for target pool ${targetPoolAddress}:`,
+            {
+              allTransfers: allTransfers.length,
+              relevantTransfers: relevantTransfers.length,
+              targetPool: targetPoolAddress,
+              isFirstHop: isWhirlpoolOneTarget,
+            },
+          );
+
+          // Create a modified decoded instruction that points to our target pool
+          const modifiedDecodedInstruction = {
+            ...decodedTwoHopSwap,
+            accounts: {
+              ...decodedTwoHopSwap.accounts,
+              whirlpool: targetPoolAddress, // Set the whirlpool to our target pool
+            },
+            data: {
+              ...decodedTwoHopSwap.data,
+              // Use the appropriate sqrtPriceLimit based on which hop we're tracking
+              sqrtPriceLimit: isWhirlpoolOneTarget
+                ? decodedTwoHopSwap.data.sqrtPriceLimitOne
+                : decodedTwoHopSwap.data.sqrtPriceLimitTwo,
+            },
+          };
 
           return {
             ...baseData,
             type: 'twoHopSwap',
-            transfers: twoHopTransfers,
-            decodedInstruction: decodedTwoHopSwap,
+            transfers: relevantTransfers,
+            decodedInstruction: modifiedDecodedInstruction,
           } as OrcaInstructionData;
 
         case whirlpoolProgram.instructions.openPosition.d8:
@@ -531,6 +729,31 @@ export class OrcaProcessor {
             decodedInstruction: tokenProgram.instructions.transferChecked.decode(ins),
           } as OrcaInstructionData;
 
+        case whirlpoolProgram.instructions.resetPositionRange.d8:
+          const decodedResetPositionRange =
+            whirlpoolProgram.instructions.resetPositionRange.decode(ins);
+          if (!this.isTargetPoolInstruction(decodedResetPositionRange.accounts.whirlpool)) {
+            return null;
+          }
+          return {
+            ...baseData,
+            type: 'resetPositionRange',
+            decodedInstruction: decodedResetPositionRange,
+          } as OrcaInstructionData;
+
+        case whirlpoolProgram.instructions.transferLockedPosition.d8:
+          return {
+            ...baseData,
+            type: 'transferLockedPosition',
+            decodedInstruction: whirlpoolProgram.instructions.transferLockedPosition.decode(ins),
+          } as OrcaInstructionData;
+
+        case whirlpoolProgram.instructions.lockPosition.d8:
+          return {
+            ...baseData,
+            type: 'lockPosition',
+            decodedInstruction: whirlpoolProgram.instructions.lockPosition.decode(ins),
+          } as OrcaInstructionData;
         default:
           return null;
       }
@@ -609,6 +832,10 @@ export class OrcaProcessor {
       ['transfer', 'transferChecked'].includes(data.type),
     );
 
+    const extraPositionInstructions = blockInstructions.filter((data) =>
+      ['resetPositionRange', 'transferLockedPosition', 'lockPosition'].includes(data.type),
+    );
+
     if (poolInstructions.length > 0) {
       await processPoolInstructions(
         poolInstructions,
@@ -640,6 +867,7 @@ export class OrcaProcessor {
         openPositionInstructions,
         protocolStates,
         this.positionStorageService,
+        this.liquidityMathService,
       );
     }
 
@@ -660,11 +888,21 @@ export class OrcaProcessor {
         closePositionInstructions,
         protocolStates,
         this.positionStorageService,
+        this.liquidityMathService,
       );
     }
 
     if (feeInstructions.length > 0) {
       await processFeeInstructions(feeInstructions, protocolStates);
+    }
+
+    if (extraPositionInstructions.length > 0) {
+      await processPositionInstructions(
+        extraPositionInstructions,
+        protocolStates,
+        this.positionStorageService,
+        this.liquidityMathService,
+      );
     }
   }
 
@@ -873,6 +1111,10 @@ export class OrcaProcessor {
         this.env,
         this.chainConfig,
       );
+
+      logger.info(`🏊 [FinalizeBatch] Transactions:`, {
+        transactions: JSON.stringify(transactions, null, 2),
+      });
 
       logger.info(
         `🏊 [FinalizeBatch] Pool: ${pool}, Transactions: ${transactions.length}, Balances: ${balances.length}`,
