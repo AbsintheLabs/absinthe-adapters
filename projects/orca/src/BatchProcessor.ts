@@ -669,6 +669,7 @@ export class OrcaProcessor {
         openPositionInstructions,
         protocolStates,
         this.positionStorageService,
+        this.liquidityMathService,
       );
     }
 
@@ -689,6 +690,7 @@ export class OrcaProcessor {
         closePositionInstructions,
         protocolStates,
         this.positionStorageService,
+        this.liquidityMathService,
       );
     }
 
@@ -701,6 +703,7 @@ export class OrcaProcessor {
         extraPositionInstructions,
         protocolStates,
         this.positionStorageService,
+        this.liquidityMathService,
       );
     }
   }
