@@ -53,6 +53,24 @@ export async function processPositionInstructions(
             positionStorageService,
           );
           break;
+
+        case 'resetPositionRange':
+          await processResetPositionRange(
+            data as PositionData,
+            protocolStates,
+            positionStorageService,
+          );
+          break;
+        case 'transferLockedPosition':
+          await processTransferLockedPosition(
+            data as PositionData,
+            protocolStates,
+            positionStorageService,
+          );
+          break;
+        case 'lockPosition':
+          await processLockPosition(data as PositionData, protocolStates, positionStorageService);
+          break;
       }
     } catch (error) {
       logger.error(`❌ [PositionInstructions] Failed to process ${data.type}:`, error);
@@ -182,6 +200,106 @@ async function processOpenPositionWithMetadata(
   });
 }
 
+async function processResetPositionRange(
+  data: PositionData,
+  protocolStates: Map<string, any>,
+  positionStorageService: PositionStorageService,
+): Promise<void> {
+  logger.info(`🔄 [PositionInstructions] Processing reset position range`, {
+    slot: data.slot,
+    txHash: data.txHash,
+  });
+
+  const { position, positionMint, whirlpool, tickLowerIndex, tickUpperIndex } =
+    analyseResetPositionRange(data.decodedInstruction);
+
+  logger.info(`🏊 [ResetPositionRangeInstructions] Reset position range:`, {
+    position,
+    positionMint,
+    whirlpool,
+    tickLowerIndex,
+    tickUpperIndex,
+  });
+
+  const positionDetails = await positionStorageService.getPosition(position, whirlpool);
+
+  if (!positionDetails) {
+    throw new Error(`Position not found: ${position} in whirlpool ${whirlpool}`);
+  }
+
+  const pool = await positionStorageService.getPool(whirlpool);
+  const newIsActive =
+    pool && pool.currentTick >= tickLowerIndex && pool.currentTick < tickUpperIndex
+      ? 'true'
+      : 'false';
+
+  await positionStorageService.updatePosition({
+    ...positionDetails,
+    tickLower: tickLowerIndex,
+    tickUpper: tickUpperIndex,
+    isActive: newIsActive,
+    lastUpdatedBlockTs: data.timestamp,
+    lastUpdatedBlockHeight: data.slot,
+  });
+}
+
+async function processTransferLockedPosition(
+  data: PositionData,
+  protocolStates: Map<string, any>,
+  positionStorageService: PositionStorageService,
+): Promise<void> {
+  logger.info(`🔄 [PositionInstructions] Processing transfer locked position`, {
+    slot: data.slot,
+    txHash: data.txHash,
+  });
+
+  const { position, whirlpool, receiver, positionMint } = analyseTransferLockedPosition(
+    data.decodedInstruction,
+  );
+  const positionDetails = await positionStorageService.getPosition(position, whirlpool);
+
+  if (!positionDetails) {
+    throw new Error(`Position not found: ${position} in whirlpool ${whirlpool}`);
+  }
+
+  await positionStorageService.updatePosition({
+    ...positionDetails,
+    owner: receiver,
+    positionMint: positionMint,
+    lastUpdatedBlockTs: data.timestamp,
+    lastUpdatedBlockHeight: data.slot,
+  });
+
+  logger.info(`🏊 [TransferLockedPositionInstructions] Transfer locked position:`, {
+    position,
+    positionMint,
+    whirlpool,
+    receiver,
+  });
+}
+
+async function processLockPosition(
+  data: PositionData,
+  protocolStates: Map<string, any>,
+  positionStorageService: PositionStorageService,
+): Promise<void> {
+  logger.info(`🔄 [PositionInstructions] Processing lock position`, {
+    slot: data.slot,
+    txHash: data.txHash,
+  });
+
+  const { position, positionMint, whirlpool, lockType } = analyseLockPosition(
+    data.decodedInstruction,
+  );
+
+  logger.info(`🏊 [LockPositionInstructions] Lock position:`, {
+    position,
+    positionMint,
+    whirlpool,
+    lockType,
+  });
+}
+
 async function analyzeOpenPosition(
   decodedInstruction: any,
   slot: number,
@@ -229,5 +347,36 @@ function analyseClosePosition(decodedInstruction: any) {
     position: decodedInstruction.accounts.position,
     positionMint: decodedInstruction.accounts.positionMint,
     positionTokenAccount: decodedInstruction.accounts.positionTokenAccount,
+  };
+}
+
+function analyseResetPositionRange(decodedInstruction: any) {
+  return {
+    position: decodedInstruction.accounts.position,
+    positionMint: decodedInstruction.accounts.positionMint,
+    whirlpool: decodedInstruction.accounts.whirlpool,
+    tickLowerIndex: decodedInstruction.data.newTickLowerIndex,
+    tickUpperIndex: decodedInstruction.data.newTickUpperIndex,
+  };
+}
+
+function analyseLockPosition(decodedInstruction: any) {
+  return {
+    position: decodedInstruction.accounts.position,
+    positionMint: decodedInstruction.accounts.positionMint,
+    whirlpool: decodedInstruction.accounts.whirlpool,
+    lockType: decodedInstruction.data.lockType,
+  };
+}
+
+function analyseTransferLockedPosition(decodedInstruction: any) {
+  return {
+    position: decodedInstruction.accounts.position,
+    positionMint: decodedInstruction.accounts.positionMint,
+    whirlpool: decodedInstruction.accounts.whirlpool,
+    receiver: decodedInstruction.accounts.receiver,
+    positionTokenAccount: decodedInstruction.accounts.positionTokenAccount,
+    destinationTokenAccount: decodedInstruction.accounts.destinationTokenAccount,
+    positionAuthority: decodedInstruction.accounts.positionAuthority,
   };
 }

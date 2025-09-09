@@ -76,12 +76,9 @@ export const processor = new DataSourceBuilder()
         whirlpoolProgram.instructions.initializePool.d8,
         whirlpoolProgram.instructions.initializePoolWithAdaptiveFee.d8,
 
-        // whirlpoolProgram.instructions.lockPosition.d8,
-        // whirlpoolProgram.instructions.resetPositionRange.d8,
-        // whirlpoolProgram.instructions.transferLockedPosition.d8,
-
-        // whirlpoolProgram.instructions.setInitializePoolAuthority.d8,
-        // whirlpoolProgram.instructions.initializePositionBundle.d8,
+        whirlpoolProgram.instructions.lockPosition.d8,
+        whirlpoolProgram.instructions.resetPositionRange.d8,
+        whirlpoolProgram.instructions.transferLockedPosition.d8,
       ],
 
       // ...whirlpoolProgram.instructions.swap.accountSelection({

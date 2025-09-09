@@ -76,111 +76,133 @@ async function processSwapCommon(
     analysis,
   });
 
-  if (!analysis?.userAddress) {
-    logger.warn(`⚠️ [SwapInstructions] Skipping transaction schema - userAddress is undefined`, {
+  // Only create transaction schema if we have a userAddress
+  if (analysis?.userAddress) {
+    const poolDetails = await positionStorageService.getPool(analysis.poolId);
+
+    const transactionSchema = {
+      eventType: MessageType.TRANSACTION,
+      eventName: data.type,
+      tokens: {
+        token0Decimals: {
+          value: poolDetails!.token0Decimals.toString(),
+          type: 'number',
+        },
+        token0Address: {
+          value: poolDetails!.token0Id,
+          type: 'string',
+        },
+        token1Decimals: {
+          value: poolDetails!.token1Decimals.toString(),
+          type: 'number',
+        },
+        token1Address: {
+          value: poolDetails!.token1Id,
+          type: 'string',
+        },
+        amount0: {
+          value: analysis.fromAmount.toString(),
+          type: 'number',
+        },
+        amount1: {
+          value: analysis.toAmount.toString(),
+          type: 'number',
+        },
+        currentTick: {
+          value: analysis.currentTick.toString(),
+          type: 'number',
+        },
+      },
+      rawAmount: analysis.fromAmount.toString(),
+      displayAmount: analysis.valueUsd,
+      unixTimestampMs: data.timestamp,
       txHash: data.txHash,
-      analysis,
-    });
-    return;
-  }
+      logIndex: data.logIndex,
+      blockNumber: data.slot,
+      blockHash: data.blockHash,
+      userId: analysis.userAddress,
+      currency: Currency.USD,
+      valueUsd: analysis.valueUsd,
+      gasUsed: 0, //todo: fix
+      gasFeeUsd: 0, //todo: fix
+    };
 
-  const poolDetails = await positionStorageService.getPool(analysis!.poolId);
-
-  const transactionSchema = {
-    eventType: MessageType.TRANSACTION,
-    eventName: data.type,
-    tokens: {
-      token0Decimals: {
-        value: poolDetails!.token0Decimals.toString(),
-        type: 'number',
-      },
-      token0Address: {
-        value: poolDetails!.token0Id,
-        type: 'string',
-      },
-      token1Decimals: {
-        value: poolDetails!.token1Decimals.toString(),
-        type: 'number',
-      },
-      token1Address: {
-        value: poolDetails!.token1Id,
-        type: 'string',
-      },
-      amount0: {
-        value: analysis!.fromAmount.toString(),
-        type: 'number',
-      },
-      amount1: {
-        value: analysis!.toAmount.toString(),
-        type: 'number',
-      },
-      currentTick: {
-        value: analysis!.currentTick.toString(),
-        type: 'number',
-      },
-    },
-    rawAmount: analysis!.fromAmount.toString(),
-    displayAmount: analysis!.valueUsd.toString(),
-    unixTimestampMs: data.timestamp,
-    txHash: data.txHash,
-    logIndex: data.logIndex,
-    blockNumber: data.slot,
-    blockHash: data.blockHash,
-    userId: analysis!.userAddress,
-    currency: Currency.USD,
-    valueUsd: analysis!.valueUsd,
-    gasUsed: 0, //todo: fix
-    gasFeeUsd: 0, //todo: fix
-  };
-
-  const protocolState = protocolStates.get(analysis!.poolId);
-  if (protocolState) {
-    protocolState.transactions.push(transactionSchema);
-  } else {
-    protocolStates.set(analysis!.poolId, {
-      balanceWindows: [],
-      transactions: [transactionSchema],
-    });
-    logger.info(`📊 [SwapInstructions] Added transaction for pool ${analysis!.poolId}`);
-  }
-
-  const positionsToActivate: PositionDetails[] = [];
-  const positionsToDeactivate: PositionDetails[] = [];
-
-  const positions = await positionStorageService.getAllPositionsByPoolId(analysis!.poolId);
-
-  for (const position of positions) {
-    const wasActive = position.isActive === 'true';
-    const isNowActive =
-      position.tickLower <= analysis!.currentTick && position.tickUpper > analysis!.currentTick;
-
-    if (!wasActive && isNowActive) {
-      positionsToActivate.push(position);
-    } else if (wasActive && !isNowActive) {
-      positionsToDeactivate.push(position);
+    const protocolState = protocolStates.get(analysis.poolId);
+    if (protocolState) {
+      protocolState.transactions.push(transactionSchema);
+    } else {
+      protocolStates.set(analysis.poolId, {
+        balanceWindows: [],
+        transactions: [transactionSchema],
+      });
+      logger.info(`📊 [SwapInstructions] Added transaction for pool ${analysis.poolId}`);
     }
+  } else {
+    logger.warn(
+      `⚠️ [SwapInstructions] Skipping transaction schema - userAddress is undefined, but still processing liquidity changes`,
+      {
+        txHash: data.txHash,
+        analysis,
+      },
+    );
   }
 
-  await Promise.all([
-    activatePosition(
-      data.slot,
-      data.timestamp,
-      analysis!.currentTick,
-      positionsToActivate,
-      poolDetails!,
-      positionStorageService,
-    ),
-    deactivatePosition(
-      data.slot,
-      data.timestamp,
-      analysis!.currentTick,
-      positionsToDeactivate,
-      poolDetails!,
-      protocolStates,
-      positionStorageService,
-      liquidityMathService,
-    ),
-  ]);
+  // ALWAYS process position activation/deactivation regardless of userAddress
+  if (analysis?.poolId && analysis?.currentTick !== undefined) {
+    const poolDetails = await positionStorageService.getPool(analysis.poolId);
+    const positionsToActivate: PositionDetails[] = [];
+    const positionsToDeactivate: PositionDetails[] = [];
+
+    const positions = await positionStorageService.getAllPositionsByPoolId(analysis.poolId);
+
+    for (const position of positions) {
+      const wasActive = position.isActive === 'true';
+      const isNowActive =
+        position.tickLower <= analysis.currentTick && position.tickUpper > analysis.currentTick;
+
+      if (!wasActive && isNowActive) {
+        positionsToActivate.push(position);
+      } else if (wasActive && !isNowActive) {
+        positionsToDeactivate.push(position);
+      }
+    }
+
+    await Promise.all([
+      activatePosition(
+        data.slot,
+        data.timestamp,
+        analysis.currentTick,
+        positionsToActivate,
+        poolDetails!,
+        positionStorageService,
+      ),
+      deactivatePosition(
+        data.slot,
+        data.timestamp,
+        analysis.currentTick,
+        positionsToDeactivate,
+        poolDetails!,
+        protocolStates,
+        positionStorageService,
+        liquidityMathService,
+      ),
+    ]);
+
+    logger.info(`🔄 [SwapInstructions] Processed liquidity changes for pool ${analysis.poolId}`, {
+      currentTick: analysis.currentTick,
+      positionsActivated: positionsToActivate.length,
+      positionsDeactivated: positionsToDeactivate.length,
+    });
+  } else {
+    logger.warn(
+      `⚠️ [SwapInstructions] Cannot process liquidity changes - missing poolId or currentTick`,
+      {
+        poolId: analysis?.poolId,
+        currentTick: analysis?.currentTick,
+        txHash: data.txHash,
+      },
+    );
+  }
 }
 
 async function processSwap(

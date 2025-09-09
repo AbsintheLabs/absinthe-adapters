@@ -531,6 +531,31 @@ export class OrcaProcessor {
             decodedInstruction: tokenProgram.instructions.transferChecked.decode(ins),
           } as OrcaInstructionData;
 
+        case whirlpoolProgram.instructions.resetPositionRange.d8:
+          const decodedResetPositionRange =
+            whirlpoolProgram.instructions.resetPositionRange.decode(ins);
+          if (!this.isTargetPoolInstruction(decodedResetPositionRange.accounts.whirlpool)) {
+            return null;
+          }
+          return {
+            ...baseData,
+            type: 'resetPositionRange',
+            decodedInstruction: decodedResetPositionRange,
+          } as OrcaInstructionData;
+
+        case whirlpoolProgram.instructions.transferLockedPosition.d8:
+          return {
+            ...baseData,
+            type: 'transferLockedPosition',
+            decodedInstruction: whirlpoolProgram.instructions.transferLockedPosition.decode(ins),
+          } as OrcaInstructionData;
+
+        case whirlpoolProgram.instructions.lockPosition.d8:
+          return {
+            ...baseData,
+            type: 'lockPosition',
+            decodedInstruction: whirlpoolProgram.instructions.lockPosition.decode(ins),
+          } as OrcaInstructionData;
         default:
           return null;
       }
@@ -609,6 +634,10 @@ export class OrcaProcessor {
       ['transfer', 'transferChecked'].includes(data.type),
     );
 
+    const extraPositionInstructions = blockInstructions.filter((data) =>
+      ['resetPositionRange', 'transferLockedPosition', 'lockPosition'].includes(data.type),
+    );
+
     if (poolInstructions.length > 0) {
       await processPoolInstructions(
         poolInstructions,
@@ -665,6 +694,14 @@ export class OrcaProcessor {
 
     if (feeInstructions.length > 0) {
       await processFeeInstructions(feeInstructions, protocolStates);
+    }
+
+    if (extraPositionInstructions.length > 0) {
+      await processPositionInstructions(
+        extraPositionInstructions,
+        protocolStates,
+        this.positionStorageService,
+      );
     }
   }
 
@@ -873,6 +910,10 @@ export class OrcaProcessor {
         this.env,
         this.chainConfig,
       );
+
+      logger.info(`🏊 [FinalizeBatch] Transactions:`, {
+        transactions: JSON.stringify(transactions, null, 2),
+      });
 
       logger.info(
         `🏊 [FinalizeBatch] Pool: ${pool}, Transactions: ${transactions.length}, Balances: ${balances.length}`,

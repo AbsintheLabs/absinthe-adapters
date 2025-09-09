@@ -131,7 +131,10 @@ interface PositionData extends BaseInstructionData {
     | 'closePosition'
     | 'openPositionWithTokenExtensions'
     | 'closePositionWithTokenExtensions'
-    | 'openPositionWithMetadata';
+    | 'openPositionWithMetadata'
+    | 'resetPositionRange'
+    | 'transferLockedPosition'
+    | 'lockPosition';
   // Add position-specific fields here
 }
 
