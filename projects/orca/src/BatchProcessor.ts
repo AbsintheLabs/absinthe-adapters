@@ -413,21 +413,52 @@ export class OrcaProcessor {
           } as OrcaInstructionData;
 
         case whirlpoolProgram.instructions.twoHopSwapV2.d8:
+          logger.info(`🏊 [ProcessBatch] Inner instructions twoHopSwapV2:`, {
+            inner: ins.inner,
+          });
           const decodedTwoHopSwapV2 = whirlpoolProgram.instructions.twoHopSwapV2.decode(ins);
-          if (!this.isTargetPoolInstruction(decodedTwoHopSwapV2.accounts.whirlpoolOne)) {
-            return null;
-          }
+          // if (!this.isTargetPoolInstruction(decodedTwoHopSwapV2.accounts.whirlpoolOne)) {
+          //   return null;
+          // }
           const innerTransfersTwoHopSwapV2 = ins.inner
             ? ins.inner
                 .map((inner: any) => {
                   try {
-                    return tokenProgram.instructions.transfer.decode(inner);
-                  } catch {
+                    if (
+                      (inner.programId === tokenProgram.programId ||
+                        inner.programId === TOKEN_EXTENSION_PROGRAM_ID) &&
+                      inner.d1 === tokenProgram.instructions.transfer.d1
+                    ) {
+                      return tokenProgram.instructions.transfer.decode({
+                        accounts: inner.accounts,
+                        data: inner.data,
+                      });
+                    } else if (
+                      (inner.programId === tokenProgram.programId ||
+                        inner.programId === TOKEN_EXTENSION_PROGRAM_ID) &&
+                      inner.d1 === tokenProgram.instructions.transferChecked.d1
+                    ) {
+                      return tokenProgram.instructions.transferChecked.decode({
+                        accounts: inner.accounts,
+                        data: inner.data,
+                      });
+                    }
+                    return null;
+                  } catch (error) {
+                    logger.warn(`Failed to decode transfer:`, {
+                      error: error,
+                      programId: inner.programId,
+                    });
                     return null;
                   }
                 })
                 .filter((t: any) => t !== null)
             : [];
+
+          logger.info(`🏊 [ProcessBatch] Inner transfers twoHopSwapV2:`, {
+            innerTransfersTwoHopSwapV2,
+          });
+
           return {
             ...baseData,
             type: 'twoHopSwapV2',
@@ -436,24 +467,51 @@ export class OrcaProcessor {
           } as OrcaInstructionData;
 
         case whirlpoolProgram.instructions.twoHopSwap.d8:
+          logger.info(`🏊 [ProcessBatch] Inner instructions twoHopSwap:`, {
+            inner: ins.inner,
+          });
           const decodedTwoHopSwap = whirlpoolProgram.instructions.twoHopSwap.decode(ins);
-          if (!this.isTargetPoolInstruction(decodedTwoHopSwap.accounts.whirlpoolOne)) {
-            return null;
-          }
+          // if (!this.isTargetPoolInstruction(decodedTwoHopSwap.accounts.whirlpoolOne)) {
+          //   return null;
+          // }
           const twoHopTransfers = ins.inner
             ? ins.inner
                 .map((inner: any) => {
                   try {
-                    return tokenProgram.instructions.transfer.decode({
-                      accounts: inner.accounts,
-                      data: inner.data,
+                    if (
+                      (inner.programId === tokenProgram.programId ||
+                        inner.programId === TOKEN_EXTENSION_PROGRAM_ID) &&
+                      inner.d1 === tokenProgram.instructions.transfer.d1
+                    ) {
+                      return tokenProgram.instructions.transfer.decode({
+                        accounts: inner.accounts,
+                        data: inner.data,
+                      });
+                    } else if (
+                      (inner.programId === tokenProgram.programId ||
+                        inner.programId === TOKEN_EXTENSION_PROGRAM_ID) &&
+                      inner.d1 === tokenProgram.instructions.transferChecked.d1
+                    ) {
+                      return tokenProgram.instructions.transferChecked.decode({
+                        accounts: inner.accounts,
+                        data: inner.data,
+                      });
+                    }
+                    return null;
+                  } catch (error) {
+                    logger.warn(`Failed to decode transfer:`, {
+                      error: error,
+                      programId: inner.programId,
                     });
-                  } catch {
                     return null;
                   }
                 })
                 .filter((t: any) => t !== null)
             : [];
+
+          logger.info(`🏊 [ProcessBatch] Inner transfers twoHopSwap:`, {
+            twoHopTransfers,
+          });
 
           return {
             ...baseData,

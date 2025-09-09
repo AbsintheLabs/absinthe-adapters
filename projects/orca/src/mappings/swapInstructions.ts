@@ -364,6 +364,128 @@ async function analyseSwap(data: any, liquidityMathService: LiquidityMathService
         currentTick: currentTick,
       };
     }
+  } else if (data.transfers.length === 3) {
+    // Three transfers - typical for two-hop swaps
+    // Usually: input -> intermediate, intermediate -> intermediate, intermediate -> output
+    let srcBalance, destBalance, srcMint, destMint;
+
+    // Use first and last transfers to determine source and destination
+    const hasTokenMint = data.transfers[0].accounts.tokenMint !== undefined;
+
+    if (hasTokenMint) {
+      // transferChecked instructions
+      srcBalance = data.tokenBalances.find(
+        (tb: any) =>
+          tb.preOwner === data.transfers[0].accounts.owner &&
+          tb.preMint === data.transfers[0].accounts.tokenMint,
+      );
+      destBalance = data.tokenBalances.find(
+        (tb: any) =>
+          tb.preOwner === data.transfers[2].accounts.owner &&
+          tb.preMint === data.transfers[2].accounts.tokenMint,
+      );
+      srcMint = data.transfers[0].accounts.tokenMint;
+      destMint = data.transfers[2].accounts.tokenMint;
+    } else {
+      // Regular transfer instructions
+      srcBalance = data.tokenBalances.find(
+        (tb: any) => tb.account === data.transfers[0].accounts.source,
+      );
+      destBalance = data.tokenBalances.find(
+        (tb: any) => tb.account === data.transfers[2].accounts.destination,
+      );
+      srcMint = srcBalance?.preMint;
+      destMint = destBalance?.preMint;
+    }
+
+    logger.info(`🔄 [SwapInstructions] Using 3-transfer matching:`, {
+      transfer0: data.transfers[0].accounts,
+      transfer2: data.transfers[2].accounts,
+      srcBalance: srcBalance?.account,
+      destBalance: destBalance?.account,
+      srcMint,
+      destMint,
+    });
+
+    // Calculate source amount
+    let rawAmount = Math.abs(
+      Number((srcBalance?.preAmount || 0n) - (srcBalance?.postAmount || 0n)),
+    );
+
+    let valueUsd: number = 0;
+    let userAddress: string | undefined;
+
+    let srcAddress = srcBalance?.preOwner;
+    let destAddress = destBalance?.preOwner;
+
+    // Priority 1: Use source amount and source address if both are available
+    if (rawAmount > 0 && srcAddress) {
+      const srcMintDetails = await getTokenPrice(srcMint);
+      valueUsd = (srcMintDetails.usdPrice * rawAmount) / Math.pow(10, srcMintDetails.decimals);
+      userAddress = srcAddress;
+
+      logger.info(`🏊 [SwapInstructions] Using source amount and address:`, {
+        rawAmount,
+        srcMint,
+        valueUsd,
+        userAddress,
+      });
+    }
+    // Priority 2: If srcAmount > 0 but srcAddress is null, price it for srcBalance but user should be destBalance
+    else if (rawAmount > 0 && !srcAddress) {
+      const srcMintDetails = await getTokenPrice(srcMint);
+      userAddress = destAddress; // Use destination address
+      valueUsd = (srcMintDetails.usdPrice * rawAmount) / Math.pow(10, srcMintDetails.decimals); // Price using source
+
+      logger.info(`🏊 [SwapInstructions] Using src amount for pricing but destAddress as user:`, {
+        rawAmount,
+        srcMint,
+        valueUsd,
+        userAddress,
+      });
+    }
+    // Priority 3: If srcAmount is 0, use destination amount and address
+    else if (destMint) {
+      const destMintDetails = await getTokenPrice(destMint);
+      const destAmount = Math.abs(
+        Number((destBalance?.postAmount || 0n) - (destBalance?.preAmount || 0n)),
+      );
+
+      valueUsd = (destMintDetails.usdPrice * destAmount) / Math.pow(10, destMintDetails.decimals);
+      userAddress = destAddress; // This can be undefined, but we still price it
+
+      logger.info(`🏊 [SwapInstructions] Using destination amount (fallback):`, {
+        destAmount,
+        destMint,
+        valueUsd,
+        userAddress,
+      });
+    }
+
+    logger.info(`🏊 [SwapInstructions] Single swap analysis:`, {
+      srcMint,
+      destMint,
+      srcBalance,
+      destBalance,
+      rawAmount,
+      valueUsd,
+      userAddress,
+    });
+
+    return {
+      fromToken: srcMint,
+      toToken: destMint,
+      fromAmount: Math.abs(Number((srcBalance?.postAmount || 0n) - (srcBalance?.preAmount || 0n))),
+      toAmount: Math.abs(Number((destBalance?.postAmount || 0n) - (destBalance?.preAmount || 0n))),
+      transactionHash: data.txHash,
+      poolId: data.decodedInstruction.accounts.whirlpool,
+      fromAddress: srcAddress,
+      toAddress: destAddress,
+      currentTick: currentTick,
+      valueUsd: valueUsd,
+      userAddress: userAddress,
+      rawAmount: rawAmount.toString(),
+    };
   } else if (data.transfers.length === 2) {
     let srcBalance, destBalance, srcMint, destMint;
 
