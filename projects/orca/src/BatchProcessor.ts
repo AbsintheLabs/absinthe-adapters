@@ -44,6 +44,7 @@ import { LiquidityMathService } from './services/LiquidityMathService';
 import { PositionStorageService } from './services/PositionStorageService';
 import { getOptimizedTokenPrices } from './utils/pricing';
 import { processBundlePositionInstructions } from './mappings/bundleInstructions';
+import { Connection } from '@solana/web3.js';
 
 const TOKEN_EXTENSION_PROGRAM_ID = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
 export class OrcaProcessor {
@@ -55,12 +56,14 @@ export class OrcaProcessor {
   private readonly env: ValidatedEnvBase;
   private readonly liquidityMathService: LiquidityMathService;
   private readonly positionStorageService: PositionStorageService;
+  private readonly connection: Connection;
   constructor(
     dexProtocol: OrcaProtocol,
     refreshWindow: number,
     apiClient: AbsintheApiClient,
     env: ValidatedEnvBase,
     chainConfig: Chain,
+    rpcUrl: string,
   ) {
     this.protocol = dexProtocol;
     this.refreshWindow = refreshWindow;
@@ -69,7 +72,7 @@ export class OrcaProcessor {
     this.chainConfig = chainConfig;
     this.schemaName = this.generateSchemaName();
     this.refreshWindow = this.protocol.balanceFlushIntervalHours * HOURS_TO_MS;
-
+    this.connection = new Connection(rpcUrl, 'confirmed');
     this.positionStorageService = new PositionStorageService();
     this.liquidityMathService = new LiquidityMathService();
   }
@@ -930,6 +933,7 @@ export class OrcaProcessor {
         protocolStates,
         this.positionStorageService,
         this.liquidityMathService,
+        this.connection,
       );
     }
 
@@ -963,6 +967,7 @@ export class OrcaProcessor {
         protocolStates,
         this.positionStorageService,
         this.liquidityMathService,
+        this.connection,
       );
     }
 

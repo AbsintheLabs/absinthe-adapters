@@ -2,12 +2,15 @@ import { logger } from '@absinthe/common';
 import { OrcaInstructionData, BundledPositionData, PositionBundleMeta } from '../utils/types';
 import { PositionStorageService } from '../services/PositionStorageService';
 import { LiquidityMathService } from '../services/LiquidityMathService';
+import { getMintFromTokenAccount } from '../utils/helper';
+import { Connection } from '@solana/web3.js';
 
 export async function processBundlePositionInstructions(
   instructionsData: OrcaInstructionData[],
   protocolStates: Map<string, any>,
   positionStorageService: PositionStorageService,
   liquidityMathService: LiquidityMathService,
+  connection: Connection,
 ): Promise<void> {
   logger.info(`📦 [BundleInstructions] Processing ${instructionsData.length} bundle instructions`);
 
@@ -40,6 +43,7 @@ export async function processBundlePositionInstructions(
             data as BundledPositionData,
             protocolStates,
             positionStorageService,
+            connection,
           );
           break;
         case 'closeBundledPosition':
@@ -139,18 +143,29 @@ async function processOpenBundledPosition(
   data: BundledPositionData,
   protocolStates: Map<string, any>,
   positionStorageService: PositionStorageService,
+  connection: Connection,
 ): Promise<void> {
   logger.info(`📦 [BundleInstructions] Processing open bundled position`, {
     slot: data.slot,
     txHash: data.txHash,
   });
 
-  const { positionBundle, position, whirlpool, tickLowerIndex, tickUpperIndex, owner } =
-    analyzeOpenBundledPosition(data.decodedInstruction);
+  const {
+    positionBundle,
+    position,
+    whirlpool,
+    tickLowerIndex,
+    tickUpperIndex,
+    owner,
+    positionTokenAccount,
+  } = analyzeOpenBundledPosition(data.decodedInstruction);
 
-  //todo: find the positionMint
+  const positionMint = await getMintFromTokenAccount(positionTokenAccount, connection);
 
-  const positionMint = '';
+  logger.info(`📦 [BundleInstructions] Position mint:`, {
+    positionMint,
+    positionTokenAccount,
+  });
 
   // Get the pool to determine if position is active
   const pool = await positionStorageService.getPool(whirlpool);
@@ -163,7 +178,7 @@ async function processOpenBundledPosition(
 
   const positionDetails = {
     positionId: position,
-    positionMint: positionMint,
+    positionMint: positionMint as string,
     owner: owner,
     liquidity: '0', // Initial liquidity is 0
     tickLower: tickLowerIndex,
@@ -233,6 +248,7 @@ function analyzeOpenBundledPosition(decodedInstruction: any) {
   return {
     positionBundle: decodedInstruction.accounts.positionBundle,
     position: decodedInstruction.accounts.bundledPosition,
+    positionTokenAccount: decodedInstruction.accounts.positionBundleTokenAccount,
     whirlpool: decodedInstruction.accounts.whirlpool,
     tickLowerIndex: decodedInstruction.data.tickLowerIndex,
     tickUpperIndex: decodedInstruction.data.tickUpperIndex,

@@ -13,6 +13,7 @@ const WHIRLPOOL_ADDRESSES = [
   'H3TyEdmcRPqU5zHR1cXgp7dD61fsyxPGPRUUgDG6wpR3',
   'DdiBUm31RAqr9JRPw1zzMUzZCoUEYPuxULZFPHSM61QX',
   'C62E7PUmVRj3eNH2nejbi3DruwfhN5wTsAkj3De2e4H5',
+  '36wzzrLB33yEeMbHrYCY2dkwtK3ob5AyYn6rncEFBLgN',
 ];
 
 const TOKEN_DETAILS = [
@@ -71,6 +72,13 @@ const TOKEN_DETAILS = [
     coingeckoId: 'euro',
     price: 1.18,
     decimals: 6,
+  },
+  {
+    symbol: 'XSTOCK',
+    address: 'XsP7xzNPvEHS1m6qfanPUGjNmdnmsLKEoNAnHjdxxyZ',
+    coingeckoId: 'xstock',
+    price: 331.19,
+    decimals: 8,
   },
 ];
 

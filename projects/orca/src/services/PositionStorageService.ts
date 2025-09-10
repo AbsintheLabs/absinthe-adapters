@@ -77,17 +77,17 @@ export class PositionStorageService {
       poolId: pool.poolId,
       token0Id: pool.token0Id,
       token1Id: pool.token1Id,
-      fee: pool.fee.toString(),
+      fee: pool.fee.toString() || '0',
       token0Decimals: pool.token0Decimals.toString(),
       token1Decimals: pool.token1Decimals.toString(),
       currentTick: pool.currentTick,
       whirlpoolConfig: pool.whirlpoolConfig.toString(),
-      tickSpacing: pool.tickSpacing.toString(),
+      tickSpacing: pool.tickSpacing ? pool.tickSpacing.toString() : '0',
       systemProgram: pool.systemProgram.toString(),
       tokenVault0: pool.tokenVault0.toString(),
       tokenVault1: pool.tokenVault1.toString(),
       funder: pool.funder.toString(),
-      poolType: pool.poolType.toString(),
+      poolType: pool.poolType.toString() || '0',
     });
   }
 
