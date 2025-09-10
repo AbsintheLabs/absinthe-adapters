@@ -26,6 +26,7 @@ const orcaProcessor = new OrcaProcessor(
   apiClient,
   env.baseConfig,
   chainConfig,
+  orcaProtocol.rpcUrl,
 );
 orcaProcessor.run();
 

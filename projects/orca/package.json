@@ -12,6 +12,8 @@
   "packageManager": "pnpm@10.1.0",
   "dependencies": {
     "@absinthe/common": "workspace:*",
+    "@solana/spl-token": "^0.4.14",
+    "@solana/web3.js": "^1.98.4",
     "@subsquid/batch-processor": "^0.0.0",
     "@subsquid/borsh": "^0.2.0",
     "@subsquid/solana-objects": "^0.0.2",
@@ -22,9 +24,9 @@
     "dotenv": "^16.4.7",
     "inflected": "^1.0.0",
     "pg": "^8.13.1",
+    "redis": "^5.5.6",
     "typeorm": "^0.3.20",
-    "zod": "^3.24.3",
-    "redis": "^5.5.6"
+    "zod": "^3.24.3"
   },
   "devDependencies": {
     "@subsquid/solana-typegen": "^0.6.1",

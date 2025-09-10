@@ -1,6 +1,6 @@
 import { fetchHistoricalUsd, logger } from '@absinthe/common';
 import { createClient, RedisClientType } from 'redis';
-import { Token, PositionDetails, PoolDetails } from '../utils/types';
+import { Token, PositionDetails, PoolDetails, PositionBundleMeta } from '../utils/types';
 
 export class PositionStorageService {
   private redis: RedisClientType;
@@ -77,17 +77,17 @@ export class PositionStorageService {
       poolId: pool.poolId,
       token0Id: pool.token0Id,
       token1Id: pool.token1Id,
-      fee: pool.fee.toString(),
+      fee: pool.fee.toString() || '0',
       token0Decimals: pool.token0Decimals.toString(),
       token1Decimals: pool.token1Decimals.toString(),
       currentTick: pool.currentTick,
       whirlpoolConfig: pool.whirlpoolConfig.toString(),
-      tickSpacing: pool.tickSpacing.toString(),
+      tickSpacing: pool.tickSpacing ? pool.tickSpacing.toString() : '0',
       systemProgram: pool.systemProgram.toString(),
       tokenVault0: pool.tokenVault0.toString(),
       tokenVault1: pool.tokenVault1.toString(),
       funder: pool.funder.toString(),
-      poolType: pool.poolType.toString(),
+      poolType: pool.poolType.toString() || '0',
     });
   }
 
@@ -153,6 +153,71 @@ export class PositionStorageService {
     return 0;
   }
 
+  async storePositionBundle(positionBundle: PositionBundleMeta): Promise<void> {
+    if (!this.isConnected) {
+      throw new Error('Redis not connected');
+    }
+    const positionBundleKey = `bundle:${positionBundle.bundleId}`;
+    await this.redis.hSet(positionBundleKey, {
+      bundleId: positionBundle.bundleId,
+      positionBundleMint: positionBundle.positionBundleMint,
+      owner: positionBundle.owner,
+      lastUpdatedBlockTs: positionBundle.lastUpdatedBlockTs.toString(),
+      lastUpdatedBlockHeight: positionBundle.lastUpdatedBlockHeight.toString(),
+    });
+  }
+
+  async deletePositionBundle(bundleId: string): Promise<void> {
+    if (!this.isConnected) {
+      throw new Error('Redis not connected');
+    }
+    const bundlePositions = await this.redis.sMembers(`bundle:${bundleId}:positions`);
+
+    const multi = this.redis.multi();
+
+    // Delete each position's data
+    for (const positionId of bundlePositions) {
+      const poolId = await this.redis.get(`positionPool:${positionId}`);
+      if (poolId) {
+        multi.del(`pool:${poolId}:position:${positionId}`);
+        multi.del(`positionPool:${positionId}`);
+        multi.sRem(`pool:${poolId}:positions`, positionId);
+      }
+    }
+
+    // Delete bundle data
+    multi.del(`bundle:${bundleId}:positions`);
+    multi.del(`bundle:${bundleId}`);
+
+    await multi.exec();
+  }
+
+  async getPositionBundle(bundleId: string): Promise<PositionBundleMeta | null> {
+    if (!this.isConnected) {
+      return null;
+    }
+
+    try {
+      const bundleKey = `bundle:${bundleId}`;
+      const data = await this.redis.hGetAll(bundleKey);
+
+      if (!data.bundleId) {
+        return null;
+      }
+
+      return {
+        bundleId: data.bundleId,
+        positionBundleMint: data.positionBundleMint,
+        owner: data.owner,
+        lastUpdatedBlockTs: parseInt(data.lastUpdatedBlockTs),
+        lastUpdatedBlockHeight: parseInt(data.lastUpdatedBlockHeight),
+      };
+    } catch (error) {
+      logger.error(`❌ [GetPositionBundle] Error getting bundle ${bundleId}:`, error);
+      return null;
+    }
+  }
+
   async storePosition(position: PositionDetails): Promise<void> {
     if (!this.isConnected) {
       throw new Error('Redis not connected');
@@ -178,6 +243,66 @@ export class PositionStorageService {
     multi.sAdd(`pool:${position.poolId}:positions`, position.positionId);
 
     await multi.exec();
+  }
+
+  async storePositionWithBundle(position: PositionDetails, bundleId: string): Promise<void> {
+    if (!this.isConnected) {
+      throw new Error('Redis not connected');
+    }
+
+    // Check if bundle exists, if not create it
+    const existingBundle = await this.getPositionBundle(bundleId);
+    if (!existingBundle) {
+      logger.info(
+        `📦 [StorePositionWithBundle] Bundle ${bundleId} not found, creating default bundle`,
+      );
+
+      // Create a default bundle with the position owner
+      const defaultBundle: PositionBundleMeta = {
+        bundleId: bundleId,
+        positionBundleMint: position.positionMint,
+        owner: position.owner,
+        lastUpdatedBlockTs: position.lastUpdatedBlockTs,
+        lastUpdatedBlockHeight: position.lastUpdatedBlockHeight,
+      };
+
+      await this.storePositionBundle(defaultBundle);
+      logger.info(`📦 [StorePositionWithBundle] Created default bundle for ${bundleId}`);
+    }
+
+    const multi = this.redis.multi();
+    const positionKey = `pool:${position.poolId}:position:${position.positionId}`;
+
+    // Store position data
+    multi.hSet(positionKey, {
+      positionId: position.positionId,
+      positionMint: position.positionMint,
+      owner: position.owner,
+      liquidity: position.liquidity,
+      tickLower: position.tickLower.toString(),
+      tickUpper: position.tickUpper.toString(),
+      poolId: position.poolId,
+      isActive: position.isActive,
+      lastUpdatedBlockTs: position.lastUpdatedBlockTs.toString(),
+      lastUpdatedBlockHeight: position.lastUpdatedBlockHeight.toString(),
+    });
+
+    // Add to various sets
+    multi.set(`positionPool:${position.positionId}`, position.poolId);
+    multi.sAdd(`pool:${position.poolId}:positions`, position.positionId);
+    multi.sAdd(`bundle:${bundleId}:positions`, position.positionId);
+
+    await multi.exec();
+  }
+
+  //todo: coming up in transfer
+  async updatePositionBundle(meta: PositionBundleMeta): Promise<void> {
+    const bundleKey = `bundle:${meta.bundleId}`;
+    await this.redis.hSet(bundleKey, {
+      owner: meta.owner,
+      lastUpdatedBlockTs: meta.lastUpdatedBlockTs.toString(),
+      lastUpdatedBlockHeight: meta.lastUpdatedBlockHeight.toString(),
+    });
   }
 
   async storeBatchPositions(positions: PositionDetails[]): Promise<void> {
