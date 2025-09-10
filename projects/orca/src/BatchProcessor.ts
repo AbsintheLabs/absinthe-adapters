@@ -43,6 +43,7 @@ import { processTransferInstructions } from './mappings/transferInstruction';
 import { LiquidityMathService } from './services/LiquidityMathService';
 import { PositionStorageService } from './services/PositionStorageService';
 import { getOptimizedTokenPrices } from './utils/pricing';
+import { processBundlePositionInstructions } from './mappings/bundleInstructions';
 
 const TOKEN_EXTENSION_PROGRAM_ID = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
 export class OrcaProcessor {
@@ -754,6 +755,43 @@ export class OrcaProcessor {
             type: 'lockPosition',
             decodedInstruction: whirlpoolProgram.instructions.lockPosition.decode(ins),
           } as OrcaInstructionData;
+
+        case whirlpoolProgram.instructions.openBundledPosition.d8:
+          return {
+            ...baseData,
+            type: 'openBundledPosition',
+            decodedInstruction: whirlpoolProgram.instructions.openBundledPosition.decode(ins),
+          } as OrcaInstructionData;
+
+        case whirlpoolProgram.instructions.closeBundledPosition.d8:
+          return {
+            ...baseData,
+            type: 'closeBundledPosition',
+            decodedInstruction: whirlpoolProgram.instructions.closeBundledPosition.decode(ins),
+          } as OrcaInstructionData;
+
+        case whirlpoolProgram.instructions.initializePositionBundle.d8:
+          return {
+            ...baseData,
+            type: 'initializePositionBundle',
+            decodedInstruction: whirlpoolProgram.instructions.initializePositionBundle.decode(ins),
+          } as OrcaInstructionData;
+
+        case whirlpoolProgram.instructions.initializePositionBundleWithMetadata.d8:
+          return {
+            ...baseData,
+            type: 'initializePositionBundleWithMetadata',
+            decodedInstruction:
+              whirlpoolProgram.instructions.initializePositionBundleWithMetadata.decode(ins),
+          } as OrcaInstructionData;
+
+        case whirlpoolProgram.instructions.deletePositionBundle.d8:
+          return {
+            ...baseData,
+            type: 'deletePositionBundle',
+            decodedInstruction: whirlpoolProgram.instructions.deletePositionBundle.decode(ins),
+          } as OrcaInstructionData;
+
         default:
           return null;
       }
@@ -836,6 +874,18 @@ export class OrcaProcessor {
       ['resetPositionRange', 'transferLockedPosition', 'lockPosition'].includes(data.type),
     );
 
+    const openBundledPositionInstructions = blockInstructions.filter((data) =>
+      [
+        'openBundledPosition',
+        'initializePositionBundle',
+        'initializePositionBundleWithMetadata',
+      ].includes(data.type),
+    );
+
+    const closeBundledPositionInstructions = blockInstructions.filter((data) =>
+      ['closeBundledPosition', 'deletePositionBundle'].includes(data.type),
+    );
+
     if (poolInstructions.length > 0) {
       await processPoolInstructions(
         poolInstructions,
@@ -871,6 +921,18 @@ export class OrcaProcessor {
       );
     }
 
+    if (openBundledPositionInstructions.length > 0) {
+      logger.info(
+        `🏊 [ProcessBlockInstructions] Processing ${openBundledPositionInstructions.length} open bundled position instructions`,
+      );
+      await processBundlePositionInstructions(
+        openBundledPositionInstructions,
+        protocolStates,
+        this.positionStorageService,
+        this.liquidityMathService,
+      );
+    }
+
     if (liquidityInstructions.length > 0) {
       await processLiquidityInstructions(
         liquidityInstructions,
@@ -886,6 +948,18 @@ export class OrcaProcessor {
       );
       await processPositionInstructions(
         closePositionInstructions,
+        protocolStates,
+        this.positionStorageService,
+        this.liquidityMathService,
+      );
+    }
+
+    if (closeBundledPositionInstructions.length > 0) {
+      logger.info(
+        `🏊 [ProcessBlockInstructions] Processing ${closeBundledPositionInstructions.length} close bundled position instructions`,
+      );
+      await processBundlePositionInstructions(
+        closeBundledPositionInstructions,
         protocolStates,
         this.positionStorageService,
         this.liquidityMathService,

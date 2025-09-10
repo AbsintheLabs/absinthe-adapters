@@ -68,7 +68,7 @@ interface Token {
 
 interface PositionDetails {
   positionId: string;
-  owner: string;
+  owner: string; // owner of the NFT (stand-alone) or owner of the bundle that contains this position
   liquidity: string;
   tickLower: number;
   tickUpper: number;
@@ -78,6 +78,27 @@ interface PositionDetails {
   poolId: string;
   positionMint: string;
   tokenProgram: string;
+}
+
+interface PositionBundleMeta {
+  bundleId: string; // PDA / NFT mint of the bundle
+  owner: string; // bundle NFT owner
+  positionBundleMint: string;
+  lastUpdatedBlockTs: number;
+  lastUpdatedBlockHeight: number;
+}
+
+interface BundledPositionDetails extends PositionDetails {
+  bundleId: string; // FK → PositionBundleMeta.bundleId
+  bundleIndex: number; // slot inside the bundle
+}
+
+interface PositionBundleTransfer {
+  bundleId: string;
+  newOwner: string;
+  previousOwner: string;
+  slot: number;
+  timestamp: number;
 }
 
 interface PoolDetails {
@@ -148,6 +169,16 @@ interface InitializeData extends BaseInstructionData {
   // Add initialize-specific fields here
 }
 
+interface BundledPositionData extends BaseInstructionData {
+  type:
+    | 'openBundledPosition'
+    | 'closeBundledPosition'
+    | 'initializePositionBundle'
+    | 'initializePositionBundleWithMetadata'
+    | 'deletePositionBundle';
+  // Add bundled position-specific fields here
+}
+
 type OrcaInstructionData =
   | SwapData
   | TwoHopSwapData
@@ -156,7 +187,8 @@ type OrcaInstructionData =
   | RewardData
   | PositionData
   | InitializeData
-  | TransferData;
+  | TransferData
+  | BundledPositionData;
 
 export type {
   TokenBalance,
@@ -174,5 +206,9 @@ export type {
   BaseInstructionData,
   Token,
   PositionDetails,
+  PositionBundleMeta,
+  BundledPositionDetails,
+  PositionBundleTransfer,
   PoolDetails,
+  BundledPositionData,
 };

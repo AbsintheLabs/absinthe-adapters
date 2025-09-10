@@ -11,6 +11,8 @@ const WHIRLPOOL_ADDRESSES = [
   'AvVeFoEokqbosw9UWkYEnwpWhTQd96GeWwV48WjFCEMw',
   'HWzqj2vg581nwvAryFKoeB3DaNqtNhtxY98wbb8EjLpC',
   'H3TyEdmcRPqU5zHR1cXgp7dD61fsyxPGPRUUgDG6wpR3',
+  'DdiBUm31RAqr9JRPw1zzMUzZCoUEYPuxULZFPHSM61QX',
+  'C62E7PUmVRj3eNH2nejbi3DruwfhN5wTsAkj3De2e4H5',
 ];
 
 const TOKEN_DETAILS = [
@@ -49,6 +51,31 @@ const TOKEN_DETAILS = [
     price: 0.217,
     decimals: 9,
   },
+  {
+    symbol: 'PayPal',
+    address: '2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo',
+    coingeckoId: 'paypal',
+    price: 1,
+    decimals: 6,
+  },
+  {
+    symbol: 'USDC.e',
+    address: 'Eh6XEPhSwoLv5wFApukmnaVSHQ6sAnoD9BmgmwQoN2sN',
+    coingeckoId: 'usd-coin',
+    price: 1.19,
+    decimals: 9,
+  },
+  {
+    symbol: 'EURO.e',
+    address: '2VhjJ9WxaGC3EZFwJG9BDUs9KxKCAjQY4vgd1qxgYWVg',
+    coingeckoId: 'euro',
+    price: 1.18,
+    decimals: 6,
+  },
 ];
 
 export { TRACKED_TOKENS, FILE_NAME, WHIRLPOOL_ADDRESSES, TOKEN_DETAILS };
+
+//362407532
+// 356958812 - init
+// 356962718 - current length in 30 mins

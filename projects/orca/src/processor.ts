@@ -72,6 +72,12 @@ export const processor = new DataSourceBuilder()
         whirlpoolProgram.instructions.closePositionWithTokenExtensions.d8,
         whirlpoolProgram.instructions.openPositionWithMetadata.d8,
 
+        whirlpoolProgram.instructions.openBundledPosition.d8,
+        whirlpoolProgram.instructions.closeBundledPosition.d8,
+        whirlpoolProgram.instructions.initializePositionBundle.d8,
+        whirlpoolProgram.instructions.initializePositionBundleWithMetadata.d8,
+        whirlpoolProgram.instructions.deletePositionBundle.d8,
+
         whirlpoolProgram.instructions.initializePoolV2.d8,
         whirlpoolProgram.instructions.initializePool.d8,
         whirlpoolProgram.instructions.initializePoolWithAdaptiveFee.d8,
