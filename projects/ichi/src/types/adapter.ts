@@ -12,7 +12,7 @@ import { MeasureDelta } from './core';
 // ------------------------------------------------------------
 
 // Emit functions for log handlers
-export interface LogEmitFunctions {
+export interface EmitFunctions {
   balanceDelta: (e: BalanceDelta, reason?: string) => Promise<void>;
   positionUpdate: (e: PositionUpdate) => Promise<void>;
   positionStatusChange: (e: PositionStatusChange) => Promise<void>;
@@ -47,7 +47,7 @@ export interface Projector {
 // Context passed to projectors
 export interface ProjectorContext {
   redis: RedisClientType;
-  emit: LogEmitFunctions;
+  emit: EmitFunctions;
   block: Block;
   log: Log;
 }
@@ -72,7 +72,7 @@ export type MountCtx = {
   rpc: unknown;
 
   // Engine emit API (same functions you use today)
-  emit: LogEmitFunctions;
+  emit: EmitFunctions;
 
   // Until feeds live in config, Engine can pass them through here
   assetFeeds: AssetFeedConfig;
@@ -100,12 +100,12 @@ export interface AdapterLegacy {
   onLog?(
     block: Block,
     log: Log,
-    emit: LogEmitFunctions,
+    emit: EmitFunctions,
     rpcCtx: RpcContext,
     redis: RedisClientType,
   ): Promise<void>;
   // note: transaction tracking only supports event-based tracking, not time-weighted
-  onTransaction?(block: Block, transaction: Transaction, emit: LogEmitFunctions): Promise<void>;
+  onTransaction?(block: Block, transaction: Transaction, emit: EmitFunctions): Promise<void>;
   // Called at the end of each batch for cleanup/deferred operations
   onBatchEnd?(redis: RedisClientType): Promise<void>;
   feedConfig: AssetFeedConfig;

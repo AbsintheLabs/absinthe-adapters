@@ -185,7 +185,7 @@ import { buildBaseSqdProcessor } from './eprocessorBuilder';
 import { Sink, SinkFactory } from './esink';
 import { createClient, RedisClientType } from 'redis';
 import { AppConfig } from './config/schema';
-import { Adapter, LogEmitFunctions } from './types/adapter';
+import { Adapter, EmitFunctions } from './types/adapter';
 
 // New registry imports
 import { EngineIO, BuiltAdapter } from './adapter-core';

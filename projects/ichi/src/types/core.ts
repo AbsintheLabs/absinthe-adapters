@@ -23,6 +23,7 @@ export type BalanceDelta = {
   user: string;
   asset: string;
   amount: Big;
+  activity: Activity;
   // only support primitive types for metadata with flat structure
   meta?: Record<string, MetadataValue>;
 };
@@ -51,45 +52,38 @@ export type MeasureDelta = {
   user?: string;
 };
 
-// ACTION RELATED TYPES
-// export type ActionType = 'swap' | 'generic';
-
-// the following is a non-exhaustive list of "nice to haves" to identify the role of the asset in action
-export type ActionRole =
-  | 'input'
-  | 'output'
-  | 'payment'
-  | 'reward'
-  | 'bridge'
-  | 'bid'
-  | 'fee'
-  | 'liquidation'
-  | 'delegate'
-  | 'slash'
+export type Activity =
+  | 'swap'
+  | 'lend'
+  | 'borrow'
+  | 'hold'
+  | 'lp'
+  | 'long'
+  | 'short'
   | 'stake'
-  | 'harvest'
   | 'claim'
   | 'verify'
+  | 'bridge'
+  | 'bid'
+  | 'liquidation'
+  | 'delegate'
+  | 'harvest'
+  | 'collect'
+  | 'vote'
   | (string & {});
+
+// ACTION RELATED TYPES
 
 export type Amount = {
   asset: string;
   amount: Big;
 };
 
-// export type ActionEvent = {
-//   key: string;
-//   user: string;
-//   amount: Amount;
-//   role?: ActionRole;
-//   meta?: Record<string, MetadataValue>;
-//   // attrs?: Record<string, string | number | boolean>; // flat attributes for matching
-// }
-
 export type ActionEventBase = {
   key: string;
   user: string;
-  role?: ActionRole;
+  // role?: ActionRole;
+  activity: Activity;
   meta?: Record<string, MetadataValue>;
 };
 

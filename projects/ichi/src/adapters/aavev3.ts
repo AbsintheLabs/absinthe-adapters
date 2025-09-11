@@ -9,31 +9,23 @@ import * as erc20Abi from '../abi/erc20';
 import * as aaveV3VarDebtAbi from '../abi/aavev3variabledebttoken';
 
 // New registry imports
-import { defineAdapter, Address } from '../adapter-core';
+import { defineAdapter, Address, SemVer, semver } from '../adapter-core';
 import { registerAdapter } from '../adapter-registry';
-
-export const AaveV3Params = z
-  .object({
-    kind: z.literal('aave-v3'),
-    // poolDataProviderAddress: Address,
-    aTokenAddress: Address.optional(),
-    variableDebtTokenAddress: Address.optional(),
-  })
-  .refine((params) => !!params.aTokenAddress || !!params.variableDebtTokenAddress, {
-    message: 'At least one of aTokenAddress or variableDebtTokenAddress must be provided',
-    path: ['aTokenAddress', 'variableDebtTokenAddress'],
-  });
-
-export type AaveV3Params = z.infer<typeof AaveV3Params>;
-
-function createVarDebtTokenKey(debtTokenAddress: string, userAddress: string) {
-  return `aavev3:varDebtToken:${debtTokenAddress}:${userAddress}`;
-}
 
 export const aavev3 = registerAdapter(
   defineAdapter({
     name: 'aave-v3',
-    schema: AaveV3Params,
+    semver: '1.0.0',
+    schema: z
+      .object({
+        // poolDataProviderAddress: Address,
+        aTokenAddress: Address.optional(),
+        variableDebtTokenAddress: Address.optional(),
+      })
+      .refine((params) => !!params.aTokenAddress || !!params.variableDebtTokenAddress, {
+        message: 'At least one of aTokenAddress or variableDebtTokenAddress must be provided',
+        path: ['aTokenAddress', 'variableDebtTokenAddress'],
+      }),
     build: ({ params, io }) => {
       // Event topics would be defined here based on actual ABI
       const transferTopic = erc20Abi.events.Transfer.topic;
@@ -42,8 +34,6 @@ export const aavev3 = registerAdapter(
       const RAY = Big(10).pow(27);
 
       return {
-        __adapterName: 'aave-v3',
-        adapterCustomConfig: AaveV3Params,
         buildProcessor: (base) => {
           if (params.variableDebtTokenAddress) {
             base.addLog({
@@ -71,6 +61,7 @@ export const aavev3 = registerAdapter(
                 user: from,
                 asset: params.aTokenAddress,
                 amount: Big(value.toString()),
+                activity: 'lend',
               });
             }
           }
@@ -89,6 +80,7 @@ export const aavev3 = registerAdapter(
                 // asset: createVarDebtTokenKey(params.variableDebtTokenAddress, onBehalfOf),
                 asset: params.variableDebtTokenAddress,
                 amount: scaledAmt,
+                activity: 'borrow',
               });
             }
             // burn
@@ -103,6 +95,7 @@ export const aavev3 = registerAdapter(
                 // asset: createVarDebtTokenKey(params.variableDebtTokenAddress, from),
                 asset: params.variableDebtTokenAddress,
                 amount: scaledAmt.neg(),
+                activity: 'borrow',
               });
             }
             // no transfer since variable debt token is not transferable

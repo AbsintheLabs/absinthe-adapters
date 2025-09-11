@@ -1,6 +1,6 @@
 // adapter-registry.ts - Central registry for all adapters
 import { z } from 'zod';
-import { defineAdapter, AdapterDef, BuiltAdapter, EngineIO } from './adapter-core';
+import { defineAdapter, AdapterDef, BuiltAdapter, EngineIO, SemVer } from './adapter-core';
 
 // Type for any adapter definition
 type AnyDef = AdapterDef<any>;
@@ -13,8 +13,20 @@ export function registerAdapter<D extends AnyDef>(def: D) {
   if (registry.has(def.name)) {
     throw new Error(`Duplicate adapter: ${def.name}`);
   }
-  registry.set(def.name, def);
-  return def; // for tree-shaken side-effect registration
+
+  // Validate semver format
+  SemVer.parse(def.semver);
+
+  // Automatically inject the name as a literal into the schema
+  const enhancedDef = {
+    ...def,
+    schema: def.schema.extend({
+      kind: z.literal(def.name),
+    }),
+  };
+
+  registry.set(def.name, enhancedDef);
+  return enhancedDef; // for tree-shaken side-effect registration
 }
 
 // Build an adapter by name with runtime validation

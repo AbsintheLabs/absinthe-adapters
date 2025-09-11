@@ -500,3 +500,103 @@ So we need to have a data shape that can represent:
    }
 2. A non-priceable action (which has an asset and amount)
 3. A non-priceable action that does not have an asset and amount, and so there is by definition, nothing to price
+
+———————————————————————————————————
+———————————————————————————————————
+———————————————————————————————————
+
+### The Enrichment Problem + TWB / Action Data Shapes
+
+It's becoming pretty clear that we want to have a very clean data shape for both types of data shapes.
+This is a necessary prerequisite before we go on and start building a testing framework that checks particular output (although not totally necessary to have this super down)
+
+We have already modified the data shape for the TWB data shape, but it might need additional changes before we can start investing time into getting the right types in the enrichment step.
+
+TWB reveal something about how "long" something was held for. We like to have a lot of data here since this helps us debug the data later and spot any potential issues.
+
+We will likely have different files output for EVM and then Solana. The shapes will actually be different. We will get to this later.
+
+Some columns that we have now that are very important:
+
+-- we need to see if we can use one structure for both solana and evm data, depending on how specific it is
+-- come back to this question when we attack the solana question
+
+--- TIME WEIGHTED BALANCE DATA SHAPE ---
+// attribution
+
+- user: EVM address
+
+// asset (still unsure about this part...)
+
+- asset: EVM or Solana address
+- tokenId: OPTIONAL (helps represent an nft)
+- decimals
+- asset type (erc20, erc721, spl, etc)
+
+// chain
+
+- chainId: bigint
+- chainShortName: string
+- chainArch: 'EVM'
+
+// protocol metadata
+
+- protocolName: string
+- protocolForkOf: string
+
+// window
+
+- windowUtcStartTsMs: timestamp in ms at utc time (must be ms)
+- windowUtcEndTsMs: timestamp in ms at utc time (must be ms)
+- windowDurationMs: bigint (duration of the window in ms)
+- startBlockNumber: bigint block number
+- endBlockNumber: bigint block number
+- prevTxHash: string (hash of the previous transaction)
+- txHash: string (hash of the transaction)
+- trigger: string (reason. it should be an enum of types like 'balance_delta', 'position_update', etc)
+
+// raw position
+
+- rawBefore: string
+- rawAfter: string
+- rawDelta: string
+
+// priced position
+
+- quantity: string (this is arguably the most important field here)
+- quantityBasis: string ('raw_units', 'scaled_units', 'monetary_value')
+- valuationCurrency: string ('usd', 'eur', 'eth', etc)
+- priceSource: string (can this be an array of strings? we need to show the chain of sources that led to price)
+- tokenPriceUsd: number | null
+
+// price debug info
+
+- priceSampleCount: number
+- min: number
+- max: number
+- mean: number
+- std: number
+
+// runner metadata
+
+- base.version: string (version of the base event)
+- base.eventId: string (primary key)
+- base.runner.runnerId: string
+- base.runner.apiKeyHash: string
+
+// meta
+
+- base.metadataJson: json string
+- base.eventType: 'ACTION' | 'TIME_WEIGHTED_BALANCE'
+- role: string (like 'swap', 'lend', 'borrow', 'repay', 'verify', etc)
+- adapterVersion: string (semver of adapter)
+
+--- ACTION DATA SHAPE ---
+tbd...
+
+### The Redis Problem
+
+We will be running multiple indexers with the same database.
+There are a few things we can do to prevent collisions:
+
+1. Redis key pre-fixing via the library -- this is the way to go. We'll use ioredis instead and port over from node-redis (redis TS will need to have manual calls, fortunately, not a lot has to be done here)

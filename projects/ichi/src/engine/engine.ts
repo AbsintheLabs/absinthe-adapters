@@ -13,13 +13,7 @@ import { AppConfig } from '../config/schema';
 import { loadConfig } from '../config/load';
 import { buildBaseSqdProcessor } from '../eprocessorBuilder';
 import { match } from 'ts-pattern';
-import {
-  Adapter,
-  LogEmitFunctions,
-  Projector,
-  ProjectorContext,
-  AdapterV2,
-} from '../types/adapter';
+import { Adapter, EmitFunctions, Projector, ProjectorContext, AdapterV2 } from '../types/adapter';
 import { ActionEventPriced, Amount, NormalizedEventContext, PositionUpdate } from '../types/core';
 import {
   IndexerMode,
@@ -973,7 +967,7 @@ export class Engine {
     ctx: NormalizedEventContext,
     // note: we'll later need to clean this up to work cleanly with solana
     logOrTx: Log | Transaction,
-  ): LogEmitFunctions {
+  ): EmitFunctions {
     return {
       balanceDelta: (e: BalanceDelta, reason?: string) => this.applyBalanceDelta(e, ctx, reason),
       positionUpdate: (e: PositionUpdate) => this.applyPositionUpdate(e, ctx),

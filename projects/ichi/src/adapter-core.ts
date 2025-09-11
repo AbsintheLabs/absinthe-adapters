@@ -1,9 +1,10 @@
 // adapter-core.ts - Core types and utilities for the adapter registry pattern
 import { z, ZodTypeAny } from 'zod';
 import { RedisClientType } from 'redis';
-import { LogEmitFunctions, RpcContext, Projector, CustomFeedHandlers } from './types/adapter';
+import { EmitFunctions, RpcContext, Projector, CustomFeedHandlers } from './types/adapter';
 import { Block, Log, Transaction } from './processor';
 import { BaseProcessor } from './eprocessorBuilder';
+import { ProtocolFamily } from './constants';
 
 // Engine IO interface for dependency injection
 export type EngineIO = {
@@ -19,12 +20,12 @@ type OnArgs = {
 
 export type OnLogArgs = OnArgs & {
   log: Log;
-  emit: LogEmitFunctions;
+  emit: EmitFunctions;
 };
 
 export type OnTransactionArgs = OnArgs & {
   transaction: Transaction;
-  emit: LogEmitFunctions;
+  emit: EmitFunctions;
 };
 
 export type OnInitArgs = {
@@ -34,9 +35,6 @@ export type OnInitArgs = {
 
 // Adapter hooks that define the contract for all adapters
 export type AdapterHooks = {
-  // Zod schema for validating adapter configuration
-  adapterCustomConfig?: ZodTypeAny;
-
   // Function to extend the base processor with adapter-specific subscriptions
   buildProcessor: (base: BaseProcessor) => BaseProcessor;
 
@@ -59,14 +57,18 @@ export type AdapterHooks = {
 };
 
 // Built adapter with contextual state captured by the builder
-export type BuiltAdapter = AdapterHooks & {
-  // Adapter name for debugging and logging
-  __adapterName: string;
-};
+export type BuiltAdapter = AdapterHooks;
+
+export const SEMVER_RE =
+  /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*)?(?:\+(?:[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
+export const SemVer = z.string().regex(SEMVER_RE, 'Invalid SemVer').brand<'SemVer'>();
+export type SemVer = z.infer<typeof SemVer>;
 
 // Adapter definition with schema and builder
 export type AdapterDef<P extends ZodTypeAny> = {
   name: string;
+  semver: string;
+  forkOf?: ProtocolFamily;
   schema: P;
   build: (opts: {
     params: z.infer<P>; // Already parsed and transformed
