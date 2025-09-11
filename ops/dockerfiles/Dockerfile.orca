@@ -32,6 +32,7 @@ COPY --from=deps /app/projects/orca/node_modules ./projects/orca/node_modules
 # Generate TypeScript clients for uniswapv2 project ABIs and codegen
 WORKDIR /app/projects/orca
 RUN pnpm dlx @subsquid/solana-typegen src/abi TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
+RUN pnpm dlx @subsquid/solana-typegen src/abi TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb
 RUN pnpm dlx @subsquid/solana-typegen src/abi whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc
 
 # Build the common package first, then uniswapv2
