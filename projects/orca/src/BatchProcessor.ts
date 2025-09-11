@@ -189,7 +189,7 @@ export class OrcaProcessor {
       // Use switch statement to decode instruction
       switch (ins.d8) {
         case whirlpoolProgram.instructions.swap.d8:
-          logger.info(`🏊 [ProcessBatch] Inner instructions swap:`, {
+          logger.info(`🏊 [ProcessBatch] Inner instructions swap (dp):`, {
             inner: ins.inner,
           });
           const innerTransfers = ins.inner
