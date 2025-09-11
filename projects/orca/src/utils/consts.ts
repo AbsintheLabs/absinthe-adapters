@@ -49,7 +49,7 @@ const TOKEN_DETAILS = [
     symbol: 'GM30',
     address: '76uBMvo1WL644VaUMhnuzSJSLJtQbNvr8ThubQi7E95n',
     coingeckoId: 'gmx-30-token',
-    price: 0.217,
+    price: 0.22, //avg price
     decimals: 9,
   },
   {

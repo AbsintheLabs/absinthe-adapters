@@ -76,8 +76,11 @@ async function processSwapCommon(
     analysis,
   });
 
-  // Only create transaction schema if we have a userAddress
-  if (analysis?.userAddress) {
+  // Check if this swap should reward users (default to true for backwards compatibility)
+  const shouldRewardUser = (data as any).shouldRewardUser !== false;
+
+  // Only create transaction schema if we should reward AND have a userAddress
+  if (shouldRewardUser && analysis?.userAddress) {
     const poolDetails = await positionStorageService.getPool(analysis.poolId);
 
     const transactionSchema = {
@@ -135,19 +138,28 @@ async function processSwapCommon(
         balanceWindows: [],
         transactions: [transactionSchema],
       });
-      logger.info(`📊 [SwapInstructions] Added transaction for pool ${analysis.poolId}`);
     }
-  } else {
-    logger.warn(
-      `⚠️ [SwapInstructions] Skipping transaction schema - userAddress is undefined, but still processing liquidity changes`,
+
+    logger.info(`📊 [SwapInstructions] Added user reward transaction for pool ${analysis.poolId}`);
+  } else if (!shouldRewardUser && analysis?.userAddress) {
+    logger.info(
+      `🚫 [SwapInstructions] Skipping user reward for second hop pool ${analysis?.poolId}`,
       {
         txHash: data.txHash,
-        analysis,
+        poolId: analysis.poolId,
+        userAddress: analysis.userAddress,
       },
     );
+  } else {
+    logger.warn(`⚠️ [SwapInstructions] Skipping transaction schema - userAddress is undefined`, {
+      txHash: data.txHash,
+      analysis,
+      shouldRewardUser,
+    });
   }
 
-  // ALWAYS process position activation/deactivation regardless of userAddress
+  // ALWAYS process position activation/deactivation regardless of shouldRewardUser flag
+  // This ensures ticks are updated correctly for both hops
   if (analysis?.poolId && analysis?.currentTick !== undefined) {
     const poolDetails = await positionStorageService.getPool(analysis.poolId);
     const positionsToActivate: PositionDetails[] = [];
@@ -167,31 +179,33 @@ async function processSwapCommon(
       }
     }
 
-    await Promise.all([
-      activatePosition(
-        data.slot,
-        data.timestamp,
-        analysis.currentTick!,
-        positionsToActivate,
-        poolDetails!,
-        positionStorageService,
-      ),
-      deactivatePosition(
-        data.slot,
-        data.timestamp,
-        analysis.currentTick!,
-        positionsToDeactivate,
-        poolDetails!,
-        protocolStates,
-        positionStorageService,
-        liquidityMathService,
-      ),
-    ]);
+    //todo: uncomment
+    // await Promise.all([
+    //   activatePosition(
+    //     data.slot,
+    //     data.timestamp,
+    //     analysis.currentTick!,
+    //     positionsToActivate,
+    //     poolDetails!,
+    //     positionStorageService,
+    //   ),
+    //   deactivatePosition(
+    //     data.slot,
+    //     data.timestamp,
+    //     analysis.currentTick!,
+    //     positionsToDeactivate,
+    //     poolDetails!,
+    //     protocolStates,
+    //     positionStorageService,
+    //     liquidityMathService,
+    //   ),
+    // ]);
 
     logger.info(`🔄 [SwapInstructions] Processed liquidity changes for pool ${analysis.poolId}`, {
       currentTick: analysis.currentTick,
       positionsActivated: positionsToActivate.length,
       positionsDeactivated: positionsToDeactivate.length,
+      userRewarded: shouldRewardUser,
     });
   } else {
     logger.warn(

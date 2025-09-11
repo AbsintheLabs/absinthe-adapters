@@ -128,6 +128,7 @@ interface SwapData extends BaseInstructionData {
 interface TwoHopSwapData extends BaseInstructionData {
   type: 'twoHopSwap' | 'twoHopSwapV2';
   transfers: any;
+  shouldRewardUser?: boolean; // Add this flag
   // Add two-hop swap specific fields here
 }
 

@@ -243,6 +243,7 @@ export class OrcaProcessor {
             type: 'swap',
             transfers: innerTransfers,
             decodedInstruction,
+            shouldRewardUser: true,
           } as OrcaInstructionData;
 
         case whirlpoolProgram.instructions.swapV2.d8:
@@ -298,6 +299,7 @@ export class OrcaProcessor {
             type: 'swapV2',
             transfers: innerTransfersV2,
             decodedInstruction: decodedSwapV2,
+            shouldRewardUser: true,
           } as OrcaInstructionData;
 
         case whirlpoolProgram.instructions.increaseLiquidity.d8:
@@ -512,12 +514,25 @@ export class OrcaProcessor {
             },
           };
 
-          return {
-            ...baseData,
-            type: 'twoHopSwapV2',
-            transfers: relevantTransfersV2,
-            decodedInstruction: modifiedDecodedInstructionV2,
-          } as OrcaInstructionData;
+          if (isWhirlpoolOneTargetV2) {
+            // First hop: should reward users
+            return {
+              ...baseData,
+              type: 'twoHopSwapV2',
+              transfers: relevantTransfersV2,
+              decodedInstruction: modifiedDecodedInstructionV2,
+              shouldRewardUser: true, // Add this flag
+            } as OrcaInstructionData;
+          } else if (isWhirlpoolTwoTargetV2) {
+            // Second hop: should NOT reward users, only update ticks
+            return {
+              ...baseData,
+              type: 'twoHopSwapV2',
+              transfers: relevantTransfersV2,
+              decodedInstruction: modifiedDecodedInstructionV2,
+              shouldRewardUser: false, // Add this flag
+            } as OrcaInstructionData;
+          }
 
         case whirlpoolProgram.instructions.twoHopSwap.d8:
           logger.info(`🏊 [ProcessBatch] Inner instructions twoHopSwap:`, {
@@ -615,12 +630,25 @@ export class OrcaProcessor {
             },
           };
 
-          return {
-            ...baseData,
-            type: 'twoHopSwap',
-            transfers: relevantTransfers,
-            decodedInstruction: modifiedDecodedInstruction,
-          } as OrcaInstructionData;
+          if (isWhirlpoolOneTarget) {
+            // First hop: should reward users
+            return {
+              ...baseData,
+              type: 'twoHopSwap',
+              transfers: relevantTransfers,
+              decodedInstruction: modifiedDecodedInstruction,
+              shouldRewardUser: true, // Add this flag
+            } as OrcaInstructionData;
+          } else if (isWhirlpoolTwoTarget) {
+            // Second hop: should NOT reward users, only update ticks
+            return {
+              ...baseData,
+              type: 'twoHopSwap',
+              transfers: relevantTransfers,
+              decodedInstruction: modifiedDecodedInstruction,
+              shouldRewardUser: false, // Add this flag
+            } as OrcaInstructionData;
+          }
 
         case whirlpoolProgram.instructions.openPosition.d8:
           const decodedOpenPosition = whirlpoolProgram.instructions.openPosition.decode(ins);
