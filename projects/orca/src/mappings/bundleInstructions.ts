@@ -162,6 +162,10 @@ async function processOpenBundledPosition(
 
   const positionMint = await getMintFromTokenAccount(positionTokenAccount, connection);
 
+  if (!positionMint) {
+    throw new Error(`Failed to get position mint from token account: ${positionTokenAccount}`);
+  }
+
   logger.info(`📦 [BundleInstructions] Position mint:`, {
     positionMint,
     positionTokenAccount,
@@ -226,7 +230,7 @@ function analyzeInitializePositionBundle(decodedInstruction: any) {
   return {
     positionBundle: decodedInstruction.accounts.positionBundle,
     positionBundleMint: decodedInstruction.accounts.positionBundleMint,
-    owner: decodedInstruction.accounts.owner,
+    owner: decodedInstruction.accounts.positionBundleOwner,
   };
 }
 
@@ -234,7 +238,7 @@ function analyzeInitializePositionBundleWithMetadata(decodedInstruction: any) {
   return {
     positionBundle: decodedInstruction.accounts.positionBundle,
     positionBundleMint: decodedInstruction.accounts.positionBundleMint,
-    owner: decodedInstruction.accounts.owner,
+    owner: decodedInstruction.accounts.positionBundleOwner,
   };
 }
 
@@ -252,7 +256,7 @@ function analyzeOpenBundledPosition(decodedInstruction: any) {
     whirlpool: decodedInstruction.accounts.whirlpool,
     tickLowerIndex: decodedInstruction.data.tickLowerIndex,
     tickUpperIndex: decodedInstruction.data.tickUpperIndex,
-    owner: decodedInstruction.accounts.owner,
+    owner: decodedInstruction.accounts.positionBundleAuthority,
   };
 }
 
