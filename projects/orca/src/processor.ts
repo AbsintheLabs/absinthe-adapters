@@ -46,7 +46,7 @@ export const processor = new DataSourceBuilder()
   .addInstruction({
     // select instructions, that:
     where: {
-      programId: [whirlpoolProgram.programId, tokenProgram.programId, TOKEN_EXTENSION_PROGRAM_ID], // where executed by Whirlpool program
+      programId: [whirlpoolProgram.programId], // where executed by Whirlpool program
       d8: [
         whirlpoolProgram.instructions.swap.d8,
         whirlpoolProgram.instructions.swapV2.d8,
@@ -86,53 +86,7 @@ export const processor = new DataSourceBuilder()
         whirlpoolProgram.instructions.resetPositionRange.d8,
         whirlpoolProgram.instructions.transferLockedPosition.d8,
       ],
-      d1: [tokenProgram.instructions.transferChecked.d1],
 
-      // ...whirlpoolProgram.instructions.swap.accountSelection({
-      //   whirlpool: WHIRLPOOL_ADDRESSES,
-      // }),
-      // ...whirlpoolProgram.instructions.swapV2.accountSelection({
-      //   whirlpool: WHIRLPOOL_ADDRESSES,
-      // }),
-
-      // //NOTE: This will capture all two-hop swaps that start with the USDC-SOL pool, regardless of where they go next. This gives you a good view of all swaps involving that specific pool as the first hop.
-      // ...whirlpoolProgram.instructions.twoHopSwapV2.accountSelection({
-      //   whirlpoolOne: WHIRLPOOL_ADDRESSES,
-      // }),
-      // ...whirlpoolProgram.instructions.twoHopSwap.accountSelection({
-      //   whirlpoolOne: WHIRLPOOL_ADDRESSES,
-      // }),
-
-      // ...whirlpoolProgram.instructions.increaseLiquidity.accountSelection({
-      //   whirlpool: WHIRLPOOL_ADDRESSES,
-      // }),
-      // ...whirlpoolProgram.instructions.decreaseLiquidity.accountSelection({
-      //   whirlpool: WHIRLPOOL_ADDRESSES,
-      // }),
-      // ...whirlpoolProgram.instructions.decreaseLiquidityV2.accountSelection({
-      //   whirlpool: WHIRLPOOL_ADDRESSES,
-      // }),
-      // ...whirlpoolProgram.instructions.increaseLiquidityV2.accountSelection({
-      //   whirlpool: WHIRLPOOL_ADDRESSES,
-      // }),
-      // ...whirlpoolProgram.instructions.initializePoolV2.accountSelection({
-      //   whirlpool: WHIRLPOOL_ADDRESSES,
-      // }),
-      // ...whirlpoolProgram.instructions.initializePool.accountSelection({
-      //   whirlpool: WHIRLPOOL_ADDRESSES,
-      // }),
-      // ...whirlpoolProgram.instructions.initializePoolWithAdaptiveFee.accountSelection({
-      //   whirlpool: WHIRLPOOL_ADDRESSES,
-      // }),
-      // ...whirlpoolProgram.instructions.openPosition.accountSelection({
-      //   whirlpool: WHIRLPOOL_ADDRESSES,
-      // }),
-      // ...whirlpoolProgram.instructions.openPositionWithTokenExtensions.accountSelection({
-      //   whirlpool: WHIRLPOOL_ADDRESSES,
-      // }),
-      // ...whirlpoolProgram.instructions.openPositionWithMetadata.accountSelection({
-      //   whirlpool: WHIRLPOOL_ADDRESSES,
-      // }),
       //note: not including closePosition as it wouldn't work.
       // Why =>  because we already have the respective positions for the specific pool stored, and when there would be a closePosition for lets say a position that doesn't exists, we wouldn't do anything.
       isCommitted: true, // where successfully committed
@@ -145,7 +99,16 @@ export const processor = new DataSourceBuilder()
       transactionTokenBalances: true, // all token balance records of executed transaction
     },
   })
+  .addInstruction({
+    where: {
+      programId: [tokenProgram.programId],
+      d1: [tokenProgram.instructions.transferChecked.d1],
+      isCommitted: true,
+    },
+    include: {
+      innerInstructions: true,
+      transaction: true,
+      transactionTokenBalances: true,
+    },
+  })
   .build();
-
-//335147643
-// ABS_CONFIG='{"balanceFlushIntervalHours":48,"type":"orca","name":"orca","toBlock":0,"contractAddress":"whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc","chainId":1000,"fromBlock":335147643}'
