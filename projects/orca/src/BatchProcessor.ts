@@ -45,8 +45,7 @@ import { PositionStorageService } from './services/PositionStorageService';
 import { getOptimizedTokenPrices } from './utils/pricing';
 import { processBundlePositionInstructions } from './mappings/bundleInstructions';
 import { Connection } from '@solana/web3.js';
-
-const TOKEN_EXTENSION_PROGRAM_ID = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
+import * as tokenProgram2022 from './abi/TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
 export class OrcaProcessor {
   private readonly protocol: OrcaProtocol;
   private readonly schemaName: string;
@@ -199,7 +198,7 @@ export class OrcaProcessor {
                   try {
                     if (
                       (inner.programId === tokenProgram.programId ||
-                        inner.programId === TOKEN_EXTENSION_PROGRAM_ID) &&
+                        inner.programId === tokenProgram2022.programId) &&
                       inner.d1 === tokenProgram.instructions.transfer.d1
                     ) {
                       return tokenProgram.instructions.transfer.decode({
@@ -208,7 +207,7 @@ export class OrcaProcessor {
                       });
                     } else if (
                       (inner.programId === tokenProgram.programId ||
-                        inner.programId === TOKEN_EXTENSION_PROGRAM_ID) &&
+                        inner.programId === tokenProgram2022.programId) &&
                       inner.d1 === tokenProgram.instructions.transferChecked.d1
                     ) {
                       return tokenProgram.instructions.transferChecked.decode({
@@ -256,7 +255,7 @@ export class OrcaProcessor {
                   try {
                     if (
                       (inner.programId === tokenProgram.programId ||
-                        inner.programId === TOKEN_EXTENSION_PROGRAM_ID) &&
+                        inner.programId === tokenProgram2022.programId) &&
                       inner.d1 === tokenProgram.instructions.transfer.d1
                     ) {
                       return tokenProgram.instructions.transfer.decode({
@@ -265,7 +264,7 @@ export class OrcaProcessor {
                       });
                     } else if (
                       (inner.programId === tokenProgram.programId ||
-                        inner.programId === TOKEN_EXTENSION_PROGRAM_ID) &&
+                        inner.programId === tokenProgram2022.programId) &&
                       inner.d1 === tokenProgram.instructions.transferChecked.d1
                     ) {
                       return tokenProgram.instructions.transferChecked.decode({
@@ -447,7 +446,7 @@ export class OrcaProcessor {
                   try {
                     if (
                       (inner.programId === tokenProgram.programId ||
-                        inner.programId === TOKEN_EXTENSION_PROGRAM_ID) &&
+                        inner.programId === tokenProgram2022.programId) &&
                       inner.d1 === tokenProgram.instructions.transfer.d1
                     ) {
                       return tokenProgram.instructions.transfer.decode({
@@ -456,7 +455,7 @@ export class OrcaProcessor {
                       });
                     } else if (
                       (inner.programId === tokenProgram.programId ||
-                        inner.programId === TOKEN_EXTENSION_PROGRAM_ID) &&
+                        inner.programId === tokenProgram2022.programId) &&
                       inner.d1 === tokenProgram.instructions.transferChecked.d1
                     ) {
                       return tokenProgram.instructions.transferChecked.decode({
@@ -563,7 +562,7 @@ export class OrcaProcessor {
                   try {
                     if (
                       (inner.programId === tokenProgram.programId ||
-                        inner.programId === TOKEN_EXTENSION_PROGRAM_ID) &&
+                        inner.programId === tokenProgram2022.programId) &&
                       inner.d1 === tokenProgram.instructions.transfer.d1
                     ) {
                       return tokenProgram.instructions.transfer.decode({
@@ -572,7 +571,7 @@ export class OrcaProcessor {
                       });
                     } else if (
                       (inner.programId === tokenProgram.programId ||
-                        inner.programId === TOKEN_EXTENSION_PROGRAM_ID) &&
+                        inner.programId === tokenProgram2022.programId) &&
                       inner.d1 === tokenProgram.instructions.transferChecked.d1
                     ) {
                       return tokenProgram.instructions.transferChecked.decode({
@@ -758,6 +757,7 @@ export class OrcaProcessor {
           return {
             ...baseData,
             type: 'transferChecked',
+            tokenBalances,
             decodedInstruction: tokenProgram.instructions.transferChecked.decode(ins),
           } as OrcaInstructionData;
 
@@ -835,24 +835,6 @@ export class OrcaProcessor {
       return null; // Skip this instruction instead of crashing
     }
   }
-
-  //todo:
-  //   LockPosition (check if necessary to track, I+ai think no )
-
-  // - If a position is locked, the owner cannot add/remove liquidity, close, or transfer the position (depending on lock config).
-  // - If you are tracking time-weighted balances for rewards or analytics, you should be aware of lock status:
-  // 	- If a position is locked, its liquidity is “frozen” in place.
-  // 	- If your logic allows, you may want to pause accrual or flag locked positions, depending on your use case.
-
-  // ResetPositionRange (necessary to track , just change tick ranges in a position)
-
-  // - If a position’s tick range is reset, the in-range/out-of-range status can change immediately.
-  // - You must update your tracking whenever this happens, as the position’s eligibility for rewards (or time-weighted accrual) depends on being in-range.
-
-  // TransferLockedPosition - necessary to track (just change owner)
-
-  // - If a locked position is transferred to a new owner, you must update your tracking to reflect the new owner.
-  // - The time-weighted balance should be reset or transferred according to your business logic.
 
   private async processBlockInstructions(
     blockInstructions: OrcaInstructionData[],
@@ -935,10 +917,14 @@ export class OrcaProcessor {
       );
     }
 
-    //todo: include transfer log position over here in future
-    // if (transferInstructions.length > 0) {
-    //   await processTransferInstructions(transferInstructions, protocolStates);
-    // }
+    if (transferInstructions.length > 0) {
+      await processTransferInstructions(
+        transferInstructions,
+        protocolStates,
+        this.positionStorageService,
+        this.liquidityMathService,
+      );
+    }
 
     if (openPositionInstructions.length > 0) {
       logger.info(

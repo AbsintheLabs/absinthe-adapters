@@ -394,6 +394,87 @@ export class PositionStorageService {
     return positions;
   }
 
+  async getAllPositions(): Promise<PositionDetails[]> {
+    if (!this.isConnected) {
+      throw new Error('Redis not connected');
+    }
+
+    try {
+      // Get all position keys using pattern matching
+      const positionKeys = await this.redis.keys('pool:*:position:*');
+
+      if (positionKeys.length === 0) {
+        return [];
+      }
+
+      // Use pipeline for efficient batch retrieval
+      const pipeline = this.redis.multi();
+
+      // Queue all position data retrievals
+      for (const key of positionKeys) {
+        pipeline.hGetAll(key);
+      }
+
+      const results = await pipeline.exec();
+      const positions: PositionDetails[] = [];
+
+      if (!results) {
+        return positions;
+      }
+
+      // Process results
+      for (const result of results) {
+        if (result && Array.isArray(result) && result[1]) {
+          const data = result[1] as Record<string, string>;
+
+          if (data.positionId) {
+            const position: PositionDetails = {
+              positionId: data.positionId,
+              owner: data.owner,
+              liquidity: data.liquidity,
+              tickLower: parseInt(data.tickLower),
+              tickUpper: parseInt(data.tickUpper),
+              positionMint: data.positionMint,
+              tokenProgram: data.tokenProgram,
+              poolId: data.poolId,
+              isActive: data.isActive,
+              lastUpdatedBlockTs: parseInt(data.lastUpdatedBlockTs),
+              lastUpdatedBlockHeight: parseInt(data.lastUpdatedBlockHeight),
+            };
+            positions.push(position);
+          }
+        }
+      }
+
+      logger.info(`📊 [GetAllPositions] Retrieved ${positions.length} positions`);
+      return positions;
+    } catch (error) {
+      logger.error('❌ [GetAllPositions] Error retrieving all positions:', error);
+      throw error;
+    }
+  }
+
+  // Alternative method: Get all active positions only
+  async getAllActivePositions(): Promise<PositionDetails[]> {
+    const allPositions = await this.getAllPositions();
+    return allPositions.filter((position) => position.isActive === 'true');
+  }
+
+  // Get positions count for monitoring
+  async getPositionsCount(): Promise<number> {
+    if (!this.isConnected) {
+      return 0;
+    }
+
+    try {
+      const positionKeys = await this.redis.keys('pool:*:position:*');
+      return positionKeys.length;
+    } catch (error) {
+      logger.error('❌ [GetPositionsCount] Error getting positions count:', error);
+      return 0;
+    }
+  }
+
   async deletePosition(positionId: string): Promise<void> {
     const poolId = await this.redis.get(`positionPool:${positionId}`);
     if (!poolId) {
