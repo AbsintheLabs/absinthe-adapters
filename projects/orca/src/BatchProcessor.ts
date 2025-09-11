@@ -30,8 +30,6 @@ import {
   PoolDetails,
 } from './utils/types';
 import { augmentBlock } from '@subsquid/solana-objects';
-import { TRACKED_TOKENS, WHIRLPOOL_ADDRESSES } from './utils/consts';
-import { TokenBalance } from './utils/types';
 
 // Import all the mapping handlers
 import { processSwapInstructions } from './mappings/swapInstructions';
@@ -45,7 +43,7 @@ import { PositionStorageService } from './services/PositionStorageService';
 import { getOptimizedTokenPrices } from './utils/pricing';
 import { processBundlePositionInstructions } from './mappings/bundleInstructions';
 import { Connection } from '@solana/web3.js';
-import * as tokenProgram2022 from './abi/TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
+import { WHIRLPOOL_ADDRESSES, TOKEN_EXTENSION_PROGRAM_ID } from './utils/consts';
 export class OrcaProcessor {
   private readonly protocol: OrcaProtocol;
   private readonly schemaName: string;
@@ -198,7 +196,7 @@ export class OrcaProcessor {
                   try {
                     if (
                       (inner.programId === tokenProgram.programId ||
-                        inner.programId === tokenProgram2022.programId) &&
+                        inner.programId === TOKEN_EXTENSION_PROGRAM_ID) &&
                       inner.d1 === tokenProgram.instructions.transfer.d1
                     ) {
                       return tokenProgram.instructions.transfer.decode({
@@ -207,7 +205,7 @@ export class OrcaProcessor {
                       });
                     } else if (
                       (inner.programId === tokenProgram.programId ||
-                        inner.programId === tokenProgram2022.programId) &&
+                        inner.programId === TOKEN_EXTENSION_PROGRAM_ID) &&
                       inner.d1 === tokenProgram.instructions.transferChecked.d1
                     ) {
                       return tokenProgram.instructions.transferChecked.decode({
@@ -255,7 +253,7 @@ export class OrcaProcessor {
                   try {
                     if (
                       (inner.programId === tokenProgram.programId ||
-                        inner.programId === tokenProgram2022.programId) &&
+                        inner.programId === TOKEN_EXTENSION_PROGRAM_ID) &&
                       inner.d1 === tokenProgram.instructions.transfer.d1
                     ) {
                       return tokenProgram.instructions.transfer.decode({
@@ -264,7 +262,7 @@ export class OrcaProcessor {
                       });
                     } else if (
                       (inner.programId === tokenProgram.programId ||
-                        inner.programId === tokenProgram2022.programId) &&
+                        inner.programId === TOKEN_EXTENSION_PROGRAM_ID) &&
                       inner.d1 === tokenProgram.instructions.transferChecked.d1
                     ) {
                       return tokenProgram.instructions.transferChecked.decode({
@@ -446,7 +444,7 @@ export class OrcaProcessor {
                   try {
                     if (
                       (inner.programId === tokenProgram.programId ||
-                        inner.programId === tokenProgram2022.programId) &&
+                        inner.programId === TOKEN_EXTENSION_PROGRAM_ID) &&
                       inner.d1 === tokenProgram.instructions.transfer.d1
                     ) {
                       return tokenProgram.instructions.transfer.decode({
@@ -455,7 +453,7 @@ export class OrcaProcessor {
                       });
                     } else if (
                       (inner.programId === tokenProgram.programId ||
-                        inner.programId === tokenProgram2022.programId) &&
+                        inner.programId === TOKEN_EXTENSION_PROGRAM_ID) &&
                       inner.d1 === tokenProgram.instructions.transferChecked.d1
                     ) {
                       return tokenProgram.instructions.transferChecked.decode({
@@ -562,7 +560,7 @@ export class OrcaProcessor {
                   try {
                     if (
                       (inner.programId === tokenProgram.programId ||
-                        inner.programId === tokenProgram2022.programId) &&
+                        inner.programId === TOKEN_EXTENSION_PROGRAM_ID) &&
                       inner.d1 === tokenProgram.instructions.transfer.d1
                     ) {
                       return tokenProgram.instructions.transfer.decode({
@@ -571,7 +569,7 @@ export class OrcaProcessor {
                       });
                     } else if (
                       (inner.programId === tokenProgram.programId ||
-                        inner.programId === tokenProgram2022.programId) &&
+                        inner.programId === TOKEN_EXTENSION_PROGRAM_ID) &&
                       inner.d1 === tokenProgram.instructions.transferChecked.d1
                     ) {
                       return tokenProgram.instructions.transferChecked.decode({

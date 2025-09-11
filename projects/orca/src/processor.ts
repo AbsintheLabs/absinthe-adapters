@@ -2,8 +2,7 @@ import { DataSourceBuilder, SolanaRpcClient } from '@subsquid/solana-stream';
 import * as whirlpoolProgram from './abi/whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc';
 import { validateEnv } from './utils/validateEnv';
 import * as tokenProgram from './abi/TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
-import * as tokenProgram2022 from './abi/TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
-import { WHIRLPOOL_ADDRESSES } from './utils/consts';
+import { WHIRLPOOL_ADDRESSES, TOKEN_EXTENSION_PROGRAM_ID } from './utils/consts';
 const env = validateEnv();
 const { orcaProtocol } = env;
 
@@ -47,7 +46,7 @@ export const processor = new DataSourceBuilder()
   .addInstruction({
     // select instructions, that:
     where: {
-      programId: [whirlpoolProgram.programId, tokenProgram.programId, tokenProgram2022.programId], // where executed by Whirlpool program
+      programId: [whirlpoolProgram.programId, tokenProgram.programId, TOKEN_EXTENSION_PROGRAM_ID], // where executed by Whirlpool program
       d8: [
         whirlpoolProgram.instructions.swap.d8,
         whirlpoolProgram.instructions.swapV2.d8,
