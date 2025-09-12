@@ -1,4 +1,4 @@
-import { AbsintheApiClient, HOURS_TO_MS } from '@absinthe/common';
+import { AbsintheApiClient, HOURS_TO_MS, HOURS_TO_SECONDS } from '@absinthe/common';
 import { OrcaProcessor } from './BatchProcessor';
 import { validateEnv } from './utils/validateEnv';
 
@@ -17,7 +17,7 @@ const chainConfig = {
   chainName: orcaProtocol.chainName,
 };
 
-const WINDOW_DURATION_MS = baseConfig.balanceFlushIntervalHours * HOURS_TO_MS;
+const WINDOW_DURATION_MS = baseConfig.balanceFlushIntervalHours * HOURS_TO_SECONDS;
 
 console.log('Start Orca Processor');
 const orcaProcessor = new OrcaProcessor(

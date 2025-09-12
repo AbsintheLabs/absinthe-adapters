@@ -79,7 +79,12 @@ async function processTransferChecked(
       return; // Just ignore if position not found
     }
 
-    //todo: check if position is active, then only emit the transfer event
+    if (position.isActive != 'true') {
+      logger.info(`🏊 [TransferChecked Instruction Activity] Position is not active`, {
+        position,
+      });
+      return;
+    }
 
     const pool = await positionStorageService.getPool(position?.poolId);
     const oldLiquidity = BigInt(position.liquidity);
@@ -186,7 +191,5 @@ async function processTransferChecked(
       slot: data.slot,
       txHash: data.txHash,
     });
-
-    //todo: transferevent
   }
 }
