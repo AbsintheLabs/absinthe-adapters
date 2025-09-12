@@ -379,7 +379,6 @@ export class PositionStorageService {
     });
   }
 
-  //todo: efficiency
   async getAllPositionsByPoolId(poolId: string): Promise<PositionDetails[]> {
     const positionIds = await this.redis.sMembers(`pool:${poolId}:positions`);
     const positions: PositionDetails[] = [];

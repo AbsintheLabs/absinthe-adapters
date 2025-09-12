@@ -237,16 +237,15 @@ async function processResetPositionRange(
     throw new Error(`Pool not found: ${whirlpool}`);
   }
 
-  //todo: uncomment
-  // const newIsActive =
-  //   pool.currentTick >= tickLowerIndex && pool.currentTick < tickUpperIndex ? 'true' : 'false';
+  const newIsActive =
+    pool.currentTick >= tickLowerIndex && pool.currentTick < tickUpperIndex ? 'true' : 'false';
 
   // Update the position with new tick range
   await positionStorageService.updatePosition({
     ...positionDetails,
     tickLower: tickLowerIndex,
     tickUpper: tickUpperIndex,
-    isActive: 'true', //todo: uncomment
+    isActive: newIsActive,
     lastUpdatedBlockTs: data.timestamp,
     lastUpdatedBlockHeight: data.slot,
   });
@@ -268,32 +267,30 @@ async function processResetPositionRange(
     }
   }
 
-  // Process activation/deactivation
-  //todo: uncomment
-  // await Promise.all([
-  //   activatePosition(
-  //     data.slot,
-  //     data.timestamp,
-  //     pool.currentTick,
-  //     positionsToActivate,
-  //     pool,
-  //     positionStorageService,
-  //   ),
-  //   deactivatePosition(
-  //     data.slot,
-  //     data.timestamp,
-  //     pool.currentTick,
-  //     positionsToDeactivate,
-  //     pool,
-  //     protocolStates,
-  //     positionStorageService,
-  //     liquidityMathService,
-  //   ),
-  // ]);
+  await Promise.all([
+    activatePosition(
+      data.slot,
+      data.timestamp,
+      pool.currentTick,
+      positionsToActivate,
+      pool,
+      positionStorageService,
+    ),
+    deactivatePosition(
+      data.slot,
+      data.timestamp,
+      pool.currentTick,
+      positionsToDeactivate,
+      pool,
+      protocolStates,
+      positionStorageService,
+      liquidityMathService,
+    ),
+  ]);
 
   logger.info(`🔄 [ResetPositionRange] Processed position range reset for ${position}`, {
     newTickRange: `[${tickLowerIndex}, ${tickUpperIndex}]`,
-    newIsActive: 'true', //todo: uncomment
+    newIsActive: newIsActive,
     positionsActivated: positionsToActivate.length,
     positionsDeactivated: positionsToDeactivate.length,
   });
@@ -388,7 +385,7 @@ async function analyzeOpenPosition(
     poolId: decodedInstruction.accounts.whirlpool,
     tickLower: decodedInstruction.data.tickLowerIndex,
     tickUpper: decodedInstruction.data.tickUpperIndex,
-    isActive: 'true', //todo: change to isActive()
+    isActive: isActive(),
     tokenProgram:
       decodedInstruction.accounts.tokenProgram || decodedInstruction.accounts.token2022Program,
     liquidity: '0',

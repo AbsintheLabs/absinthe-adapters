@@ -6,13 +6,12 @@ const TRACKED_TOKENS = {
   [USDC_MINT]: USDC_DECIMALS,
 };
 
+//todo: uncomment
 const WHIRLPOOL_ADDRESSES = [
-  '8uGEM2h7s9EV5tYynAFh5kwve1uLiSEs665V9DYX2Lpj',
-  'AvVeFoEokqbosw9UWkYEnwpWhTQd96GeWwV48WjFCEMw',
-  'HWzqj2vg581nwvAryFKoeB3DaNqtNhtxY98wbb8EjLpC',
-  'H3TyEdmcRPqU5zHR1cXgp7dD61fsyxPGPRUUgDG6wpR3',
-  'DdiBUm31RAqr9JRPw1zzMUzZCoUEYPuxULZFPHSM61QX',
-  'C62E7PUmVRj3eNH2nejbi3DruwfhN5wTsAkj3De2e4H5',
+  // '8uGEM2h7s9EV5tYynAFh5kwve1uLiSEs665V9DYX2Lpj',
+  // 'AvVeFoEokqbosw9UWkYEnwpWhTQd96GeWwV48WjFCEMw',
+  // 'HWzqj2vg581nwvAryFKoeB3DaNqtNhtxY98wbb8EjLpC',
+  // 'H3TyEdmcRPqU5zHR1cXgp7dD61fsyxPGPRUUgDG6wpR3',
   '36wzzrLB33yEeMbHrYCY2dkwtK3ob5AyYn6rncEFBLgN',
 ];
 

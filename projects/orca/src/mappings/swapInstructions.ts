@@ -4,6 +4,7 @@ import { getJupPrice, getTokenPrice } from '../utils/pricing';
 import { PositionStorageService } from '../services/PositionStorageService';
 import { LiquidityMathService } from '../services/LiquidityMathService';
 import { activatePosition, deactivatePosition } from '../services/LiquidityManagementService';
+import { getTickPriceOffChain } from '../utils/helper';
 
 export async function processSwapInstructions(
   instructionsData: OrcaInstructionData[],
@@ -179,27 +180,26 @@ async function processSwapCommon(
       }
     }
 
-    //todo: uncomment
-    // await Promise.all([
-    //   activatePosition(
-    //     data.slot,
-    //     data.timestamp,
-    //     analysis.currentTick!,
-    //     positionsToActivate,
-    //     poolDetails!,
-    //     positionStorageService,
-    //   ),
-    //   deactivatePosition(
-    //     data.slot,
-    //     data.timestamp,
-    //     analysis.currentTick!,
-    //     positionsToDeactivate,
-    //     poolDetails!,
-    //     protocolStates,
-    //     positionStorageService,
-    //     liquidityMathService,
-    //   ),
-    // ]);
+    await Promise.all([
+      activatePosition(
+        data.slot,
+        data.timestamp,
+        analysis.currentTick!,
+        positionsToActivate,
+        poolDetails!,
+        positionStorageService,
+      ),
+      deactivatePosition(
+        data.slot,
+        data.timestamp,
+        analysis.currentTick!,
+        positionsToDeactivate,
+        poolDetails!,
+        protocolStates,
+        positionStorageService,
+        liquidityMathService,
+      ),
+    ]);
 
     logger.info(`🔄 [SwapInstructions] Processed liquidity changes for pool ${analysis.poolId}`, {
       currentTick: analysis.currentTick,
@@ -256,15 +256,21 @@ async function processTwoHopSwapV2(
 }
 
 async function analyseSwap(data: any, liquidityMathService: LiquidityMathService) {
+  const { preSqrtPrice, postSqrtPrice, sqrtPriceX64 } = await getTickPriceOffChain(
+    data.decodedInstruction.accounts.whirlpool,
+    data.slot,
+  );
+
   logger.info(`🏊 [SwapInstructions] Decoded instruction:`, {
     decodedInstruction: data.decodedInstruction.data,
     sqrtPriceLimit: data.decodedInstruction.data.sqrtPriceLimit,
     txHash: data.txHash,
+    preSqrtPrice,
+    postSqrtPrice,
+    sqrtPriceX64,
   });
 
-  const currentTick = liquidityMathService.sqrtPriceX64ToTick(
-    data.decodedInstruction.data.sqrtPriceLimit,
-  );
+  const currentTick = liquidityMathService.sqrtPriceX64ToTick(sqrtPriceX64);
   logger.info(`🏊 [SwapInstructions] Transfers:`, {
     transfers: data.transfers,
     transfersLength: data.transfers.length,

@@ -1005,14 +1005,29 @@ export class OrcaProcessor {
     for (const [contractAddress, protocolState] of protocolStates.entries()) {
       const positionsByPoolId =
         await this.positionStorageService.getAllPositionsByPoolId(contractAddress);
+      logger.info(`🏊 [ProcessPeriodicBalanceFlush] Positions by pool id:`, {
+        positionsByPoolId: positionsByPoolId.length,
+        contractAddress,
+      });
       const pool = await this.positionStorageService.getPool(contractAddress);
-
+      logger.info(`🏊 [ProcessPeriodicBalanceFlush] Pool:`, {
+        pool,
+        contractAddress,
+      });
       if (positionsByPoolId.length === 0) {
         continue;
       }
 
       for (const position of positionsByPoolId) {
+        logger.info(`🏊 [ProcessPeriodicBalanceFlush] Position:`, {
+          position,
+          contractAddress,
+        });
         if (position.isActive === 'true') {
+          logger.info(`🏊 [ProcessPeriodicBalanceFlush] Position is active:`, {
+            position,
+            contractAddress,
+          });
           await this.processPositionExhaustion(position, pool!, slot, timestamp, protocolStates);
         }
       }
