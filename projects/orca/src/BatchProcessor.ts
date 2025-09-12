@@ -4,17 +4,14 @@ import {
   AbsintheApiClient,
   Chain,
   Currency,
-  MessageType,
   ValidatedEnvBase,
-  ProtocolState,
-  Transaction,
   toTransaction,
   logger,
-  HOURS_TO_MS,
   PriceFeed,
   TokenPreference,
   toTimeWeightedBalance,
   TimeWindowTrigger,
+  HOURS_TO_SECONDS,
 } from '@absinthe/common';
 import * as whirlpoolProgram from './abi/whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc';
 import * as tokenProgram from './abi/TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
@@ -68,7 +65,8 @@ export class OrcaProcessor {
     this.env = env;
     this.chainConfig = chainConfig;
     this.schemaName = this.generateSchemaName();
-    this.refreshWindow = this.protocol.balanceFlushIntervalHours * HOURS_TO_MS;
+    // Fix: Convert hours to seconds (since Solana timestamps are in seconds)
+    this.refreshWindow = this.protocol.balanceFlushIntervalHours * HOURS_TO_SECONDS;
     this.connection = new Connection(rpcUrl, 'confirmed');
     this.positionStorageService = new PositionStorageService();
     this.liquidityMathService = new LiquidityMathService();
@@ -1043,28 +1041,100 @@ export class OrcaProcessor {
   ): Promise<void> {
     const currentTs = timestamp;
 
+    logger.info(`🔍 [ProcessPositionExhaustion] Starting exhaustion check:`, {
+      positionId: position.positionId,
+      poolId: position.poolId,
+      owner: position.owner,
+      isActive: position.isActive,
+      currentTs,
+      slot,
+      refreshWindow: this.refreshWindow,
+      refreshWindowHours: this.refreshWindow / (60 * 60), // Convert seconds to hours for readability
+    });
+
     if (!position.lastUpdatedBlockTs) {
+      logger.info(
+        `🆕 [ProcessPositionExhaustion] First time processing position - setting initial timestamp:`,
+        {
+          positionId: position.positionId,
+          currentTs,
+        },
+      );
       position.lastUpdatedBlockTs = currentTs;
       await this.positionStorageService.updatePosition(position);
       return;
     }
 
+    // Debug the while condition
+    const timeSinceLastUpdate = currentTs - Number(position.lastUpdatedBlockTs);
+    const shouldProcess = Number(position.lastUpdatedBlockTs) + this.refreshWindow <= currentTs;
+
+    logger.info(`🔍 [ProcessPositionExhaustion] Time analysis:`, {
+      positionId: position.positionId,
+      lastUpdatedBlockTs: position.lastUpdatedBlockTs,
+      currentTs,
+      timeSinceLastUpdate,
+      timeSinceLastUpdateHours: timeSinceLastUpdate / (60 * 60),
+      refreshWindow: this.refreshWindow,
+      shouldProcess,
+      calculation: `${Number(position.lastUpdatedBlockTs)} + ${this.refreshWindow} <= ${currentTs}`,
+    });
+
+    if (!shouldProcess) {
+      logger.info(`⏭️ [ProcessPositionExhaustion] Skipping - not enough time elapsed:`, {
+        positionId: position.positionId,
+        timeRemaining: Number(position.lastUpdatedBlockTs) + this.refreshWindow - currentTs,
+        timeRemainingHours:
+          (Number(position.lastUpdatedBlockTs) + this.refreshWindow - currentTs) / (60 * 60),
+      });
+      return;
+    }
+
+    let windowCount = 0;
     while (
       position.lastUpdatedBlockTs &&
       Number(position.lastUpdatedBlockTs) + this.refreshWindow <= currentTs
     ) {
+      windowCount++;
+      logger.info(`🔄 [ProcessPositionExhaustion] Processing window ${windowCount}:`, {
+        positionId: position.positionId,
+        lastUpdatedBlockTs: position.lastUpdatedBlockTs,
+      });
+
       const windowsSinceEpoch = Math.floor(
         Number(position.lastUpdatedBlockTs) / this.refreshWindow,
       );
       const nextBoundaryTs: number = (windowsSinceEpoch + 1) * this.refreshWindow;
+
+      logger.info(`🔍 [ProcessPositionExhaustion] Window calculation:`, {
+        positionId: position.positionId,
+        windowsSinceEpoch,
+        nextBoundaryTs,
+        currentTs,
+        windowDuration: nextBoundaryTs - Number(position.lastUpdatedBlockTs),
+        windowDurationHours: (nextBoundaryTs - Number(position.lastUpdatedBlockTs)) / (60 * 60),
+      });
+
       if (!pool.token0Id || !pool.token1Id) {
         logger.warn(`❌ Skipping position ${position.positionId} - missing token data:`, {
           token0Exists: !!pool.token0Id,
           token0Id: pool.token0Id,
+          token1Exists: !!pool.token1Id,
+          token1Id: pool.token1Id,
+          pool,
         });
         return;
       }
+
       const liquidity = BigInt(position.liquidity);
+      logger.info(`🔍 [ProcessPositionExhaustion] Position details:`, {
+        positionId: position.positionId,
+        liquidity: position.liquidity,
+        tickLower: position.tickLower,
+        tickUpper: position.tickUpper,
+        poolCurrentTick: pool.currentTick,
+        isInRange: position.tickLower <= pool.currentTick && position.tickUpper > pool.currentTick,
+      });
 
       const { humanAmount0: oldHumanAmount0, humanAmount1: oldHumanAmount1 } =
         this.liquidityMathService.getAmountsForLiquidityRaw(
@@ -1076,6 +1146,14 @@ export class OrcaProcessor {
           pool.token1Decimals,
         );
 
+      logger.info(`🔍 [ProcessPositionExhaustion] Liquidity amounts:`, {
+        positionId: position.positionId,
+        humanAmount0: oldHumanAmount0,
+        humanAmount1: oldHumanAmount1,
+        token0Decimals: pool.token0Decimals,
+        token1Decimals: pool.token1Decimals,
+      });
+
       const [token0inUSD, token1inUSD] = await getOptimizedTokenPrices(
         position.poolId,
         { id: pool.token0Id, decimals: pool.token0Decimals },
@@ -1084,17 +1162,43 @@ export class OrcaProcessor {
         'solana',
       );
 
+      logger.info(`🔍 [ProcessPositionExhaustion] Token prices:`, {
+        positionId: position.positionId,
+        token0Id: pool.token0Id,
+        token1Id: pool.token1Id,
+        token0inUSD,
+        token1inUSD,
+      });
+
       const oldLiquidityUSD =
         Number(oldHumanAmount0) * token0inUSD + Number(oldHumanAmount1) * token1inUSD;
 
-      if (oldLiquidityUSD > 0 && position.lastUpdatedBlockTs < nextBoundaryTs) {
+      logger.info(`🔍 [ProcessPositionExhaustion] USD value calculation:`, {
+        positionId: position.positionId,
+        oldLiquidityUSD,
+        calculation: `(${oldHumanAmount0} * ${token0inUSD}) + (${oldHumanAmount1} * ${token1inUSD})`,
+      });
+
+      const shouldCreateWindow =
+        oldLiquidityUSD > 0 && position.lastUpdatedBlockTs < nextBoundaryTs;
+      logger.info(`🔍 [ProcessPositionExhaustion] Balance window conditions:`, {
+        positionId: position.positionId,
+        oldLiquidityUSD,
+        condition1: oldLiquidityUSD > 0,
+        lastUpdatedBlockTs: position.lastUpdatedBlockTs,
+        nextBoundaryTs,
+        condition2: position.lastUpdatedBlockTs < nextBoundaryTs,
+        shouldCreateWindow,
+      });
+
+      if (shouldCreateWindow) {
         const balanceWindow = {
           userAddress: position.owner,
           deltaAmount: 0,
           trigger: TimeWindowTrigger.EXHAUSTED,
           startTs: position.lastUpdatedBlockTs,
           endTs: nextBoundaryTs,
-          windowDurationMs: this.refreshWindow,
+          windowDurationMs: this.refreshWindow * 1000, // Convert to milliseconds
           startBlockNumber: position.lastUpdatedBlockHeight,
           endBlockNumber: slot,
           txHash: null,
@@ -1140,20 +1244,54 @@ export class OrcaProcessor {
 
         if (poolState) {
           poolState.balanceWindows.push(balanceWindow);
+          logger.info(
+            `✅ [ProcessPositionExhaustion] Added balance window to existing pool state:`,
+            {
+              positionId: position.positionId,
+              poolId: position.poolId,
+              windowsCount: poolState.balanceWindows.length,
+              balanceWindow,
+            },
+          );
         } else {
           protocolStates.set(position.poolId, {
             balanceWindows: [balanceWindow],
             transactions: [],
           });
+          logger.info(
+            `✅ [ProcessPositionExhaustion] Created new pool state with balance window:`,
+            {
+              positionId: position.positionId,
+              poolId: position.poolId,
+              balanceWindow,
+            },
+          );
         }
+      } else {
+        logger.info(`⏭️ [ProcessPositionExhaustion] Skipping balance window creation:`, {
+          positionId: position.positionId,
+          reason: oldLiquidityUSD <= 0 ? 'Zero liquidity USD' : 'Timestamp condition not met',
+          oldLiquidityUSD,
+          lastUpdatedBlockTs: position.lastUpdatedBlockTs,
+          nextBoundaryTs,
+        });
       }
 
       position.lastUpdatedBlockTs = nextBoundaryTs;
       position.lastUpdatedBlockHeight = slot;
 
       await this.positionStorageService.updatePosition(position);
+
+      // Safety check to prevent infinite loops
     }
+
+    logger.info(`🏁 [ProcessPositionExhaustion] Completed exhaustion processing:`, {
+      positionId: position.positionId,
+      windowsProcessed: windowCount,
+      finalLastUpdatedBlockTs: position.lastUpdatedBlockTs,
+    });
   }
+
   private async finalizeBatch(
     ctx: any,
     protocolStates: Map<string, ProtocolStateOrca>,
