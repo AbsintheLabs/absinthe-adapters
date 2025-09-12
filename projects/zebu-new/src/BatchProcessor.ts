@@ -228,8 +228,8 @@ export class ZebuNewProcessor {
       contractAddress,
     });
 
-    const currencyId = await zebuNewContract.getSale_CurrencyID(saleID);
-    const currencyAddress = await zebuNewContract.getSale_Currency_Address(currencyId);
+    // const currencyId = await zebuNewContract.getSale_CurrencyID(saleID);
+    const currencyAddress = await zebuNewContract.getSale_Currency_Address(saleID);
     const erc20Contract = new erc20Abi.Contract(ctx, block.header, currencyAddress);
 
     let currencySymbol = 'UNKNOWN';
@@ -240,7 +240,7 @@ export class ZebuNewProcessor {
       currency = currencies.find((currency) => currency.name === currencySymbol);
 
       logger.info('Currency information fetched', {
-        currencyId: currencyId.toString(),
+        // currencyId: currencyId.toString(),
         currencyAddress,
         currencySymbol,
         currencyFound: !!currency,
@@ -377,10 +377,6 @@ export class ZebuNewProcessor {
         },
         currencyName: {
           value: currency?.name ?? 'UNKNOWN',
-          type: 'string',
-        },
-        currencyId: {
-          value: currencyId.toString(),
           type: 'string',
         },
       },
@@ -579,7 +575,6 @@ export class ZebuNewProcessor {
     logger.info('Batch finalization completed', {
       totalTransactions,
       contractCount: this.zebuNewProtocol.length,
-      chainId: this.chainId,
     });
   }
 }
