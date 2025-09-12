@@ -50,6 +50,12 @@ const nullCurrencyAddresses = [
     chainId: 42161,
     fromBlock: 370444915,
   },
+  {
+    name: 'xyz-8',
+    contractAddress: '0x506900B4bE61dcdCD11c5ce90DCF16d8fDeC600d',
+    chainId: 8453,
+    fromBlock: 34196308,
+  },
 ];
 
 export { currencies, nullCurrencyAddresses };

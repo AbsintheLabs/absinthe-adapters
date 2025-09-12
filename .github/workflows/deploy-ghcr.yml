@@ -27,6 +27,7 @@ jobs:
       vusd-mint: ${{ steps.filter.outputs.vusd-mint }}
       zebu-legacy: ${{ steps.filter.outputs.zebu-legacy }}
       zebu-new: ${{ steps.filter.outputs.zebu-new }}
+      orca: ${{ steps.filter.outputs.orca }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -60,6 +61,8 @@ jobs:
               - 'projects/zebu-legacy/**'
             zebu-new:
               - 'projects/zebu-new/**'
+            orca:
+              - 'projects/orca/**'
             common:
               - 'packages/common/**'
             deploy-ghcr:
@@ -84,7 +87,8 @@ jobs:
       needs.changes.outputs.vusd-bridge == 'true' ||
       needs.changes.outputs.vusd-mint == 'true' ||
       needs.changes.outputs.zebu-legacy == 'true' ||
-      needs.changes.outputs.zebu-new == 'true'
+      needs.changes.outputs.zebu-new == 'true' ||
+      needs.changes.outputs.orca == 'true'
     runs-on: ubuntu-latest
 
     permissions:
@@ -171,7 +175,10 @@ jobs:
             images_to_build+=("zebu-legacy")
           fi
           if [[ "${{ needs.changes.outputs.zebu-new }}" == "true" ]]; then
-            images_to_build+=("zebu-new-base" "zebu-new-polygon")
+            images_to_build+=("zebu-new-base" "zebu-new-polygon" "zebu-new-arbitrum")
+          fi
+          if [[ "${{ needs.changes.outputs.orca }}" == "true" ]]; then
+            images_to_build+=("orca")
           fi
 
           # Find all Dockerfiles

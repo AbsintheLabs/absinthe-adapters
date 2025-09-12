@@ -358,7 +358,9 @@ export class UniswapV3Processor {
 
       const protocolState = protocolStates.get(pool.contractAddress);
       if (!protocolState) {
-        logger.info(`⚪ No protocol state found for pool: ${pool.contractAddress}`);
+        logger.info(
+          `⚪ No protocol state found for pool (deployment-trigger): ${pool.contractAddress}`,
+        );
         continue;
       }
 

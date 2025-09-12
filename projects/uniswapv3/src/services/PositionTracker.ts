@@ -157,7 +157,9 @@ export class PositionTracker {
         });
       }
 
-      console.log(`Stopped tracking position ${position.positionId}`);
+      logger.info(
+        `Stopped tracking position ${position.positionId}, at block ${block.height}, at timestamp ${block.timestamp}, for current tick ${currentTick}, for contractAddress ${position.poolId}`,
+      );
     }
   }
 
