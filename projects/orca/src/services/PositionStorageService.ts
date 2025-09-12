@@ -395,14 +395,19 @@ export class PositionStorageService {
 
   async getAllPositions(): Promise<PositionDetails[]> {
     if (!this.isConnected) {
+      logger.error('❌ [GetAllPositions] Redis not connected!');
       throw new Error('Redis not connected');
     }
 
     try {
+      logger.info('🔍 [GetAllPositions] Starting position retrieval...');
+
       // Get all position keys using pattern matching
       const positionKeys = await this.redis.keys('pool:*:position:*');
+      logger.info(`🔍 [GetAllPositions] Found ${positionKeys.length} position keys:`, positionKeys);
 
       if (positionKeys.length === 0) {
+        logger.warn('⚠️ [GetAllPositions] No position keys found with pattern pool:*:position:*');
         return [];
       }
 
@@ -411,20 +416,27 @@ export class PositionStorageService {
 
       // Queue all position data retrievals
       for (const key of positionKeys) {
+        logger.info(`🔍 [GetAllPositions] Queuing hGetAll for key: ${key}`);
         pipeline.hGetAll(key);
       }
 
+      logger.info('🔍 [GetAllPositions] Executing pipeline...');
       const results = await pipeline.exec();
+      logger.info(`🔍 [GetAllPositions] Pipeline results:`, results);
+
       const positions: PositionDetails[] = [];
 
       if (!results) {
+        logger.error('❌ [GetAllPositions] Pipeline results is null!');
         return positions;
       }
 
+      logger.info(`🔍 [GetAllPositions] Processing ${results.length} results...`);
+
       // Process results
       for (const result of results) {
-        if (result && Array.isArray(result) && result[1]) {
-          const data = result[1] as Record<string, string>;
+        if (result) {
+          const data = result as any;
 
           if (data.positionId) {
             const position: PositionDetails = {
@@ -441,6 +453,7 @@ export class PositionStorageService {
               lastUpdatedBlockHeight: parseInt(data.lastUpdatedBlockHeight),
             };
             positions.push(position);
+            logger.info(`✅ [GetAllPositions] Added position: ${position.positionId}`);
           }
         }
       }
