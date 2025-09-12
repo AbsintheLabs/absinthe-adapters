@@ -117,12 +117,28 @@ export class OrcaProcessor {
 
       for (let ins of block.instructions) {
         if (ins.programId === whirlpoolProgram.programId) {
-          logger.info(`🏊 [ProcessBatch] Decoding instruction:`, {
+          logger.info(`🏊 [ProcessBatch] Decoding Whirlpool instruction:`, {
             instruction: ins,
           });
           const instructionData = this.decodeInstruction(ins, block);
           if (instructionData) {
-            logger.info(`🏊 [ProcessBatch] Instruction decoded:`, {
+            logger.info(`🏊 [ProcessBatch] Whirlpool instruction decoded:`, {
+              instructionData,
+            });
+            blockInstructions.push(instructionData);
+          }
+        }
+        // Check for Token program instructions (transfer and transferChecked)
+        else if (
+          ins.programId === tokenProgram.programId ||
+          ins.programId === TOKEN_EXTENSION_PROGRAM_ID
+        ) {
+          logger.info(`🏊 [ProcessBatch] Decoding Token instruction:`, {
+            instruction: ins,
+          });
+          const instructionData = this.decodeInstruction(ins, block);
+          if (instructionData) {
+            logger.info(`🏊 [ProcessBatch] Token instruction decoded:`, {
               instructionData,
             });
             blockInstructions.push(instructionData);
@@ -742,21 +758,6 @@ export class OrcaProcessor {
             decodedInstruction: decodedInitializePoolWithAdaptiveFee,
           } as OrcaInstructionData;
 
-        case tokenProgram.instructions.transfer.d1:
-          return {
-            ...baseData,
-            type: 'transfer',
-            decodedInstruction: tokenProgram.instructions.transfer.decode(ins),
-          } as OrcaInstructionData;
-
-        case tokenProgram.instructions.transferChecked.d1:
-          return {
-            ...baseData,
-            type: 'transferChecked',
-            tokenBalances,
-            decodedInstruction: tokenProgram.instructions.transferChecked.decode(ins),
-          } as OrcaInstructionData;
-
         case whirlpoolProgram.instructions.resetPositionRange.d8:
           const decodedResetPositionRange =
             whirlpoolProgram.instructions.resetPositionRange.decode(ins);
@@ -820,7 +821,30 @@ export class OrcaProcessor {
           } as OrcaInstructionData;
 
         default:
-          return null;
+          // If d8 doesn't match, try d1 for Token instructions
+          switch (ins.d1) {
+            case tokenProgram.instructions.transfer.d1:
+              return {
+                ...baseData,
+                type: 'transfer',
+                decodedInstruction: tokenProgram.instructions.transfer.decode(ins),
+              } as OrcaInstructionData;
+
+            case tokenProgram.instructions.transferChecked.d1:
+              logger.info(`🏊 [ProcessBatch] transferChecked instruction:`, {
+                inner: ins.inner,
+                programId: ins.programId,
+              });
+              return {
+                ...baseData,
+                type: 'transferChecked',
+                tokenBalances,
+                decodedInstruction: tokenProgram.instructions.transferChecked.decode(ins),
+              } as OrcaInstructionData;
+
+            default:
+              return null;
+          }
       }
     } catch (error) {
       logger.warn(`⚠️ [DecodeInstruction] Failed to decode instruction:`, {

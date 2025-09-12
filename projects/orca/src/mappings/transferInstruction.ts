@@ -62,6 +62,9 @@ async function processTransferChecked(
   //todo: include bundle position mints as well - or check if they are pre-included
 
   const tokenMint = data.decodedInstruction.accounts.tokenMint;
+  logger.info(`🏊 [TransferChecked Instruction Activity] Token mint:`, {
+    tokenMint,
+  });
 
   const sourceBalance = data.tokenBalances?.find(
     (balance: any) => balance.account === data.decodedInstruction.accounts.source,
@@ -72,9 +75,14 @@ async function processTransferChecked(
 
   if (sourceBalance?.preMint) {
     const positions = await positionStorageService.getAllPositions();
+    logger.info(`🏊 [TransferChecked Instruction Activity] Positions:`, {
+      positions,
+    });
 
     const position = positions.find((position) => position.positionMint === tokenMint);
-
+    logger.info(`🏊 [TransferChecked Instruction Activity] Position:`, {
+      position,
+    });
     if (!position) {
       return; // Just ignore if position not found
     }

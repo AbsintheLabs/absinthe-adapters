@@ -101,7 +101,7 @@ export const processor = new DataSourceBuilder()
   })
   .addInstruction({
     where: {
-      programId: [tokenProgram.programId],
+      programId: [tokenProgram.programId, TOKEN_EXTENSION_PROGRAM_ID],
       d1: [tokenProgram.instructions.transferChecked.d1],
       isCommitted: true,
     },
