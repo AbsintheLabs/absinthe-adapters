@@ -25,11 +25,13 @@ export function createIchiAdapter(feedConfig: AssetFeedConfig): Adapter {
           user: from,
           asset: log.address,
           amount: new Big(value.toString()).neg(),
+          activity: 'hold',
         });
         await emit.balanceDelta({
           user: to,
           asset: log.address,
           amount: new Big(value.toString()),
+          activity: 'hold',
         });
       }
     },

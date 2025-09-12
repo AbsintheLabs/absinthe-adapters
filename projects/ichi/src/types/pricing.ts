@@ -3,7 +3,7 @@
 import Big from 'big.js';
 import { RedisClientType } from 'redis';
 import { Chain } from '@subsquid/evm-processor/lib/interfaces/chain';
-import { Block, ProcessorContext } from '../processor';
+import { Block, ProcessorContext } from '../eprocessorBuilder';
 import { AssetMetadata } from './core';
 
 // ------------------------------------------------------------

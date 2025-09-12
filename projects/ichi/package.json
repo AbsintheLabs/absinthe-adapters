@@ -6,6 +6,8 @@
   "types": "lib/index.d.ts",
   "scripts": {
     "build": "tsc -p .",
+    "pretest": "pnpm build",
+    "test": "vitest run",
     "start": "node --env-file=../../.env lib/main.js",
     "dev": "pnpm --filter @absinthe/common build && pnpm build && node --env-file=../../.env lib/main.js",
     "migration:clean": "npx rimraf ./db/migrations",

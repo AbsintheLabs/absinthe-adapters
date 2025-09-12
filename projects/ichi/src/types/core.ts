@@ -9,8 +9,7 @@ export interface NormalizedEventContext {
   txHash: string;
   logIndex?: number;
   // chainType: 'evm' | 'solana';
-  // eventType: 'log' | 'transaction' | 'instruction';
-  eventType: 'log' | 'transaction';
+  eventType: 'log' | 'transaction'; // | 'instruction' <-- for when solana comes in
   // XXX: Remove block later when we don't need the full object
   block: any;
 }
@@ -32,6 +31,7 @@ export type BalanceDelta = {
 export type PositionUpdate = {
   user: string;
   asset: string;
+  activity: Activity;
   // only support primitive types for metadata with flat structure
   meta?: Record<string, MetadataValue>;
 };

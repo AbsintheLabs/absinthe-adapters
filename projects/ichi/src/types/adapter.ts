@@ -3,7 +3,7 @@
 import { BalanceDelta, PositionStatusChange, PositionUpdate, Reprice, ActionEvent } from './core';
 import { AssetFeedConfig } from './pricing';
 import { HandlerFactory } from '../feeds/interface';
-import { Block, Log, processor, Transaction } from '../processor';
+import { Block, Log, BaseProcessor, Transaction } from '../eprocessorBuilder';
 import { RedisClientType } from 'redis';
 import { MeasureDelta } from './core';
 
@@ -11,9 +11,16 @@ import { MeasureDelta } from './core';
 // EMIT FUNCTIONS
 // ------------------------------------------------------------
 
+export type BalanceDeltaReason =
+  | 'BALANCE_DELTA'
+  | 'POSITION_UPDATE'
+  | 'EXHAUSTED'
+  | 'FINAL'
+  | 'INACTIVE_POSITION';
+
 // Emit functions for log handlers
 export interface EmitFunctions {
-  balanceDelta: (e: BalanceDelta, reason?: string) => Promise<void>;
+  balanceDelta: (e: BalanceDelta, reason?: BalanceDeltaReason) => Promise<void>;
   positionUpdate: (e: PositionUpdate) => Promise<void>;
   positionStatusChange: (e: PositionStatusChange) => Promise<void>;
   measureDelta: (e: MeasureDelta) => Promise<void>;
@@ -83,7 +90,7 @@ export type Adapter = AdapterV2 | AdapterLegacy;
 
 export interface AdapterV2 {
   // Called once at boot. Adapter registers all subscriptions and handlers on the processor.
-  buildProcessor: (base: typeof processor) => typeof processor;
+  buildProcessor: (base: BaseProcessor) => BaseProcessor;
 
   // Optional end-of-batch hook for deferred work (e.g., draining queues)
   onBatchEnd?: (redis: RedisClientType) => Promise<void>;

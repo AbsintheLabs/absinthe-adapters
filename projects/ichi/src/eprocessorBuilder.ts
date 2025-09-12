@@ -5,6 +5,7 @@ import {
   Transaction as _Transaction,
   EvmBatchProcessorFields,
   EvmBatchProcessor,
+  DataHandlerContext,
 } from '@subsquid/evm-processor';
 // import { SolanaBatchProcessor } from '@subsquid/solana-processor';
 import type { AppConfig } from './config/schema';
@@ -71,4 +72,4 @@ export type Fields = EvmBatchProcessorFields<typeof buildBaseSqdProcessor>;
 export type Block = BlockData<Fields>;
 export type Log = _Log<Fields>;
 export type Transaction = _Transaction<Fields>;
-// export type ProcessorContext<S> = DataHandlerContext<S, Fields>;
+export type ProcessorContext<S> = DataHandlerContext<S, Fields>;

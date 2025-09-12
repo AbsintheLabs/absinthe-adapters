@@ -137,6 +137,10 @@ const SinkConfigSchema = z.discriminatedUnion('sinkType', [
     path: z.string().min(1, 'CSV path cannot be empty'),
   }),
   z.object({
+    sinkType: z.literal('stdout'),
+    json: z.boolean().optional().default(false),
+  }),
+  z.object({
     sinkType: z.literal('absinthe'),
     url: z.string().url('Invalid URL for absinthe sink'),
     apiKey: z.string().optional(),

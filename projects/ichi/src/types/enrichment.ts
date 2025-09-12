@@ -1,15 +1,10 @@
 // Enrichment pipeline type definitions
 
 import { RedisClientType } from 'redis';
-import {
-  TimeWeightedBalanceEvent,
-  MessageType,
-  Currency,
-  TimeWindowTrigger,
-} from '@absinthe/common';
-import Big from 'big.js';
+import { MessageType, Currency, TimeWindowTrigger } from '@absinthe/common';
 import { MetadataCache, PriceCacheTS, HandlerMetadataCache } from './pricing';
-import { ActionRole } from './core';
+import { Activity } from './core';
+import { BalanceDeltaReason } from './adapter';
 
 // ------------------------------------------------------------
 // RAW OBJECTS (from engine before enrichment)
@@ -18,16 +13,18 @@ import { ActionRole } from './core';
 export interface RawBalanceWindow {
   user: string;
   asset: string;
+  activity: Activity;
   startTs: number;
   endTs: number;
-  startBlockNumber: number;
-  endBlockNumber: number;
-  trigger: 'BALANCE_DELTA' | 'POSITION_UPDATE' | 'EXHAUSTED' | 'FINAL' | 'INACTIVE_POSITION';
-  balanceBefore?: string;
-  balanceAfter?: string;
-  balance?: string;
-  prevTxHash?: string | null;
-  txHash?: string | null;
+  startHeight: number;
+  endHeight?: number;
+  trigger: BalanceDeltaReason;
+  rawBefore: string;
+  rawAfter?: string;
+  startTxRef: string | null;
+  endTxRef?: string | null;
+  logIndex?: number;
+  meta?: Record<string, any>;
 }
 
 export interface RawMeasureWindow {
@@ -61,7 +58,7 @@ export interface RawAction {
   logIndex?: number;
   gasUsed?: string;
   gasPrice?: string;
-  role?: ActionRole;
+  // role?: ActionRole;
   from?: string;
   to?: string;
 }
@@ -112,16 +109,19 @@ export interface EnrichedBalanceWindow extends BaseEnrichedFields {
   // Raw fields
   user: string;
   asset: string;
+  activity: Activity;
   startTs: number;
   endTs: number;
-  startBlockNumber: number;
-  endBlockNumber: number;
+  startHeight: number;
+  endHeight: number;
   trigger: 'BALANCE_DELTA' | 'POSITION_UPDATE' | 'EXHAUSTED' | 'FINAL' | 'INACTIVE_POSITION';
-  balanceBefore?: string;
-  balanceAfter?: string;
+  rawBefore?: string;
+  rawAfter?: string;
   balance?: string;
-  prevTxHash?: string | null;
-  txHash?: string | null;
+  startTxRef?: string | null;
+  endTxRef?: string | null;
+  logIndex?: number;
+  meta?: Record<string, any>;
 
   // Enriched fields
   eventType: MessageType.TIME_WEIGHTED_BALANCE;

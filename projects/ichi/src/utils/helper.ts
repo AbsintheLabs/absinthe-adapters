@@ -1,6 +1,5 @@
 import { ActiveBalance } from '@absinthe/common';
 // import { TOKEN_METADATA } from './conts';
-import { TokenMetadata } from './types';
 import { log } from './logger';
 import { createHash } from 'crypto';
 

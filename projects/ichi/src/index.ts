@@ -35,5 +35,5 @@ export { metadataResolver, erc20Handler } from './engine/asset-handlers';
 // Configurations
 export { defaultFeedConfig, gammaVaultsFeedConfig, ichiVaultsFeedConfig } from './config/pricing';
 
-// Sink
-export { Sink, CsvSink } from './esink';
+// // Sink
+// export { Sink, CsvSink, StdoutSink } from './sinks';

@@ -37,6 +37,7 @@ export const univ3 = registerAdapter(
   defineAdapter({
     name: 'uniswap-v3',
     schema: Univ3Params,
+    semver: '0.0.1',
     build: ({ params, io }) => {
       // Extract event topics
       const transferTopic = univ3positionsAbi.events.Transfer.topic;
@@ -202,7 +203,12 @@ export const univ3 = registerAdapter(
                     amount: amount0Big.abs(),
                     asset: token0,
                   },
-                  role: amount0Big.gt(0) ? 'input' : 'output',
+                  activity: 'swap',
+                  meta: {
+                    role: amount0Big.gt(0) ? 'input' : 'output',
+                    amount0Address: token0,
+                    amount1Address: token1,
+                  },
                 });
                 await emit.action({
                   key: md5Hash(`${log.transactionHash}${log.logIndex}`), // same key for idempotency
@@ -212,7 +218,12 @@ export const univ3 = registerAdapter(
                     amount: amount1Big.abs(),
                     asset: token1,
                   },
-                  role: amount1Big.gt(0) ? 'input' : 'output',
+                  activity: 'swap',
+                  meta: {
+                    role: amount1Big.gt(0) ? 'input' : 'output',
+                    amount0Address: token0,
+                    amount1Address: token1,
+                  },
                 });
               } else {
                 console.warn(`Token addresses not found for pool ${pool}`);
@@ -398,6 +409,7 @@ export const univ3 = registerAdapter(
               // NOTE: the backup can be to actually make an rpc call in this point in time to get the owner if we don't have it as a safety precaution!
               user: owner!,
               asset: assetKey,
+              activity: 'lp',
             });
             // Queue reprice operation (will be executed after labels are set)
             queueRepriceForAsset(assetKey);
@@ -424,6 +436,7 @@ export const univ3 = registerAdapter(
             await emit.positionUpdate({
               user: owner!,
               asset: assetKey,
+              activity: 'lp',
             });
             // Queue reprice operation (will be executed after labels are set)
             queueRepriceForAsset(assetKey);
@@ -513,6 +526,7 @@ export const univ3 = registerAdapter(
               user: from,
               asset: assetKey,
               amount: new Big(-1),
+              activity: 'lp',
               meta: {
                 tokenId: tokenId.toString(),
               },
@@ -554,6 +568,7 @@ export const univ3 = registerAdapter(
               user: to,
               asset: assetKey,
               amount: new Big(1),
+              activity: 'lp',
               meta: {
                 tokenId: tokenId.toString(),
               },

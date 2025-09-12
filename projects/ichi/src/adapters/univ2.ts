@@ -16,6 +16,7 @@ export function createUniv2Adapter(feedConfig: AssetFeedConfig): Adapter {
             user: from,
             asset: log.address,
             amount: new Big(value.toString()).neg(),
+            activity: 'hold',
           });
         }
         if (to !== EVM_NULL_ADDRESS) {
@@ -23,6 +24,7 @@ export function createUniv2Adapter(feedConfig: AssetFeedConfig): Adapter {
             user: to,
             asset: log.address,
             amount: new Big(value.toString()),
+            activity: 'hold',
           });
         }
       }

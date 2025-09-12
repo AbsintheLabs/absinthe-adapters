@@ -25,7 +25,6 @@
   "adapterConfig": {
     "name": "aave-v3",
     "params": {
-      "kind": "aave-v3",
       "variableDebtTokenAddress": "0x05e08702028de6AaD395DC6478b554a56920b9AD"
     }
   },

@@ -1,0 +1,21 @@
+{
+  "network": "ethereum",
+  "adapters": [
+    {
+      "kind": "demos-verification",
+      "onlyMeIdAddress": "0x1234567890123456789012345678901234567890"
+    }
+  ],
+  "sinks": [
+    {
+      "sinkType": "stdout",
+      "json": true
+    }
+  ],
+  "feeds": [
+    {
+      "feedType": "coingecko",
+      "apiKey": "your-api-key-here"
+    }
+  ]
+}

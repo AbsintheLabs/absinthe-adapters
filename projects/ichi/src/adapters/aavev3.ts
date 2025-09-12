@@ -9,13 +9,13 @@ import * as erc20Abi from '../abi/erc20';
 import * as aaveV3VarDebtAbi from '../abi/aavev3variabledebttoken';
 
 // New registry imports
-import { defineAdapter, Address, SemVer, semver } from '../adapter-core';
+import { defineAdapter, Address } from '../adapter-core';
 import { registerAdapter } from '../adapter-registry';
 
 export const aavev3 = registerAdapter(
   defineAdapter({
     name: 'aave-v3',
-    semver: '1.0.0',
+    semver: '0.0.1',
     schema: z
       .object({
         // poolDataProviderAddress: Address,

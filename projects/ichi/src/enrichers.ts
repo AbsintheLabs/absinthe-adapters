@@ -359,7 +359,7 @@ export const enrichWindowsWithPrice: WindowEnricher = async (windows, context) =
     const metadata = await context.metadataCache.get(w.asset);
     const decimals = metadata?.decimals ?? 0;
 
-    const balanceBefore = new Big(w.balanceBefore ?? w.balance ?? '0'); // base units
+    const balanceBefore = new Big(w.rawBefore ?? w.rawAfter ?? '0'); // base units
     const tokens = balanceBefore.div(new Big(10).pow(decimals));
     const totalPosition = tokens.times(priceUsd);
 

@@ -2,19 +2,18 @@
 
 import { Database, LocalDest } from '@subsquid/file-store';
 import Big from 'big.js';
-import { createClient, RedisClientType } from 'redis';
+import { RedisClientType } from 'redis';
 import dotenv from 'dotenv';
 import { log } from '../utils/logger';
 import { EVM_NULL_ADDRESS } from '../utils/conts';
-import { Sink } from '../esink';
+import { Sink } from '../sinks';
 import { RedisTSCache, RedisMetadataCache, RedisHandlerMetadataCache } from '../cache';
 import { PricingEngine } from './pricing-engine';
 import { AppConfig } from '../config/schema';
-import { loadConfig } from '../config/load';
-import { buildBaseSqdProcessor } from '../eprocessorBuilder';
 import { match } from 'ts-pattern';
-import { Adapter, EmitFunctions, Projector, ProjectorContext, AdapterV2 } from '../types/adapter';
-import { ActionEventPriced, Amount, NormalizedEventContext, PositionUpdate } from '../types/core';
+import { EmitFunctions, Projector, BalanceDeltaReason } from '../types/adapter';
+import { Amount, NormalizedEventContext, PositionUpdate } from '../types/core';
+
 import {
   IndexerMode,
   BalanceDelta,
@@ -23,7 +22,7 @@ import {
   Reprice,
   ActionEvent,
 } from '../types/core';
-import { AssetConfig, ResolveContext, findConfig, AssetFeedRule } from '../types/pricing';
+import { ResolveContext, findConfig } from '../types/pricing';
 import {
   EnrichmentContext,
   RawBalanceWindow,
@@ -31,8 +30,7 @@ import {
   PricedBalanceWindow,
   PricedEvent,
 } from '../types/enrichment';
-import { Block } from '../processor';
-import { Log, Transaction } from '../eprocessorBuilder';
+import { Block, Log, Transaction } from '../eprocessorBuilder';
 import {
   buildEvents,
   buildTimeWeightedBalanceEvents,
@@ -55,8 +53,8 @@ export class Engine {
   private static readonly BAL_SET_KEY = 'balances:gt0';
   private static readonly ACTIVE_SET_KEY = 'activebalances';
   private static readonly INACTIVE_SET_KEY = 'inactivebalances';
-  protected db: Database<any, any>;
-  protected adapter: BuiltAdapter;
+  private db: Database<any, any>;
+  private adapter: BuiltAdapter;
 
   // State file path for Subsquid processor checkpoint persistence
   // Each containerized indexer instance uses the same local path since they run in isolation
@@ -67,8 +65,8 @@ export class Engine {
 
   // fixme: prepend the redis prefix with a unique id to avoid conflicts if multiple containerized indexers are running and using the same redis instance
   // todo: change number to bigint/something that encodes token info
-  protected redis: RedisClientType;
-  protected windows: RawBalanceWindow[] = [];
+  private redis: RedisClientType;
+  private windows: RawBalanceWindow[] = [];
   private events: RawAction[] = [];
 
   // Projectors for custom event processing
@@ -154,7 +152,7 @@ export class Engine {
   // note: we probably want to be able to pass other types of processors in here, not just evm ones, but solana too!
   // can make a builder class for evm + solana that gently wraps over the subsquid methods to make sure that we're exposing the right ones
   // this will likely be a simple wrapper on top of the sqd methods on the sqd processor class
-  async run() {
+  async run(): Promise<void> {
     // main loop
     // FIXME: add typing in here
     this.sqdProcessor.run(this.db, async (ctx: any) => {
@@ -173,7 +171,6 @@ export class Engine {
           // only process successful function calls
           if (transaction.status === 1) {
             await this.ingest(block, transaction);
-            // await this.ingestTransaction(block, transaction, 'transaction');
           }
         }
       }
@@ -491,7 +488,7 @@ export class Engine {
       .exhaustive();
   }
 
-  protected async sqdBatchEnd(ctx: any) {
+  private async sqdBatchEnd(ctx: any) {
     // clear windows at the end of the batch
     this.windows.length = 0;
     // clear events at the end of the batch
@@ -508,7 +505,7 @@ export class Engine {
     sqdLogOrTx: Log | Transaction,
     ctx: NormalizedEventContext,
   ): Promise<void> {
-    let { key, user, meta, role, priceable } = e;
+    let { key, user, meta, priceable } = e;
 
     // we have to check if the action is a priceable action or not
     let amount: Amount | null = null;
@@ -539,7 +536,7 @@ export class Engine {
       key: key,
       user: user,
       meta: meta,
-      role: role,
+      // role: role,
       // asset stuff
       asset: amount?.asset,
       amount: amount?.amount.toString(),
@@ -563,11 +560,11 @@ export class Engine {
 
   private async applyBalanceDelta(
     e: BalanceDelta,
-    blockData: any,
-    reason: string = 'BALANCE_DELTA',
+    ctx: NormalizedEventContext,
+    reason: BalanceDeltaReason = 'BALANCE_DELTA',
   ): Promise<void> {
-    const ts = blockData.ts;
-    const height = blockData.height;
+    const ts = ctx.ts;
+    const height = ctx.height;
 
     // data cleaning:
     // fixme: we should probably do this in the emit functions before we call it in the applyBalanceDelta function
@@ -609,13 +606,16 @@ export class Engine {
         asset: e.asset,
         startTs: oldTs,
         endTs: ts,
-        startBlockNumber: oldHeight,
-        endBlockNumber: height,
-        trigger: reason as any,
-        balanceBefore: oldAmt.toString(),
-        balanceAfter: newAmt.toString(),
-        prevTxHash: prevTxHash,
-        txHash: blockData.txHash,
+        startHeight: oldHeight,
+        endHeight: height,
+        trigger: reason,
+        rawBefore: oldAmt.toString(),
+        rawAfter: newAmt.toString(),
+        startTxRef: prevTxHash,
+        endTxRef: ctx.txHash,
+        activity: e.activity,
+        logIndex: ctx.logIndex,
+        meta: e.meta,
       };
       this.windows.push(window);
     }
@@ -625,7 +625,7 @@ export class Engine {
         amount: newAmt.toString(),
         updatedTs: String(ts),
         updatedHeight: String(height),
-        txHash: blockData.txHash,
+        txHash: ctx.txHash,
       }),
       // Maintain HAS-BALANCE set for scans/flush
       newAmt.gt(0)
@@ -636,6 +636,7 @@ export class Engine {
     ]);
   }
 
+  // fixme: make this take in normalized position context
   private async applyPositionUpdate(e: PositionUpdate, blockData: any): Promise<void> {
     // Thin wrapper around applyBalanceDelta to follow DRY principle
     // Position updates don't change balance but update metadata/timestamps
@@ -643,6 +644,7 @@ export class Engine {
       {
         user: e.user,
         asset: e.asset,
+        activity: e.activity,
         amount: new Big(0), // No balance change for position updates
         meta: e.meta,
       },
@@ -713,13 +715,18 @@ export class Engine {
           asset,
           startTs: lastUpdatedTs,
           endTs: ts,
-          startBlockNumber: lastUpdatedHeight,
-          endBlockNumber: height,
+          startHeight: lastUpdatedHeight,
+          endHeight: height,
           trigger: 'INACTIVE_POSITION',
-          balanceBefore: amt.toString(),
-          balanceAfter: amt.toString(),
-          prevTxHash: prevTxHash,
-          txHash: txHash,
+          rawBefore: amt.toString(),
+          rawAfter: amt.toString(),
+          startTxRef: prevTxHash,
+          endTxRef: blockData.txHash,
+          // activity: e.activity,
+          // logIndex: blockData. // fixme!
+          // xxx: this should probably not be a hold, but instead we should pass the activity from the 'e' method
+          activity: 'hold',
+          meta: e.meta,
         };
         this.windows.push(window);
       }
@@ -746,7 +753,7 @@ export class Engine {
     }
   }
 
-  protected async applyMeasureDelta(e: MeasureDelta, blockData: any): Promise<void> {
+  private async applyMeasureDelta(e: MeasureDelta, blockData: any): Promise<void> {
     const ts = blockData.ts;
     const height = blockData.height;
 
@@ -855,13 +862,6 @@ export class Engine {
       return;
     }
 
-    for (const key of balanceKeys) {
-      log.debug('balanceKey in the final flush: ', key);
-      if (key.includes(':1675')) {
-        log.debug('found 1675 in balance key', key);
-      }
-    }
-
     // ---- READ PHASE (auto-pipelined) ----
     const rows = await Promise.all(
       balanceKeys.map((k) =>
@@ -916,11 +916,14 @@ export class Engine {
             asset,
             startTs: lastUpdatedTs,
             endTs: finalTs,
-            startBlockNumber: Number(updatedHeightStr),
-            endBlockNumber: height,
-            trigger: 'FINAL' as any,
-            balance: amt.toString(),
-            prevTxHash: prevTxHash,
+            startHeight: Number(updatedHeightStr),
+            endHeight: height,
+            trigger: 'FINAL',
+            rawBefore: amt.toString(),
+            rawAfter: amt.toString(),
+            startTxRef: prevTxHash,
+            // xxx: this should probably not be a hold, and instead be whatever the last activity type was?
+            activity: 'hold',
           };
           this.windows.push(window);
           writePromises.push(
@@ -935,11 +938,14 @@ export class Engine {
             asset,
             startTs: lastUpdatedTs,
             endTs: currentWindowStart,
-            startBlockNumber: Number(updatedHeightStr),
-            endBlockNumber: height,
-            trigger: 'EXHAUSTED' as any,
-            balance: amt.toString(),
-            prevTxHash: prevTxHash,
+            startHeight: Number(updatedHeightStr),
+            endHeight: height,
+            trigger: 'EXHAUSTED',
+            rawBefore: amt.toString(),
+            rawAfter: amt.toString(),
+            startTxRef: prevTxHash,
+            // fixme: this should probably not be a hold, and instead be whatever the last activity type was?
+            activity: 'hold',
           };
           this.windows.push(window);
           // Advance cursor to the start of the current window (we didn't emit the live window)
@@ -969,7 +975,8 @@ export class Engine {
     logOrTx: Log | Transaction,
   ): EmitFunctions {
     return {
-      balanceDelta: (e: BalanceDelta, reason?: string) => this.applyBalanceDelta(e, ctx, reason),
+      balanceDelta: (e: BalanceDelta, reason?: BalanceDeltaReason) =>
+        this.applyBalanceDelta(e, ctx, reason),
       positionUpdate: (e: PositionUpdate) => this.applyPositionUpdate(e, ctx),
       reprice: (e: Reprice) => this.applyReprice(e, ctx),
       positionStatusChange: (e: PositionStatusChange) => this.applyPositionStatusChange(e, ctx),

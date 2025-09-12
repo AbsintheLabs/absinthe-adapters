@@ -15,7 +15,14 @@ export function registerAdapter<D extends AnyDef>(def: D) {
   }
 
   // Validate semver format
-  SemVer.parse(def.semver);
+  try {
+    SemVer.parse(def.semver);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      throw new Error(`Invalid semver for adapter '${def.name}':\n${z.prettifyError(error)}`);
+    }
+    throw error;
+  }
 
   // Automatically inject the name as a literal into the schema
   const enhancedDef = {

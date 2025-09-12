@@ -69,6 +69,7 @@ interface TimeWeightedBalanceEvent extends BaseEvent {
   endHeight?: bigint; // evm block number / solana slot
   startTxRef: string; // evm tx hash / solana tx hash
   endTxRef?: string; // evm tx hash / solana tx hash
+  logIndex?: number;
 
   trigger: string; // 'balance_delta', 'position_update', etc
 

@@ -2,8 +2,7 @@
 import { z, ZodTypeAny } from 'zod';
 import { RedisClientType } from 'redis';
 import { EmitFunctions, RpcContext, Projector, CustomFeedHandlers } from './types/adapter';
-import { Block, Log, Transaction } from './processor';
-import { BaseProcessor } from './eprocessorBuilder';
+import { BaseProcessor, Block, Log, Transaction } from './eprocessorBuilder';
 import { ProtocolFamily } from './constants';
 
 // Engine IO interface for dependency injection

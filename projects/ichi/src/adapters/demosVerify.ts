@@ -19,14 +19,13 @@ export type DemosVerifyParams = z.infer<typeof DemosVerifyParams>;
 export const demosVerify = registerAdapter(
   defineAdapter({
     name: 'demos-verify',
+    semver: '0.0.1',
     schema: DemosVerifyParams,
     build: ({ params, io }) => {
       // Extract event topics here if needed
       const userVerifySighash = demosAbi.functions.userVerify.sighash;
 
       return {
-        __adapterName: 'demos-verify',
-        adapterCustomConfig: DemosVerifyParams,
         buildProcessor: (base) =>
           base.addTransaction({
             to: [params.onlyMeIdAddress],
@@ -39,7 +38,7 @@ export const demosVerify = registerAdapter(
             key: md5Hash(`${hash}${transactionIndex}`),
             user: from,
             priceable: false,
-            role: 'verify',
+            activity: 'verify',
           });
         },
         projectors: [], // Add projectors if needed

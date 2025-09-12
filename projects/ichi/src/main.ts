@@ -1,7 +1,7 @@
 // // Main entry point for the ICHI indexer
 
 // import { Engine } from './engine';
-// import { CsvSink } from './esink';
+// import { CsvSink } from './sinks';
 // import { defaultFeedConfig } from './config/pricing';
 // import { loadConfig } from './config/load';
 
@@ -182,7 +182,7 @@ process.env.SQUID_PROCESSOR_EXIT_DISABLED = process.env.SQUID_PROCESSOR_EXIT_DIS
 
 import { loadConfig } from './config/load';
 import { buildBaseSqdProcessor } from './eprocessorBuilder';
-import { Sink, SinkFactory } from './esink';
+import { Sink, SinkFactory } from './sinks';
 import { createClient, RedisClientType } from 'redis';
 import { AppConfig } from './config/schema';
 import { Adapter, EmitFunctions } from './types/adapter';
@@ -251,9 +251,6 @@ async function main() {
 
   const engine = new Engine(deps);
   await engine.run();
-
-  console.log(`Adapter ${adapter.__adapterName} built successfully`);
-  console.log('Processor configured with subscriptions');
 }
 
 main();
