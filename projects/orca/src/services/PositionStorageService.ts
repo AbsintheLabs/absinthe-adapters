@@ -72,7 +72,6 @@ export class PositionStorageService {
   async storePool(pool: PoolDetails): Promise<void> {
     const poolKey = `pool:${pool.poolId}`;
 
-    logger.info(`🏊 [StorePool] Pool:`, pool);
     await this.redis.hSet(poolKey, {
       poolId: pool.poolId,
       token0Id: pool.token0Id,
@@ -336,7 +335,6 @@ export class PositionStorageService {
       const data = await this.redis.hGetAll(positionKey);
 
       if (!data.positionId) {
-        logger.info(`❌ [GetPosition] No position data found for ${positionId}`);
         return null;
       }
 
@@ -400,11 +398,8 @@ export class PositionStorageService {
     }
 
     try {
-      logger.info('🔍 [GetAllPositions] Starting position retrieval...');
-
       // Get all position keys using pattern matching
       const positionKeys = await this.redis.keys('pool:*:position:*');
-      logger.info(`🔍 [GetAllPositions] Found ${positionKeys.length} position keys:`, positionKeys);
 
       if (positionKeys.length === 0) {
         logger.warn('⚠️ [GetAllPositions] No position keys found with pattern pool:*:position:*');
@@ -416,13 +411,10 @@ export class PositionStorageService {
 
       // Queue all position data retrievals
       for (const key of positionKeys) {
-        logger.info(`🔍 [GetAllPositions] Queuing hGetAll for key: ${key}`);
         pipeline.hGetAll(key);
       }
 
-      logger.info('🔍 [GetAllPositions] Executing pipeline...');
       const results = await pipeline.exec();
-      logger.info(`🔍 [GetAllPositions] Pipeline results:`, results);
 
       const positions: PositionDetails[] = [];
 
@@ -430,8 +422,6 @@ export class PositionStorageService {
         logger.error('❌ [GetAllPositions] Pipeline results is null!');
         return positions;
       }
-
-      logger.info(`🔍 [GetAllPositions] Processing ${results.length} results...`);
 
       // Process results
       for (const result of results) {
@@ -453,12 +443,10 @@ export class PositionStorageService {
               lastUpdatedBlockHeight: parseInt(data.lastUpdatedBlockHeight),
             };
             positions.push(position);
-            logger.info(`✅ [GetAllPositions] Added position: ${position.positionId}`);
           }
         }
       }
 
-      logger.info(`📊 [GetAllPositions] Retrieved ${positions.length} positions`);
       return positions;
     } catch (error) {
       logger.error('❌ [GetAllPositions] Error retrieving all positions:', error);

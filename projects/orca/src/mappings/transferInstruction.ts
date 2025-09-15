@@ -59,7 +59,7 @@ async function processTransferChecked(
     txHash: data.txHash,
   });
 
-  //todo: include bundle position mints as well - or check if they are pre-included
+  //todo: bundlemints are also preincluded, but make sure to change the owner of positionbundle , and not only limiting to bundlePosition
 
   const tokenMint = data.decodedInstruction.accounts.tokenMint;
   logger.info(`🏊 [TransferChecked Instruction Activity] Token mint:`, {
