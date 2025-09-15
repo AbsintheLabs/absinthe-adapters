@@ -117,7 +117,7 @@ async function processSwapCommon(
           type: 'number',
         },
         aToB: {
-          value: analysis.aToB,
+          value: analysis.aToB.toString(),
           type: 'string',
         },
       },
