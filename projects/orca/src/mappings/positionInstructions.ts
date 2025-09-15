@@ -16,6 +16,8 @@ import { LiquidityMathService } from '../services/LiquidityMathService';
 // 	- A bot could be the authority while the treasury multisig owns the NFT.
 // 	- If you reward the authority, an operator could farm rewards by rotating authorities without transferring real ownership.
 
+//todo: recheck all the lockPosition, resetPositionRange and TransferLockPosition
+
 export async function processPositionInstructions(
   instructionsData: OrcaInstructionData[],
   protocolStates: Map<string, any>,

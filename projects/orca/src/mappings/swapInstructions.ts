@@ -116,6 +116,10 @@ async function processSwapCommon(
           value: analysis.currentTick.toString(),
           type: 'number',
         },
+        aToB: {
+          value: analysis.aToB,
+          type: 'string',
+        },
       },
       rawAmount: analysis.fromAmount.toString(),
       displayAmount: analysis.valueUsd,
@@ -404,6 +408,7 @@ async function analyseSwap(data: any, liquidityMathService: LiquidityMathService
       currentTick: currentTick,
       valueUsd: valueUsd,
       userAddress: userAddress,
+      aToB: data.decodedInstruction.data.aToB,
       rawAmount: rawAmount.toString(),
     };
   }
