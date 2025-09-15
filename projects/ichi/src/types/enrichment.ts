@@ -85,7 +85,7 @@ export type Enricher<TInput = any, TOutput = any> = (
 
 export type WindowEnricher = Enricher<RawBalanceWindow, any>;
 export type MeasureWindowEnricher = Enricher<RawMeasureWindow, any>;
-export type ActionEnricher = Enricher<RawAction, any>;
+export type ActionEnricher = Enricher<RawAction>;
 
 // ------------------------------------------------------------
 // INTERMEDIATE ENRICHED OBJECTS

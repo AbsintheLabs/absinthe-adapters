@@ -9,18 +9,17 @@ import { defineAdapter, Address as EvmAddress } from '../adapter-core';
 import { registerAdapter } from '../adapter-registry';
 import { md5Hash } from '../utils/helper';
 
-export const DemosVerifyParams = z.object({
-  kind: z.literal('demos-verification'),
+export const DemosVerifyZodObj = z.object({
   onlyMeIdAddress: EvmAddress,
 });
 
-export type DemosVerifyParams = z.infer<typeof DemosVerifyParams>;
+export type DemosVerifyParamsType = z.infer<typeof DemosVerifyZodObj>;
 
 export const demosVerify = registerAdapter(
   defineAdapter({
     name: 'demos-verify',
     semver: '0.0.1',
-    schema: DemosVerifyParams,
+    schema: DemosVerifyZodObj,
     build: ({ params, io }) => {
       // Extract event topics here if needed
       const userVerifySighash = demosAbi.functions.userVerify.sighash;
@@ -41,7 +40,6 @@ export const demosVerify = registerAdapter(
             activity: 'verify',
           });
         },
-        projectors: [], // Add projectors if needed
       };
     },
   }),

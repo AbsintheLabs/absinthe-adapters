@@ -32,8 +32,8 @@ import {
 } from '../types/enrichment';
 import { Block, Log, Transaction } from '../eprocessorBuilder';
 import {
-  buildEvents,
-  buildTimeWeightedBalanceEvents,
+  // buildActionEvents,
+  // buildTimeWeightedBalanceEvents,
   enrichBaseEventMetadata,
   enrichWithRunnerInfo,
   pipeline,
@@ -42,7 +42,7 @@ import {
   filterOutZeroValueEvents,
   dedupeActions,
   enrichActionsWithPrice,
-} from '../enrichers';
+} from '../enrichers/index';
 import { EngineDeps } from '../main';
 import { BuiltAdapter } from '../adapter-core';
 
@@ -362,12 +362,12 @@ export class Engine {
     };
 
     const enrichedEvents = await pipeline<PricedEvent>(
-      enrichWithCommonBaseEventFields,
+      // enrichWithCommonBaseEventFields,
       enrichWithRunnerInfo,
-      enrichBaseEventMetadata,
-      buildEvents,
+      // enrichBaseEventMetadata,
+      // buildActionEvents,
       dedupeActions,
-      enrichActionsWithPrice,
+      // enrichActionsWithPrice,
       // filterOutZeroValueEvents,
     )(this.events, enrichCtx);
 
@@ -391,11 +391,11 @@ export class Engine {
     log.debug(`about to enrich windows: ${this.windows.length}`);
 
     const enrichedWindows = await pipeline<PricedBalanceWindow>(
-      enrichWithCommonBaseEventFields,
+      // enrichWithCommonBaseEventFields,
       enrichWithRunnerInfo,
       enrichBaseEventMetadata,
-      buildTimeWeightedBalanceEvents,
-      enrichWindowsWithPrice,
+      // buildTimeWeightedBalanceEvents,
+      // enrichWindowsWithPrice,
       // filterOutZeroValueEvents,
     )(this.windows, enrichCtx);
 

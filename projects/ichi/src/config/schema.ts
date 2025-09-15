@@ -173,7 +173,7 @@ const Common = z.object({
   }),
   assetFeedConfig: AssetFeedConfig.optional(),
   adapterConfig: z.object({
-    name: z.string(), // "uniswap-v3", "compound-v2", etc.
+    adapterId: z.string(), // "uniswap-v3", "compound-v2", etc.
     params: z.unknown(), // Will be validated by the specific adapter
   }),
   pricingRange: PricingRange.optional(), // Optional pricing range - defines when to apply pricing

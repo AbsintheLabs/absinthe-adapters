@@ -15,7 +15,7 @@ export class SinkFactory {
       case 'csv':
         return new CsvSink(cfg.path);
       case 'stdout':
-        return new StdoutSink(cfg.json);
+        return new StdoutSink();
       case 'absinthe':
         throw new Error('Absinthe sink not implemented yet');
       default:

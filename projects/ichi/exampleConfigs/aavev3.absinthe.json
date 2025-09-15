@@ -5,8 +5,7 @@
   "flushMs": 259200000,
   "redisUrl": "redis://localhost:6379",
   "sinkConfig": {
-    "sinkType": "csv",
-    "path": "windows.csv"
+    "sinkType": "stdout"
   },
   "network": {
     "chainId": 8453,
@@ -15,16 +14,17 @@
     "finality": 75
   },
   "range": {
-    "fromBlock": 20151660,
-    "toBlock": 32803000
+    "fromBlock": 20160000,
+    "toBlock": 20200000
   },
   "pricingRange": {
     "type": "block",
     "fromBlock": 30000000
   },
   "adapterConfig": {
-    "name": "aave-v3",
+    "adapterId": "aave-v3",
     "params": {
+      "aTokenAddress": "0xBdb9300b7CDE636d9cD4AFF00f6F009fFBBc8EE6",
       "variableDebtTokenAddress": "0x05e08702028de6AaD395DC6478b554a56920b9AD"
     }
   },

@@ -79,7 +79,8 @@ export const aavev3 = registerAdapter(
                 user: onBehalfOf,
                 // asset: createVarDebtTokenKey(params.variableDebtTokenAddress, onBehalfOf),
                 asset: params.variableDebtTokenAddress,
-                amount: scaledAmt,
+                // amount: scaledAmt,
+                amount: Big(value.toString()),
                 activity: 'borrow',
               });
             }
@@ -94,7 +95,8 @@ export const aavev3 = registerAdapter(
                 user: from,
                 // asset: createVarDebtTokenKey(params.variableDebtTokenAddress, from),
                 asset: params.variableDebtTokenAddress,
-                amount: scaledAmt.neg(),
+                // amount: scaledAmt.neg(),
+                amount: Big(value.toString()).neg(),
                 activity: 'borrow',
               });
             }

@@ -2,14 +2,11 @@
 import { z } from 'zod';
 import { defineAdapter, AdapterDef, BuiltAdapter, EngineIO, SemVer } from './adapter-core';
 
-// Type for any adapter definition
-type AnyDef = AdapterDef<any>;
-
 // Central registry map
-const registry = new Map<string, AnyDef>();
+const registry = new Map<string, AdapterDef<z.ZodObject<any, any>>>();
 
 // Register an adapter in the central registry
-export function registerAdapter<D extends AnyDef>(def: D) {
+export function registerAdapter<D extends AdapterDef<z.ZodObject<any, any>>>(def: D) {
   if (registry.has(def.name)) {
     throw new Error(`Duplicate adapter: ${def.name}`);
   }
@@ -24,16 +21,8 @@ export function registerAdapter<D extends AnyDef>(def: D) {
     throw error;
   }
 
-  // Automatically inject the name as a literal into the schema
-  const enhancedDef = {
-    ...def,
-    schema: def.schema.extend({
-      kind: z.literal(def.name),
-    }),
-  };
-
-  registry.set(def.name, enhancedDef);
-  return enhancedDef; // for tree-shaken side-effect registration
+  registry.set(def.name, def);
+  return def; // for tree-shaken side-effect registration
 }
 
 // Build an adapter by name with runtime validation

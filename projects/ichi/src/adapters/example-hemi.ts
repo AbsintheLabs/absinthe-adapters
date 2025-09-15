@@ -21,7 +21,8 @@ export function createHemiAdapter(feedConfig: AssetFeedConfig): Adapter {
         await emit.balanceDelta({
           user: depositor,
           asset: token,
-          amount: new Big(amount.toString()),
+          amount: Big(amount.toString()),
+          activity: 'deposit',
         });
       } else if (log.topics[0] === hemiAbi.events.Withdraw.topic) {
         const { withdrawer, token, amount } = hemiAbi.events.Withdraw.decode(log);
@@ -29,7 +30,8 @@ export function createHemiAdapter(feedConfig: AssetFeedConfig): Adapter {
         await emit.balanceDelta({
           user: withdrawer,
           asset: token,
-          amount: new Big(amount.toString()).neg(),
+          amount: Big(amount.toString()).neg(),
+          activity: 'withdraw',
         });
       }
     },

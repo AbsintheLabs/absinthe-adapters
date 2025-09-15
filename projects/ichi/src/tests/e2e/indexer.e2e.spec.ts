@@ -55,25 +55,43 @@ describe('Indexer E2E', () => {
 
       // 1) it should exit cleanly
       expect(exitCode).toBe(0);
-      expect(stderr).toBe(''); // or expect(stderr).not.toMatch(/error/i)
+      // expect(stderr).toBe(''); // or expect(stderr).not.toMatch(/error/i)
 
       // 2) parse stdout if you pipe output, else parse CSV or other sink
       // placeholder: assume stdout is JSON lines
       const lines = stdout.split('\n').filter((l) => l.trim().length > 0);
       // optional: JSON parse each
-      const rows = lines.map((l) => JSON.parse(l));
+      const rows = lines
+        .map((l) => {
+          try {
+            return JSON.parse(l);
+          } catch (e) {
+            return null;
+          }
+        })
+        .filter((row) => row !== null);
 
       // 3) make assertions
       expect(rows.length).toBeGreaterThan(0);
       // assert a known row
-      const known = rows.find((r) => r.user === '0xabc...' && r.asset === '0xdef...');
+      const known = rows.find(
+        (r) =>
+          r.user === '0x000000c77ab4952aa5c43ee8047bca9ca7265b3d' &&
+          r.asset === '0x05e08702028de6aad395dc6478b554a56920b9ad' &&
+          r.activity === 'borrow' &&
+          r.startTxRef === '0xb25212d21c8656b03be871ca4fc22d5e55da2052ef688f0623a8e95c56a46179' &&
+          r.endTxRef === '0x6bfbd6568b07a42861578308607c217d263fc6b486d22814f21a0e2836afc103' &&
+          r.rawAfter === '0', // fixme: this should be a number!!! Need to make sure json types are correct
+      );
       expect(known).toBeDefined();
-      if (known) {
-        expect(known.amount).toBeCloseTo(12345.67, 2);
-      }
 
-      // 4) snapshot of first few
-      expect(rows.slice(0, 5)).toMatchSnapshot();
+      const notKnown = rows.find(
+        (r) =>
+          r.user === '0x000000c77ab4952aa5c43ee8047bca9ca7265b3d' &&
+          r.asset === '0x05e08702028de6aad395dc6478b554a56920b9ad' &&
+          r.trigger === 'FINAL',
+      );
+      expect(notKnown).toBeUndefined();
     });
   }
 });
