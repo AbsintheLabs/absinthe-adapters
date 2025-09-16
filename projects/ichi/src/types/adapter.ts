@@ -1,6 +1,13 @@
 // Adapter interface and related types
 
-import { BalanceDelta, PositionStatusChange, PositionUpdate, Reprice, ActionEvent } from './core';
+import {
+  BalanceDelta,
+  PositionStatusChange,
+  PositionUpdate,
+  Reprice,
+  ActionEvent,
+  Swap,
+} from './core';
 import { AssetFeedConfig } from './pricing';
 import { HandlerFactory } from '../feeds/interface';
 import { Block, Log, BaseProcessor, Transaction } from '../eprocessorBuilder';
@@ -28,6 +35,7 @@ export interface EmitFunctions {
   reprice: (e: Reprice) => Promise<void>;
   custom: (namespace: string, type: string, payload: any) => Promise<void>;
   action: (e: ActionEvent) => Promise<void>;
+  swap: (e: Swap) => Promise<void>;
   // add more here as scope grows
 }
 

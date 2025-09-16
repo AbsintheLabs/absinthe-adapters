@@ -7,7 +7,7 @@
 // import './demosVerify'; // Registers the demos-verify adapter
 import './aavev3'; // Registers the aave-v3 adapter
 // import './ichi'; // Registers the ichi adapter
-// import './univ2'; // Registers the uniswap-v2 adapter
+import './univ2'; // Registers the uniswap-v2 adapter
 
 // Export the registry for convenience
 export {

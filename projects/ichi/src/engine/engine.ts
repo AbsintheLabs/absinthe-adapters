@@ -12,7 +12,7 @@ import { PricingEngine } from './pricing-engine';
 import { AppConfig } from '../config/schema';
 import { match } from 'ts-pattern';
 import { EmitFunctions, Projector, BalanceDeltaReason } from '../types/adapter';
-import { Amount, NormalizedEventContext, PositionUpdate } from '../types/core';
+import { Amount, NormalizedEventContext, PositionUpdate, Swap } from '../types/core';
 
 import {
   IndexerMode,
@@ -982,6 +982,7 @@ export class Engine {
       positionStatusChange: (e: PositionStatusChange) => this.applyPositionStatusChange(e, ctx),
       measureDelta: (e: MeasureDelta) => this.applyMeasureDelta(e, ctx),
       action: (e: ActionEvent) => this.applyAction(e, logOrTx, ctx),
+      swap: (e: Swap) => this.applyAction(e, logOrTx, ctx),
       custom: async (namespace: string, type: string, payload: any) => {
         /* dummy fill in for now */
       },

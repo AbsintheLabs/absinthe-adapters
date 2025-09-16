@@ -79,6 +79,7 @@ export type Amount = {
   amount: Big;
 };
 
+// potentially, make key optional and generate a uuid for it by defualt? otherwise, too easy to make a mistake
 export type ActionEventBase = {
   key: string;
   user: string;
@@ -97,6 +98,16 @@ export type ActionEventUnpriced = ActionEventBase & {
 };
 
 export type ActionEvent = ActionEventPriced | ActionEventUnpriced;
+
+export type Swap = ActionEventPriced & {
+  activity: 'swap';
+  meta: {
+    fromTkAddress: string;
+    toTkAddress: string;
+    fromTkAmount: string;
+    toTkAmount: string;
+  };
+};
 
 export type Reprice = {
   asset: string;

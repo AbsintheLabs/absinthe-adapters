@@ -130,24 +130,39 @@ export const AssetFeedRule = z.object({
 // Collection of rules for asset feed matching
 export const AssetFeedConfig = z.array(AssetFeedRule);
 
-// Sink configuration schema - matches the SinkConfig type from esink.ts
-const SinkConfigSchema = z.discriminatedUnion('sinkType', [
-  z.object({
-    sinkType: z.literal('csv'),
-    path: z.string().min(1, 'CSV path cannot be empty'),
-  }),
-  z.object({
-    sinkType: z.literal('stdout'),
-    json: z.boolean().optional().default(false),
-  }),
-  z.object({
-    sinkType: z.literal('absinthe'),
-    url: z.string().url('Invalid URL for absinthe sink'),
-    apiKey: z.string().optional(),
-    rateLimit: z.number().int().positive().optional(),
-    batchSize: z.number().int().positive().optional(),
-  }),
+// Individual sink configuration schemas
+const CsvSinkSchema = z.object({
+  sinkType: z.literal('csv'),
+  path: z.string().min(1, 'CSV path cannot be empty'),
+});
+
+const StdoutSinkSchema = z.object({
+  sinkType: z.literal('stdout'),
+  json: z.boolean().optional().default(false),
+});
+
+const AbsintheSinkSchema = z.object({
+  sinkType: z.literal('absinthe'),
+  url: z.string().url('Invalid URL for absinthe sink'),
+  apiKey: z.string().optional(),
+  rateLimit: z.number().int().positive().optional(),
+  batchSize: z.number().int().positive().optional(),
+});
+
+// Single sink configuration (backwards compatibility)
+const SingleSinkSchema = z.discriminatedUnion('sinkType', [
+  CsvSinkSchema,
+  StdoutSinkSchema,
+  AbsintheSinkSchema,
 ]);
+
+// Multiple sinks configuration
+const MultipleSinksSchema = z.object({
+  sinks: z.array(SingleSinkSchema).min(1, 'At least one sink must be configured'),
+});
+
+// Combined sink configuration schema - supports both single and multiple sinks
+const SinkConfigSchema = z.union([SingleSinkSchema, MultipleSinksSchema]);
 
 // Pricing range configuration - defines when to apply pricing
 const PricingRange = z.discriminatedUnion('type', [

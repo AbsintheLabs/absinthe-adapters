@@ -1,21 +1,21 @@
 // Asset information interface
-interface AssetInfo {
+export interface AssetInfo {
   asset: string; // EVM or Solana address
   tokenId?: string; // OPTIONAL for NFTs
   decimals: number;
   assetType: string; // erc20, erc721, spl, etc
 }
 
-interface RunnerMeta {
+export interface RunnerMeta {
   version: string; // schema version
   commitSha?: string; // commit hash of the runner
   configHash?: string; // hash of the runner config
   runnerId: string;
-  apiKeyHash: string;
+  apiKeyHash?: string;
 }
 
 // Common base interface for all events
-interface BaseEvent {
+export interface BaseEvent {
   // attribution
   user: string; // EVM address
   asset: AssetInfo;
@@ -32,7 +32,7 @@ interface BaseEvent {
   // valuation
   valuationCurrency: 'usd' | 'eth';
   valueUsd: number;
-  priceSource: string;
+  // priceSource: string;
   tokenPriceUsd: number | null;
 
   // price debug info
@@ -46,7 +46,12 @@ interface BaseEvent {
   // runner metadata
   version: string; // version of the base event
   eventId: string; // primary key
-  runner: RunnerMeta;
+
+  runner_version: string;
+  runner_commitSha?: string;
+  runner_configHash?: string;
+  runner_runnerId: string;
+  runner_apiKeyHash?: string;
 
   // meta
   metadataJson: string; // json string

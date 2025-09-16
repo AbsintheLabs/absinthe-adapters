@@ -1,0 +1,66 @@
+{
+  "$schema": "./src/config/absconfig.json",
+  "kind": "evm",
+  "indexerId": "aave-v3-indexer",
+  "flushMs": 259200000,
+  "redisUrl": "redis://localhost:6379",
+  "sinkConfig": {
+    "sinkType": "stdout"
+  },
+  "network": {
+    "chainId": 8453,
+    "gatewayUrl": "https://v2.archive.subsquid.io/network/base-mainnet",
+    "rpcUrl": "https://base.llamarpc.com",
+    "finality": 75
+  },
+  "range": {
+    "fromBlock": 20160000,
+    "toBlock": 20200000
+  },
+  "pricingRange": {
+    "type": "block",
+    "fromBlock": 30000000
+  },
+  "adapterConfig": {
+    "adapterId": "aave-v3",
+    "params": {
+      "aTokenAddress": "0xBdb9300b7CDE636d9cD4AFF00f6F009fFBBc8EE6",
+      "variableDebtTokenAddress": "0x05e08702028de6AaD395DC6478b554a56920b9AD"
+    }
+  },
+  "assetFeedConfig": [
+    {
+      "match": {
+        "key": "0x05e08702028de6AaD395DC6478b554a56920b9AD"
+      },
+      "config": {
+        "assetType": "erc20",
+        "priceFeed": {
+          "kind": "aavev3vardebt",
+          "debtTokenAddress": "0x05e08702028de6AaD395DC6478b554a56920b9AD",
+          "underlyingTokenAddress": "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf",
+          "poolAddress": "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5",
+          "underlyingTokenFeed": {
+            "assetType": "erc20",
+            "priceFeed": {
+              "kind": "pegged",
+              "usdPegValue": 110000
+            }
+          }
+        }
+      }
+    },
+    {
+      "match": {
+        "key": "0xBdb9300b7CDE636d9cD4AFF00f6F009fFBBc8EE6"
+      },
+      "config": {
+        "assetType": "erc20",
+        "priceFeed": {
+          "kind": "pegged",
+          "usdPegValue": 100000
+        }
+      }
+    }
+  ]
+}

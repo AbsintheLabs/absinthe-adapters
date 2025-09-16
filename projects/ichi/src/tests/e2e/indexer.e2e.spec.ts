@@ -36,9 +36,9 @@ async function runIndexer(
 
 describe('Indexer E2E', () => {
   const cases = [
-    // fixme: move the example config under the tests directory so it's more semantically clear what's going on here
-    { name: 'aavev3', config: 'exampleConfigs/aavev3.absinthe.json' },
-    // { name: 'univ3', config: 'exampleConfigs/univ3.hemi.json' },
+    // { name: 'aavev3', config: 'src/tests/configs/aavev3.absinthe.json' },
+    { name: 'univ2', config: 'src/tests/configs/univ2.absinthe.json' },
+    // { name: 'multiple-sinks', config: 'src/tests/configs/multiple-sinks.absinthe.json' },
     // add more
   ];
 
@@ -55,7 +55,7 @@ describe('Indexer E2E', () => {
 
       // 1) it should exit cleanly
       expect(exitCode).toBe(0);
-      // expect(stderr).toBe(''); // or expect(stderr).not.toMatch(/error/i)
+      expect(stderr).toBe(''); // or expect(stderr).not.toMatch(/error/i)
 
       // 2) parse stdout if you pipe output, else parse CSV or other sink
       // placeholder: assume stdout is JSON lines

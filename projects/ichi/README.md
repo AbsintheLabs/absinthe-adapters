@@ -600,3 +600,8 @@ We will be running multiple indexers with the same database.
 There are a few things we can do to prevent collisions:
 
 1. Redis key pre-fixing via the library -- this is the way to go. We'll use ioredis instead and port over from node-redis (redis TS will need to have manual calls, fortunately, not a lot has to be done here)
+
+### The enrichment problem
+
+Rather than having each enrichment step take in an array, it should instead operate on a single item at a time.
+This will make it much easier to test.
