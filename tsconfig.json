@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
-    "module": "NodeNext",
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "target": "ES2022",
     "strict": true,
     "sourceMap": true,
@@ -11,14 +12,10 @@
     "resolveJsonModule": true,
     "composite": true,
     "incremental": true,
-    "outDir": "lib",
+    "outDir": "dist",
     "rootDir": "src",
-    "tsBuildInfoFile": "lib/tsconfig.tsbuildinfo"
+    "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
   },
-  "include": [
-    "src/**/*",
-  ],
-  "exclude": [
-    "node_modules"
-  ],
+  "include": ["src/**/*"],
+  "exclude": ["node_modules"]
 }

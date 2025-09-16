@@ -20,12 +20,9 @@ export default [
       parser: tseslint.parser,
       parserOptions: {
         project: [
-          './tsconfig.base.json', // Root tsconfig
-          './projects/*/tsconfig.json', // Project-specific tsconfigs
-          './packages/*/tsconfig.json', // Package-specific tsconfigs
-          './abs-app/tsconfig.json', // App-specific tsconfig
+          './tsconfig.json', // Root tsconfig
         ],
-        tsconfigRootDir: '.',
+        tsconfigRootDir: process.cwd(),
         ecmaVersion: 'latest',
         sourceType: 'module',
       },

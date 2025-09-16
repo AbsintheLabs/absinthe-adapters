@@ -1,9 +1,10 @@
 {
-  "name": "@absinthe/ichi",
-  "version": "0.0.0",
+  "name": "@absinthe/adapters",
+  "version": "0.0.1",
   "private": true,
-  "main": "lib/index.js",
-  "types": "lib/index.d.ts",
+  "main": "lib/main.js",
+  "types": "lib/main.d.ts",
+  "type": "module",
   "scripts": {
     "build": "tsc -p .",
     "pretest": "pnpm build",
@@ -18,15 +19,13 @@
     "lint-staged": "lint-staged",
     "migration": "pnpm build && pnpm migration:clean && pnpm migration:generate && pnpm migration:apply"
   },
-  "packageManager": "pnpm@10.1.0",
+  "packageManager": "pnpm@10.16.0",
   "dependencies": {
-    "@absinthe/common": "workspace:*",
     "@fast-csv/format": "^5.0.5",
     "@subsquid/borsh": "^0.3.0",
     "@subsquid/evm-abi": "^0.3.0",
     "@subsquid/evm-codec": "^0.3.0",
     "@subsquid/evm-processor": "^1.19.1",
-    "@subsquid/evm-typegen": "^4.2.0",
     "@subsquid/file-store": "^2.0.0",
     "@subsquid/solana-stream": "^0.3.1",
     "@subsquid/solana-typegen": "^0.6.1",
@@ -42,9 +41,17 @@
     "zod": "^4.1.8"
   },
   "devDependencies": {
+    "@subsquid/evm-typegen": "^4.4.0",
     "@types/big.js": "^6.2.2",
     "@types/node": "20.17.30",
+    "@typescript-eslint/eslint-plugin": "^8.44.0",
+    "@typescript-eslint/parser": "^8.44.0",
+    "eslint": "^9.35.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.4",
     "lint-staged": "^16.1.6",
+    "prettier": "^3.6.2",
+    "typescript-eslint": "^8.44.0",
     "vitest": "^3.2.4"
   },
   "lint-staged": {
