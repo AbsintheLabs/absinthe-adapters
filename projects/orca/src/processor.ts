@@ -99,16 +99,16 @@ export const processor = new DataSourceBuilder()
       transactionTokenBalances: true, // all token balance records of executed transaction
     },
   })
-  .addInstruction({
-    where: {
-      programId: [tokenProgram.programId, TOKEN_EXTENSION_PROGRAM_ID],
-      d1: [tokenProgram.instructions.transferChecked.d1],
-      isCommitted: true,
-    },
-    include: {
-      innerInstructions: true,
-      transaction: true,
-      transactionTokenBalances: true,
-    },
-  })
+  // .addInstruction({
+  //   where: {
+  //     programId: [tokenProgram.programId, TOKEN_EXTENSION_PROGRAM_ID],
+  //     d1: [tokenProgram.instructions.transferChecked.d1],
+  //     isCommitted: true,
+  //   },
+  //   include: {
+  //     innerInstructions: true,
+  //     transaction: true,
+  //     transactionTokenBalances: true,
+  //   },
+  // })
   .build();
