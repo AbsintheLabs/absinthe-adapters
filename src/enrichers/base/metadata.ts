@@ -1,4 +1,5 @@
-import { Currency } from '@absinthe/common';
+type Currency = 'usd' | 'eth';
+
 import {
   Enricher,
   EnrichmentContext,
@@ -93,7 +94,7 @@ export const enrichWithCommonBaseEventFields: Enricher<
       // xxx: figure out how we do it in the other adapters. it should be a hash of the entire event, so probably would benefit being another enrichment step
       eventId: '',
       userId: (item as any).user,
-      currency: Currency.USD,
+      currency: 'usd',
     },
   }));
 };

@@ -1,4 +1,8 @@
-import { ActiveBalance } from '@absinthe/common';
+type ActiveBalance = {
+  balance: bigint;
+  updatedBlockTs: number;
+  updatedBlockHeight: number;
+};
 // import { TOKEN_METADATA } from './conts';
 import { log } from './logger';
 import { createHash } from 'crypto';

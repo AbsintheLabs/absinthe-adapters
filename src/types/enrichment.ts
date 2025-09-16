@@ -1,7 +1,18 @@
 // Enrichment pipeline type definitions
 
 import { RedisClientType } from 'redis';
-import { MessageType, Currency, TimeWindowTrigger } from '@absinthe/common';
+// xxx: move these to the types folder so they can be re-used in other places
+type MessageType =
+  'transaction' |
+  'timeWeightedBalance';
+type Currency = 'usd' | 'eth';
+type TimeWindowTrigger =
+  'balance_delta' |
+  'position_update' |
+  'exhausted' |
+  'final' |
+  'inactive_position';
+
 import { MetadataCache, PriceCacheTS, HandlerMetadataCache } from './pricing';
 import { Activity } from './core';
 import { BalanceDeltaReason } from './adapter';
@@ -205,7 +216,7 @@ export interface EnrichedBalanceWindow extends BaseEnrichedFields {
   meta?: Record<string, any>;
 
   // Enriched fields
-  eventType: MessageType.TIME_WEIGHTED_BALANCE;
+  eventType: 'timeWeightedBalance';
   timeWindowTrigger: TimeWindowTrigger;
   startUnixTimestampMs: number;
   endUnixTimestampMs: number;
@@ -233,7 +244,7 @@ export interface EnrichedMeasureWindow extends BaseEnrichedFields {
   txHash?: string | null;
 
   // Enriched fields
-  eventType: MessageType.TIME_WEIGHTED_BALANCE; // TODO: Use TIME_WEIGHTED_MEASURE when available
+  eventType: 'timeWeightedBalance';
   timeWindowTrigger: TimeWindowTrigger;
   startUnixTimestampMs: number;
   endUnixTimestampMs: number;
@@ -261,7 +272,7 @@ export interface EnrichedEvent extends BaseEnrichedFields {
   to?: string;
 
   // Enriched fields
-  eventType: MessageType.TRANSACTION;
+  eventType: 'transaction';
   rawAmount: string;
   unixTimestampMs: number;
   logIndex?: number;

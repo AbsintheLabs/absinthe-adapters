@@ -10,6 +10,15 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "composite": true,
-    "incremental": true
-  }
+    "incremental": true,
+    "outDir": "lib",
+    "rootDir": "src",
+    "tsBuildInfoFile": "lib/tsconfig.tsbuildinfo"
+  },
+  "include": [
+    "src/**/*",
+  ],
+  "exclude": [
+    "node_modules"
+  ],
 }
