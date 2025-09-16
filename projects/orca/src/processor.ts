@@ -53,10 +53,10 @@ export const processor = new DataSourceBuilder()
         whirlpoolProgram.instructions.twoHopSwapV2.d8,
         whirlpoolProgram.instructions.twoHopSwap.d8,
 
-        whirlpoolProgram.instructions.increaseLiquidity.d8,
-        whirlpoolProgram.instructions.decreaseLiquidity.d8,
-        whirlpoolProgram.instructions.decreaseLiquidityV2.d8,
-        whirlpoolProgram.instructions.increaseLiquidityV2.d8,
+        // whirlpoolProgram.instructions.increaseLiquidity.d8,
+        // whirlpoolProgram.instructions.decreaseLiquidity.d8,
+        // whirlpoolProgram.instructions.decreaseLiquidityV2.d8,
+        // whirlpoolProgram.instructions.increaseLiquidityV2.d8,
 
         //todo: add fee instructions in future
         // whirlpoolProgram.instructions.collectFees.d8,
@@ -82,9 +82,9 @@ export const processor = new DataSourceBuilder()
         whirlpoolProgram.instructions.initializePool.d8,
         whirlpoolProgram.instructions.initializePoolWithAdaptiveFee.d8,
 
-        whirlpoolProgram.instructions.lockPosition.d8,
-        whirlpoolProgram.instructions.resetPositionRange.d8,
-        whirlpoolProgram.instructions.transferLockedPosition.d8,
+        // whirlpoolProgram.instructions.lockPosition.d8,
+        // whirlpoolProgram.instructions.resetPositionRange.d8,
+        // whirlpoolProgram.instructions.transferLockedPosition.d8,
       ],
 
       //note: not including closePosition as it wouldn't work.
