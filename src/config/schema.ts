@@ -1,6 +1,6 @@
 // config/schema.ts
 import * as z from 'zod';
-import { isValidChainId } from './chains';
+import { isValidChainId } from './chains.ts';
 // import { AssetFeedConfigInput } from './feeds';
 
 // ------------------------------------------------------------

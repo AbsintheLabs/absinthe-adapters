@@ -5,12 +5,12 @@ import z from 'zod';
 import * as demosAbi from '../abi/demos';
 
 // New registry imports
-import { defineAdapter, Address as EvmAddress } from '../adapter-core';
+import { defineAdapter, ZodEvmAddress as ZodEvmAddress } from '../adapter-core';
 import { registerAdapter } from '../adapter-registry';
 import { md5Hash } from '../utils/helper';
 
 export const DemosVerifyZodObj = z.object({
-  onlyMeIdAddress: EvmAddress,
+  onlyMeIdAddress: ZodEvmAddress,
 });
 
 export type DemosVerifyParamsType = z.infer<typeof DemosVerifyZodObj>;

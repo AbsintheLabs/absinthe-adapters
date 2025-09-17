@@ -11,15 +11,15 @@ import * as univ3positionsAbi from '../abi/univ3nonfungiblepositionmanager';
 import { Univ3Projector } from './univ3-projector';
 
 // New registry imports
-import { defineAdapter, Address } from '../adapter-core';
+import { defineAdapter, ZodEvmAddress } from '../adapter-core';
 import { registerAdapter } from '../adapter-registry';
-import { EVM_NULL_ADDRESS } from '../utils/conts';
+import { EVM_NULL_ADDRESS } from '../utils/constants';
 import { md5Hash } from '../utils/helper';
 
 export const Univ3Params = z.object({
   kind: z.literal('uniswap-v3'),
-  factoryAddress: Address,
-  nonFungiblePositionManagerAddress: Address,
+  factoryAddress: ZodEvmAddress,
+  nonFungiblePositionManagerAddress: ZodEvmAddress,
   trackSwaps: z.boolean().default(true),
   /**
    * LP Tracking Configuration:

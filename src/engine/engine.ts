@@ -5,7 +5,7 @@ import Big from 'big.js';
 import { RedisClientType } from 'redis';
 import dotenv from 'dotenv';
 import { log } from '../utils/logger';
-import { EVM_NULL_ADDRESS } from '../utils/conts';
+import { EVM_NULL_ADDRESS } from '../utils/constants';
 import { Sink } from '../sinks';
 import { RedisTSCache, RedisMetadataCache, RedisHandlerMetadataCache } from '../cache';
 import { PricingEngine } from './pricing-engine';

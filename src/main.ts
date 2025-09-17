@@ -1,4 +1,6 @@
 // imports
+console.log('hello world');
+process.exit(0);
 import dotenv from 'dotenv';
 dotenv.config();
 // prevent squid from prematurely exiting
@@ -6,21 +8,21 @@ process.env.SQUID_PROCESSOR_EXIT_DISABLED = process.env.SQUID_PROCESSOR_EXIT_DIS
 // silence sqd info logs to stderr
 process.env.SQD_FATAL = '*';
 
-import { loadConfig } from './config/load';
-import { buildBaseSqdProcessor } from './eprocessorBuilder';
-import { Sink, SinkFactory } from './sinks';
+import { loadConfig } from './config/load.ts';
+import { buildBaseSqdProcessor } from './eprocessorBuilder.ts';
+import { Sink, SinkFactory } from './sinks.ts';
 import { createClient, RedisClientType } from 'redis';
-import { AppConfig } from './config/schema';
-import { Adapter, EmitFunctions } from './types/adapter';
+import { AppConfig } from './config/schema.ts';
+import { Adapter, EmitFunctions } from './types/adapter.ts';
 
 // New registry imports
-import { EngineIO, BuiltAdapter } from './adapter-core';
-import { buildAdapter } from './adapter-registry';
+import { EngineIO, BuiltAdapter } from './adapter-core.ts';
+import { buildAdapter } from './adapter-registry.ts';
 // Import adapters to register them
-import './adapters';
-import { Engine } from './engine/engine';
+import './adapters.ts';
+import { Engine } from './engine/engine.ts';
 
-import { BaseProcessor } from './eprocessorBuilder';
+import { BaseProcessor } from './eprocessorBuilder.ts';
 // todo: move this somewhere else with typing definitions
 export interface EngineDeps {
   appCfg: AppConfig;

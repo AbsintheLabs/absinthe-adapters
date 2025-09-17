@@ -81,9 +81,9 @@ export function defineAdapter<P extends ZodTypeAny>(def: AdapterDef<P>) {
 }
 
 // Utility type for address validation with transformation
-export const Address = z
+export const ZodEvmAddress = z
   .string()
   .regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid EVM address')
   .transform((s) => s.toLowerCase());
 
-export type Address = z.infer<typeof Address>;
+export type ZodEvmAddress = z.infer<typeof ZodEvmAddress>;

@@ -1,7 +1,7 @@
 import { HandlerFactory } from './interface';
 import Big from 'big.js';
 import { log } from '../utils/logger';
-import { EVM_NULL_ADDRESS } from '../utils/conts';
+import { EVM_NULL_ADDRESS } from '../utils/constants';
 import assert from 'assert';
 
 // ABIs

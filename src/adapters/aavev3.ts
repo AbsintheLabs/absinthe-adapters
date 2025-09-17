@@ -9,7 +9,7 @@ import * as erc20Abi from '../abi/erc20';
 import * as aaveV3VarDebtAbi from '../abi/aavev3variabledebttoken';
 
 // New registry imports
-import { defineAdapter, Address } from '../adapter-core';
+import { defineAdapter, ZodEvmAddress } from '../adapter-core';
 import { registerAdapter } from '../adapter-registry';
 
 export const aavev3 = registerAdapter(
@@ -19,8 +19,8 @@ export const aavev3 = registerAdapter(
     schema: z
       .object({
         // poolDataProviderAddress: Address,
-        aTokenAddress: Address.optional(),
-        variableDebtTokenAddress: Address.optional(),
+        aTokenAddress: ZodEvmAddress.optional(),
+        variableDebtTokenAddress: ZodEvmAddress.optional(),
       })
       .refine((params) => !!params.aTokenAddress || !!params.variableDebtTokenAddress, {
         message: 'At least one of aTokenAddress or variableDebtTokenAddress must be provided',
