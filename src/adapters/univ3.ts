@@ -121,7 +121,7 @@ export const univ3 = registerAdapter(
               tick,
               fn: async () => {
                 const poolIdxKey = `pool:${poolAddress}:positions`;
-                const assetKeys = await redis.sMembers(poolIdxKey);
+                const assetKeys = await redis.smembers(poolIdxKey);
                 console.log(
                   `Found ${assetKeys.length} assets in pool ${poolAddress} - repricing...`,
                 );
@@ -149,21 +149,21 @@ export const univ3 = registerAdapter(
           if (log.topics[0] === poolCreatedTopic) {
             const { pool, token0, token1 } = univ3factoryAbi.events.PoolCreated.decode(log);
             const poolAddress = pool.toLowerCase();
-            await redis.sAdd(ctx.poolIdxKey, poolAddress);
+            await redis.sadd(ctx.poolIdxKey, poolAddress);
 
             // Store token addresses for the pool
             const poolTokenKey = `pool:${poolAddress}:tokens`;
-            await redis.hSet(poolTokenKey, {
+            await redis.hset(poolTokenKey, {
               token0: token0.toLowerCase(),
               token1: token1.toLowerCase(),
-            });
+            } as any);
           }
 
           // SWAP EVENT
           // Handle change in ticks (Swap events) - detect tick crossings and toggle position status
           if (log.topics[0] === swapTopic) {
             // first check if the pool is one created by our factory contract
-            const isPoolCreatedByFactory = await redis.sIsMember(
+            const isPoolCreatedByFactory = await redis.sismember(
               ctx.poolIdxKey,
               log.address.toLowerCase(),
             );
@@ -189,7 +189,7 @@ export const univ3 = registerAdapter(
             if (params.trackSwaps) {
               // Get token addresses from Redis
               const poolTokenKey = 'pool:' + pool + ':tokens';
-              const poolTokens = await redis.hGetAll(poolTokenKey);
+              const poolTokens = await redis.hgetall(poolTokenKey);
 
               if (poolTokens && poolTokens.token0 && poolTokens.token1) {
                 const { token0, token1 } = poolTokens;
@@ -237,12 +237,12 @@ export const univ3 = registerAdapter(
               const blockHeight = block.header.height;
               const poolPriceKey = `pool:${pool}:price:${blockHeight}`;
 
-              await redis.hSet(poolPriceKey, {
+              await redis.hset(poolPriceKey, {
                 tick: tickBN.toString(),
                 sqrtPriceX96: sqrtPriceX96.toString(),
                 blockHeight: blockHeight.toString(),
                 timestamp: Date.now().toString(),
-              });
+              } as any);
 
               // Also store a reference to clean up old entries later
               const poolLatestPriceKey = `pool:${pool}:latest_price`;
@@ -293,8 +293,8 @@ export const univ3 = registerAdapter(
               const upperKey = `pool:${pool}:bounds:upper`;
 
               const [lowers, uppers] = await Promise.all([
-                redis.zRangeByScore(lowerKey, `(${lo}`, hi),
-                redis.zRangeByScore(upperKey, `(${lo}`, hi),
+                redis.zrangebyscore(lowerKey, `(${lo}`, String(hi)),
+                redis.zrangebyscore(upperKey, `(${lo}`, String(hi)),
               ]);
 
               console.log(
@@ -321,7 +321,7 @@ export const univ3 = registerAdapter(
                 statusChangePromises.push(
                   (async () => {
                     try {
-                      const meta = await redis.hGetAll(`pos:${assetKey}`);
+                      const meta = await redis.hgetall(`pos:${assetKey}`);
                       if (!meta || !meta.tickLower || !meta.tickUpper) {
                         console.warn(`Missing position metadata for ${assetKey}`);
                         return;
@@ -334,7 +334,9 @@ export const univ3 = registerAdapter(
 
                       if (nowActive !== wasActive) {
                         // Update status in Redis
-                        await redis.hSet(`pos:${assetKey}`, { active: nowActive ? '1' : '0' });
+                        await redis.hset(`pos:${assetKey}`, {
+                          active: nowActive ? '1' : '0',
+                        } as any);
 
                         // Get owner for positionStatusChange event
                         const owner = await redis.get(`asset:owner:${assetKey}`);
@@ -459,7 +461,7 @@ export const univ3 = registerAdapter(
             // Queue label-setting operation for deferred execution
             ctx.labelFns.push(async () => {
               try {
-                const existingLabels = await redis.hGetAll(labelsKey);
+                const existingLabels = await redis.hgetall(labelsKey);
                 const hasExistingLabels = existingLabels && Object.keys(existingLabels).length > 0;
 
                 // If labels don't exist or pool info is missing, fetch and set them
@@ -488,11 +490,11 @@ export const univ3 = registerAdapter(
                   };
 
                   console.log('Setting labels for', assetKey, newLabels);
-                  await redis.hSet(labelsKey, newLabels);
+                  await redis.hset(labelsKey, newLabels as any);
 
                   // Update reverse index Set for fast pool lookup
                   const poolIdxKey = `pool:${poolAddress.toLowerCase()}:positions`;
-                  await redis.sAdd(poolIdxKey, assetKey);
+                  await redis.sadd(poolIdxKey, assetKey);
 
                   // Index position bounds for efficient tick crossing detection
                   // Only needed for 'onlyInRange' mode
@@ -503,16 +505,16 @@ export const univ3 = registerAdapter(
                     const posKey = `pos:${assetKey}`;
 
                     // Index bounds in sorted sets for fast range queries
-                    await redis.zAdd(lowerKey, [{ score: Number(tickLower), value: assetKey }]);
-                    await redis.zAdd(upperKey, [{ score: Number(tickUpper), value: assetKey }]);
+                    await redis.zadd(lowerKey, Number(tickLower), assetKey);
+                    await redis.zadd(upperKey, Number(tickUpper), assetKey);
 
                     // Store position metadata for status tracking
-                    await redis.hSet(posKey, {
+                    await redis.hset(posKey, {
                       pool: poolAddr,
                       tickLower: tickLower.toString(),
                       tickUpper: tickUpper.toString(),
                       active: '0', // Will be set properly on first swap observation
-                    });
+                    } as any);
                   }
                 }
               } catch (error) {
@@ -537,7 +539,7 @@ export const univ3 = registerAdapter(
               await redis.del(ownerKey);
 
               // Position is being burned - clean up bounds indexing
-              const labels = await redis.hGetAll(labelsKey);
+              const labels = await redis.hgetall(labelsKey);
               if (labels.pool) {
                 const poolAddr = labels.pool;
 
@@ -548,8 +550,8 @@ export const univ3 = registerAdapter(
                   const posKey = `pos:${assetKey}`;
 
                   // Remove from bounds indexes
-                  await redis.zRem(lowerKey, assetKey);
-                  await redis.zRem(upperKey, assetKey);
+                  await redis.zrem(lowerKey, assetKey);
+                  await redis.zrem(upperKey, assetKey);
 
                   // Remove position metadata
                   await redis.del(posKey);
@@ -557,7 +559,7 @@ export const univ3 = registerAdapter(
 
                 // Always remove from pool positions set
                 const poolIdxKey = `pool:${poolAddr}:positions`;
-                await redis.sRem(poolIdxKey, assetKey);
+                await redis.srem(poolIdxKey, assetKey);
 
                 console.log(`Cleaned up burned position ${assetKey} from pool ${poolAddr}`);
               }

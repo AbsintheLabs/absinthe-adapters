@@ -1,7 +1,8 @@
 // Asset type handlers for metadata resolution
 
 import Big from 'big.js';
-import { AssetType, AssetTypeHandler } from '../types/pricing.ts';
+import { AssetTypeHandler } from '../types/pricing.ts';
+import { AssetType } from '../config/schema.ts';
 import { ResolveContext } from '../types/pricing.ts';
 import * as erc20Abi from '../abi/erc20.ts';
 

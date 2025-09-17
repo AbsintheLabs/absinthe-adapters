@@ -8,7 +8,7 @@ import { isValidChainId } from './chains.ts';
 // ------------------------------------------------------------
 
 // Basic types
-export const AssetKey = z.string().min(1); // EVM address or "chain:addr"
+export const AssetKey = z.string().min(1); // xxx: EVM address or "chain:addr". is this correct?
 export const AssetType = z.enum(['erc20', 'spl', 'erc721']);
 
 // Label expression for asset matching (Kubernetes-style selectors)
@@ -45,7 +45,7 @@ export const AssetMatch = z.object({
   matchExpressions: z.array(LabelExpr).optional(), // advanced selectors (AND)
 });
 
-// EVM address validation
+// EVM address validation and transformation
 export const EvmAddress = z
   .string()
   .regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid EVM address')
@@ -87,27 +87,29 @@ export const CoreFeedSelector = z.discriminatedUnion('kind', [
 ]);
 
 // Extensible feed selector that allows custom implementations
-export const FeedSelector = z.union([
-  z.lazy(CoreFeedSelectorRef),
-  z
-    .object({
-      // XXX: we should only allow feeds that are either default OR registered by the adapter
-      kind: z
-        .string()
-        .refine(
-          (s: string) =>
-            s !== 'coingecko' &&
-            s !== 'pegged' &&
-            s !== 'univ2nav' &&
-            s !== 'ichinav' &&
-            s !== 'univ3lp',
-          {
-            message: 'Use core feed types for built-in kinds',
-          },
-        ),
-    })
-    .catchall(z.any()),
-]);
+export const FeedSelector = z.lazy(CoreFeedSelectorRef);
+// export const FeedSelector = z.union([
+//   z.lazy(CoreFeedSelectorRef),
+//   z
+//     .object({
+//       // XXX: we should only allow feeds that are either default OR registered by the adapter
+//       kind: z
+//         .string()
+//         .refine(
+//           (s: string) =>
+//             s !== 'coingecko' &&
+//             s !== 'pegged' &&
+//             s !== 'univ2nav' &&
+//             s !== 'ichinav' &&
+//             s !== 'aavev3vardebt' &&
+//             s !== 'univ3lp',
+//           {
+//             message: 'Use core feed types for built-in kinds',
+//           },
+//         ),
+//     })
+//     .loose(),
+// ]);
 
 // Token selector for feeds
 export const TokenSelector = z.object({
@@ -186,7 +188,7 @@ const Common = z.object({
     sinkType: 'csv',
     path: 'windows.csv',
   }),
-  assetFeedConfig: AssetFeedConfig.optional(),
+  assetFeedConfig: AssetFeedConfig.optional().default([]),
   adapterConfig: z.object({
     adapterId: z.string(), // "uniswap-v3", "compound-v2", etc.
     params: z.unknown(), // Will be validated by the specific adapter

@@ -1,10 +1,10 @@
 // Handler metadata cache implementation for storing arbitrary state
 
-import { RedisClientType } from 'redis';
+import { Redis } from 'ioredis';
 import { HandlerMetadataCache } from '../types/pricing.ts';
 
 export class RedisHandlerMetadataCache implements HandlerMetadataCache {
-  constructor(private redis: RedisClientType) {}
+  constructor(private redis: Redis) {}
 
   private key(handlerName: string, key: string) {
     return `handlerMeta:${handlerName}:${key}`;
@@ -16,13 +16,13 @@ export class RedisHandlerMetadataCache implements HandlerMetadataCache {
 
   async set(handlerName: string, key: string, data: any): Promise<void> {
     const cacheKey = this.key(handlerName, key);
-    await this.redis.json.set(cacheKey, '$', data as any);
+    await this.redis.call('JSON.SET', cacheKey, '$', JSON.stringify(data));
   }
 
   async get(handlerName: string, key: string): Promise<any | null> {
     const cacheKey = this.key(handlerName, key);
-    const result = await this.redis.json.get(cacheKey);
-    return result;
+    const result = (await this.redis.call('JSON.GET', cacheKey)) as string | null;
+    return result == null ? null : JSON.parse(result);
   }
 
   async has(handlerName: string, key: string): Promise<boolean> {
@@ -52,7 +52,7 @@ export class RedisHandlerMetadataCache implements HandlerMetadataCache {
     let amt = BigInt(0);
 
     // Get all deltas up to the target height
-    const deltas = await this.redis.zRangeByScore(`${baseKey}:d`, 0, height);
+    const deltas = (await this.redis.call('ZRANGEBYSCORE', `${baseKey}:d`, 0, height)) as string[];
 
     // Apply all deltas in order
     for (const delta of deltas) {
@@ -71,8 +71,8 @@ export class RedisHandlerMetadataCache implements HandlerMetadataCache {
 
     // For now, just return the current state as the "snapshot"
     // TODO: Implement proper snapshot mechanism if needed
-    const amount = await this.redis.hGet(baseKey, 'amount');
-    const updatedHeight = await this.redis.hGet(baseKey, 'updatedHeight');
+    const amount = (await this.redis.hget(baseKey, 'amount')) as string | null;
+    const updatedHeight = (await this.redis.hget(baseKey, 'updatedHeight')) as string | null;
 
     if (!amount || !updatedHeight) return null;
 

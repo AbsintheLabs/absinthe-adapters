@@ -44,11 +44,11 @@ export class Univ3Projector implements Projector {
     const lowerKey = `univ3:pool:${pool}:lower:${tickLower}`;
     const upperKey = `univ3:pool:${pool}:upper:${tickUpper}`;
 
-    await Promise.all([ctx.redis.sAdd(lowerKey, tokenId), ctx.redis.sAdd(upperKey, tokenId)]);
+    await Promise.all([ctx.redis.sadd(lowerKey, tokenId), ctx.redis.sadd(upperKey, tokenId)]);
 
     // Also store position metadata for later reference
     const positionKey = `univ3:position:${tokenId}`;
-    await ctx.redis.hSet(positionKey, {
+    await ctx.redis.hset(positionKey, {
       pool,
       tickLower: tickLower.toString(),
       tickUpper: tickUpper.toString(),
@@ -105,8 +105,8 @@ export class Univ3Projector implements Projector {
     const upperKey = `univ3:pool:${pool}:upper:${tick}`;
 
     const [lowerPositions, upperPositions] = await Promise.all([
-      ctx.redis.sMembers(lowerKey),
-      ctx.redis.sMembers(upperKey),
+      ctx.redis.smembers(lowerKey),
+      ctx.redis.smembers(upperKey),
     ]);
 
     // Positions that cross this tick as their lower boundary become active

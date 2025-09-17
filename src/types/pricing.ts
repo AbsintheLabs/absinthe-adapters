@@ -1,57 +1,17 @@
 // Pricing-related type definitions
 
 import Big from 'big.js';
-import { RedisClientType } from 'redis';
+import { Redis } from 'ioredis';
 import { Chain } from '@subsquid/evm-processor/lib/interfaces/chain.ts';
 import { Block, ProcessorContext } from '../eprocessorBuilder.ts';
 import { AssetMetadata } from './core.ts';
-
-// ------------------------------------------------------------
-// ASSET AND FEED TYPES
-// ------------------------------------------------------------
-
-// e.g., EVM address lowercased or "chain:addr" // todo: need to clarify this
-export type AssetKey = string;
-
-// --- Asset "what is this thing?" ---
-export type AssetType = 'erc20' | 'spl' | 'erc721';
-
-// ----------------------------------------------------------
-// ASSET MATCHING RULES
-// ----------------------------------------------------------
-
-// Kubernetes-style label selector expressions
-export type LabelExpr =
-  | {
-      op: 'In' | 'NotIn';
-      key: string;
-      values: string[];
-    }
-  | {
-      op: 'Exists' | 'DoesNotExist';
-      key: string;
-    }
-  | {
-      op: 'AnyIn';
-      keys: string[];
-      values: string[];
-    };
-
-// Match criteria for asset feed rules
-export type AssetMatch = {
-  key?: string; // glob pattern for assetKey matching
-  matchLabels?: Record<string, string>; // exact label matches (AND)
-  matchExpressions?: LabelExpr[]; // advanced selectors (AND)
-};
-
-// Asset feed rule with priority-based matching
-export type AssetFeedRule = {
-  match: AssetMatch;
-  config: AssetConfig;
-};
-
-// Collection of rules for asset feed matching
-export type AssetFeedConfig = AssetFeedRule[];
+import {
+  LabelExpr,
+  AssetFeedConfig,
+  AssetKey,
+  AssetConfig,
+  TokenSelector,
+} from '../config/schema.ts';
 
 // ----------------------------------------------------------
 // MATCHING UTILITIES
@@ -147,11 +107,6 @@ export function findConfig(
   return undefined;
 }
 
-export type AssetConfig = {
-  assetType: AssetType;
-  priceFeed: FeedSelector; // recursive structure below
-};
-
 // --- Feed "how to get a price?" ---
 // Core feed selectors provided by the library
 export type CoreFeedSelector =
@@ -177,13 +132,13 @@ export type CoreFeedSelector =
 // ...
 // add coinpaprika, defillama, codex, etc here.
 
-// Extensible feed selector that allows custom implementations
-export type FeedSelector = CoreFeedSelector | { kind: string; [key: string]: any };
+// // Extensible feed selector that allows custom implementations
+// export type FeedSelector = CoreFeedSelector | { kind: string;[key: string]: any };
 
-export type TokenSelector = {
-  assetType: AssetType; // tokens only
-  priceFeed: FeedSelector;
-};
+// export type TokenSelector = {
+//   assetType: AssetType; // tokens only
+//   priceFeed: FeedSelector;
+// };
 
 // ------------------------------------------------------------
 // CACHE INTERFACES
@@ -232,7 +187,7 @@ export interface ResolveContext {
   // handler metadata cache for storing arbitrary state
   handlerMetadataCache: HandlerMetadataCache;
   // redis client for direct access to labels and other data
-  redis: RedisClientType;
+  redis: Redis;
   // the asset we are pricing
   asset: AssetKey;
   // the timestamp of the asset

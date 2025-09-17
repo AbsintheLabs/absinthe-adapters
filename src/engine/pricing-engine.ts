@@ -10,7 +10,9 @@
 // To enable debug logging, set LOG_LEVEL=debug in environment
 
 import { HandlerFactory, HandlerFn, ExecutorFn, ResolveResult } from '../feeds/interface.ts';
-import { AssetConfig, AssetKey, FeedSelector, ResolveContext } from '../types/pricing.ts';
+import { ResolveContext } from '../types/pricing.ts';
+import { CoreFeedSelector, FeedSelector } from '../config/schema.ts';
+import { AssetConfig, AssetKey } from '../config/schema.ts';
 import { metadataResolver } from './asset-handlers.ts';
 import { CustomFeedHandlers } from '../types/adapter.ts';
 import { log } from '../utils/logger.ts';
@@ -35,7 +37,7 @@ export class HandlerRegistry {
   private factories = new Map<string, HandlerFactory<any>>();
   private handlers = new Map<string, HandlerFn>();
 
-  register<T extends FeedSelector['kind']>(
+  register<T extends CoreFeedSelector['kind']>(
     kind: T,
     factory: HandlerFactory<T>,
     { replace = false } = {},
@@ -98,12 +100,13 @@ export class PricingEngine {
 
     // Register all core handlers
     log.debug('PricingEngine: Registering core handlers');
+    // xxx: can we auto-register these as well?
     this.registry.register('coingecko', coinGeckoFactory);
     this.registry.register('pegged', peggedFactory);
     this.registry.register('ichinav', ichinavFactory);
     this.registry.register('univ2nav', univ2NavFactory);
     this.registry.register('univ3lp', univ3lpFactory);
-    this.registry.register('aavev3vardebt', aavev3varDebtFactory);
+    // this.registry.register('aavev3vardebt', aavev3varDebtFactory);
     // add more handlers here...
 
     // Register custom feeds if provided
@@ -204,7 +207,8 @@ export class PricingEngine {
     try {
       log.debug(`PricingEngine: Calling handler for ${assetConfig.priceFeed.kind}`);
       price = await handler({
-        assetConfig,
+        // xxx: hacking around this since no time for this right now
+        assetConfig: assetConfig as any,
         ctx: localCtx,
         recurse: (childCfg, childAssetKey, childCtx) => {
           log.debug(

@@ -2,7 +2,7 @@
 
 import Big from 'big.js';
 import { Adapter } from '../types/adapter.ts';
-import { AssetFeedConfig } from '../types/pricing.ts';
+import { AssetFeedConfig } from '../config/schema.ts';
 import * as ichiAbi from '../abi/ichi.ts';
 
 export function createIchiAdapter(feedConfig: AssetFeedConfig): Adapter {

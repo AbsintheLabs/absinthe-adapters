@@ -1,20 +1,20 @@
 // adapter-core.ts - Core types and utilities for the adapter registry pattern
 import { z, ZodTypeAny } from 'zod';
-import { RedisClientType } from 'redis';
+import { Redis } from 'ioredis';
 import { EmitFunctions, RpcContext, Projector, CustomFeedHandlers } from './types/adapter.ts';
 import { BaseProcessor, Block, Log, Transaction } from './eprocessorBuilder.ts';
 import { ProtocolFamily } from './constants.ts';
 
 // Engine IO interface for dependency injection
 export type EngineIO = {
-  redis: RedisClientType;
+  redis: Redis;
   log: (...args: any[]) => void;
 };
 
 type OnArgs = {
   block: Block;
   rpcCtx: RpcContext;
-  redis: RedisClientType;
+  redis: Redis;
 };
 
 export type OnLogArgs = OnArgs & {
@@ -29,7 +29,7 @@ export type OnTransactionArgs = OnArgs & {
 
 export type OnInitArgs = {
   rpcCtx: RpcContext;
-  redis: RedisClientType;
+  redis: Redis;
 };
 
 // Adapter hooks that define the contract for all adapters

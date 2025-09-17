@@ -1,24 +1,38 @@
 import { fetchHistoricalUsd } from '@absinthe/common';
-import { createClient, RedisClientType } from 'redis';
+import { Redis } from 'ioredis';
 import { PositionData, Token } from '../utils/interfaces/univ3Types';
 
 export class PositionStorageService {
-  private redis: RedisClientType;
+  private redis: Redis;
   private isConnected = false;
 
   constructor() {
-    this.redis = createClient({
-      url: process.env.REDIS_URL,
-      socket: {
-        reconnectStrategy: (retries) => Math.min(retries * 50, 500),
-      },
+    // ioredis auto-connects; configure retry strategy via retryStrategy
+    this.redis = new Redis(process.env.REDIS_URL || '', {
+      retryStrategy: (times) => Math.min(times * 50, 500),
     });
     this.setupRedis();
   }
 
   private async setupRedis() {
     try {
-      await this.redis.connect();
+      // ioredis connects automatically; wait until ready
+      await new Promise<void>((resolve, reject) => {
+        const onReady = () => {
+          cleanup();
+          resolve();
+        };
+        const onError = (err: any) => {
+          cleanup();
+          reject(err);
+        };
+        const cleanup = () => {
+          this.redis.off('ready', onReady);
+          this.redis.off('error', onError);
+        };
+        this.redis.once('ready', onReady);
+        this.redis.once('error', onError);
+      });
       this.isConnected = true;
       console.log('Redis connected successfully');
     } catch (error) {
@@ -29,7 +43,7 @@ export class PositionStorageService {
 
   async storeToken(token: Token): Promise<void> {
     const tokenKey = `token:${token.id}`;
-    await this.redis.hSet(tokenKey, {
+    await this.redis.hset(tokenKey, {
       id: token.id,
       symbol: token.symbol,
       name: token.name,
@@ -46,14 +60,14 @@ export class PositionStorageService {
 
   async getToken(tokenId: string): Promise<Token | null> {
     const tokenKey = `token:${tokenId}`;
-    const data = await this.redis.hGetAll(tokenKey);
+    const data = (await this.redis.hgetall(tokenKey)) as any;
     if (!data.id) return null;
     return data as unknown as Token;
   }
 
   async storeEthUsdPrice(ethUsdPrice: number): Promise<void> {
     const ethUsdPriceKey = `ethUsdPrice`;
-    await this.redis.setEx(ethUsdPriceKey, 60 * 5, ethUsdPrice.toString());
+    await this.redis.set(ethUsdPriceKey, ethUsdPrice.toString(), 'EX', 60 * 5);
   }
 
   async getEthUsdPrice(): Promise<number> {
@@ -86,7 +100,7 @@ export class PositionStorageService {
       throw new Error('Redis not connected');
     }
     const positionKey = `pool:${position.poolId}:position:${position.positionId}`;
-    await this.redis.hSet(positionKey, {
+    await this.redis.hset(positionKey, {
       positionId: position.positionId,
       owner: position.owner,
       liquidity: position.liquidity,
@@ -104,7 +118,7 @@ export class PositionStorageService {
       lastUpdatedBlockHeight: position.lastUpdatedBlockHeight.toString(),
     });
     await this.redis.set(`positionPool:${position.positionId}`, position.poolId);
-    await this.redis.sAdd(`pool:${position.poolId}:positions`, position.positionId);
+    await this.redis.sadd(`pool:${position.poolId}:positions`, position.positionId);
   }
 
   async storeBatchPositions(positions: PositionData[]): Promise<void> {
@@ -125,7 +139,7 @@ export class PositionStorageService {
     if (!poolId) return null;
 
     const positionKey = `pool:${poolId}:position:${positionId}`;
-    const data = await this.redis.hGetAll(positionKey);
+    const data = (await this.redis.hgetall(positionKey)) as any;
     if (!data.positionId) return null;
 
     const position: PositionData = {
@@ -154,7 +168,7 @@ export class PositionStorageService {
     if (!poolId) return;
 
     const positionKey = `pool:${poolId}:position:${position.positionId}`;
-    await this.redis.hSet(positionKey, {
+    await this.redis.hset(positionKey, {
       owner: position.owner,
       liquidity: position.liquidity,
       isActive: position.isActive,
@@ -166,12 +180,12 @@ export class PositionStorageService {
       tickUpper: position.tickUpper.toString(),
       currentTick: position.currentTick.toString(),
       poolId: position.poolId,
-    });
+    } as any);
   }
 
   //todo: efficiency
   async getAllPositionsByPoolId(poolId: string): Promise<PositionData[]> {
-    const positionIds = await this.redis.sMembers(`pool:${poolId}:positions`);
+    const positionIds = await this.redis.smembers(`pool:${poolId}:positions`);
     const positions: PositionData[] = [];
 
     for (const positionId of positionIds) {
@@ -194,12 +208,12 @@ export class PositionStorageService {
     await this.redis.del(positionKey);
     await this.redis.del(`positionPool:${positionId}`);
 
-    await this.redis.sRem(`pool:${poolId}:positions`, positionId);
+    await this.redis.srem(`pool:${poolId}:positions`, positionId);
   }
 
   async disconnect(): Promise<void> {
     if (this.isConnected) {
-      await this.redis.disconnect();
+      await this.redis.quit();
       this.isConnected = false;
     }
   }

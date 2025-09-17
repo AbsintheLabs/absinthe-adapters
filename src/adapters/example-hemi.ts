@@ -2,7 +2,7 @@
 
 import Big from 'big.js';
 import { Adapter } from '../types/adapter.ts';
-import { AssetFeedConfig } from '../types/pricing.ts';
+import { AssetFeedConfig } from '../config/schema.ts';
 import * as hemiAbi from '../abi/hemi.ts';
 
 // todo: use builder pattern to only add the gateway, rpc, and logs. transaction should not be modified since we need the txhash

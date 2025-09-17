@@ -4,18 +4,24 @@ type TSPoint = { timestamp: number; value: number };
  * Gets the previous sample at or before the given timestamp from Redis TimeSeries
  */
 export async function getPrevSample(redis: any, key: string, ts: number): Promise<TSPoint | null> {
-  // TS.REVRANGE key - ts COUNT 1
-  let resp = await redis.ts.revRange(key, 0, ts, { COUNT: 1 });
+  // TS.REVRANGE key 0 ts COUNT 1
+  let resp = (await redis.call('TS.REVRANGE', key, '0', String(ts), 'COUNT', '1')) as Array<
+    [number | string, string]
+  > | null;
   if (Array.isArray(resp) && resp.length) {
-    return { timestamp: Number(resp[0].timestamp), value: Number(resp[0].value) };
+    const [t, v] = resp[0] as any;
+    return { timestamp: Number(t), value: Number(v) };
   }
 
   // If no previous sample, get the next one after ts
-  // TODO: need to sanity check that this logic is sound
-  resp = await redis.ts.range(key, ts, '+', { COUNT: 1 });
+  // TS.RANGE key ts + COUNT 1
+  resp = (await redis.call('TS.RANGE', key, String(ts), '+', 'COUNT', '1')) as Array<
+    [number | string, string]
+  > | null;
 
   if (Array.isArray(resp) && resp.length) {
-    return { timestamp: Number(resp[0].timestamp), value: Number(resp[0].value) };
+    const [t, v] = resp[0] as any;
+    return { timestamp: Number(t), value: Number(v) };
   }
 
   return null;
@@ -30,9 +36,11 @@ export async function getSamplesIn(
   start: number,
   end: number,
 ): Promise<TSPoint[]> {
-  const resp = await redis.ts.range(key, start, end);
+  const resp = (await redis.call('TS.RANGE', key, String(start), String(end))) as Array<
+    [number | string, string]
+  > | null;
   if (!Array.isArray(resp)) return [];
-  return resp.map((row: any) => ({ timestamp: Number(row.timestamp), value: Number(row.value) }));
+  return resp.map((row: any) => ({ timestamp: Number(row[0]), value: Number(row[1]) }));
 }
 
 /**

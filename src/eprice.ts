@@ -4,12 +4,6 @@
 
 // Re-export types
 export type {
-  AssetKey,
-  AssetType,
-  AssetFeedConfig,
-  AssetConfig,
-  FeedSelector,
-  TokenSelector,
   MetadataCache,
   PriceCacheTS,
   ResolveContext,

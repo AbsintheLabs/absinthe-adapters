@@ -1,10 +1,11 @@
 // interface.ts
-import { AssetConfig, AssetKey, AssetMetadata, FeedSelector, ResolveContext } from '../eprice.ts';
+import { AssetMetadata, ResolveContext } from '../eprice.ts';
+import { AssetConfig, AssetKey, FeedSelector } from '../config/schema.ts';
 
 export type ResolveResult = { price: number; metadata: AssetMetadata };
 
 // helper: pick an AssetConfig whose priceFeed.kind === K
-type AssetConfigOf<K extends FeedSelector['kind']> = AssetConfig & {
+export type AssetConfigOf<K extends FeedSelector['kind']> = AssetConfig & {
   priceFeed: Extract<FeedSelector, { kind: K }>;
 };
 

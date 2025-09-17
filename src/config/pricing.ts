@@ -1,6 +1,6 @@
 // Pricing configurations for different assets
 
-import { AssetFeedConfig } from '../types/pricing.ts';
+import { AssetFeedConfig } from '../config/schema.ts';
 
 // GAMMA VAULTS configuration (legacy format - kept for backward compatibility)
 export const gammaVaultsFeedConfigLegacy = {

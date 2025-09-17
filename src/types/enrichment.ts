@@ -1,6 +1,6 @@
 // Enrichment pipeline type definitions
 
-import { RedisClientType } from 'redis';
+import { Redis } from 'ioredis';
 // xxx: move these to the types folder so they can be re-used in other places
 type MessageType = 'transaction' | 'timeWeightedBalance';
 type Currency = 'usd' | 'eth';
@@ -161,7 +161,7 @@ export interface EnrichmentContext {
   priceCache: PriceCacheTS;
   metadataCache: MetadataCache;
   handlerMetadataCache: HandlerMetadataCache;
-  redis: RedisClientType;
+  redis: Redis;
 }
 
 // ------------------------------------------------------------

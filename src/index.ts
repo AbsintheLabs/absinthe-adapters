@@ -12,12 +12,6 @@ export type {
 } from './types/core.ts';
 
 export type {
-  AssetKey,
-  AssetType,
-  AssetFeedConfig,
-  AssetConfig,
-  FeedSelector,
-  TokenSelector,
   MetadataCache,
   PriceCacheTS,
   ResolveContext,

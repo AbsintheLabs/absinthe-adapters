@@ -11,7 +11,7 @@ process.env.SQD_FATAL = '*';
 import { loadConfig } from './config/load.ts';
 import { buildBaseSqdProcessor } from './eprocessorBuilder.ts';
 import { Sink, SinkFactory } from './sinks/index.ts';
-import { createClient, RedisClientType } from 'redis';
+import { Redis } from 'ioredis';
 import { AppConfig } from './config/schema.ts';
 import { Adapter, EmitFunctions } from './types/adapter.ts';
 
@@ -29,7 +29,7 @@ export interface EngineDeps {
   sink: Sink;
   adapter: BuiltAdapter;
   sqdProcessor: BaseProcessor;
-  redis: RedisClientType;
+  redis: Redis;
 }
 
 async function main() {
@@ -43,10 +43,8 @@ async function main() {
   // note: we're using types from two different processors (processor.ts and from the official sqd lib), so we should fix this later
   const baseSqdProcessor = buildBaseSqdProcessor(appCfg);
 
-  // create redis connection
-  // not sure why we have to do this weird casting...
-  const redis = createClient({ url: appCfg.redisUrl }) as RedisClientType;
-  await redis.connect();
+  // create redis connection (ioredis auto-connects)
+  const redis = new Redis(appCfg.redisUrl);
 
   // create EngineIO for dependency injection
   const io: EngineIO = {

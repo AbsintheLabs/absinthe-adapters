@@ -126,7 +126,7 @@ export const univ3lpFactory: HandlerFactory<'univ3lp'> = (resolve) => async (arg
   // First try to get metadata from labels (much more efficient)
   log.debug('🔍 UNIV3LP: Checking for cached labels');
   const labelsKey = `asset:labels:${ctx.asset}`;
-  const labels = await ctx.redis.hGetAll(labelsKey);
+  const labels = await ctx.redis.hgetall(labelsKey);
   log.debug('🔍 UNIV3LP: Labels retrieved:', {
     hasLabels: !!labels,
     labelKeys: Object.keys(labels || {}),
@@ -250,7 +250,7 @@ export const univ3lpFactory: HandlerFactory<'univ3lp'> = (resolve) => async (arg
   try {
     // First try to get from Redis (stored during swap events)
     const poolPriceKey = `pool:${pool}:price:${ctx.block.header.height}`;
-    const cachedPriceData = await ctx.redis.hGetAll(poolPriceKey);
+    const cachedPriceData = await ctx.redis.hgetall(poolPriceKey);
 
     if (cachedPriceData && cachedPriceData.sqrtPriceX96 && cachedPriceData.tick) {
       // Use cached data from Redis

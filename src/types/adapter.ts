@@ -8,10 +8,10 @@ import {
   ActionEvent,
   Swap,
 } from './core.ts';
-import { AssetFeedConfig } from './pricing.ts';
+import { AssetFeedConfig } from '../config/schema.ts';
 import { HandlerFactory } from '../feeds/interface.ts';
 import { Block, Log, BaseProcessor, Transaction } from '../eprocessorBuilder.ts';
-import { RedisClientType } from 'redis';
+import { Redis } from 'ioredis';
 import { MeasureDelta } from './core.ts';
 
 // ------------------------------------------------------------
@@ -61,7 +61,7 @@ export interface Projector {
 
 // Context passed to projectors
 export interface ProjectorContext {
-  redis: RedisClientType;
+  redis: Redis;
   emit: EmitFunctions;
   block: Block;
   log: Log;
@@ -83,7 +83,7 @@ export type MountCtx = {
   processor: any;
 
   // Shared infra
-  redis: RedisClientType;
+  redis: Redis;
   rpc: unknown;
 
   // Engine emit API (same functions you use today)
@@ -101,7 +101,7 @@ export interface AdapterV2 {
   buildProcessor: (base: BaseProcessor) => BaseProcessor;
 
   // Optional end-of-batch hook for deferred work (e.g., draining queues)
-  onBatchEnd?: (redis: RedisClientType) => Promise<void>;
+  onBatchEnd?: (redis: Redis) => Promise<void>;
 
   // Optional custom pricing feed handlers
   customFeeds?: CustomFeedHandlers;
@@ -117,12 +117,12 @@ export interface AdapterLegacy {
     log: Log,
     emit: EmitFunctions,
     rpcCtx: RpcContext,
-    redis: RedisClientType,
+    redis: Redis,
   ): Promise<void>;
   // note: transaction tracking only supports event-based tracking, not time-weighted
   onTransaction?(block: Block, transaction: Transaction, emit: EmitFunctions): Promise<void>;
   // Called at the end of each batch for cleanup/deferred operations
-  onBatchEnd?(redis: RedisClientType): Promise<void>;
+  onBatchEnd?(redis: Redis): Promise<void>;
   feedConfig: AssetFeedConfig;
   // Optional custom pricing feed handlers
   customFeeds?: CustomFeedHandlers;

@@ -2,14 +2,14 @@
 
 import { Database, LocalDest } from '@subsquid/file-store';
 import Big from 'big.js';
-import { RedisClientType } from 'redis';
+import { Redis } from 'ioredis';
 import dotenv from 'dotenv';
 import { log } from '../utils/logger.ts';
 import { EVM_NULL_ADDRESS } from '../utils/constants.ts';
 import { Sink } from '../sinks/index.ts';
 import { RedisTSCache, RedisMetadataCache, RedisHandlerMetadataCache } from '../cache/index.ts';
 import { PricingEngine } from './pricing-engine.ts';
-import { AppConfig } from '../config/schema.ts';
+import { AppConfig, AssetConfig } from '../config/schema.ts';
 import { match } from 'ts-pattern';
 import { EmitFunctions, Projector, BalanceDeltaReason } from '../types/adapter.ts';
 import { Amount, NormalizedEventContext, PositionUpdate, Swap } from '../types/core.ts';
@@ -65,7 +65,7 @@ export class Engine {
 
   // fixme: prepend the redis prefix with a unique id to avoid conflicts if multiple containerized indexers are running and using the same redis instance
   // todo: change number to bigint/something that encodes token info
-  private redis: RedisClientType;
+  private redis: Redis;
   private windows: RawBalanceWindow[] = [];
   private events: RawAction[] = [];
 
@@ -230,7 +230,7 @@ export class Engine {
 
     // 2) collect assets
     // fixme: this will need to change in the future based on how we support these multiple assets on diff chains
-    const raw = await this.redis.hGetAll('assets:tracked');
+    const raw = await this.redis.hgetall('assets:tracked');
     const assets = Object.entries(raw).map(([asset, h]) => ({
       asset,
       birth: Number(h) || 0,
@@ -308,11 +308,11 @@ export class Engine {
   ): Promise<number> {
     // Get labels from Redis for rule matching
     const labelsKey = `asset:labels:${asset}`;
-    const labels = await this.redis.hGetAll(labelsKey);
+    const labels = await this.redis.hgetall(labelsKey);
 
     // Use rule-based matching to find the appropriate config for this asset
     const assetConfig = findConfig(
-      this.appCfg.assetFeedConfig || [],
+      this.appCfg.assetFeedConfig,
       asset,
       (assetKey: string) => labels,
     );
@@ -324,6 +324,9 @@ export class Engine {
       log.error(`💰 No feed config found for asset: ${asset}`);
       return 0;
     }
+
+    // Type assertion: We know from Zod schema that AssetConfig always has required priceFeed
+    const validatedAssetConfig = assetConfig as AssetConfig;
 
     const ctx: ResolveContext = {
       priceCache: this.priceCache,
@@ -348,7 +351,7 @@ export class Engine {
       log.debug('ctx when bypassing top level cache: ', ctx);
     }
 
-    return await this.pricingEngine.priceAsset(assetConfig, ctx);
+    return await this.pricingEngine.priceAsset(validatedAssetConfig, ctx);
   }
 
   private async enrichEvents(ctx: any): Promise<PricedEvent[]> {
@@ -522,7 +525,7 @@ export class Engine {
     }
 
     if (amount) {
-      await this.redis.hSetNX('assets:tracked', amount.asset.toLowerCase(), ctx.height.toString());
+      await this.redis.hsetnx('assets:tracked', amount.asset.toLowerCase(), ctx.height.toString());
     }
 
     // type narrowing
@@ -581,12 +584,13 @@ export class Engine {
     const key = `bal:${e.asset}:${e.user}`;
 
     // Load current state (single HMGET with pipeline if you batch)
-    const [amountStr, updatedTsStr, updatedHeightStr, prevTxHashStr] = await this.redis.hmGet(key, [
+    const [amountStr, updatedTsStr, updatedHeightStr, prevTxHashStr] = await this.redis.hmget(
+      key,
       'amount',
       'updatedTs',
       'updatedHeight',
       'txHash',
-    ]);
+    );
     const oldAmt = new Big(amountStr || '0');
     const oldTs = updatedTsStr ? Number(updatedTsStr) : ts;
     const oldHeight = updatedHeightStr ? Number(updatedHeightStr) : height;
@@ -597,7 +601,7 @@ export class Engine {
 
     // Check active status at the moment of the delta
     // const isActive = await this.redis.sIsMember(Engine.ACTIVE_SET_KEY, key);
-    const isInactive = await this.redis.sIsMember(Engine.INACTIVE_SET_KEY, key);
+    const isInactive = await this.redis.sismember(Engine.INACTIVE_SET_KEY, key);
 
     // Only emit a window for balance deltas if ACTIVE
     if (!isInactive && oldAmt.gt(0) && oldTs < ts) {
@@ -621,7 +625,7 @@ export class Engine {
     }
 
     await Promise.all([
-      this.redis.hSet(key, {
+      this.redis.hset(key, {
         amount: newAmt.toString(),
         updatedTs: String(ts),
         updatedHeight: String(height),
@@ -629,10 +633,10 @@ export class Engine {
       }),
       // Maintain HAS-BALANCE set for scans/flush
       newAmt.gt(0)
-        ? this.redis.sAdd(Engine.BAL_SET_KEY, key)
-        : this.redis.sRem(Engine.BAL_SET_KEY, key),
+        ? this.redis.sadd(Engine.BAL_SET_KEY, key)
+        : this.redis.srem(Engine.BAL_SET_KEY, key),
       // this.redis.sAdd('assets:tracked', e.asset.toLowerCase()),
-      this.redis.hSetNX('assets:tracked', e.asset.toLowerCase(), height.toString()),
+      this.redis.hsetnx('assets:tracked', e.asset.toLowerCase(), height.toString()),
     ]);
   }
 
@@ -671,12 +675,13 @@ export class Engine {
     const key = `bal:${asset}:${user}`;
 
     // fetch current row
-    const [amountStr, updatedTsStr, updatedHeightStr, prevTxHashStr] = await this.redis.hmGet(key, [
+    const [amountStr, updatedTsStr, updatedHeightStr, prevTxHashStr] = await this.redis.hmget(
+      key,
       'amount',
       'updatedTs',
       'updatedHeight',
       'txHash',
-    ]);
+    );
     const amt = new Big(amountStr || '0');
     const lastUpdatedTs = updatedTsStr ? Number(updatedTsStr) : ts;
     const lastUpdatedHeight = updatedHeightStr ? Number(updatedHeightStr) : height;
@@ -684,7 +689,7 @@ export class Engine {
 
     // If we were tracking this key as active, close the window and drop from set
     // const isActive = await this.redis.sIsMember(Engine.ACTIVE_SET_KEY, key);
-    const isInactive = (await this.redis.sIsMember(Engine.INACTIVE_SET_KEY, key)) === 1;
+    const isInactive = (await this.redis.sismember(Engine.INACTIVE_SET_KEY, key)) === 1;
 
     // isInactive == true and e.active == false means nothing to do
     // isInactive == false and e.active == true means nothing to do
@@ -732,8 +737,8 @@ export class Engine {
       }
 
       // Add to inactive set
-      await this.redis.sAdd(Engine.INACTIVE_SET_KEY, key);
-      await this.redis.hSet(key, {
+      await this.redis.sadd(Engine.INACTIVE_SET_KEY, key);
+      await this.redis.hset(key, {
         updatedTs: String(ts),
         updatedHeight: String(height),
         txHash: txHash,
@@ -743,8 +748,8 @@ export class Engine {
       // Toggling ON: start tracking again (no window to emit now)
       if (shouldToggleOn) {
         log.debug('toggle on', key);
-        await this.redis.sRem(Engine.INACTIVE_SET_KEY, key);
-        await this.redis.hSet(key, {
+        await this.redis.srem(Engine.INACTIVE_SET_KEY, key);
+        await this.redis.hset(key, {
           updatedTs: String(ts),
           updatedHeight: String(height),
           txHash: txHash,
@@ -766,9 +771,12 @@ export class Engine {
 
     // Load current state
     // fixme: remove the extra variables that we don't need anymore
-    const [amountStr, updatedTsStr, updatedHeightStr, updatedTxHashStr] = await this.redis.hmGet(
+    const [amountStr, updatedTsStr, updatedHeightStr, updatedTxHashStr] = await this.redis.hmget(
       key,
-      ['amount', 'updatedTs', 'updatedHeight', 'updatedTxHash'],
+      'amount',
+      'updatedTs',
+      'updatedHeight',
+      'updatedTxHash',
     );
 
     const oldAmt = new Big(amountStr || '0');
@@ -778,20 +786,17 @@ export class Engine {
     const prevTxHash = updatedTxHashStr || null;
 
     // Store the delta for historical reconstruction
-    await this.redis.zAdd(`${key}:d`, {
-      score: height,
-      value: e.delta.toString(),
-    });
+    await this.redis.zadd(`${key}:d`, height, e.delta.toString());
 
     await Promise.all([
-      this.redis.hSet(key, {
+      this.redis.hset(key, {
         amount: newAmt.toString(),
         updatedTs: String(ts),
         updatedHeight: String(height),
       }),
-      newAmt.gt(0) ? this.redis.sAdd('meas:active', key) : this.redis.sRem('meas:active', key),
+      newAmt.gt(0) ? this.redis.sadd('meas:active', key) : this.redis.srem('meas:active', key),
       // Track asset-metric combinations for backfilling
-      this.redis.hSetNX('meas:tracked', `${e.asset}:${e.metric}`, height.toString()),
+      this.redis.hsetnx('meas:tracked', `${e.asset}:${e.metric}`, height.toString()),
     ]);
   }
 
@@ -856,7 +861,7 @@ export class Engine {
     }
 
     // get keys that are active and greater than 0
-    const balanceKeys = await this.redis.sDiff([Engine.BAL_SET_KEY, Engine.INACTIVE_SET_KEY]);
+    const balanceKeys = await this.redis.sdiff([Engine.BAL_SET_KEY, Engine.INACTIVE_SET_KEY]);
     if (balanceKeys.length === 0) {
       log.debug('No balance keys found in flushPeriodic()');
       return;
@@ -864,9 +869,7 @@ export class Engine {
 
     // ---- READ PHASE (auto-pipelined) ----
     const rows = await Promise.all(
-      balanceKeys.map((k) =>
-        this.redis.hmGet(k, ['amount', 'updatedTs', 'updatedHeight', 'txHash']),
-      ),
+      balanceKeys.map((k) => this.redis.hmget(k, 'amount', 'updatedTs', 'updatedHeight', 'txHash')),
     );
 
     // ---- WRITE PHASE (collect promises; auto-pipelined non-atomically) ----
@@ -927,7 +930,7 @@ export class Engine {
           };
           this.windows.push(window);
           writePromises.push(
-            this.redis.hSet(key, { updatedTs: String(finalTs), updatedHeight: String(height) }),
+            this.redis.hset(key, { updatedTs: String(finalTs), updatedHeight: String(height) }),
           );
         }
       } else {
@@ -950,7 +953,7 @@ export class Engine {
           this.windows.push(window);
           // Advance cursor to the start of the current window (we didn't emit the live window)
           writePromises.push(
-            this.redis.hSet(key, {
+            this.redis.hset(key, {
               updatedTs: String(currentWindowStart),
               updatedHeight: String(height),
             }),

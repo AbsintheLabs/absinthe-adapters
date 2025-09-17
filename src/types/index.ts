@@ -5,12 +5,6 @@ export type { BalanceDelta, PositionStatusChange, IndexerMode, AssetMetadata } f
 
 // Pricing types
 export type {
-  AssetKey,
-  AssetType,
-  AssetFeedConfig,
-  AssetConfig,
-  FeedSelector,
-  TokenSelector,
   MetadataCache,
   PriceCacheTS,
   ResolveContext,
