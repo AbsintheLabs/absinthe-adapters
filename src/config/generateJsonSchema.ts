@@ -1,5 +1,5 @@
 import * as z from 'zod';
-import { AppConfig } from './schema';
+import { AppConfig } from './schema.ts';
 import fs from 'fs';
 
 fs.writeFileSync(

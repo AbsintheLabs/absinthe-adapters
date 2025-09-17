@@ -1,7 +1,7 @@
 // Types module exports
 
 // Core types
-export type { BalanceDelta, PositionStatusChange, IndexerMode, AssetMetadata } from './core';
+export type { BalanceDelta, PositionStatusChange, IndexerMode, AssetMetadata } from './core.ts';
 
 // Pricing types
 export type {
@@ -16,7 +16,7 @@ export type {
   ResolveContext,
   AssetTypeHandler,
   PriceFeedable,
-} from './pricing';
+} from './pricing.ts';
 
 // Adapter types
-export type { Adapter } from './adapter';
+export type { Adapter } from './adapter.ts';

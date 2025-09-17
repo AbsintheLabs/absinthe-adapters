@@ -1,4 +1,4 @@
-import { Sink } from './sink-factory';
+import { Sink } from './sink-factory.ts';
 
 export class StdoutSink implements Sink {
   async write(batch: any[]): Promise<void> {

@@ -1,7 +1,7 @@
 // Handler metadata cache implementation for storing arbitrary state
 
 import { RedisClientType } from 'redis';
-import { HandlerMetadataCache } from '../types/pricing';
+import { HandlerMetadataCache } from '../types/pricing.ts';
 
 export class RedisHandlerMetadataCache implements HandlerMetadataCache {
   constructor(private redis: RedisClientType) {}

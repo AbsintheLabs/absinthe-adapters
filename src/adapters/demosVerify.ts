@@ -2,12 +2,12 @@
 import z from 'zod';
 
 // demos abi
-import * as demosAbi from '../abi/demos';
+import * as demosAbi from '../abi/demos.ts';
 
 // New registry imports
-import { defineAdapter, ZodEvmAddress as ZodEvmAddress } from '../adapter-core';
-import { registerAdapter } from '../adapter-registry';
-import { md5Hash } from '../utils/helper';
+import { defineAdapter, ZodEvmAddress as ZodEvmAddress } from '../adapter-core.ts';
+import { registerAdapter } from '../adapter-registry.ts';
+import { md5Hash } from '../utils/helper.ts';
 
 export const DemosVerifyZodObj = z.object({
   onlyMeIdAddress: ZodEvmAddress,

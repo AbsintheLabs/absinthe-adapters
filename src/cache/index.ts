@@ -1,5 +1,5 @@
 // Cache implementations index
 
-export { RedisMetadataCache } from './metadata';
-export { RedisTSCache } from './price';
-export { RedisHandlerMetadataCache } from './handler';
+export { RedisMetadataCache } from './metadata.ts';
+export { RedisTSCache } from './price.ts';
+export { RedisHandlerMetadataCache } from './handler.ts';

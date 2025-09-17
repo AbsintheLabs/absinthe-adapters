@@ -1,4 +1,4 @@
-import { Sink } from './sink-factory';
+import { Sink } from './sink-factory.ts';
 
 /**
  * CompositeSink - A sink that writes to multiple sinks simultaneously

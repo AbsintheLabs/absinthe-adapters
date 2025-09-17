@@ -2,20 +2,18 @@
 
 import { RedisClientType } from 'redis';
 // xxx: move these to the types folder so they can be re-used in other places
-type MessageType =
-  'transaction' |
-  'timeWeightedBalance';
+type MessageType = 'transaction' | 'timeWeightedBalance';
 type Currency = 'usd' | 'eth';
 type TimeWindowTrigger =
-  'balance_delta' |
-  'position_update' |
-  'exhausted' |
-  'final' |
-  'inactive_position';
+  | 'balance_delta'
+  | 'position_update'
+  | 'exhausted'
+  | 'final'
+  | 'inactive_position';
 
-import { MetadataCache, PriceCacheTS, HandlerMetadataCache } from './pricing';
-import { Activity } from './core';
-import { BalanceDeltaReason } from './adapter';
+import { MetadataCache, PriceCacheTS, HandlerMetadataCache } from './pricing.ts';
+import { Activity } from './core.ts';
+import { BalanceDeltaReason } from './adapter.ts';
 
 // NEW TYPES (much better approach)
 export type ScalarEnricher<I, O> = (item: I, ctx: EnrichmentContext) => Promise<O>;

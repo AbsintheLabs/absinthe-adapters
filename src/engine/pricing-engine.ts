@@ -9,19 +9,19 @@
 //
 // To enable debug logging, set LOG_LEVEL=debug in environment
 
-import { HandlerFactory, HandlerFn, ExecutorFn, ResolveResult } from '../feeds/interface';
-import { AssetConfig, AssetKey, FeedSelector, ResolveContext } from '../types/pricing';
-import { metadataResolver } from './asset-handlers';
-import { CustomFeedHandlers } from '../types/adapter';
-import { log } from '../utils/logger';
+import { HandlerFactory, HandlerFn, ExecutorFn, ResolveResult } from '../feeds/interface.ts';
+import { AssetConfig, AssetKey, FeedSelector, ResolveContext } from '../types/pricing.ts';
+import { metadataResolver } from './asset-handlers.ts';
+import { CustomFeedHandlers } from '../types/adapter.ts';
+import { log } from '../utils/logger.ts';
 
 // default feeds
-import { univ3lpFactory } from '../feeds/univ3lp';
-import { coinGeckoFactory } from '../feeds/coingecko';
-import { peggedFactory } from '../feeds/pegged';
-import { ichinavFactory } from '../feeds/ichinav';
-import { univ2NavFactory } from '../feeds/univ2nav';
-import { aavev3varDebtFactory } from '../feeds/aavev3varDebtToken';
+import { univ3lpFactory } from '../feeds/univ3lp.ts';
+import { coinGeckoFactory } from '../feeds/coingecko.ts';
+import { peggedFactory } from '../feeds/pegged.ts';
+import { ichinavFactory } from '../feeds/ichinav.ts';
+import { univ2NavFactory } from '../feeds/univ2nav.ts';
+import { aavev3varDebtFactory } from '../feeds/aavev3varDebtToken.ts';
 
 type Key = string; // stable cache key for a selector
 

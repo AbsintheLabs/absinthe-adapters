@@ -1,7 +1,7 @@
 import Big from 'big.js';
-import { log } from '../../utils/logger';
-import { ActionEnricher } from '../../types/enrichment';
-import { getPrevSample } from '../utils/timeseries';
+import { log } from '../../utils/logger.ts';
+import { ActionEnricher } from '../../types/enrichment.ts';
+import { getPrevSample } from '../utils/timeseries.ts';
 
 /**
  * Enriches actions with price data from Redis TimeSeries

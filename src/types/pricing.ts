@@ -2,9 +2,9 @@
 
 import Big from 'big.js';
 import { RedisClientType } from 'redis';
-import { Chain } from '@subsquid/evm-processor/lib/interfaces/chain';
-import { Block, ProcessorContext } from '../eprocessorBuilder';
-import { AssetMetadata } from './core';
+import { Chain } from '@subsquid/evm-processor/lib/interfaces/chain.ts';
+import { Block, ProcessorContext } from '../eprocessorBuilder.ts';
+import { AssetMetadata } from './core.ts';
 
 // ------------------------------------------------------------
 // ASSET AND FEED TYPES

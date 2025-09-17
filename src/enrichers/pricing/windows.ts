@@ -1,7 +1,7 @@
 import Big from 'big.js';
-import { log } from '../../utils/logger';
-import { WindowEnricher, PricedBalanceWindow } from '../../types/enrichment';
-import { getPrevSample, getSamplesIn, twaFromSamples } from '../utils/timeseries';
+import { log } from '../../utils/logger.ts';
+import { WindowEnricher, PricedBalanceWindow } from '../../types/enrichment.ts';
+import { getPrevSample, getSamplesIn, twaFromSamples } from '../utils/timeseries.ts';
 
 /**
  * Enriches balance windows with time-weighted average price data from Redis TimeSeries

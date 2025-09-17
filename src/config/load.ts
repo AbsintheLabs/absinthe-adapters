@@ -2,7 +2,7 @@
 import { config as dotenv } from 'dotenv';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
-import { AppConfig } from './schema';
+import { AppConfig } from './schema.ts';
 
 dotenv();
 

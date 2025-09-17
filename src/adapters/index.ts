@@ -15,4 +15,4 @@ export {
   getAvailableAdapters,
   getAdapterSchema,
   listAdapters,
-} from '../adapter-registry';
+} from '../adapter-registry.ts';

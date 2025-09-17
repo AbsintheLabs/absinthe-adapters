@@ -1,8 +1,8 @@
-import { HandlerFactory } from './interface';
+import { HandlerFactory } from './interface.ts';
 import Big from 'big.js';
-import * as univ2Abi from '../abi/univ2';
-import { log } from '../utils/logger';
-import { CoreFeedSelector } from '../types/pricing';
+import * as univ2Abi from '../abi/univ2.ts';
+import { log } from '../utils/logger.ts';
+import { CoreFeedSelector } from '../types/pricing.ts';
 
 // Handler name constant for Uniswap V2 LP NAV pricing
 export const UNIV2_NAV_HANDLER = 'univ2nav';

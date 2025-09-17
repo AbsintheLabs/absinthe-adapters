@@ -3,13 +3,13 @@ import z from 'zod';
 import Big from 'big.js';
 
 // Uniswap V2 ABI imports
-import * as univ2Abi from '../abi/univ2';
+import * as univ2Abi from '../abi/univ2.ts';
 
 // New registry imports
-import { defineAdapter, ZodEvmAddress } from '../adapter-core';
-import { registerAdapter } from '../adapter-registry';
-import { EVM_NULL_ADDRESS } from '../utils/constants';
-import { md5Hash } from '../utils/helper';
+import { defineAdapter, ZodEvmAddress } from '../adapter-core.ts';
+import { registerAdapter } from '../adapter-registry.ts';
+import { EVM_NULL_ADDRESS } from '../utils/constants.ts';
+import { md5Hash } from '../utils/helper.ts';
 
 export const univ2 = registerAdapter(
   defineAdapter({

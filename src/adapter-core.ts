@@ -1,9 +1,9 @@
 // adapter-core.ts - Core types and utilities for the adapter registry pattern
 import { z, ZodTypeAny } from 'zod';
 import { RedisClientType } from 'redis';
-import { EmitFunctions, RpcContext, Projector, CustomFeedHandlers } from './types/adapter';
-import { BaseProcessor, Block, Log, Transaction } from './eprocessorBuilder';
-import { ProtocolFamily } from './constants';
+import { EmitFunctions, RpcContext, Projector, CustomFeedHandlers } from './types/adapter.ts';
+import { BaseProcessor, Block, Log, Transaction } from './eprocessorBuilder.ts';
+import { ProtocolFamily } from './constants.ts';
 
 // Engine IO interface for dependency injection
 export type EngineIO = {

@@ -4,15 +4,15 @@ import { Database, LocalDest } from '@subsquid/file-store';
 import Big from 'big.js';
 import { RedisClientType } from 'redis';
 import dotenv from 'dotenv';
-import { log } from '../utils/logger';
-import { EVM_NULL_ADDRESS } from '../utils/constants';
-import { Sink } from '../sinks';
-import { RedisTSCache, RedisMetadataCache, RedisHandlerMetadataCache } from '../cache';
-import { PricingEngine } from './pricing-engine';
-import { AppConfig } from '../config/schema';
+import { log } from '../utils/logger.ts';
+import { EVM_NULL_ADDRESS } from '../utils/constants.ts';
+import { Sink } from '../sinks/index.ts';
+import { RedisTSCache, RedisMetadataCache, RedisHandlerMetadataCache } from '../cache/index.ts';
+import { PricingEngine } from './pricing-engine.ts';
+import { AppConfig } from '../config/schema.ts';
 import { match } from 'ts-pattern';
-import { EmitFunctions, Projector, BalanceDeltaReason } from '../types/adapter';
-import { Amount, NormalizedEventContext, PositionUpdate, Swap } from '../types/core';
+import { EmitFunctions, Projector, BalanceDeltaReason } from '../types/adapter.ts';
+import { Amount, NormalizedEventContext, PositionUpdate, Swap } from '../types/core.ts';
 
 import {
   IndexerMode,
@@ -21,16 +21,16 @@ import {
   MeasureDelta,
   Reprice,
   ActionEvent,
-} from '../types/core';
-import { ResolveContext, findConfig } from '../types/pricing';
+} from '../types/core.ts';
+import { ResolveContext, findConfig } from '../types/pricing.ts';
 import {
   EnrichmentContext,
   RawBalanceWindow,
   RawAction,
   PricedBalanceWindow,
   PricedEvent,
-} from '../types/enrichment';
-import { Block, Log, Transaction } from '../eprocessorBuilder';
+} from '../types/enrichment.ts';
+import { Block, Log, Transaction } from '../eprocessorBuilder.ts';
 import {
   // buildActionEvents,
   // buildTimeWeightedBalanceEvents,
@@ -42,9 +42,9 @@ import {
   filterOutZeroValueEvents,
   dedupeActions,
   enrichActionsWithPrice,
-} from '../enrichers/index';
-import { EngineDeps } from '../main';
-import { BuiltAdapter } from '../adapter-core';
+} from '../enrichers/index.ts';
+import { EngineDeps } from '../main.ts';
+import { BuiltAdapter } from '../adapter-core.ts';
 
 dotenv.config();
 

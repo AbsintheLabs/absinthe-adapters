@@ -1,9 +1,9 @@
 // Example HEMI adapter implementation (commented out but kept for reference)
 
 import Big from 'big.js';
-import { Adapter } from '../types/adapter';
-import { AssetFeedConfig } from '../types/pricing';
-import * as hemiAbi from '../abi/hemi';
+import { Adapter } from '../types/adapter.ts';
+import { AssetFeedConfig } from '../types/pricing.ts';
+import * as hemiAbi from '../abi/hemi.ts';
 
 // todo: use builder pattern to only add the gateway, rpc, and logs. transaction should not be modified since we need the txhash
 

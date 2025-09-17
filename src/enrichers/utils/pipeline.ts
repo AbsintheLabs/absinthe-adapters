@@ -1,4 +1,4 @@
-import { Enricher, EnrichmentContext } from '../../types/enrichment';
+import { Enricher, EnrichmentContext } from '../../types/enrichment.ts';
 
 /**
  * Simple pipe runner with proper typing that chains enrichers together

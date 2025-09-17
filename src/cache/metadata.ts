@@ -1,8 +1,8 @@
 // Metadata cache implementation
 
 import { RedisClientType } from 'redis';
-import { AssetMetadata } from '../types/core';
-import { MetadataCache } from '../types/pricing';
+import { AssetMetadata } from '../types/core.ts';
+import { MetadataCache } from '../types/pricing.ts';
 
 export class RedisMetadataCache implements MetadataCache {
   constructor(private redis: RedisClientType) {}

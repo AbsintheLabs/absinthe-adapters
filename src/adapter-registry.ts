@@ -1,6 +1,6 @@
 // adapter-registry.ts - Central registry for all adapters
 import { z } from 'zod';
-import { defineAdapter, AdapterDef, BuiltAdapter, EngineIO, SemVer } from './adapter-core';
+import { defineAdapter, AdapterDef, BuiltAdapter, EngineIO, SemVer } from './adapter-core.ts';
 
 // Central registry map
 const registry = new Map<string, AdapterDef<z.ZodObject<any, any>>>();

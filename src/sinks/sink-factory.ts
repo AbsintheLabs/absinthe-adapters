@@ -1,7 +1,7 @@
-import { SinkConfig } from '../config/schema';
-import { CsvSink } from './csv-sink';
-import { StdoutSink } from './stdout-sink';
-import { CompositeSink } from './composite-sink';
+import { SinkConfig } from '../config/schema.ts';
+import { CsvSink } from './csv-sink.ts';
+import { StdoutSink } from './stdout-sink.ts';
+import { CompositeSink } from './composite-sink.ts';
 
 export interface Sink {
   init?(): Promise<void>;

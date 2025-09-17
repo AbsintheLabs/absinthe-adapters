@@ -1,8 +1,8 @@
 // Price cache implementation using Redis TimeSeries
 
 import { RedisClientType } from 'redis';
-import { PriceCacheTS } from '../types/pricing';
-import { log } from '../utils/logger';
+import { PriceCacheTS } from '../types/pricing.ts';
+import { log } from '../utils/logger.ts';
 
 export class RedisTSCache implements PriceCacheTS {
   constructor(

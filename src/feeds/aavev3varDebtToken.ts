@@ -1,12 +1,12 @@
-import { HandlerFactory } from './interface';
+import { HandlerFactory } from './interface.ts';
 import Big from 'big.js';
-import { log } from '../utils/logger';
+import { log } from '../utils/logger.ts';
 
 // ABIs
-import * as aaveV3VarDebtAbi from '../abi/aavev3variabledebttoken';
-import * as erc20Abi from '../abi/erc20';
-import * as aaveV3PoolAbi from '../abi/aavev3pool';
-import { CoreFeedSelector } from '../types/pricing';
+import * as aaveV3VarDebtAbi from '../abi/aavev3variabledebttoken.ts';
+import * as erc20Abi from '../abi/erc20.ts';
+import * as aaveV3PoolAbi from '../abi/aavev3pool.ts';
+import { CoreFeedSelector } from '../types/pricing.ts';
 
 // Handler name constant for AaveV3 variable debt token pricing
 const AAVEV3_VAR_DEBT_HANDLER = 'aavev3vardebt';

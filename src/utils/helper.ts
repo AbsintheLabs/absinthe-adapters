@@ -4,7 +4,7 @@ type ActiveBalance = {
   updatedBlockHeight: number;
 };
 // import { TOKEN_METADATA } from './conts';
-import { log } from './logger';
+import { log } from './logger.ts';
 import { createHash } from 'crypto';
 
 function flattenNestedMap(

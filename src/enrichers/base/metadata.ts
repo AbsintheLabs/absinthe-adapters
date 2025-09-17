@@ -7,12 +7,12 @@ import {
   RawBalanceWindow,
   RawAction,
   BaseEnrichedFields,
-} from '../../types/enrichment';
+} from '../../types/enrichment.ts';
 import os from 'os';
-import { md5Hash } from '../../utils/helper';
-import { log } from '../../utils/logger';
-import { RunnerMeta } from '../../types/events';
-import { ABSINTHE_VERSION } from '../../version';
+import { md5Hash } from '../../utils/helper.ts';
+import { log } from '../../utils/logger.ts';
+import { RunnerMeta } from '../../types/events.ts';
+import { ABSINTHE_VERSION } from '../../version.ts';
 
 // IIFE to defer work at module load and cache the results
 export const addRunnerInfo: ScalarEnricher<any, any> = (() => {

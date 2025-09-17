@@ -1,14 +1,14 @@
-import { HandlerFactory } from './interface';
+import { HandlerFactory } from './interface.ts';
 import Big from 'big.js';
-import { log } from '../utils/logger';
-import { EVM_NULL_ADDRESS } from '../utils/constants';
+import { log } from '../utils/logger.ts';
+import { EVM_NULL_ADDRESS } from '../utils/constants.ts';
 import assert from 'assert';
 
 // ABIs
-import * as univ3poolAbi from '../abi/univ3pool';
-import * as univ3positionsAbi from '../abi/univ3nonfungiblepositionmanager';
-import * as univ3factoryAbi from '../abi/univ3factory';
-import * as erc20Abi from '../abi/erc20';
+import * as univ3poolAbi from '../abi/univ3pool.ts';
+import * as univ3positionsAbi from '../abi/univ3nonfungiblepositionmanager.ts';
+import * as univ3factoryAbi from '../abi/univ3factory.ts';
+import * as erc20Abi from '../abi/erc20.ts';
 
 // Handler name constant for Uniswap v3 LP pricing
 const UNIV3_LP_HANDLER = 'univ3lp';

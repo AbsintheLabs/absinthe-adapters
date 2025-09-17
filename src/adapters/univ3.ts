@@ -3,18 +3,18 @@ import Big from 'big.js';
 import z from 'zod';
 
 // univ3 abis
-import * as univ3factoryAbi from '../abi/univ3factory';
-import * as univ3poolAbi from '../abi/univ3pool';
-import * as univ3positionsAbi from '../abi/univ3nonfungiblepositionmanager';
+import * as univ3factoryAbi from '../abi/univ3factory.ts';
+import * as univ3poolAbi from '../abi/univ3pool.ts';
+import * as univ3positionsAbi from '../abi/univ3nonfungiblepositionmanager.ts';
 
 // univ3 projector
-import { Univ3Projector } from './univ3-projector';
+import { Univ3Projector } from './univ3-projector.ts';
 
 // New registry imports
-import { defineAdapter, ZodEvmAddress } from '../adapter-core';
-import { registerAdapter } from '../adapter-registry';
-import { EVM_NULL_ADDRESS } from '../utils/constants';
-import { md5Hash } from '../utils/helper';
+import { defineAdapter, ZodEvmAddress } from '../adapter-core.ts';
+import { registerAdapter } from '../adapter-registry.ts';
+import { EVM_NULL_ADDRESS } from '../utils/constants.ts';
+import { md5Hash } from '../utils/helper.ts';
 
 export const Univ3Params = z.object({
   kind: z.literal('uniswap-v3'),

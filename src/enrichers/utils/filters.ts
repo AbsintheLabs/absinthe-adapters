@@ -1,4 +1,4 @@
-import { ActionEnricher, Enricher, PricedBalanceWindow } from '../../types/enrichment';
+import { ActionEnricher, Enricher, PricedBalanceWindow } from '../../types/enrichment.ts';
 
 /**
  * Deduplicates actions based on their key property

@@ -1,5 +1,5 @@
 // utils/chains.ts
-import { ALL_EVM_CHAINS } from './chains_mini';
+import { ALL_EVM_CHAINS } from './chains_mini.ts';
 
 export const SUPPORTED_CHAIN_IDS = ALL_EVM_CHAINS.map((chain) => chain.chainId);
 

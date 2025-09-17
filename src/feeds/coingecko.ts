@@ -1,6 +1,6 @@
-import { HandlerFactory } from './interface';
+import { HandlerFactory } from './interface.ts';
 import axios from 'axios';
-import { log } from '../utils/logger';
+import { log } from '../utils/logger.ts';
 
 // Simple function implementation using FeedHandler signature
 export const coinGeckoFactory: HandlerFactory<'coingecko'> = (resolve) => async (args) => {

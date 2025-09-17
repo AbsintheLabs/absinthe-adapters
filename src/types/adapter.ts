@@ -7,12 +7,12 @@ import {
   Reprice,
   ActionEvent,
   Swap,
-} from './core';
-import { AssetFeedConfig } from './pricing';
-import { HandlerFactory } from '../feeds/interface';
-import { Block, Log, BaseProcessor, Transaction } from '../eprocessorBuilder';
+} from './core.ts';
+import { AssetFeedConfig } from './pricing.ts';
+import { HandlerFactory } from '../feeds/interface.ts';
+import { Block, Log, BaseProcessor, Transaction } from '../eprocessorBuilder.ts';
 import { RedisClientType } from 'redis';
-import { MeasureDelta } from './core';
+import { MeasureDelta } from './core.ts';
 
 // ------------------------------------------------------------
 // EMIT FUNCTIONS

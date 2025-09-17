@@ -1,6 +1,6 @@
 // Univ3 Projector - handles custom events and emits generic engine events
-import { Projector, ProjectorContext } from '../types/adapter';
-import { PositionStatusChange } from '../types/core';
+import { Projector, ProjectorContext } from '../types/adapter.ts';
+import { PositionStatusChange } from '../types/core.ts';
 import Big from 'big.js';
 
 export interface PositionIndexedPayload {

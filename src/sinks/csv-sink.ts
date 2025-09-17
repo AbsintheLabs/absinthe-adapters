@@ -1,6 +1,6 @@
 import fs from 'fs';
 import { format } from '@fast-csv/format';
-import { Sink } from './sink-factory';
+import { Sink } from './sink-factory.ts';
 
 export class CsvSink implements Sink {
   private stream = format({ headers: true });

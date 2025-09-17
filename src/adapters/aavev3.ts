@@ -4,13 +4,13 @@ import Big from 'big.js';
 
 // AaveV3 ABI imports (these need to be added to the abi directory)
 // aToken can use regular erc20 abi
-import * as erc20Abi from '../abi/erc20';
+import * as erc20Abi from '../abi/erc20.ts';
 // variable debt token needs to use aavev3variabledebttoken abi
-import * as aaveV3VarDebtAbi from '../abi/aavev3variabledebttoken';
+import * as aaveV3VarDebtAbi from '../abi/aavev3variabledebttoken.ts';
 
 // New registry imports
-import { defineAdapter, ZodEvmAddress } from '../adapter-core';
-import { registerAdapter } from '../adapter-registry';
+import { defineAdapter, ZodEvmAddress } from '../adapter-core.ts';
+import { registerAdapter } from '../adapter-registry.ts';
 
 export const aavev3 = registerAdapter(
   defineAdapter({

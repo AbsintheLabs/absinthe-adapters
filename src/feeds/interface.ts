@@ -1,5 +1,5 @@
 // interface.ts
-import { AssetConfig, AssetKey, AssetMetadata, FeedSelector, ResolveContext } from '../eprice';
+import { AssetConfig, AssetKey, AssetMetadata, FeedSelector, ResolveContext } from '../eprice.ts';
 
 export type ResolveResult = { price: number; metadata: AssetMetadata };
 

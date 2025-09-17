@@ -10,7 +10,7 @@ process.env.SQD_FATAL = '*';
 
 import { loadConfig } from './config/load.ts';
 import { buildBaseSqdProcessor } from './eprocessorBuilder.ts';
-import { Sink, SinkFactory } from './sinks.ts';
+import { Sink, SinkFactory } from './sinks/index.ts';
 import { createClient, RedisClientType } from 'redis';
 import { AppConfig } from './config/schema.ts';
 import { Adapter, EmitFunctions } from './types/adapter.ts';
@@ -19,7 +19,7 @@ import { Adapter, EmitFunctions } from './types/adapter.ts';
 import { EngineIO, BuiltAdapter } from './adapter-core.ts';
 import { buildAdapter } from './adapter-registry.ts';
 // Import adapters to register them
-import './adapters.ts';
+import './adapters/index.ts';
 import { Engine } from './engine/engine.ts';
 
 import { BaseProcessor } from './eprocessorBuilder.ts';

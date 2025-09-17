@@ -8,7 +8,7 @@ import {
   DataHandlerContext,
 } from '@subsquid/evm-processor';
 // import { SolanaBatchProcessor } from '@subsquid/solana-processor';
-import type { AppConfig } from './config/schema';
+import type { AppConfig } from './config/schema.ts';
 
 // Generic processor type that can handle both EVM and Solana
 export type BaseProcessor = EvmBatchProcessor;
