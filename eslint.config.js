@@ -11,6 +11,7 @@ export default [
       'projects/*/src/model/generated/**',
       'projects/*/db/migrations/**',
       'projects/*/abi/**',
+      'projects',
     ],
   },
   // Then the TypeScript config
