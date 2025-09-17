@@ -5,6 +5,7 @@ import { Token, PositionDetails, PoolDetails, PositionBundleMeta } from '../util
 export class PositionStorageService {
   private redis: RedisClientType;
   private isConnected = false;
+  private connectionPromise: Promise<void> | null = null;
 
   constructor() {
     this.redis = createClient({
@@ -15,7 +16,7 @@ export class PositionStorageService {
         keepAlive: true,
       },
     });
-    this.setupRedis();
+    this.connectionPromise = this.setupRedis();
   }
 
   private async setupRedis() {
@@ -42,6 +43,27 @@ export class PositionStorageService {
     } catch (error) {
       console.error('Redis connection failed:', error);
       this.isConnected = false;
+      throw error;
+    }
+  }
+
+  /**
+   * Wait for Redis connection to be established
+   */
+  async waitForConnection(): Promise<void> {
+    if (this.connectionPromise) {
+      await this.connectionPromise;
+    }
+
+    // Additional wait to ensure connection is fully established
+    let attempts = 0;
+    while (!this.isConnected && attempts < 30) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      attempts++;
+    }
+
+    if (!this.isConnected) {
+      throw new Error('Redis connection timeout');
     }
   }
 
