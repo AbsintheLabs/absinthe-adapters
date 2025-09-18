@@ -167,6 +167,13 @@ async function processSwapCommon(
   // This ensures ticks are updated correctly for both hops
   if (analysis?.poolId && analysis?.currentTick !== undefined) {
     const poolDetails = await positionStorageService.getPool(analysis.poolId);
+
+    //optimization needed
+    if (poolDetails) {
+      poolDetails.currentTick = analysis.currentTick;
+      await positionStorageService.updatePool(poolDetails);
+    }
+
     const positionsToActivate: PositionDetails[] = [];
     const positionsToDeactivate: PositionDetails[] = [];
 
