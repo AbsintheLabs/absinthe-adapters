@@ -3,10 +3,10 @@ import { z } from 'zod';
 import { defineAdapter, AdapterDef, BuiltAdapter, EngineIO, SemVer } from './adapter-core.ts';
 
 // Central registry map
-const registry = new Map<string, AdapterDef<z.ZodObject<any, any>>>();
+const registry = new Map<string, AdapterDef<z.ZodTypeAny>>();
 
 // Register an adapter in the central registry
-export function registerAdapter<D extends AdapterDef<z.ZodObject<any, any>>>(def: D) {
+export function registerAdapter<S extends z.ZodTypeAny>(def: AdapterDef<S>): AdapterDef<S> {
   if (registry.has(def.name)) {
     throw new Error(`Duplicate adapter: ${def.name}`);
   }
@@ -35,7 +35,7 @@ export function buildAdapter(name: string, rawConfig: unknown, io: EngineIO): Bu
 
   try {
     // Parse and validate the config using the adapter's schema
-    const parsed = def.schema.strict().parse(rawConfig);
+    const parsed = def.schema.parse(rawConfig);
     // Build the adapter with validated params
     const built = def.build({ params: parsed, io });
 

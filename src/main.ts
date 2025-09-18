@@ -1,6 +1,4 @@
 // imports
-console.log('hello world');
-process.exit(0);
 import dotenv from 'dotenv';
 dotenv.config();
 // prevent squid from prematurely exiting
@@ -13,16 +11,17 @@ import { buildBaseSqdProcessor } from './eprocessorBuilder.ts';
 import { Sink, SinkFactory } from './sinks/index.ts';
 import { Redis } from 'ioredis';
 import { AppConfig } from './config/schema.ts';
-import { Adapter, EmitFunctions } from './types/adapter.ts';
+import { log } from './utils/logger.ts';
 
 // New registry imports
 import { EngineIO, BuiltAdapter } from './adapter-core.ts';
 import { buildAdapter } from './adapter-registry.ts';
-// Import adapters to register them
-import './adapters/index.ts';
 import { Engine } from './engine/engine.ts';
 
+import { loadAllAdapters } from './adapters/loader.ts';
+
 import { BaseProcessor } from './eprocessorBuilder.ts';
+import { md5Hash } from './utils/helper.ts';
 // todo: move this somewhere else with typing definitions
 export interface EngineDeps {
   appCfg: AppConfig;
@@ -33,8 +32,11 @@ export interface EngineDeps {
 }
 
 async function main() {
+  // dynamically load and register all adapters
+  await loadAllAdapters();
+
   // load config
-  const appCfg = loadConfig(process.argv[2]);
+  const appCfg = await loadConfig(process.argv[2]);
 
   // create sink
   const sink = SinkFactory.create(appCfg.sinkConfig);
@@ -44,7 +46,15 @@ async function main() {
   const baseSqdProcessor = buildBaseSqdProcessor(appCfg);
 
   // create redis connection (ioredis auto-connects)
-  const redis = new Redis(appCfg.redisUrl);
+  const keyPrefix = md5Hash(appCfg, 6) + ':';
+  const redis = new Redis(appCfg.redisUrl, { keyPrefix: keyPrefix });
+
+  // handle redis connection errors
+  redis.on('error', (err) => {
+    log.error('Redis connection error:', err);
+    log.error('Are you sure you have redis running at your specified endpoint?');
+    process.exit(1);
+  });
 
   // create EngineIO for dependency injection
   const io: EngineIO = {
@@ -66,14 +76,13 @@ async function main() {
   };
 
   // Log verification of configuration
-  console.log('--- Engine Configuration Verification ---');
-  console.log('App Config:', JSON.stringify(appCfg, null, 2));
-  console.log('Sink:', sink);
-  console.log('Adapter:', adapter);
-  console.log('Processor:', sqdProcessor);
-  console.log('Redis:', redis);
-  console.log('--- End of Configuration ---');
-  console.log('Exiting before running engine.run() as requested.');
+  // console.log('--- Engine Configuration Verification ---');
+  // // console.log('App Config:', JSON.stringify(appCfg, null, 2));
+  // // console.log('Sink:', sink);
+  // // console.log('Adapter:', adapter);
+  // // console.log('Processor:', sqdProcessor);
+  // // console.log('Redis:', redis);
+  // console.log('--- End of Configuration ---');
 
   const engine = new Engine(deps);
   await engine.run();

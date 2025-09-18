@@ -183,7 +183,9 @@ const Common = z.object({
   flushMs: z.number().int().positive().min(3600000), // engine windowing, must be at least 1 hour
   feedConfigJson: z.string().optional(), // optional JSON blob for adapter feeds
   extrasJson: z.string().optional(), // adapter-specific extras (JSON)
-  redisUrl: z.url().optional().default('redis://localhost:6379'),
+  redisUrl: z.url().refine((s) => s.startsWith('redis://') || s.startsWith('rediss://'), {
+    message: 'Redis URL must start with redis:// or rediss://',
+  }),
   sinkConfig: SinkConfigSchema.default({
     sinkType: 'csv',
     path: 'windows.csv',

@@ -125,7 +125,6 @@ export class Engine {
       }
     }
 
-    log.debug('sqdProcessor: ', p);
     // 6) Pricing + caches
     this.pricingEngine = new PricingEngine(this.adapter.customFeeds);
     this.priceCache = new RedisTSCache(this.redis);

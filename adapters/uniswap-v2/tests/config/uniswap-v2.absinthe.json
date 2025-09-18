@@ -1,0 +1,64 @@
+{
+  "kind": "evm",
+  "indexerId": "univ2-indexer",
+  "flushMs": 259200000,
+  "redisUrl": "${env:REDIS_URL}",
+  "sinkConfig": {
+    "sinks": [
+      {
+        "sinkType": "stdout"
+      },
+      {
+        "sinkType": "csv",
+        "path": "univ2swaps.csv"
+      }
+    ]
+  },
+  "network": {
+    "chainId": 43111,
+    "gatewayUrl": "https://v2.archive.subsquid.io/network/hemi-mainnet",
+    "rpcUrl": "https://rpc.hemi.network/rpc",
+    "finality": 75
+  },
+  "range": {
+    "fromBlock": 1451314,
+    "toBlock": 2481775
+  },
+  "pricingRange": {
+    "type": "block",
+    "fromBlock": 30000000
+  },
+  "adapterConfig": {
+    "adapterId": "uniswap-v2",
+    "params": {
+      "poolAddress": "0x0621bae969de9c153835680f158f481424c0720a",
+      "trackSwaps": true
+    }
+  },
+  "assetFeedConfig": [
+    {
+      "match": {
+        "key": "0xAA40c0c7644e0b2B224509571e10ad20d9C4ef28"
+      },
+      "config": {
+        "assetType": "erc20",
+        "priceFeed": {
+          "kind": "pegged",
+          "usdPegValue": 115764.58
+        }
+      }
+    },
+    {
+      "match": {
+        "key": "0xad11a8BEb98bbf61dbb1aa0F6d6F2ECD87b35afA"
+      },
+      "config": {
+        "assetType": "erc20",
+        "priceFeed": {
+          "kind": "pegged",
+          "usdPegValue": 1
+        }
+      }
+    }
+  ]
+}

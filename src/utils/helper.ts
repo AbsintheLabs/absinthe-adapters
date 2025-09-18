@@ -19,8 +19,10 @@ function flattenNestedMap(
   return flatMap;
 }
 
-export function md5Hash(input: string): string {
-  return createHash('md5').update(input).digest('hex');
+export function md5Hash(input: any, hashLength?: number): string {
+  const data = typeof input === 'string' ? input : JSON.stringify(input);
+  const hash = createHash('md5').update(data, 'utf8').digest('hex');
+  return typeof hashLength === 'number' ? hash.slice(0, hashLength) : hash;
 }
 
 // function checkToken(token: string): TokenMetadata | null {
