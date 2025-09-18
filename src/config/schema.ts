@@ -1,6 +1,7 @@
 // config/schema.ts
 import * as z from 'zod';
 import { isValidChainId } from './chains.ts';
+import { durationHumanToMs } from './duration.ts';
 // import { AssetFeedConfigInput } from './feeds';
 
 // ------------------------------------------------------------
@@ -180,7 +181,10 @@ const PricingRange = z.discriminatedUnion('type', [
 
 const Common = z.object({
   indexerId: z.string(), // for namespacing keys/files
-  flushMs: z.number().int().positive().min(3600000), // engine windowing, must be at least 1 hour
+  // flushInterval: z.number().int().positive().min(3600000), // engine windowing, must be at least 1 hour
+  flushInterval: durationHumanToMs().describe(
+    'Human duration: "1h", "90m", "1:30:00" NOT supported (only single-unit), "3600s", "1000ms". Min 1h.',
+  ),
   feedConfigJson: z.string().optional(), // optional JSON blob for adapter feeds
   extrasJson: z.string().optional(), // adapter-specific extras (JSON)
   redisUrl: z.url().refine((s) => s.startsWith('redis://') || s.startsWith('rediss://'), {

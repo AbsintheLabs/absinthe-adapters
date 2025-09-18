@@ -8,7 +8,7 @@ import * as univ2Abi from './abi/uniswap-v2.ts';
 // New registry imports
 import { registerAdapter } from '../_shared/index.ts';
 // utils
-import { ZodEvmAddress, EVM_NULL_ADDRESS, md5Hash } from '../_shared/index.ts';
+import { ZodEvmAddress, md5Hash } from '../_shared/index.ts';
 
 export default registerAdapter({
   name: 'uniswap-v2',
@@ -30,9 +30,6 @@ export default registerAdapter({
     // Event topics from the Uniswap V2 ABI
     const transferTopic = univ2Abi.events.Transfer.topic;
     const swapTopic = univ2Abi.events.Swap.topic;
-    // const mintTopic = univ2Abi.events.Mint.topic;
-    // const burnTopic = univ2Abi.events.Burn.topic;
-    // const syncTopic = univ2Abi.events.Sync.topic;
 
     return {
       buildProcessor: (base) =>
@@ -60,28 +57,23 @@ export default registerAdapter({
         if (params.trackLP && log.topics[0] === transferTopic) {
           const { from, to, value } = univ2Abi.events.Transfer.decode(log);
 
-          if (from !== EVM_NULL_ADDRESS) {
-            await emit.balanceDelta({
-              user: from,
-              asset: params.poolAddress,
-              amount: new Big(value.toString()).neg(),
-              activity: 'hold',
-            });
-          }
-          if (to !== EVM_NULL_ADDRESS) {
-            await emit.balanceDelta({
-              user: to,
-              asset: params.poolAddress,
-              amount: new Big(value.toString()),
-              activity: 'hold',
-            });
-          }
+          await emit.balanceDelta({
+            user: from,
+            asset: params.poolAddress,
+            amount: new Big(value.toString()).neg(),
+            activity: 'hold',
+          });
+          await emit.balanceDelta({
+            user: to,
+            asset: params.poolAddress,
+            amount: new Big(value.toString()),
+            activity: 'hold',
+          });
         }
 
         // SWAP
         if (params.trackSwaps && log.topics[0] === swapTopic) {
-          const { sender, amount0In, amount1In, amount0Out, amount1Out, to } =
-            univ2Abi.events.Swap.decode(log);
+          const { amount0In, amount1In, amount0Out, amount1Out } = univ2Abi.events.Swap.decode(log);
           const isToken0ToToken1 = amount0In > 0n ? true : false;
 
           // Get the amounts
@@ -138,13 +130,6 @@ export default registerAdapter({
             meta: swapMeta,
           });
         }
-
-        // Handle Sync events (reserve updates)
-        // if (log.topics[0] === syncTopic) {
-        //   const { reserve0, reserve1 } = univ2Abi.events.Sync.decode(log);
-        //   // This could trigger repricing logic
-        //   // await emit.reprice();
-        // }
       },
     };
   },

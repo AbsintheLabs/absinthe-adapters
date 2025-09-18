@@ -3,6 +3,7 @@ export {
   enrichBaseEventMetadata,
   enrichWithCommonBaseEventFields,
   enrichWithRunnerInfo,
+  addRunnerInfo,
 } from './base/metadata.ts';
 
 // Event builders

@@ -9,41 +9,21 @@ import {
   BaseEnrichedFields,
 } from '../../types/enrichment.ts';
 import os from 'os';
-import { md5Hash } from '../../utils/helper.ts';
-import { log } from '../../utils/logger.ts';
-import { RunnerMeta } from '../../types/events.ts';
-import { ABSINTHE_VERSION } from '../../version.ts';
+import { getRuntime } from '../../runtime/context.ts';
 
-// IIFE to defer work at module load and cache the results
-export const addRunnerInfo: ScalarEnricher<any, any> = (() => {
-  // get hostname
-  const machineHostname = os.hostname();
+export const addRunnerInfo: ScalarEnricher<any, any> = async (item, _) => {
+  // capture static bits once from runtime context
+  const { version, commitSha, apiKeyHash, configHash, machineHostname } = getRuntime();
 
-  // get api key if exists
-  const apiKey = process.env.ABSINTHE_API_KEY;
-  const apiKeyHash = apiKey ? md5Hash(apiKey) : null;
-
-  // get commit sha if exists
-  const longCommitSha = process.env.COMMIT_SHA;
-  const commitSha = longCommitSha ? longCommitSha.slice(0, 8) : null;
-
-  // get config hash
-  // fixme: how do we get the config here?
-  // tbd...
-
-  const version = ABSINTHE_VERSION;
-
-  return async (item, _) => {
-    return {
-      ...item,
-      runner_version: version,
-      ...(commitSha && { runner_commitSha: commitSha }),
-      // ...(configHash && { runner_configHash: configHash }),
-      runner_runnerId: machineHostname,
-      runner_apiKeyHash: apiKeyHash,
-    };
+  return {
+    ...item,
+    runner_version: version,
+    ...(commitSha && { runner_commitSha: commitSha }),
+    ...(apiKeyHash && { runner_apiKeyHash: apiKeyHash }),
+    runner_configHash: configHash,
+    runner_runnerId: machineHostname,
   };
-})();
+};
 
 /*
 -----------------------------------------

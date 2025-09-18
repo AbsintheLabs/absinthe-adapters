@@ -36,6 +36,7 @@ import {
   // buildTimeWeightedBalanceEvents,
   enrichBaseEventMetadata,
   enrichWithRunnerInfo,
+  addRunnerInfo,
   pipeline,
   enrichWithCommonBaseEventFields,
   enrichWindowsWithPrice,
@@ -215,8 +216,8 @@ export class Engine {
     // 1) dedupe to the first block per window
     const windowToFirstBlock = new Map<number, any>();
     for (const block of blocks) {
-      const windowStart =
-        Math.floor(block.header.timestamp / this.appCfg.flushMs) * this.appCfg.flushMs;
+      const flushInterval = this.appCfg.flushInterval as number;
+      const windowStart = Math.floor(block.header.timestamp / flushInterval) * flushInterval;
       if (!windowToFirstBlock.has(windowStart)) windowToFirstBlock.set(windowStart, block);
     }
     const blocksOfWindowStarts = Array.from(windowToFirstBlock.values());
@@ -336,7 +337,7 @@ export class Engine {
       block,
       asset,
       sqdCtx: this.ctx,
-      bucketMs: this.appCfg.flushMs,
+      bucketMs: this.appCfg.flushInterval as number,
       sqdRpcCtx: {
         _chain: this.ctx._chain,
         block: {
@@ -365,7 +366,7 @@ export class Engine {
 
     const enrichedEvents = await pipeline<PricedEvent>(
       // enrichWithCommonBaseEventFields,
-      enrichWithRunnerInfo,
+      addRunnerInfo,
       // enrichBaseEventMetadata,
       // buildActionEvents,
       dedupeActions,
@@ -394,7 +395,7 @@ export class Engine {
 
     const enrichedWindows = await pipeline<PricedBalanceWindow>(
       // enrichWithCommonBaseEventFields,
-      enrichWithRunnerInfo,
+      addRunnerInfo,
       enrichBaseEventMetadata,
       // buildTimeWeightedBalanceEvents,
       // enrichWindowsWithPrice,
@@ -831,7 +832,7 @@ export class Engine {
   // When we reach finalBlock: flush everything INCLUDING the last partial window.
   // In live mode (no finalBlock): only flush fully closed windows, never the current one.
   private async flushPeriodic(nowMs: number, height: number) {
-    const w = this.appCfg.flushMs;
+    const w = this.appCfg.flushInterval as number;
 
     if (this.appCfg.kind !== 'evm') return; // todo: currently only evm is supported
     const finalBlock: number | null = this.appCfg.range.toBlock ?? null;

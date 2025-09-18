@@ -22,6 +22,10 @@ import { loadAllAdapters } from './adapters/loader.ts';
 
 import { BaseProcessor } from './eprocessorBuilder.ts';
 import { md5Hash } from './utils/helper.ts';
+import { md5HashCanonical } from './utils/stable-hash.ts';
+import { setRuntime } from './runtime/context.ts';
+import { ABSINTHE_VERSION } from './version.ts';
+import os from 'os';
 // todo: move this somewhere else with typing definitions
 export interface EngineDeps {
   appCfg: AppConfig;
@@ -38,6 +42,22 @@ async function main() {
   // load config
   const appCfg = await loadConfig(process.argv[2]);
 
+  // initialize runtime context with config hash and other metadata
+  const configHash = md5HashCanonical(appCfg, 8);
+  const hostname = os.hostname();
+  const apiKey = process.env.ABSINTHE_API_KEY;
+  const apiKeyHash = apiKey ? md5HashCanonical(apiKey, 8) : null;
+  const longCommitSha = process.env.COMMIT_SHA;
+  const commitSha = longCommitSha ? longCommitSha.slice(0, 8) : null;
+
+  setRuntime({
+    version: ABSINTHE_VERSION,
+    commitSha,
+    apiKeyHash,
+    configHash,
+    machineHostname: hostname,
+  });
+
   // create sink
   const sink = SinkFactory.create(appCfg.sinkConfig);
 
@@ -46,8 +66,9 @@ async function main() {
   const baseSqdProcessor = buildBaseSqdProcessor(appCfg);
 
   // create redis connection (ioredis auto-connects)
-  const keyPrefix = md5Hash(appCfg, 6) + ':';
-  const redis = new Redis(appCfg.redisUrl, { keyPrefix: keyPrefix });
+  // Use the same configHash to prefix Redis
+  const keyPrefix = configHash.slice(0, 6) + ':';
+  const redis = new Redis(appCfg.redisUrl, { keyPrefix });
 
   // handle redis connection errors
   redis.on('error', (err) => {
@@ -74,15 +95,6 @@ async function main() {
     sqdProcessor,
     redis,
   };
-
-  // Log verification of configuration
-  // console.log('--- Engine Configuration Verification ---');
-  // // console.log('App Config:', JSON.stringify(appCfg, null, 2));
-  // // console.log('Sink:', sink);
-  // // console.log('Adapter:', adapter);
-  // // console.log('Processor:', sqdProcessor);
-  // // console.log('Redis:', redis);
-  // console.log('--- End of Configuration ---');
 
   const engine = new Engine(deps);
   await engine.run();

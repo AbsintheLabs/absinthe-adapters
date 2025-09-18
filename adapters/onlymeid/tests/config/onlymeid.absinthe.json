@@ -1,7 +1,7 @@
 {
   "kind": "evm",
   "indexerId": "univ2-indexer",
-  "flushMs": 259200000,
+  "flushInterval": "24h",
   "redisUrl": "redis://localhost:6379",
   "sinkConfig": {
     "sinks": [
