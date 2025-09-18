@@ -1,0 +1,9 @@
+{
+  "balanceFlushIntervalHours": 48,
+  "type": "printr-meteora",
+  "name": "printr-meteora",
+  "toBlock": 0,
+  "contractAddress": "diRTqkRxqg9fvQXemGosY8hg91Q7DpFqGXLJwG3bEDA",
+  "chainId": 1000,
+  "fromBlock": 289819150
+}
