@@ -1,6 +1,5 @@
 {
   "kind": "evm",
-  "indexerId": "univ2-indexer",
   "flushInterval": "48h",
   "redisUrl": "${env:REDIS_URL}",
   "sinkConfig": {

@@ -1,8 +1,7 @@
 {
   "kind": "evm",
-  "indexerId": "univ2-indexer",
   "flushInterval": "24h",
-  "redisUrl": "redis://localhost:6379",
+  "redisUrl": "${env:REDIS_URL}",
   "sinkConfig": {
     "sinks": [
       {

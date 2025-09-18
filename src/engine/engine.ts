@@ -13,6 +13,7 @@ import { AppConfig, AssetConfig } from '../config/schema.ts';
 import { match } from 'ts-pattern';
 import { EmitFunctions, Projector, BalanceDeltaReason } from '../types/adapter.ts';
 import { Amount, NormalizedEventContext, PositionUpdate, Swap } from '../types/core.ts';
+import { getRuntime } from '../runtime/context.ts';
 
 import {
   IndexerMode,
@@ -57,14 +58,6 @@ export class Engine {
   private db: Database<any, any>;
   private adapter: BuiltAdapter;
 
-  // State file path for Subsquid processor checkpoint persistence
-  // Each containerized indexer instance uses the same local path since they run in isolation
-  // The actual file will be 'status.txt' containing block height and hash for crash recovery
-  private static readonly STATE_FILE_PATH = './state';
-
-  // private lastUpatedTime =
-
-  // fixme: prepend the redis prefix with a unique id to avoid conflicts if multiple containerized indexers are running and using the same redis instance
   // todo: change number to bigint/something that encodes token info
   private redis: Redis;
   private windows: RawBalanceWindow[] = [];
@@ -79,7 +72,8 @@ export class Engine {
 
   // Redis key for storing the last flush boundary (crash-resistant)
   private get lastFlushBoundaryKey(): string {
-    return `abs:${this.appCfg.indexerId}:flush:boundary`;
+    // don't need to prefix since we get that automatically from ioredis key prefixing
+    return `abs:flush:boundary`;
   }
   private sink: Sink;
   private indexerMode: IndexerMode;
@@ -94,20 +88,12 @@ export class Engine {
   private sqdProcessor: any;
 
   constructor(deps: EngineDeps) {
-    // todo: prefix with the indexer hash id to avoid collisions if running multiple instances on the same machine
-    const statePath = Engine.STATE_FILE_PATH;
+    const statePath = this.generateStatePath();
     // don't need tables since we're relying on redis for persistence. This can be hardcoded, this is fine.
     this.db = new Database({ tables: {}, dest: new LocalDest(statePath) });
 
     // this is kind of an old relic
     this.indexerMode = deps.appCfg.kind === 'evm' ? 'evm' : 'solana';
-
-    // // 4.5) Register projectors
-    // if (this.adapter.projectors) {
-    //   for (const projector of this.adapter.projectors) {
-    //     this.projectors.set(projector.namespace, projector);
-    //   }
-    // }
 
     // 5) Infra
     this.redis = deps.redis;
@@ -131,6 +117,13 @@ export class Engine {
     this.priceCache = new RedisTSCache(this.redis);
     this.metadataCache = new RedisMetadataCache(this.redis);
     this.handlerMetadataCache = new RedisHandlerMetadataCache(this.redis);
+  }
+
+  /**
+   * Generate the state path for the SQD database based on the current config hash
+   */
+  private generateStatePath(): string {
+    return '_sqdstate-' + getRuntime().configHash;
   }
 
   /**
