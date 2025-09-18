@@ -3,6 +3,7 @@
 import { Redis } from 'ioredis';
 import { PriceCacheTS } from '../types/pricing.ts';
 import { log } from '../utils/logger.ts';
+import { withPrefix } from '../redis/ts-util.ts';
 
 export class RedisTSCache implements PriceCacheTS {
   constructor(
@@ -16,10 +17,11 @@ export class RedisTSCache implements PriceCacheTS {
 
   private async ensureSeries(key: string, assetLabel: string) {
     // TS.CREATE <key> DUPLICATE_POLICY LAST LABELS provider <label> asset <assetLabel>
+    const fullKey = withPrefix(this.redis, key);
     try {
       await this.redis.call(
         'TS.CREATE',
-        key,
+        fullKey,
         'DUPLICATE_POLICY',
         'LAST',
         'LABELS',
@@ -39,10 +41,11 @@ export class RedisTSCache implements PriceCacheTS {
     log.debug('setting price for', seriesKey, timestampMs, price);
     const key = this.key(seriesKey);
     await this.ensureSeries(key, seriesKey);
+    const fullKey = withPrefix(this.redis, key);
     // TS.ADD <key> <ts> <value> ON_DUPLICATE LAST
     await this.redis.call(
       'TS.ADD',
-      key,
+      fullKey,
       String(timestampMs),
       String(price),
       'ON_DUPLICATE',
@@ -55,7 +58,7 @@ export class RedisTSCache implements PriceCacheTS {
     atMs: number, // any ts inside the bucket you care about
     bucketMs: number, // bucket width in ms
   ): Promise<number | null> {
-    const key = this.key(seriesKey);
+    const key = withPrefix(this.redis, this.key(seriesKey));
 
     // 0. Series doesn't exist → no price
     if (!(await this.redis.exists(key))) return null;
@@ -86,7 +89,7 @@ export class RedisTSCache implements PriceCacheTS {
 
     // 4. Ensure that sample is inside the *current* bucket, not an older one
     const [tsStr, valueStr] = latest[0] as any;
-    const ts = typeof tsStr === 'string' ? Number(tsStr) : Number(tsStr);
+    const ts = Number(tsStr);
     if (ts < bucketStart) return null; // stale → treat as missing
 
     return Number(valueStr);

@@ -1,9 +1,17 @@
+import type { Redis } from 'ioredis';
+import { withPrefix } from '../../redis/ts-util.ts';
+
 type TSPoint = { timestamp: number; value: number };
 
 /**
  * Gets the previous sample at or before the given timestamp from Redis TimeSeries
  */
-export async function getPrevSample(redis: any, key: string, ts: number): Promise<TSPoint | null> {
+export async function getPrevSample(
+  redis: Redis,
+  rawKey: string,
+  ts: number,
+): Promise<TSPoint | null> {
+  const key = withPrefix(redis, rawKey);
   // TS.REVRANGE key 0 ts COUNT 1
   let resp = (await redis.call('TS.REVRANGE', key, '0', String(ts), 'COUNT', '1')) as Array<
     [number | string, string]
@@ -31,16 +39,17 @@ export async function getPrevSample(redis: any, key: string, ts: number): Promis
  * Gets all samples within the given time range from Redis TimeSeries
  */
 export async function getSamplesIn(
-  redis: any,
-  key: string,
+  redis: Redis,
+  rawKey: string,
   start: number,
   end: number,
 ): Promise<TSPoint[]> {
+  const key = withPrefix(redis, rawKey);
   const resp = (await redis.call('TS.RANGE', key, String(start), String(end))) as Array<
     [number | string, string]
   > | null;
   if (!Array.isArray(resp)) return [];
-  return resp.map((row: any) => ({ timestamp: Number(row[0]), value: Number(row[1]) }));
+  return resp.map(([t, v]: any) => ({ timestamp: Number(t), value: Number(v) }));
 }
 
 /**
