@@ -26,6 +26,7 @@ import { md5HashCanonical } from './utils/stable-hash.ts';
 import { setRuntime } from './runtime/context.ts';
 import { ABSINTHE_VERSION } from './version.ts';
 import os from 'os';
+import { clearStateDir, clearRedisNamespace, deriveStateDirFromHash } from './utils/state-reset.ts';
 // todo: move this somewhere else with typing definitions
 export interface EngineDeps {
   appCfg: AppConfig;
@@ -41,6 +42,9 @@ async function main() {
 
   // load config
   const appCfg = await loadConfig(process.argv[2]);
+
+  // check for reset flag
+  const reset = process.argv.includes('--reset-state');
 
   // initialize runtime context with config hash and other metadata
   const configHash = md5HashCanonical(appCfg, 8);
@@ -68,6 +72,7 @@ async function main() {
   // create redis connection (ioredis auto-connects)
   // Use the same configHash to prefix Redis
   const keyPrefix = configHash.slice(0, 6) + ':';
+  const stateDir = deriveStateDirFromHash(configHash);
   const redis = new Redis(appCfg.redisUrl, { keyPrefix });
 
   // handle redis connection errors
@@ -76,6 +81,14 @@ async function main() {
     log.error('Are you sure you have redis running at your specified endpoint?');
     process.exit(1);
   });
+
+  // handle state reset if requested
+  if (reset) {
+    log.warn(`[RESET] Clearing state dir "${stateDir}" and Redis keys with prefix "${keyPrefix}"`);
+    await clearStateDir(stateDir);
+    await clearRedisNamespace(redis, keyPrefix);
+    log.warn('[RESET] Completed');
+  }
 
   // create EngineIO for dependency injection
   const io: EngineIO = {
