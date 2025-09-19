@@ -1122,8 +1122,8 @@ export class OrcaProcessor {
           userAddress: position.owner,
           deltaAmount: 0,
           trigger: TimeWindowTrigger.EXHAUSTED,
-          startTs: position.lastUpdatedBlockTs,
-          endTs: nextBoundaryTs,
+          startTs: position.lastUpdatedBlockTs * 1000,
+          endTs: nextBoundaryTs * 1000,
           windowDurationMs: this.refreshWindow * 1000, // Convert to milliseconds
           startBlockNumber: position.lastUpdatedBlockHeight,
           endBlockNumber: slot,
