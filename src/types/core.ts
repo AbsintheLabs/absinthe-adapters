@@ -16,7 +16,7 @@ export interface NormalizedEventContext {
 
 // TWB RELATED TYPES
 
-type MetadataValue = number | string;
+export type MetadataValue = number | string;
 
 export type BalanceDelta = {
   user: string;

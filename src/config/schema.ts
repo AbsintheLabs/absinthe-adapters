@@ -2,7 +2,6 @@
 import * as z from 'zod';
 import { isValidChainId } from './chains.ts';
 import { durationHumanToMs } from './duration.ts';
-// import { AssetFeedConfigInput } from './feeds';
 
 // ------------------------------------------------------------
 // PRICING TYPES SCHEMAS

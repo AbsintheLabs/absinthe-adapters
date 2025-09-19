@@ -76,6 +76,10 @@ export type AdapterDef<P extends ZodTypeAny> = {
 };
 
 // Factory to help with generics inference
+// todo: remove this import from everywhere
+/**
+ * @deprecated This helper is deprecated and will be removed in a future release.
+ */
 export function defineAdapter<P extends ZodTypeAny>(def: AdapterDef<P>) {
   return def;
 }

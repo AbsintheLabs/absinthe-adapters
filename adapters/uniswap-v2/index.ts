@@ -20,9 +20,9 @@ export default registerAdapter({
       // Toggle for swap event tracking
       trackSwaps: z.boolean().optional(),
       // Toggle for LP (liquidity provision) event tracking
-      trackLP: z.boolean().optional(),
+      trackLp: z.boolean().optional(),
     })
-    .refine((params) => !!params.trackSwaps || !!params.trackLP, {
+    .refine((params) => !!params.trackSwaps || !!params.trackLp, {
       message: 'At least one of trackSwaps or trackLP must be enabled',
       path: ['trackSwaps', 'trackLP'],
     }),
@@ -54,7 +54,7 @@ export default registerAdapter({
         }
 
         // LP
-        if (params.trackLP && log.topics[0] === transferTopic) {
+        if (params.trackLp && log.topics[0] === transferTopic) {
           const { from, to, value } = univ2Abi.events.Transfer.decode(log);
 
           await emit.balanceDelta({

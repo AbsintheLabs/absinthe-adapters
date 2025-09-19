@@ -1,6 +1,6 @@
 // adapter-registry.ts - Central registry for all adapters
 import { z } from 'zod';
-import { defineAdapter, AdapterDef, BuiltAdapter, EngineIO, SemVer } from './adapter-core.ts';
+import { AdapterDef, BuiltAdapter, EngineIO, SemVer } from './adapter-core.ts';
 
 // Central registry map
 const registry = new Map<string, AdapterDef<z.ZodTypeAny>>();
@@ -53,6 +53,11 @@ export function buildAdapter(name: string, rawConfig: unknown, io: EngineIO): Bu
 // Get available adapter names
 export function getAvailableAdapters(): string[] {
   return Array.from(registry.keys());
+}
+
+export function getAdapterMeta(name: string): { name: string; semver: string } | null {
+  const def = registry.get(name);
+  return def ? { name: def.name, semver: def.semver } : null;
 }
 
 // Get adapter schema for documentation/validation

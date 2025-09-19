@@ -1,18 +1,21 @@
-export type RunMeta = {
+export type Runtime = {
   machineHostname: string;
   version: string;
   commitSha?: string | null;
   apiKeyHash?: string | null;
   configHash: string;
+
+  adapterName: string;
+  adapterVersion: string;
 };
 
-let current: RunMeta | null = null;
+let RUNTIME: Runtime | undefined;
 
-export function setRuntime(meta: RunMeta) {
-  current = Object.freeze({ ...meta });
+export function setRuntime(partial: Partial<Runtime>) {
+  RUNTIME = { ...(RUNTIME ?? ({} as Runtime)), ...partial };
 }
 
-export function getRuntime(): RunMeta {
-  if (!current) throw new Error('Runtime context not initialized');
-  return current;
+export function getRuntime(): Runtime {
+  if (!RUNTIME) throw new Error('Runtime not initialized');
+  return RUNTIME;
 }

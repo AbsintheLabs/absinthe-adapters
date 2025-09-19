@@ -16,7 +16,7 @@ import { Activity } from './core.ts';
 import { BalanceDeltaReason } from './adapter.ts';
 
 // NEW TYPES (much better approach)
-export type ScalarEnricher<I, O> = (item: I, ctx: EnrichmentContext) => Promise<O>;
+export type ScalarEnricher<I, O> = (item: I, ctx: EnrichmentContext) => Promise<O> | O;
 
 /*
 each enricher is stateless and operates on a single item at a time so it's very easy to reason about and test.

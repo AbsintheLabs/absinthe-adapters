@@ -9,7 +9,7 @@
       },
       {
         "sinkType": "csv",
-        "path": "univ2swaps.csv"
+        "path": "univ2.csv"
       }
     ]
   },
@@ -31,7 +31,8 @@
     "adapterId": "uniswap-v2",
     "params": {
       "poolAddress": "0x0621bae969de9c153835680f158f481424c0720a",
-      "trackSwaps": true
+      "trackSwaps": false,
+      "trackLp": true
     }
   },
   "assetFeedConfig": [

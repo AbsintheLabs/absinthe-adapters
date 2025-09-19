@@ -32,21 +32,10 @@ import {
   PricedEvent,
 } from '../types/enrichment.ts';
 import { Block, Log, Transaction } from '../eprocessorBuilder.ts';
-import {
-  // buildActionEvents,
-  // buildTimeWeightedBalanceEvents,
-  enrichBaseEventMetadata,
-  enrichWithRunnerInfo,
-  addRunnerInfo,
-  pipeline,
-  enrichWithCommonBaseEventFields,
-  enrichWindowsWithPrice,
-  filterOutZeroValueEvents,
-  dedupeActions,
-  enrichActionsWithPrice,
-} from '../enrichers/index.ts';
 import { EngineDeps } from '../main.ts';
 import { BuiltAdapter } from '../adapter-core.ts';
+import { windowsPipeline } from '../enrichers/pipelines/windows.ts';
+import { runBatch } from '../enrichers/run-batch.ts';
 
 dotenv.config();
 
@@ -347,8 +336,9 @@ export class Engine {
     return await this.pricingEngine.priceAsset(validatedAssetConfig, ctx);
   }
 
-  private async enrichEvents(ctx: any): Promise<PricedEvent[]> {
-    if (this.events.length === 0) return [];
+  // private async enrichEvents(ctx: any): Promise<PricedEvent[]> {
+  private async enrichEvents(ctx: any): Promise<void> {
+    if (this.events.length === 0) return;
 
     const enrichCtx: EnrichmentContext = {
       priceCache: this.priceCache,
@@ -357,26 +347,18 @@ export class Engine {
       redis: this.redis,
     };
 
-    const enrichedEvents = await pipeline<PricedEvent>(
-      // enrichWithCommonBaseEventFields,
-      addRunnerInfo,
-      // enrichBaseEventMetadata,
-      // buildActionEvents,
-      dedupeActions,
-      // enrichActionsWithPrice,
-      // filterOutZeroValueEvents,
-    )(this.events, enrichCtx);
-
-    // Store enriched events for later sending to sink
-    this.enrichedEvents = enrichedEvents;
-    return enrichedEvents;
+    // todo: create the actionsPipeline and call it here
+    // const enrichedEvents = await runBatch(this.events, actionEven, enrichCtx);
+    // this.enrichedEvents = enrichedEvents;
   }
 
-  private async enrichWindows(ctx: any): Promise<PricedBalanceWindow[]> {
+  // private async enrichWindows(ctx: any): Promise<PricedBalanceWindow[]> {
+  private async enrichWindows(ctx: any): Promise<void> {
     if (this.windows.length === 0) {
       log.debug('⚠️ NO WINDOWS TO ENRICH');
-      return [];
+      return;
     }
+
     const enrichCtx: EnrichmentContext = {
       priceCache: this.priceCache,
       metadataCache: this.metadataCache,
@@ -385,21 +367,8 @@ export class Engine {
     };
 
     log.debug(`about to enrich windows: ${this.windows.length}`);
-
-    const enrichedWindows = await pipeline<PricedBalanceWindow>(
-      // enrichWithCommonBaseEventFields,
-      addRunnerInfo,
-      enrichBaseEventMetadata,
-      // buildTimeWeightedBalanceEvents,
-      // enrichWindowsWithPrice,
-      // filterOutZeroValueEvents,
-    )(this.windows, enrichCtx);
-
-    log.debug(`enriched windows count: ${enrichedWindows.length}`);
-
-    // Store enriched windows for later sending to sink
+    const enrichedWindows = await runBatch(this.windows, windowsPipeline, enrichCtx);
     this.enrichedWindows = enrichedWindows;
-    return enrichedWindows;
   }
 
   async sendDataToSink(ctx: any) {

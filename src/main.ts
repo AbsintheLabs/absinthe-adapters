@@ -15,7 +15,7 @@ import { log } from './utils/logger.ts';
 
 // New registry imports
 import { EngineIO, BuiltAdapter } from './adapter-core.ts';
-import { buildAdapter } from './adapter-registry.ts';
+import { buildAdapter, getAdapterMeta } from './adapter-registry.ts';
 import { Engine } from './engine/engine.ts';
 
 import { loadAllAdapters } from './adapters/loader.ts';
@@ -96,8 +96,19 @@ async function main() {
     log: console.log,
   };
 
-  // build adapter using registry
+  // first build adapter
   const adapter = buildAdapter(appCfg.adapterConfig.adapterId, appCfg.adapterConfig.params, io);
+
+  // then get it's meta and set in runtime
+  const adapterId = appCfg.adapterConfig.adapterId;
+  const meta = getAdapterMeta(adapterId);
+  if (!meta) {
+    throw new Error(`Unknown adapter: ${adapterId}`);
+  }
+  setRuntime({
+    adapterName: meta.name,
+    adapterVersion: meta.semver,
+  });
 
   // construct the real processor using the adapter
   const sqdProcessor = adapter.buildProcessor(baseSqdProcessor);
