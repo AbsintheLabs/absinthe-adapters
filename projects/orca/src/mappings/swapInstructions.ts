@@ -123,7 +123,7 @@ async function processSwapCommon(
       },
       rawAmount: analysis.fromAmount.toString(),
       displayAmount: analysis.valueUsd,
-      unixTimestampMs: data.timestamp,
+      unixTimestampMs: data.timestamp * 1000,
       txHash: data.txHash,
       logIndex: data.logIndex,
       blockNumber: data.slot,

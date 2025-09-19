@@ -143,7 +143,7 @@ export class SplTransfersProcessor {
         tokens: {},
         rawAmount: netChange.toString(),
         displayAmount: displayAmount,
-        unixTimestampMs: timestamp,
+        unixTimestampMs: timestamp * 1000,
         txHash: tx,
         logIndex: logIndex,
         blockNumber: blockNumber,
