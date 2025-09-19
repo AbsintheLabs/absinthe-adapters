@@ -91,7 +91,7 @@ async function processSwap(
     },
     rawAmount: analysis.amount.toString(),
     displayAmount: valueUsd,
-    unixTimestampMs: data.timestamp,
+    unixTimestampMs: data.timestamp * 1000,
     txHash: data.txHash,
     logIndex: data.logIndex,
     blockNumber: data.slot,
