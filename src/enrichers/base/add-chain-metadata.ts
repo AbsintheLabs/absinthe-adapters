@@ -1,11 +1,12 @@
 // enrichers/base/add-chain-metadata.ts
 import { Enricher } from '../core.ts';
 import { getRuntime } from '../../runtime/context.ts';
+import { ChainArch } from '../../config/schema.ts';
 
 type ChainFields = {
   chainId: bigint;
   chainShortName: string;
-  chainArch: 'evm' | 'solana';
+  chainArch: ChainArch;
 };
 
 export const addChainMetadata = <T extends object>(): Enricher<T, T & ChainFields> => {
