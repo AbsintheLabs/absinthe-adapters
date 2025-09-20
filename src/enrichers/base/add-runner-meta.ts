@@ -10,7 +10,7 @@ type RunnerFields = {
   runner_runnerId: string;
 };
 
-export const addRunnerMeta = <T extends object = any>(): Enricher<T, T & RunnerFields> => {
+export const addRunnerMeta = <T extends object>(): Enricher<T, T & RunnerFields> => {
   return (item) => {
     const { version, commitSha, apiKeyHash, configHash, machineHostname } = getRuntime();
     return {

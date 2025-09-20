@@ -1,44 +1,61 @@
-// enrichers/base/add-protocol-metadata.ts
+/**
+ * @fileoverview Enricher for adding protocol metadata as JSON to data items.
+ *
+ * This module provides functionality to transform raw metadata objects into
+ * canonical JSON format suitable for CSV export.
+ */
+
 import { Enricher } from '../core.ts';
 import type { MetadataValue } from '../../types/core.ts';
 
+/**
+ * Fields added by the protocol metadata enricher.
+ *
+ * @interface ProtocolMetadataFields
+ */
 type ProtocolMetadataFields = {
-  protocolMetadata: Record<string, string>; // CSV-friendly strings
-  metadataJson: string; // exact, canonical JSON
+  /** Canonical JSON representation of metadata for exact comparison */
+  metadataJson: string;
 };
 
-function canonicalFlatJson(meta: Record<string, MetadataValue>): string {
-  // Flat keys only. Sort keys for determinism.
-  const sorted: Record<string, MetadataValue> = {};
-  for (const k of Object.keys(meta).sort()) sorted[k] = meta[k];
-  return JSON.stringify(sorted);
-}
-
-function toStringValue(v: MetadataValue): string {
-  return typeof v === 'number' ? String(v) : v;
-}
-
-export const addProtocolMetadata = <
-  T extends { meta?: Record<string, MetadataValue> } = any,
->(): Enricher<T, T & Partial<ProtocolMetadataFields>> => {
+/**
+ * Enricher that adds protocol metadata as JSON to data items.
+ *
+ * This enricher extracts metadata from the 'meta' property of input items
+ * and creates a canonical JSON representation suitable for CSV export.
+ *
+ * If no metadata exists or the metadata object is empty, the enricher
+ * returns the item unchanged.
+ *
+ * @template T - Base type of the data item
+ * @returns Enricher function that adds metadataJson field
+ *
+ * @example
+ * ```typescript
+ * const enricher = addProtocolMetadata();
+ * const result = enricher({
+ *   id: '123',
+ *   meta: { blockNumber: 1000, txHash: '0xabc' }
+ * });
+ * // Result includes metadataJson field
+ * ```
+ */
+export const addProtocolMetadata = <T extends object>(): Enricher<
+  T,
+  T & Partial<ProtocolMetadataFields>
+> => {
   return (item) => {
-    const meta = item.meta;
-    if (!meta || Object.keys(meta).length === 0) {
-      // no op when meta is absent or empty
-      return { ...item };
-    }
+    // no-op when meta is absent or empty
+    const meta = (item as any).meta as Record<string, MetadataValue> | undefined;
+    if (!meta || Object.keys(meta).length === 0) return { ...item };
 
-    const protocolMetadata: Record<string, string> = {};
-    for (const [k, v] of Object.entries(meta)) {
-      protocolMetadata[k] = toStringValue(v);
-    }
-
-    const metadataJson = canonicalFlatJson(meta);
+    // sort meta and convert to canonical JSON string
+    const sorted: Record<string, MetadataValue> = {};
+    for (const k of Object.keys(meta).sort()) sorted[k] = meta[k];
 
     return {
       ...item,
-      protocolMetadata,
-      metadataJson,
+      metadataJson: JSON.stringify(sorted),
     };
   };
 };

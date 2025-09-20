@@ -1,6 +1,6 @@
 {
   "$schema": "../absinthe-app.schema.json",
-  "kind": "evm",
+  "chainArch": "evm",
   "indexerId": "univ3-hemi-indexer",
   "flushMs": 259200000,
   "redisUrl": "redis://localhost:6379",

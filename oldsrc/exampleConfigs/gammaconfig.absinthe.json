@@ -1,6 +1,6 @@
 {
   "$schema": "./src/config/absconfig.json",
-  "kind": "evm",
+  "chainArch": "evm",
   "indexerId": "gamma-hemi-indexer",
   "flushMs": 86400000,
   "network": {

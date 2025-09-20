@@ -27,6 +27,7 @@ import { setRuntime } from './runtime/context.ts';
 import { ABSINTHE_VERSION } from './version.ts';
 import os from 'os';
 import { clearStateDir, clearRedisNamespace, deriveStateDirFromHash } from './utils/state-reset.ts';
+import { getChainShortName } from './utils/chain-utils.ts';
 // todo: move this somewhere else with typing definitions
 export interface EngineDeps {
   appCfg: AppConfig;
@@ -108,6 +109,13 @@ async function main() {
   setRuntime({
     adapterName: meta.name,
     adapterVersion: meta.semver,
+  });
+
+  // set chain runtime context
+  setRuntime({
+    chainId: appCfg.network.chainId,
+    chainArch: appCfg.chainArch,
+    chainShortName: getChainShortName(appCfg.network.chainId),
   });
 
   // construct the real processor using the adapter

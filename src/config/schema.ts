@@ -11,6 +11,10 @@ import { durationHumanToMs } from './duration.ts';
 export const AssetKey = z.string().min(1); // xxx: EVM address or "chain:addr". is this correct?
 export const AssetType = z.enum(['erc20', 'spl', 'erc721']);
 
+// Chain architecture type
+export const ChainArch = z.enum(['evm', 'solana']);
+export type ChainArch = z.infer<typeof ChainArch>;
+
 // Label expression for asset matching (Kubernetes-style selectors)
 export const LabelExpr = z.discriminatedUnion('op', [
   z.object({
@@ -201,7 +205,7 @@ const Common = z.object({
 
 // EVM-only
 const EvmCfg = z.object({
-  kind: z.literal('evm'),
+  chainArch: ChainArch.extract(['evm']),
   network: z.object({
     chainId: z.number().int().positive().refine(isValidChainId, { message: 'Invalid chain ID' }),
     gatewayUrl: z.httpUrl(),
@@ -218,7 +222,7 @@ const EvmCfg = z.object({
 // Solana-only
 // fixme: later come back and see if it's legit. Right now, we're NOT going to use this until we get EVM in place
 const SolanaCfg = z.object({
-  kind: z.literal('solana'),
+  chainArch: ChainArch.extract(['solana']),
   network: z.object({
     gatewayUrl: z.httpUrl(), // Subsquid Network or Firehose source
     rpcUrl: z.httpUrl(),
@@ -260,7 +264,7 @@ const SolanaCfg = z.object({
 });
 
 // FIXME: right now, we are not going to be supporting solana, let's just get evm working in the first place!
-// export const AppConfig = z.discriminatedUnion('kind', [
+// export const AppConfig = z.discriminatedUnion('chainArch', [
 //   EvmCfg.merge(Common).extend({
 //     //FIXME: later make it not optional, but right now hacking around not having this in place
 //     // feedConfig: AssetFeedConfigInput.optional(),

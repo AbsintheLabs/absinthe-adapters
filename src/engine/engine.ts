@@ -56,8 +56,9 @@ export class Engine {
   private projectors: Map<string, Projector> = new Map();
 
   // Enriched data ready to be sent to sink
-  private enrichedEvents: PricedEvent[] = [];
-  private enrichedWindows: PricedBalanceWindow[] = [];
+  // XXX: we'll need to fix these typing issues later
+  private enrichedEvents: any[] = [];
+  private enrichedWindows: any[] = [];
 
   // Redis key for storing the last flush boundary (crash-resistant)
   private get lastFlushBoundaryKey(): string {
@@ -82,7 +83,7 @@ export class Engine {
     this.db = new Database({ tables: {}, dest: new LocalDest(statePath) });
 
     // this is kind of an old relic
-    this.indexerMode = deps.appCfg.kind === 'evm' ? 'evm' : 'solana';
+    this.indexerMode = deps.appCfg.chainArch === 'evm' ? 'evm' : 'solana';
 
     // 5) Infra
     this.redis = deps.redis;
@@ -796,7 +797,7 @@ export class Engine {
   private async flushPeriodic(nowMs: number, height: number) {
     const w = this.appCfg.flushInterval as number;
 
-    if (this.appCfg.kind !== 'evm') return; // todo: currently only evm is supported
+    if (this.appCfg.chainArch !== 'evm') return; // todo: currently only evm is supported
     const finalBlock: number | null = this.appCfg.range.toBlock ?? null;
     const reachedFinal = finalBlock != null && height === finalBlock;
     const backfilling = finalBlock != null && height < finalBlock;

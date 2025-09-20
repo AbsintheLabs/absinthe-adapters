@@ -1,6 +1,6 @@
 {
   "$schema": "./src/config/absconfig.json",
-  "kind": "evm",
+  "chainArch": "evm",
   "indexerId": "multi-sink-demo",
   "flushMs": 259200000,
   "redisUrl": "redis://localhost:6379",
