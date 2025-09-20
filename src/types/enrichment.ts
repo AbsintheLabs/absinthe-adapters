@@ -15,9 +15,6 @@ import { MetadataCache, PriceCacheTS, HandlerMetadataCache } from './pricing.ts'
 import { Activity } from './core.ts';
 import { BalanceDeltaReason } from './adapter.ts';
 
-// NEW TYPES (much better approach)
-export type ScalarEnricher<I, O> = (item: I, ctx: EnrichmentContext) => Promise<O> | O;
-
 /*
 each enricher is stateless and operates on a single item at a time so it's very easy to reason about and test.
 also, the json object will be completely flat so that we can easily add new fields and not couple the enrichers to the data shape that they're enriching.

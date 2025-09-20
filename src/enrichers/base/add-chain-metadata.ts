@@ -4,7 +4,7 @@ import { getRuntime } from '../../runtime/context.ts';
 import { ChainArch } from '../../config/schema.ts';
 
 type ChainFields = {
-  chainId: bigint;
+  chainId: string; // Use string for JSON serialization
   chainShortName: string;
   chainArch: ChainArch;
 };
@@ -15,7 +15,7 @@ export const addChainMetadata = <T extends object>(): Enricher<T, T & ChainField
 
     return {
       ...item,
-      chainId: BigInt(chainId),
+      chainId: chainId.toString(),
       chainShortName: chainShortName,
       chainArch,
     };

@@ -21,7 +21,7 @@ export interface BaseEvent {
   asset: AssetInfo;
 
   // chain
-  chainId: bigint;
+  chainId: string; // Use string for JSON serialization compatibility
   chainShortName: string;
   chainArch: 'evm' | 'solana';
 
