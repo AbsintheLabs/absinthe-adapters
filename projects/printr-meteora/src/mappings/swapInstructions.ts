@@ -43,10 +43,6 @@ async function processSwap(
   });
 
   const analysis = await analyseSwap(data);
-  logger.info(`💸 [SwapInstructions] Swap analysis:`, {
-    analysis,
-  });
-
   const { coingeckoId, decimals } = fetchCoingeckoIdFromTokenMint(analysis.mint!);
   const timeStampMs = data.timestamp * 1000;
   const price = await fetchHistoricalUsd(coingeckoId, timeStampMs, env.coingeckoApiKey);
@@ -58,11 +54,10 @@ async function processSwap(
     outputWalletOwner = analysis.payer;
   }
 
-
   logger.info(`💸 [SwapInstructions] Price:`, {
     price,
     valueUsd,
-    outputWalletOwner,
+    analysis,
   });
 
   const transactionSchema = {
