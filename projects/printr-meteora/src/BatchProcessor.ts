@@ -80,7 +80,7 @@ export class PrintrMeteoraProcessor {
     // Process blocks individually for all instructions
     for (const block of blocks) {
       logger.info(
-        `🔄 Processing block ${block.header.height} with ${block.instructions.length} instructions, timestamp: ${new Date(block.header.timestamp).toISOString()}, slot: ${block.header.slot}, events: ${block.logs.length}`,
+        `🔄 Processing block ${block.header.height} with ${block.instructions.length} instructions, timestamp: ${new Date(block.header.timestamp).toISOString()}, slot: ${block.header.number}, events: ${block.logs.length}`,
       );
 
       const blockInstructions: PrintrInstructionData[] = [];
@@ -110,7 +110,7 @@ export class PrintrMeteoraProcessor {
   // Update your decodeInstruction method to use this filter
   private decodeInstruction(ins: any, block: any): PrintrInstructionData | null {
     try {
-      const slot = block.header.slot;
+      const slot = block.header.number;
       const tx = ins.getTransaction().signatures[0];
       const tokenBalances = ins.getTransaction().tokenBalances;
 

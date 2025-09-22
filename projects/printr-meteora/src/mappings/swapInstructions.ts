@@ -49,16 +49,12 @@ async function processSwap(
   let price = 0;
   let valueUsd = 0;
 
-  const tokenMintDetails = TOKEN_MINT_DETAILS.find(
-    (t) => t.mintAddress.toLowerCase() === analysis.mint!.toLowerCase(),
-  );
-
-  if (!tokenMintDetails) {
+  if (JUPITER_PRICES_MINT.includes(analysis.mint!)) {
     const response = await getJupPrice(analysis.mint!, data.timestamp * 1000);
     valueUsd = pricePosition(response.usdPrice, analysis.amount, response.decimals);
     price = response.usdPrice;
   } else {
-    const { coingeckoId, decimals } = tokenMintDetails;
+    const { coingeckoId, decimals } = fetchCoingeckoIdFromTokenMint(analysis.mint!);
     const timeStampMs = data.timestamp * 1000;
     price = await fetchHistoricalUsd(coingeckoId, timeStampMs, env.coingeckoApiKey);
     valueUsd = pricePosition(price, analysis.amount, decimals);
