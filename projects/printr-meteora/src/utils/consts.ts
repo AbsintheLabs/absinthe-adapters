@@ -6,6 +6,11 @@ const TOKEN_MINT_DETAILS = [
     coingeckoId: 'solana',
     decimals: 9,
   },
+  {
+    mintAddress: '76uBMvo1WL644VaUMhnuzSJSLJtQbNvr8ThubQi7E95n',
+    coingeckoId: 'opendelta-gmci30',
+    decimals: 9,
+  },
 ];
 
 const TOKEN_DETAILS = [
@@ -77,7 +82,3 @@ const TOKEN_DETAILS = [
 const TOKEN_EXTENSION_PROGRAM_ID = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
 
 export { FILE_NAME, TOKEN_DETAILS, TOKEN_EXTENSION_PROGRAM_ID, TOKEN_MINT_DETAILS };
-
-//362407532
-// 356958812 - init
-// 356962718 - current length in 30 mins

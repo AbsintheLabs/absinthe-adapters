@@ -22,7 +22,7 @@ async function getOwnerFromTokenAccount(
 ): Promise<string | null> {
   const { getAccount } = await import('@solana/spl-token');
   const tokenAccount = await getAccount(connection, new PublicKey(tokenAccountAddress));
-  return tokenAccount.owner.toBase58();
+  return tokenAccount.owner.toBase58() || null;
 }
 
 function fetchCoingeckoIdFromTokenMint(mintAddress: string): {

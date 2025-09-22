@@ -52,7 +52,11 @@ async function processSwap(
   const price = await fetchHistoricalUsd(coingeckoId, timeStampMs, env.coingeckoApiKey);
   const valueUsd = pricePosition(price, analysis.amount, decimals);
 
-  const outputWalletOwner = await getOwnerFromTokenAccount(analysis.outputWallet, connection);
+  let outputWalletOwner = null;
+  outputWalletOwner = await getOwnerFromTokenAccount(analysis.outputWallet, connection);
+  if (!outputWalletOwner) {
+    outputWalletOwner = analysis.payer;
+  }
 
   logger.info(`💸 [SwapInstructions] Price:`, {
     price,
@@ -134,6 +138,7 @@ async function analyseSwap(data: any) {
     dbcPool: data.decodedInstruction.accounts.dbcPool,
     dammPool: data.decodedInstruction.accounts.dammPool,
     dammPosition: data.decodedInstruction.accounts.dammPosition,
+    payer: data.decodedInstruction.accounts.payer,
     amount,
   };
 }
