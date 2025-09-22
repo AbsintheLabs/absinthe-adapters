@@ -28,6 +28,7 @@ jobs:
       zebu-legacy: ${{ steps.filter.outputs.zebu-legacy }}
       zebu-new: ${{ steps.filter.outputs.zebu-new }}
       orca: ${{ steps.filter.outputs.orca }}
+      printr-meteora: ${{ steps.filter.outputs.printr-meteora }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -63,6 +64,8 @@ jobs:
               - 'projects/zebu-new/**'
             orca:
               - 'projects/orca/**'
+            printr-meteora:
+              - 'projects/printr-meteora/**'
             common:
               - 'packages/common/**'
             deploy-ghcr:
@@ -88,7 +91,8 @@ jobs:
       needs.changes.outputs.vusd-mint == 'true' ||
       needs.changes.outputs.zebu-legacy == 'true' ||
       needs.changes.outputs.zebu-new == 'true' ||
-      needs.changes.outputs.orca == 'true'
+      needs.changes.outputs.orca == 'true' ||
+      needs.changes.outputs.printr-meteora == 'true'
     runs-on: ubuntu-latest
 
     permissions:
@@ -179,6 +183,9 @@ jobs:
           fi
           if [[ "${{ needs.changes.outputs.orca }}" == "true" ]]; then
             images_to_build+=("orca")
+          fi
+          if [[ "${{ needs.changes.outputs.printr-meteora }}" == "true" ]]; then
+            images_to_build+=("printr-meteora")
           fi
 
           # Find all Dockerfiles
