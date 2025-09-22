@@ -1,27 +1,17 @@
-import { DataSourceBuilder, SolanaRpcClient } from '@subsquid/solana-stream';
+import { DataSourceBuilder } from '@subsquid/solana-stream';
 import { validateEnv } from './utils/validateEnv';
 import * as printrAbi from './abi/diRTqkRxqg9fvQXemGosY8hg91Q7DpFqGXLJwG3bEDA';
 const env = validateEnv();
 const { printrMeteoraProtocol } = env;
 
 export const processor = new DataSourceBuilder()
-  .setGateway(printrMeteoraProtocol.gatewayUrl)
-  .setRpc(
-    printrMeteoraProtocol.rpcUrl == null
-      ? undefined
-      : {
-          client: new SolanaRpcClient({
-            url: printrMeteoraProtocol.rpcUrl,
-            // rateLimit: 100 // requests per sec
-          }),
-          strideConcurrency: 10,
-        },
-  )
+  .setPortal('https://portal.sqd.dev/datasets/solana-beta')
   .setBlockRange({ from: printrMeteoraProtocol.fromBlock })
   .setFields({
     block: {
       // block header fields
       timestamp: true,
+      hash: true,
     },
     transaction: {
       // transaction fields
@@ -60,4 +50,4 @@ export const processor = new DataSourceBuilder()
     },
   })
 
-  .build();
+  .build() as any;
