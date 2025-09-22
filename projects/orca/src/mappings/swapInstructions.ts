@@ -116,10 +116,14 @@ async function processSwapCommon(
           value: analysis.currentTick.toString(),
           type: 'number',
         },
+        aToB: {
+          value: analysis.aToB.toString(),
+          type: 'string',
+        },
       },
       rawAmount: analysis.fromAmount.toString(),
       displayAmount: analysis.valueUsd,
-      unixTimestampMs: data.timestamp,
+      unixTimestampMs: data.timestamp * 1000,
       txHash: data.txHash,
       logIndex: data.logIndex,
       blockNumber: data.slot,
@@ -163,6 +167,13 @@ async function processSwapCommon(
   // This ensures ticks are updated correctly for both hops
   if (analysis?.poolId && analysis?.currentTick !== undefined) {
     const poolDetails = await positionStorageService.getPool(analysis.poolId);
+
+    //optimization needed
+    if (poolDetails) {
+      poolDetails.currentTick = analysis.currentTick;
+      await positionStorageService.updatePool(poolDetails);
+    }
+
     const positionsToActivate: PositionDetails[] = [];
     const positionsToDeactivate: PositionDetails[] = [];
 
@@ -404,6 +415,7 @@ async function analyseSwap(data: any, liquidityMathService: LiquidityMathService
       currentTick: currentTick,
       valueUsd: valueUsd,
       userAddress: userAddress,
+      aToB: data.decodedInstruction.data.aToB,
       rawAmount: rawAmount.toString(),
     };
   }

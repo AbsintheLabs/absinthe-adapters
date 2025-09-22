@@ -1,0 +1,62 @@
+FROM node:20-slim AS base
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
+
+# Copy workspace files needed for dependency resolution
+FROM base AS deps
+WORKDIR /app
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY tsconfig.base.json ./
+COPY packages/common/package.json ./packages/common/
+COPY packages/common/tsconfig.json ./packages/common/
+COPY projects/printr-meteora/package.json ./projects/printr-meteora/
+COPY projects/printr-meteora/tsconfig.json ./projects/printr-meteora/
+
+# Install all dependencies (including workspace deps)
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --no-frozen-lockfile
+
+# Build stage - build common package and current project
+FROM base AS build
+WORKDIR /app
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY tsconfig.base.json ./
+COPY packages/ ./packages/
+COPY projects/printr-meteora/ ./projects/printr-meteora/
+
+# Copy node_modules from deps stage
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/packages/common/node_modules ./packages/common/node_modules
+COPY --from=deps /app/projects/printr-meteora/node_modules ./projects/printr-meteora/node_modules
+
+# Generate TypeScript clients for uniswapv2 project ABIs and codegen
+WORKDIR /app/projects/printr-meteora
+RUN pnpm dlx @subsquid/solana-typegen src/abi TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
+RUN pnpm dlx @subsquid/solana-typegen src/abi diRTqkRxqg9fvQXemGosY8hg91Q7DpFqGXLJwG3bEDA
+
+# Build the common package first, then uniswapv2
+WORKDIR /app
+RUN pnpm --filter @absinthe/common build
+RUN pnpm --filter @absinthe/printr-meteora build
+
+# Production stage
+FROM base AS production
+WORKDIR /app
+
+# Copy only production dependencies
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/packages/common/node_modules ./packages/common/node_modules
+COPY --from=deps /app/projects/printr-meteora/node_modules ./projects/printr-meteora/node_modules
+
+# Copy built artifacts
+COPY --from=build /app/packages/common/lib ./packages/common/lib
+COPY --from=build /app/packages/common/package.json ./packages/common/
+COPY --from=build /app/projects/printr-meteora/lib ./projects/printr-meteora/lib
+COPY --from=build /app/projects/printr-meteora/package.json ./projects/printr-meteora/
+
+# Copy source files needed for migrations
+COPY --from=build /app/projects/printr-meteora/src ./projects/printr-meteora/src
+WORKDIR /app/projects/printr-meteora
+
+# Use exec form and proper exit handling
+CMD ["node", "lib/main.js"]
