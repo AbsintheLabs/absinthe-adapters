@@ -8,7 +8,7 @@ import {
 } from '@absinthe/common';
 import { PrintrInstructionData, SwapData } from '../utils/types';
 import { fetchCoingeckoIdFromTokenMint, getOwnerFromTokenAccount } from '../utils/helper';
-import { JUPITER_PRICES_MINT } from '../utils/consts';
+import { JUPITER_PRICES_MINT, TOKEN_MINT_DETAILS } from '../utils/consts';
 import { getJupPrice } from '../utils/pricing';
 
 export async function processSwapInstructions(
@@ -49,12 +49,16 @@ async function processSwap(
   let price = 0;
   let valueUsd = 0;
 
-  if (JUPITER_PRICES_MINT.includes(analysis.mint!)) {
+  const tokenMintDetails = TOKEN_MINT_DETAILS.find(
+    (t) => t.mintAddress.toLowerCase() === analysis.mint!.toLowerCase(),
+  );
+
+  if (!tokenMintDetails) {
     const response = await getJupPrice(analysis.mint!, data.timestamp * 1000);
     valueUsd = pricePosition(response.usdPrice, analysis.amount, response.decimals);
     price = response.usdPrice;
   } else {
-    const { coingeckoId, decimals } = fetchCoingeckoIdFromTokenMint(analysis.mint!);
+    const { coingeckoId, decimals } = tokenMintDetails;
     const timeStampMs = data.timestamp * 1000;
     price = await fetchHistoricalUsd(coingeckoId, timeStampMs, env.coingeckoApiKey);
     valueUsd = pricePosition(price, analysis.amount, decimals);
