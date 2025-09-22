@@ -2,7 +2,7 @@ import { DataSourceBuilder, SolanaRpcClient } from '@subsquid/solana-stream';
 import * as whirlpoolProgram from './abi/whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc';
 import { validateEnv } from './utils/validateEnv';
 import * as tokenProgram from './abi/TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
-import { WHIRLPOOL_ADDRESSES, TOKEN_EXTENSION_PROGRAM_ID } from './utils/consts';
+import { WHIRLPOOL_ADDRESSES, TOKEN_EXTENSION_PROGRAM_ID, TOKEN_MINT } from './utils/consts';
 const env = validateEnv();
 const { orcaProtocol } = env;
 
@@ -101,8 +101,11 @@ export const processor = new DataSourceBuilder()
   })
   .addInstruction({
     where: {
-      programId: [tokenProgram.programId],
+      programId: [tokenProgram.programId, TOKEN_EXTENSION_PROGRAM_ID],
       d1: [tokenProgram.instructions.transferChecked.d1],
+      ...tokenProgram.instructions.transferChecked.accountSelection({
+        tokenMint: TOKEN_MINT,
+      }),
       isCommitted: true,
     },
     include: {

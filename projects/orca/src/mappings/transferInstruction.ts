@@ -59,9 +59,12 @@ async function processTransferChecked(
     txHash: data.txHash,
   });
 
-  //todo: include bundle position mints as well - or check if they are pre-included
+  //todo: bundlemints are also preincluded, but make sure to change the owner of positionbundle , and not only limiting to bundlePosition
 
   const tokenMint = data.decodedInstruction.accounts.tokenMint;
+  logger.info(`🏊 [TransferChecked Instruction Activity] Token mint:`, {
+    tokenMint,
+  });
 
   const sourceBalance = data.tokenBalances?.find(
     (balance: any) => balance.account === data.decodedInstruction.accounts.source,
@@ -72,9 +75,14 @@ async function processTransferChecked(
 
   if (sourceBalance?.preMint) {
     const positions = await positionStorageService.getAllPositions();
+    logger.info(`🏊 [TransferChecked Instruction Activity] Positions:`, {
+      positions,
+    });
 
     const position = positions.find((position) => position.positionMint === tokenMint);
-
+    logger.info(`🏊 [TransferChecked Instruction Activity] Position:`, {
+      position,
+    });
     if (!position) {
       return; // Just ignore if position not found
     }
@@ -117,8 +125,8 @@ async function processTransferChecked(
         userAddress: position.owner,
         deltaAmount: 0,
         trigger: TimeWindowTrigger.TRANSFER,
-        startTs: position.lastUpdatedBlockTs,
-        endTs: data.timestamp,
+        startTs: position.lastUpdatedBlockTs * 1000,
+        endTs: data.timestamp * 1000,
         windowDurationMs: 0,
         startBlockNumber: position.lastUpdatedBlockHeight,
         endBlockNumber: data.slot,
