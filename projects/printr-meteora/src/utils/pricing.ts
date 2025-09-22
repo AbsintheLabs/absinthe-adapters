@@ -7,6 +7,15 @@ interface JupiterResponse {
   decimals: number;
 }
 
+interface CachedPrice {
+  price: JupiterResponse;
+  timestamp: number;
+}
+
+// In-memory cache for Jupiter prices
+const priceCache = new Map<string, CachedPrice>();
+const CACHE_DURATION_MS = 60 * 60 * 1000; // 1 hour in milliseconds
+
 async function getOptimizedTokenPrices(
   poolId: string,
   token0: { id: string; decimals: number },
@@ -84,9 +93,35 @@ async function getTokenPrice(mintAddress: string): Promise<{ usdPrice: number; d
   return { usdPrice: 0, decimals: 0 };
 }
 
-async function getJupPrice(mintAddress: string): Promise<JupiterResponse> {
+async function getJupPrice(
+  mintAddress: string,
+  requestTimestamp?: number,
+): Promise<JupiterResponse> {
+  const currentTimestamp = requestTimestamp || Date.now();
+
+  // Check if we have a cached price for this mint
+  const cached = priceCache.get(mintAddress);
+
+  if (cached) {
+    const timeDiff = currentTimestamp - cached.timestamp;
+
+    // If the cached price is less than 1 hour old, return it
+    if (timeDiff <= CACHE_DURATION_MS) {
+      logger.info(
+        `📦 Using cached Jupiter price for ${mintAddress} (age: ${Math.round(timeDiff / 1000)}s)`,
+      );
+      return cached.price;
+    } else {
+      logger.info(
+        `⏰ Cached Jupiter price for ${mintAddress} expired (age: ${Math.round(timeDiff / 1000)}s), fetching new price`,
+      );
+    }
+  }
+
+  // Fetch new price from Jupiter API
   const url = `https://lite-api.jup.ag/price/v3?ids=${mintAddress}`;
-  const retryInterval = 5000; // 5 seconds
+  const baseRetryInterval = 5000; // 5 seconds
+  const maxRetryInterval = 420000; // 7 minutes
   const maxRetries = -1; // -1 means retry indefinitely
 
   let attempt = 0;
@@ -102,7 +137,16 @@ async function getJupPrice(mintAddress: string): Promise<JupiterResponse> {
       const data = await response.json();
 
       if (data && data[mintAddress]) {
-        return data[mintAddress];
+        const priceData = data[mintAddress];
+
+        // Cache the new price with current timestamp
+        priceCache.set(mintAddress, {
+          price: priceData,
+          timestamp: currentTimestamp,
+        });
+
+        logger.info(`💾 Cached new Jupiter price for ${mintAddress}`);
+        return priceData;
       }
 
       throw new Error('No price data returned');
@@ -114,6 +158,16 @@ async function getJupPrice(mintAddress: string): Promise<JupiterResponse> {
       if (maxRetries > 0 && attempt >= maxRetries) {
         throw error;
       }
+
+      // Calculate exponential backoff with jitter, capped at maxRetryInterval
+      const exponentialDelay = Math.min(
+        baseRetryInterval * Math.pow(2, attempt - 1),
+        maxRetryInterval,
+      );
+      const jitter = Math.random() * 1000; // Add up to 1 second of jitter
+      const retryInterval = exponentialDelay + jitter;
+
+      console.log(`Retrying in ${Math.round(retryInterval / 1000)} seconds (attempt ${attempt})`);
 
       // Wait before retrying
       await new Promise((resolve) => setTimeout(resolve, retryInterval));
