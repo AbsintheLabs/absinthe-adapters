@@ -87,14 +87,8 @@ export class PrintrMeteoraProcessor {
 
       for (let ins of block.instructions) {
         if (ins.programId === printrAbi.programId) {
-          logger.info(`🏊 [ProcessBatch] Decoding Whirlpool instruction:`, {
-            instruction: ins,
-          });
           const instructionData = this.decodeInstruction(ins, block);
           if (instructionData) {
-            logger.info(`🏊 [ProcessBatch] Whirlpool instruction decoded:`, {
-              instructionData,
-            });
             blockInstructions.push(instructionData);
           }
         }
@@ -132,10 +126,6 @@ export class PrintrMeteoraProcessor {
       // Use switch statement to decode instruction
       switch (ins.d8) {
         case printrAbi.instructions.swap.d8:
-          logger.info(`🏊 [ProcessBatch] Inner instructions swap (dp):`, {
-            inner: ins.inner,
-          });
-
           const decodedInstruction = printrAbi.instructions.swap.decode(ins);
 
           return {
@@ -204,10 +194,6 @@ export class PrintrMeteoraProcessor {
         this.env,
         this.chainConfig,
       );
-
-      logger.info(`🏊 [FinalizeBatch] Transactions:`, {
-        transactions: JSON.stringify(transactions, null, 2),
-      });
 
       await this.apiClient.send(transactions);
     }

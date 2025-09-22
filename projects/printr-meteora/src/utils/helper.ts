@@ -21,8 +21,14 @@ async function getOwnerFromTokenAccount(
   connection: any,
 ): Promise<string | null> {
   const { getAccount } = await import('@solana/spl-token');
-  const tokenAccount = await getAccount(connection, new PublicKey(tokenAccountAddress));
-  return tokenAccount.owner.toBase58() || null;
+
+  try {
+    const tokenAccount = await getAccount(connection, new PublicKey(tokenAccountAddress));
+    return tokenAccount ? tokenAccount.owner.toBase58() : null;
+  } catch (error) {
+    console.error('Failed to get owner from token account:', error);
+    return null;
+  }
 }
 
 function fetchCoingeckoIdFromTokenMint(mintAddress: string): {
