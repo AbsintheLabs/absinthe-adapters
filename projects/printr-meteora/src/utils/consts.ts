@@ -1,3 +1,6 @@
+import { event } from '../abi/abi.support';
+import { CreatePrintrDbcEvent as CreatePrintrDbcEvent_ } from '../abi/diRTqkRxqg9fvQXemGosY8hg91Q7DpFqGXLJwG3bEDA/types';
+
 const FILE_NAME = 'config.json';
 
 const TOKEN_MINT_DETAILS = [
@@ -81,6 +84,13 @@ const TOKEN_DETAILS = [
   },
 ];
 
+const CreatePrintrDbcEvent2 = event(
+  {
+    d8: '0xe06021507f14dbcb',
+  },
+  CreatePrintrDbcEvent_,
+);
+
 const TOKEN_EXTENSION_PROGRAM_ID = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
 
 export {
@@ -89,4 +99,5 @@ export {
   TOKEN_EXTENSION_PROGRAM_ID,
   TOKEN_MINT_DETAILS,
   JUPITER_PRICES_MINT,
+  CreatePrintrDbcEvent2,
 };
