@@ -123,7 +123,11 @@ interface SwapData extends BaseInstructionData {
   type: 'swap';
 }
 
-type PrintrInstructionData = SwapData;
+interface CreatePrintrDbcEvent extends BaseInstructionData {
+  type: 'CreatePrintrDbcEvent';
+}
+
+type PrintrInstructionData = SwapData | CreatePrintrDbcEvent;
 
 export type {
   TokenBalance,

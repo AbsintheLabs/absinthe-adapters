@@ -9,6 +9,8 @@ import {
   PriceFeed,
   TokenPreference,
   HOURS_TO_SECONDS,
+  MessageType,
+  Currency,
 } from '@absinthe/common';
 import * as printrAbi from './abi/diRTqkRxqg9fvQXemGosY8hg91Q7DpFqGXLJwG3bEDA';
 import { processor } from './processor';
@@ -72,18 +74,19 @@ export class PrintrMeteoraProcessor {
   private async processBatch(ctx: any): Promise<void> {
     const blocks = ctx.blocks.map(augmentBlock);
     logger.info(
-      `🔄 Processing batch of ${blocks.length} blocks, from ${blocks[0].header.height} to ${blocks[blocks.length - 1].header.height}`,
+      `🔄 Processing batch of ${blocks.length} blocks, from ${blocks[0].header.number} to ${blocks[blocks.length - 1].header.number}`,
     );
 
     const protocolStates = await this.initializeProtocolStates(ctx);
 
-    // Process blocks individually for all instructions
+    // Process blocks individually for all instructions AND logs
     for (const block of blocks) {
       logger.info(
-        `🔄 Processing block ${block.header.height} with ${block.instructions.length} instructions, timestamp: ${new Date(block.header.timestamp).toISOString()}, slot: ${block.header.number}, events: ${block.logs.length}`,
+        `🔄 Processing block ${block.header.number} with ${block.instructions.length} instructions and ${block.logs.length} logs, timestamp: ${new Date(block.header.timestamp * 1000).toISOString()}, slot: ${block.header.number}`,
       );
 
       const blockInstructions: PrintrInstructionData[] = [];
+      // const blockEvents: any[] = [];
 
       for (let ins of block.instructions) {
         if (ins.programId === printrAbi.programId) {
@@ -94,16 +97,34 @@ export class PrintrMeteoraProcessor {
         }
       }
 
+      // for (let log of block.logs) {
+      //   if (
+      //     (log.programId === printrAbi.programId && log.kind === 'data') ||
+      //     log.kind === 'other'
+      //   ) {
+      //     const eventData = this.decodeLog(log, block);
+      //     logger.info(`🔄 [ProcessBlockEvents] Event data:`, {
+      //       eventData,
+      //     });
+      //     if (eventData) {
+      //       blockEvents.push(eventData);
+      //     }
+      //   }
+      // }
+
       if (blockInstructions.length > 0) {
         await this.processBlockInstructions(blockInstructions, protocolStates);
       }
+
+      // if (blockEvents.length > 0) {
+      //   await this.processBlockEvents(blockEvents, protocolStates);
+      // }
     }
     await this.finalizeBatch(ctx, protocolStates);
   }
 
   private async initializeProtocolStates(ctx: any): Promise<Map<string, ProtocolStateOrca>> {
     const protocolStates = new Map<string, ProtocolStateOrca>();
-
     return protocolStates;
   }
 
@@ -117,8 +138,8 @@ export class PrintrMeteoraProcessor {
       const baseData = {
         slot,
         txHash: tx,
-        logIndex: null, //todo: find equivalent in solana
-        blockHash: '', // todo: find equivalent in solana
+        logIndex: null,
+        blockHash: '',
         timestamp: block.header.timestamp,
         tokenBalances,
       };
@@ -127,11 +148,53 @@ export class PrintrMeteoraProcessor {
       switch (ins.d8) {
         case printrAbi.instructions.swap.d8:
           const decodedInstruction = printrAbi.instructions.swap.decode(ins);
-
           return {
             ...baseData,
             type: 'swap',
             decodedInstruction,
+          } as PrintrInstructionData;
+
+        case printrAbi.instructions.createPrintrDbcFromCompact.d8:
+          const decodedCreateInstruction =
+            printrAbi.instructions.createPrintrDbcFromCompact.decode(ins);
+          // Check if there are inner instructions with event data
+          const inner = ins.inner || [];
+
+          // Look for CreatePrintrDbcEvent in inner instructions
+          for (const innerIns of inner) {
+            if (innerIns.programId === printrAbi.programId) {
+              try {
+                const hexData = '0x' + Buffer.from(innerIns.data, 'base64').toString('hex');
+                const discriminator = hexData.substring(0, 18);
+                logger.info(`🔄 [DecodeInstruction] Discriminator:`, {
+                  discriminator,
+                });
+                let event = printrAbi.events.CreatePrintrDbcEvent2.decode({
+                  msg: '0x' + Buffer.from(innerIns.data, 'base64').toString('hex'),
+                });
+
+                logger.info(`�� [DecodeInstruction] Decoded CreatePrintrDbcEvent:`, {
+                  event,
+                });
+
+                return {
+                  ...baseData,
+                  type: 'CreatePrintrDbcEvent',
+                  decodedInstruction: decodedCreateInstruction,
+                  event: event, // Include the decoded event
+                } as any; // You might need to update your types
+              } catch (e) {
+                logger.warn(`⚠️ [DecodeInstruction] Failed to decode inner instruction as event:`, {
+                  error: e as Error,
+                });
+              }
+            }
+          }
+
+          return {
+            ...baseData,
+            type: 'CreatePrintrDbcEvent',
+            decodedInstruction: decodedCreateInstruction,
           } as PrintrInstructionData;
 
         default:
@@ -143,19 +206,127 @@ export class PrintrMeteoraProcessor {
         discriminator: ins.d8,
         programId: ins.programId,
       });
-      return null; // Skip this instruction instead of crashing
+      return null;
     }
   }
+
+  // private decodeLog(log: any, block: any): any | null {
+  //   try {
+  //     const slot = block.header.number;
+  //     const tx = log.getTransaction().signatures[0];
+  //     const tokenBalances = log.getTransaction().tokenBalances;
+
+  //     const baseData = {
+  //       slot,
+  //       txHash: tx,
+  //       logIndex: null, // todo: find equivalent in solana
+  //       blockHash: '', // todo: find equivalent in solana
+  //       timestamp: block.header.timestamp,
+  //       tokenBalances,
+  //     };
+
+  //     logger.info(`🔄 [DecodeLog] Decoded log:`, {
+  //       log,
+  //     });
+
+  //     try {
+  //       let event = printrAbi.events.CreatePrintrDbcEvent.decode({
+  //         msg: '0x' + Buffer.from(log.message, 'base64').toString('hex'),
+  //       });
+
+  //       logger.info(`🔄 [DecodeLog] Decoded CreatePrintrDbcEvent:`, {
+  //         event,
+  //       });
+
+  //       return {
+  //         ...baseData,
+  //         type: 'CreatePrintrDbc',
+  //         event,
+  //       };
+  //     } catch (e1) {
+  //       logger.warn(`⚠️ [DecodeLog] Failed to decode log:`, {
+  //         error: e1 as Error,
+  //         programId: log.programId,
+  //         kind: log.kind,
+  //       });
+  //       return null;
+  //     }
+  //   } catch (error) {
+  //     logger.warn(`⚠️ [DecodeLog] Failed to decode log:`, {
+  //       error: error as Error,
+  //       programId: log.programId,
+  //       kind: log.kind,
+  //     });
+  //     return null;
+  //   }
+  // }
 
   private async processBlockInstructions(
     blockInstructions: PrintrInstructionData[],
     protocolStates: Map<string, ProtocolStateOrca>,
   ): Promise<void> {
-    // Group non-pool instructions by category
     const swapInstructions = blockInstructions.filter((data) => ['swap'].includes(data.type));
+
+    const createPrintrDbcEvent = blockInstructions.filter((data) =>
+      ['CreatePrintrDbcEvent'].includes(data.type),
+    );
 
     if (swapInstructions.length > 0) {
       await processSwapInstructions(swapInstructions, protocolStates, this.env, this.connection);
+    }
+
+    if (createPrintrDbcEvent.length > 0) {
+      await this.processCreatePrintrDbcEvents(createPrintrDbcEvent, protocolStates);
+    }
+  }
+
+  // private async processBlockEvents(
+  //   blockEvents: any[],
+  //   protocolStates: Map<string, ProtocolStateOrca>,
+  // ): Promise<void> {
+  //   const createPrintrDbcEvents = blockEvents.filter((data) => data.type === 'CreatePrintrDbc');
+  //   if (createPrintrDbcEvents.length > 0) {
+  //     await this.processCreatePrintrDbcEvents(createPrintrDbcEvents, protocolStates);
+  //   }
+  // }
+
+  private async processCreatePrintrDbcEvents(
+    events: any[],
+    protocolStates: Map<string, ProtocolStateOrca>,
+  ): Promise<void> {
+    for (const eventData of events) {
+      const transactionSchema = {
+        eventType: MessageType.TRANSACTION,
+        eventName: eventData.type,
+        tokens: {},
+        rawAmount: '0',
+        displayAmount: 0,
+        unixTimestampMs: eventData.timestamp * 1000,
+        txHash: eventData.txHash,
+        logIndex: eventData.logIndex,
+        blockNumber: eventData.slot,
+        blockHash: eventData.blockHash,
+        userId: eventData.event.creatorOnSolana,
+        currency: Currency.USD,
+        valueUsd: 0,
+        gasUsed: 0, //todo: fix
+        gasFeeUsd: 0, //todo: fix
+      };
+
+      logger.info(`🔄 [ProcessCreatePrintrDbcEvents] Transaction schema:`, {
+        transactionSchema,
+      });
+
+      const protocolState = protocolStates.get(this.protocol.contractAddress);
+
+      if (protocolState) {
+        protocolState.transactions.push(transactionSchema);
+      } else {
+        protocolStates.set(this.protocol.contractAddress, {
+          balanceWindows: [],
+          transactions: [transactionSchema],
+        });
+      }
     }
   }
 
