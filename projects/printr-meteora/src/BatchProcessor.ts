@@ -22,6 +22,7 @@ import { augmentBlock } from '@subsquid/solana-objects';
 
 import { processSwapInstructions } from './mappings/swapInstructions';
 import { Connection } from '@solana/web3.js';
+import { CreatePrintrDbcEvent2 } from './utils/consts';
 export class PrintrMeteoraProcessor {
   private readonly protocol: PrintrMeteoraProtocol;
   private readonly schemaName: string;
@@ -169,7 +170,7 @@ export class PrintrMeteoraProcessor {
                 logger.info(`🔄 [DecodeInstruction] Discriminator:`, {
                   discriminator,
                 });
-                let event = printrAbi.events.CreatePrintrDbcEvent2.decode({
+                let event = CreatePrintrDbcEvent2.decode({
                   msg: '0x' + Buffer.from(innerIns.data, 'base64').toString('hex'),
                 });
 
