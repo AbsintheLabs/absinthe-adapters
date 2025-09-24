@@ -7,9 +7,7 @@ import {
   ValidatedEnvBase,
 } from '@absinthe/common';
 import { PrintrInstructionData, SwapData } from '../utils/types';
-import { fetchCoingeckoIdFromTokenMint, getOwnerFromTokenAccount } from '../utils/helper';
-import { JUPITER_PRICES_MINT, TOKEN_MINT_DETAILS } from '../utils/consts';
-import { getJupPrice } from '../utils/pricing';
+import { getOwnerFromTokenAccount } from '../utils/helper';
 
 export async function processSwapInstructions(
   instructionsData: PrintrInstructionData[],
@@ -21,11 +19,7 @@ export async function processSwapInstructions(
 
   for (const data of instructionsData) {
     try {
-      switch (data.type) {
-        case 'swap':
-          await processSwap(data as SwapData, protocolStates, env, connection);
-          break;
-      }
+      await processSwap(data as SwapData, protocolStates, env, connection);
     } catch (error) {
       logger.error(`❌ [SwapInstructions] Failed to process ${data.type}:`, error);
     }
@@ -42,23 +36,16 @@ async function processSwap(
   logger.info(`💱 [SwapInstructions] Processing ${data.type} instruction`, {
     slot: data.slot,
     txHash: data.txHash,
+    event: data.event,
   });
 
   const analysis = await analyseSwap(data);
-
-  let price = 0;
-  let valueUsd = 0;
-
-  if (JUPITER_PRICES_MINT.includes(analysis.mint!)) {
-    const response = await getJupPrice(analysis.mint!, data.timestamp * 1000);
-    valueUsd = pricePosition(response.usdPrice, analysis.amount, response.decimals);
-    price = response.usdPrice;
-  } else {
-    const { coingeckoId, decimals } = fetchCoingeckoIdFromTokenMint(analysis.mint!);
-    const timeStampMs = data.timestamp * 1000;
-    price = await fetchHistoricalUsd(coingeckoId, timeStampMs, env.coingeckoApiKey);
-    valueUsd = pricePosition(price, analysis.amount, decimals);
-  }
+  const solanaPriceInUsd = await fetchHistoricalUsd(
+    'solana',
+    data.timestamp * 1000,
+    env.coingeckoApiKey,
+  );
+  const valueUsd = analysis.displayAmount * solanaPriceInUsd;
 
   let outputWalletOwner = null;
   outputWalletOwner = await getOwnerFromTokenAccount(analysis.outputWallet, connection);
@@ -66,43 +53,21 @@ async function processSwap(
     outputWalletOwner = analysis.payer;
   }
 
-  logger.info(`💸 [SwapInstructions] Price:`, {
-    price,
-    valueUsd,
-    analysis,
-  });
-
   const transactionSchema = {
     eventType: MessageType.TRANSACTION,
     eventName: data.type,
     tokens: {
-      quoteMint: {
-        value: analysis.mint,
-        type: 'string',
-      },
       price: {
-        value: price.toString(),
+        value: solanaPriceInUsd.toString(),
         type: 'number',
       },
-      amount: {
-        value: analysis.amount.toString(),
-        type: 'number',
-      },
-      dbcPool: {
-        value: analysis.dbcPool,
-        type: 'string',
-      },
-      dammPool: {
-        value: analysis.dammPool,
-        type: 'string',
-      },
-      dammPosition: {
-        value: analysis.dammPosition,
+      pool: {
+        value: analysis.pool.toLowerCase(),
         type: 'string',
       },
     },
-    rawAmount: analysis.amount.toString(),
-    displayAmount: valueUsd,
+    rawAmount: analysis.rawAmount.toString(),
+    displayAmount: analysis.displayAmount,
     unixTimestampMs: data.timestamp * 1000,
     txHash: data.txHash,
     logIndex: data.logIndex,
@@ -115,38 +80,41 @@ async function processSwap(
     gasFeeUsd: 0, //todo: fix
   };
 
-  const protocolState = protocolStates.get(analysis.dbcPool);
+  const protocolState = protocolStates.get(analysis.pool);
   if (protocolState) {
     protocolState.transactions.push(transactionSchema);
   } else {
-    protocolStates.set(analysis.dbcPool, {
+    protocolStates.set(analysis.pool, {
       balanceWindows: [],
       transactions: [transactionSchema],
     });
   }
+  logger.info(`💱 [SwapInstructions] Processed ${data.type} instruction`, {
+    transactionSchema,
+  });
 }
 
 async function analyseSwap(data: any) {
-  const swapIntent = data.decodedInstruction.data.params;
-  let amount = null;
-  let mint = null;
-  if (swapIntent && swapIntent.kind === 'SellMeme') {
-    amount = swapIntent.value.sell.amount;
-    mint = data.decodedInstruction.accounts.memeMint;
-  } else if (swapIntent && swapIntent.kind === 'SpendQuote') {
-    amount = swapIntent.value.sell.amount;
-    mint = data.decodedInstruction.accounts.quoteMint;
-  } else if (swapIntent && swapIntent.kind === 'SpendAllQuote') {
-    logger.info('Not supported yet');
+  logger.info(`💱 [AnalyseSwap] Analyzing swap`, {
+    tradeDirection: data.event.tradeDirection,
+    swapResult: data.event.swapResult,
+  });
+  const tradeDirection = parseInt(data.event.tradeDirection);
+  let rawAmount = null;
+
+  if (tradeDirection === 0) {
+    rawAmount = parseInt(data.event.swapResult.outputAmount);
+  } else {
+    rawAmount = parseInt(data.event.params.amountIn);
   }
+
+  const displayAmount = rawAmount / 10 ** 9;
 
   return {
     outputWallet: data.decodedInstruction.accounts.outputWallet,
-    mint,
-    dbcPool: data.decodedInstruction.accounts.dbcPool,
-    dammPool: data.decodedInstruction.accounts.dammPool,
-    dammPosition: data.decodedInstruction.accounts.dammPosition,
+    displayAmount,
+    pool: data.event.pool,
     payer: data.decodedInstruction.accounts.payer,
-    amount,
+    rawAmount,
   };
 }

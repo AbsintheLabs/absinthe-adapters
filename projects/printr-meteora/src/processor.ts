@@ -5,7 +5,12 @@ const env = validateEnv();
 const { printrMeteoraProtocol } = env;
 
 export const processor = new DataSourceBuilder()
-  .setPortal('https://portal.sqd.dev/datasets/solana-beta')
+  .setPortal({
+    url: 'https://portal.sqd.dev/datasets/solana-mainnet',
+    http: {
+      retryAttempts: Infinity,
+    },
+  })
   .setBlockRange({ from: printrMeteoraProtocol.fromBlock })
   .setFields({
     block: {

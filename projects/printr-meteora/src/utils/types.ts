@@ -9,6 +9,24 @@ import {
   HistoryWindow,
   Transaction,
 } from '@absinthe/common';
+import { event } from '../abi/abi.support';
+import { CreatePrintrDbcEvent as CreatePrintrDbcEvent_ } from '../abi/diRTqkRxqg9fvQXemGosY8hg91Q7DpFqGXLJwG3bEDA/types';
+
+import {
+  Codec,
+  address,
+  array,
+  bool,
+  fixedArray,
+  option,
+  string,
+  struct,
+  u128,
+  u16,
+  u32,
+  u64,
+  u8,
+} from '@subsquid/borsh';
 
 interface TokenBalance {
   id: string;
@@ -59,6 +77,7 @@ interface BaseInstructionData {
   timestamp: number;
   decodedInstruction: any;
   tokenBalances: TokenBalance[];
+  event: any;
 }
 
 interface Token {
@@ -119,6 +138,97 @@ interface PoolDetails {
   funder: string;
 }
 
+interface SwapParameters {
+  amountIn: bigint;
+  minimumAmountOut: bigint;
+}
+
+const SwapParametersCodec: Codec<SwapParameters> = struct({
+  amountIn: u64,
+  minimumAmountOut: u64,
+});
+
+interface SwapResult {
+  actualInputAmount: bigint;
+  outputAmount: bigint;
+  nextSqrtPrice: bigint;
+  tradingFee: bigint;
+  protocolFee: bigint;
+  referralFee: bigint;
+}
+
+const SwapResultCodec: Codec<SwapResult> = struct({
+  actualInputAmount: u64,
+  outputAmount: u64,
+  nextSqrtPrice: u128,
+  tradingFee: u64,
+  protocolFee: u64,
+  referralFee: u64,
+});
+
+interface EvtSwapDbc {
+  pool: string;
+  config: string;
+  tradeDirection: number;
+  hasReferral: boolean;
+  params: SwapParameters;
+  swapResult: SwapResult;
+  amountIn: bigint;
+  currentTimestamp: bigint;
+}
+
+interface EvtSwapDamm {
+  pool: string;
+  tradeDirection: number;
+  hasReferral: boolean;
+  params: SwapParameters;
+  swapResult: SwapResult;
+  amountIn: bigint;
+  currentTimestamp: bigint;
+}
+
+const EvtSwapDbcCodec: Codec<EvtSwapDbc> = struct({
+  pool: address,
+  config: address,
+  tradeDirection: u8,
+  hasReferral: bool,
+  params: SwapParametersCodec,
+  swapResult: SwapResultCodec,
+  amountIn: u64,
+  currentTimestamp: u64,
+});
+
+const EvtSwapDammCodec: Codec<EvtSwapDamm> = struct({
+  pool: address,
+  tradeDirection: u8,
+  hasReferral: bool,
+  params: SwapParametersCodec,
+  swapResult: SwapResultCodec,
+  amountIn: u64,
+  currentTimestamp: u64,
+});
+
+const EvtSwapDbc = event(
+  {
+    d8: '0xda2a17a3d9e402dd',
+  },
+  EvtSwapDbcCodec,
+);
+
+const EvtSwapDamm = event(
+  {
+    d8: '0xea7c70e30c9e25d9',
+  },
+  EvtSwapDammCodec,
+);
+
+const CreatePrintrDbcEvent2 = event(
+  {
+    d8: '0xe06021507f14dbcb',
+  },
+  CreatePrintrDbcEvent_,
+);
+
 interface SwapData extends BaseInstructionData {
   type: 'swap';
 }
@@ -144,3 +254,5 @@ export type {
   PositionBundleTransfer,
   PoolDetails,
 };
+
+export { EvtSwapDamm, CreatePrintrDbcEvent2, EvtSwapDbc, EvtSwapDbcCodec, EvtSwapDammCodec };

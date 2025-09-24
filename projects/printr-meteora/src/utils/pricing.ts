@@ -1,6 +1,6 @@
 import { logger, WHITELIST_TOKENS_WITH_COINGECKO_ID } from '@absinthe/common';
 import { TOKEN_DETAILS } from './consts';
-
+import { Connection, PublicKey } from '@solana/web3.js';
 interface JupiterResponse {
   usdPrice: number;
   blockId: number;
@@ -179,4 +179,95 @@ const getCGId = (addr: string) =>
   WHITELIST_TOKENS_WITH_COINGECKO_ID.find((t) => t.address.toLowerCase() === addr.toLowerCase())
     ?.coingeckoId ?? null;
 
-export { getCGId, getOptimizedTokenPrices, getJupPrice, getTokenPrice };
+async function getOwnerProgramId(connection: Connection, pubkey: PublicKey): Promise<PublicKey> {
+  const info = await connection.getAccountInfo(pubkey);
+  if (!info) throw new Error(`Account not found: ${pubkey.toBase58()}`);
+  return info.owner;
+}
+
+// Smart mint fetcher: supports classic SPL Token & Token-2022
+async function smartGetMint(connection: Connection, mint: PublicKey) {
+  const { getMint, TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } = await import('@solana/spl-token');
+
+  const owner = await getOwnerProgramId(connection, mint);
+  if (owner.equals(TOKEN_PROGRAM_ID)) {
+    return getMint(connection, mint, 'confirmed', TOKEN_PROGRAM_ID);
+  }
+  if (owner.equals(TOKEN_2022_PROGRAM_ID)) {
+    return getMint(connection, mint, 'confirmed', TOKEN_2022_PROGRAM_ID);
+  }
+  throw new Error(
+    `Mint ${mint.toBase58()} is not owned by SPL Token or Token-2022 (owner=${owner.toBase58()}).`,
+  );
+}
+
+const Q64 = 1n << 64n;
+const Q128 = Q64 * Q64;
+
+function pow10BigInt(expAbs: number): bigint {
+  let r = 1n;
+  for (let i = 0; i < expAbs; i++) r *= 10n;
+  return r;
+}
+
+function formatScaled(n: bigint, precision: number): string {
+  const neg = n < 0n;
+  let x = neg ? -n : n;
+  const scale = pow10BigInt(precision);
+  const intPart = x / scale;
+  const fracPart = x % scale;
+  if (precision === 0) return (neg ? '-' : '') + intPart.toString();
+  const fracStr = fracPart.toString().padStart(precision, '0').replace(/0+$/, '');
+  return (neg ? '-' : '') + intPart.toString() + (fracStr ? '.' + fracStr : '');
+}
+
+function priceFromSqrtQ64(
+  sqrtPriceQ64: bigint,
+  baseDecimals: number,
+  quoteDecimals: number,
+  precision = 12,
+) {
+  // price(quote per 1 base) = (sqrt/2^64)^2 * 10^(dq - db)
+  const exp10 = quoteDecimals - baseDecimals;
+  let num = sqrtPriceQ64 * sqrtPriceQ64; // u128
+  let den = Q128;
+
+  if (exp10 > 0) num *= pow10BigInt(exp10);
+  else if (exp10 < 0) den *= pow10BigInt(-exp10);
+
+  const scale = pow10BigInt(precision);
+  const quotePerBaseScaled = (num * scale) / den;
+
+  if (quotePerBaseScaled === 0n) {
+    return { quotePerBase: '0', basePerQuote: '∞' };
+  }
+  const basePerQuoteScaled = (scale * scale) / quotePerBaseScaled;
+
+  return {
+    quotePerBase: formatScaled(quotePerBaseScaled, precision),
+    basePerQuote: formatScaled(basePerQuoteScaled, precision),
+  };
+}
+
+async function priceMemeinQuote(
+  memeMint: string,
+  quoteMint: string,
+  connection: Connection,
+  sqrtPriceQ64: bigint,
+) {
+  const baseMintInfo = await smartGetMint(connection, new PublicKey(memeMint));
+  const db = baseMintInfo.decimals;
+
+  const quoteMintInfo = await smartGetMint(connection, new PublicKey(quoteMint));
+  const dq = quoteMintInfo.decimals;
+
+  logger.info('meme/base mint:', { memeMint, db });
+  logger.info('quote mint:', { quoteMint, dq });
+
+  const { quotePerBase, basePerQuote } = priceFromSqrtQ64(sqrtPriceQ64, db, dq, 12);
+  logger.info(`1 base = ${basePerQuote} quote`);
+  logger.info(`1 quote = ${quotePerBase} base`);
+  return { quotePerBase, basePerQuote, quoteDecimals: dq, baseDecimals: db };
+}
+
+export { getCGId, getOptimizedTokenPrices, getJupPrice, getTokenPrice, priceMemeinQuote };
