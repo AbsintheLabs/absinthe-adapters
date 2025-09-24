@@ -7,9 +7,7 @@ import {
   ValidatedEnvBase,
 } from '@absinthe/common';
 import { PrintrInstructionData, SwapData } from '../utils/types';
-import { fetchCoingeckoIdFromTokenMint, getOwnerFromTokenAccount } from '../utils/helper';
-import { JUPITER_PRICES_MINT, TOKEN_MINT_DETAILS } from '../utils/consts';
-import { getJupPrice, priceMemeinQuote } from '../utils/pricing';
+import { getOwnerFromTokenAccount } from '../utils/helper';
 
 export async function processSwapInstructions(
   instructionsData: PrintrInstructionData[],
@@ -21,11 +19,7 @@ export async function processSwapInstructions(
 
   for (const data of instructionsData) {
     try {
-      switch (data.type) {
-        case 'swap':
-          await processSwap(data as SwapData, protocolStates, env, connection);
-          break;
-      }
+      await processSwap(data as SwapData, protocolStates, env, connection);
     } catch (error) {
       logger.error(`❌ [SwapInstructions] Failed to process ${data.type}:`, error);
     }
@@ -42,29 +36,16 @@ async function processSwap(
   logger.info(`💱 [SwapInstructions] Processing ${data.type} instruction`, {
     slot: data.slot,
     txHash: data.txHash,
+    event: data.event,
   });
 
   const analysis = await analyseSwap(data);
-
-  let valueUsd = 0;
-  let valueQuote = 0;
-  const timeStampMs = data.timestamp * 1000;
-
-  if (analysis.mintType === 'meme') {
-    const { quotePerBase, basePerQuote, quoteDecimals, baseDecimals } = await priceMemeinQuote(
-      analysis.memeMint!,
-      analysis.quoteMint!,
-      connection,
-      analysis.sqrtPriceQ64,
-    );
-    const memePrice = parseFloat(quotePerBase);
-    valueQuote = pricePosition(memePrice, analysis.amount, quoteDecimals);
-    const solanaPriceInUsd = await fetchHistoricalUsd('solana', timeStampMs, env.coingeckoApiKey);
-    valueUsd = valueQuote * solanaPriceInUsd;
-  } else {
-    const quotePrice = await fetchHistoricalUsd('solana', timeStampMs, env.coingeckoApiKey);
-    valueQuote = pricePosition(quotePrice, analysis.amount, 9);
-  }
+  const solanaPriceInUsd = await fetchHistoricalUsd(
+    'solana',
+    data.timestamp * 1000,
+    env.coingeckoApiKey,
+  );
+  const valueUsd = analysis.displayAmount * solanaPriceInUsd;
 
   let outputWalletOwner = null;
   outputWalletOwner = await getOwnerFromTokenAccount(analysis.outputWallet, connection);
@@ -72,43 +53,21 @@ async function processSwap(
     outputWalletOwner = analysis.payer;
   }
 
-  logger.info(`💸 [SwapInstructions] Price:`, {
-    valueQuote,
-    valueUsd,
-    analysis,
-  });
-
   const transactionSchema = {
     eventType: MessageType.TRANSACTION,
     eventName: data.type,
     tokens: {
-      quoteMint: {
-        value: analysis.quoteMint,
-        type: 'string',
-      },
       price: {
-        value: valueQuote.toString(),
+        value: solanaPriceInUsd.toString(),
         type: 'number',
       },
-      amount: {
-        value: analysis.amount.toString(),
-        type: 'number',
-      },
-      dbcPool: {
-        value: analysis.dbcPool,
-        type: 'string',
-      },
-      dammPool: {
-        value: analysis.dammPool,
-        type: 'string',
-      },
-      dammPosition: {
-        value: analysis.dammPosition,
+      pool: {
+        value: analysis.pool.toLowerCase(),
         type: 'string',
       },
     },
-    rawAmount: valueQuote.toString(),
-    displayAmount: valueUsd,
+    rawAmount: analysis.rawAmount.toString(),
+    displayAmount: analysis.displayAmount,
     unixTimestampMs: data.timestamp * 1000,
     txHash: data.txHash,
     logIndex: data.logIndex,
@@ -121,44 +80,41 @@ async function processSwap(
     gasFeeUsd: 0, //todo: fix
   };
 
-  const protocolState = protocolStates.get(analysis.dbcPool);
+  const protocolState = protocolStates.get(analysis.pool);
   if (protocolState) {
     protocolState.transactions.push(transactionSchema);
   } else {
-    protocolStates.set(analysis.dbcPool, {
+    protocolStates.set(analysis.pool, {
       balanceWindows: [],
       transactions: [transactionSchema],
     });
   }
+  logger.info(`💱 [SwapInstructions] Processed ${data.type} instruction`, {
+    transactionSchema,
+  });
 }
 
 async function analyseSwap(data: any) {
-  const swapIntent = data.decodedInstruction.data.params;
-  let amount = null;
-  let mint = null;
-  let mintType = null;
-  if (swapIntent && swapIntent.kind === 'SellMeme') {
-    amount = swapIntent.value.sell.amount;
-    mint = data.decodedInstruction.accounts.memeMint;
-    mintType = 'meme';
-  } else if (swapIntent && swapIntent.kind === 'SpendQuote') {
-    amount = swapIntent.value.sell.amount;
-    mint = data.decodedInstruction.accounts.quoteMint;
-    mintType = 'quote';
-  } else if (swapIntent && swapIntent.kind === 'SpendAllQuote') {
-    logger.info('Not supported yet');
+  logger.info(`💱 [AnalyseSwap] Analyzing swap`, {
+    tradeDirection: data.event.tradeDirection,
+    swapResult: data.event.swapResult,
+  });
+  const tradeDirection = parseInt(data.event.tradeDirection);
+  let rawAmount = null;
+
+  if (tradeDirection === 0) {
+    rawAmount = parseInt(data.event.swapResult.outputAmount);
+  } else {
+    rawAmount = parseInt(data.event.params.amountIn);
   }
+
+  const displayAmount = rawAmount / 10 ** 9;
 
   return {
     outputWallet: data.decodedInstruction.accounts.outputWallet,
-    memeMint: data.decodedInstruction.accounts.memeMint,
-    quoteMint: data.decodedInstruction.accounts.quoteMint,
-    dbcPool: data.decodedInstruction.accounts.dbcPool,
-    dammPool: data.decodedInstruction.accounts.dammPool,
-    dammPosition: data.decodedInstruction.accounts.dammPosition,
+    displayAmount,
+    pool: data.event.pool,
     payer: data.decodedInstruction.accounts.payer,
-    amount,
-    mintType,
-    sqrtPriceQ64: data.decodedInstruction.accounts.sqrtPriceQ64, // todo: try to get this from the instruction data
+    rawAmount,
   };
 }

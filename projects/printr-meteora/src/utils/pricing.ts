@@ -1,6 +1,6 @@
 import { logger, WHITELIST_TOKENS_WITH_COINGECKO_ID } from '@absinthe/common';
 import { TOKEN_DETAILS } from './consts';
-
+import { Connection, PublicKey } from '@solana/web3.js';
 interface JupiterResponse {
   usdPrice: number;
   blockId: number;
@@ -179,9 +179,6 @@ const getCGId = (addr: string) =>
   WHITELIST_TOKENS_WITH_COINGECKO_ID.find((t) => t.address.toLowerCase() === addr.toLowerCase())
     ?.coingeckoId ?? null;
 
-import { Connection, PublicKey } from '@solana/web3.js';
-import { getMint, TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token';
-
 async function getOwnerProgramId(connection: Connection, pubkey: PublicKey): Promise<PublicKey> {
   const info = await connection.getAccountInfo(pubkey);
   if (!info) throw new Error(`Account not found: ${pubkey.toBase58()}`);
@@ -190,6 +187,8 @@ async function getOwnerProgramId(connection: Connection, pubkey: PublicKey): Pro
 
 // Smart mint fetcher: supports classic SPL Token & Token-2022
 async function smartGetMint(connection: Connection, mint: PublicKey) {
+  const { getMint, TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } = await import('@solana/spl-token');
+
   const owner = await getOwnerProgramId(connection, mint);
   if (owner.equals(TOKEN_PROGRAM_ID)) {
     return getMint(connection, mint, 'confirmed', TOKEN_PROGRAM_ID);

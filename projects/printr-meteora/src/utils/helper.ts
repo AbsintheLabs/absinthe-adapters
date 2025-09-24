@@ -44,4 +44,45 @@ function fetchCoingeckoIdFromTokenMint(mintAddress: string): {
   };
 }
 
-export { getMintFromTokenAccount, fetchCoingeckoIdFromTokenMint, getOwnerFromTokenAccount };
+async function toBuffer(maybe: any): Promise<Buffer> {
+  const bs58 = await import('bs58');
+  if (!maybe) return Buffer.alloc(0);
+
+  // Already bytes?
+  if (Buffer.isBuffer(maybe)) return maybe as Buffer;
+  if (maybe?.type === 'Buffer' && Array.isArray(maybe.data)) {
+    return Buffer.from(maybe.data);
+  }
+  if (maybe instanceof Uint8Array) return Buffer.from(maybe);
+
+  if (typeof maybe === 'string') {
+    const s = maybe.trim();
+
+    // hex: 0x... or pure hex
+    if (s.startsWith('0x')) return Buffer.from(s.slice(2), 'hex');
+    if (/^[0-9a-fA-F]+$/.test(s) && s.length % 2 === 0) {
+      return Buffer.from(s, 'hex');
+    }
+
+    // base64: crude but effective check
+    if (/^[A-Za-z0-9+/=]+$/.test(s) && s.length % 4 === 0) {
+      try {
+        return Buffer.from(s, 'base64');
+      } catch {}
+    }
+
+    // fall back to base58 (Solana default encoding for ix.data)
+    try {
+      return Buffer.from(bs58.default.decode(s));
+    } catch {}
+  }
+
+  return Buffer.alloc(0);
+}
+
+export {
+  getMintFromTokenAccount,
+  fetchCoingeckoIdFromTokenMint,
+  getOwnerFromTokenAccount,
+  toBuffer,
+};

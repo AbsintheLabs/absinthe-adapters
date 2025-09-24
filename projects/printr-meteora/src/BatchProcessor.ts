@@ -1,5 +1,4 @@
 import { run } from '@subsquid/batch-processor';
-
 import {
   AbsintheApiClient,
   Chain,
@@ -22,7 +21,12 @@ import { augmentBlock } from '@subsquid/solana-objects';
 
 import { processSwapInstructions } from './mappings/swapInstructions';
 import { Connection } from '@solana/web3.js';
-import { CreatePrintrDbcEvent2 } from './utils/consts';
+import { CreatePrintrDbcEvent2 } from './utils/types';
+import { DAMM_PROGRAM_ID, DBC_PROGRAM_ID } from './utils/consts';
+import { Src } from '@subsquid/borsh';
+import { decodeDammV2SelfCpiLog } from './utils/decoder/damm';
+import { decodeDbcSwapEvent } from './utils/decoder/dbc';
+import { decodePrintrInit } from './utils/decoder/createDbc';
 export class PrintrMeteoraProcessor {
   private readonly protocol: PrintrMeteoraProtocol;
   private readonly schemaName: string;
@@ -145,58 +149,97 @@ export class PrintrMeteoraProcessor {
         tokenBalances,
       };
 
-      // Use switch statement to decode instruction
       switch (ins.d8) {
-        case printrAbi.instructions.swap.d8:
+        case printrAbi.instructions.swap.d8: {
           const decodedInstruction = printrAbi.instructions.swap.decode(ins);
-          return {
-            ...baseData,
-            type: 'swap',
-            decodedInstruction,
-          } as PrintrInstructionData;
+          const innerSwap = ins.inner || [];
 
-        case printrAbi.instructions.createPrintrDbcFromCompact.d8:
+          // Process ALL inner instructions, not just the first one
+          for (const innerIns of innerSwap) {
+            if (innerIns.programId === DBC_PROGRAM_ID) {
+              try {
+                const hexData = '0x' + Buffer.from(innerIns.data, 'base64').toString('hex');
+                const discriminator = hexData.substring(0, 18);
+
+                logger.info(` [DecodeInstructionDbc] Raw data:`, {
+                  discriminator,
+                  dataLength: innerIns.data.length,
+                });
+
+                if (discriminator === '0xda2a17a3d9e402dd') {
+                  const event = decodeDbcSwapEvent(innerIns.data);
+
+                  logger.info(` [DecodeInstructionDbc] Decoded event:`, { event });
+
+                  return {
+                    ...baseData,
+                    type: 'SwapMeteoraDbc',
+                    decodedInstruction,
+                    event,
+                  } as any;
+                }
+              } catch (e) {
+                logger.warn(`⚠️ [DecodeInstruction] DBC decode failed:`, { error: e as Error });
+              }
+            } else if (innerIns.programId === DAMM_PROGRAM_ID) {
+              try {
+                const hexData = '0x' + Buffer.from(innerIns.data, 'base64').toString('hex');
+                const discriminator = hexData.substring(0, 18);
+
+                logger.info(`�� [DecodeInstructionDamm] Discriminator:`, { discriminator });
+
+                if (discriminator === '0xea7c70e30c9e25d9') {
+                  const event = decodeDammV2SelfCpiLog(innerIns.data);
+
+                  logger.info(` [DecodeInstructionDamm] Decoded event:`, { event });
+
+                  return {
+                    ...baseData,
+                    type: 'SwapMeteoraDamm',
+                    decodedInstruction,
+                    event,
+                  } as any;
+                }
+              } catch (e) {
+                logger.warn(`⚠️ [DecodeInstruction] DAMM decode failed:`, { error: e as Error });
+              }
+            }
+          }
+        }
+
+        case printrAbi.instructions.createPrintrDbcFromCompact.d8: {
           const decodedCreateInstruction =
             printrAbi.instructions.createPrintrDbcFromCompact.decode(ins);
-          // Check if there are inner instructions with event data
           const inner = ins.inner || [];
 
-          // Look for CreatePrintrDbcEvent in inner instructions
           for (const innerIns of inner) {
             if (innerIns.programId === printrAbi.programId) {
               try {
                 const hexData = '0x' + Buffer.from(innerIns.data, 'base64').toString('hex');
                 const discriminator = hexData.substring(0, 18);
-                logger.info(`🔄 [DecodeInstruction] Discriminator:`, {
-                  discriminator,
-                });
-                let event = CreatePrintrDbcEvent2.decode({
-                  msg: '0x' + Buffer.from(innerIns.data, 'base64').toString('hex'),
-                });
 
-                logger.info(`�� [DecodeInstruction] Decoded CreatePrintrDbcEvent:`, {
-                  event,
-                });
+                logger.info(`�� [DecodeInstruction] Discriminator:`, { discriminator });
 
-                return {
-                  ...baseData,
-                  type: 'CreatePrintrDbcEvent',
-                  decodedInstruction: decodedCreateInstruction,
-                  event: event, // Include the decoded event
-                } as any; // You might need to update your types
+                if (discriminator === '0xe06021507f14dbcb') {
+                  const event = decodePrintrInit(innerIns.data);
+
+                  logger.info(` [DecodeInstruction] Decoded CreatePrintrDbcEvent:`, { event });
+
+                  return {
+                    ...baseData,
+                    type: 'CreatePrintrDbcEvent',
+                    decodedInstruction: decodedCreateInstruction,
+                    event,
+                  } as any;
+                }
               } catch (e) {
-                logger.warn(`⚠️ [DecodeInstruction] Failed to decode inner instruction as event:`, {
+                logger.warn(`⚠️ [DecodeInstruction] CreatePrintrDbc decode failed:`, {
                   error: e as Error,
                 });
               }
             }
           }
-
-          return {
-            ...baseData,
-            type: 'CreatePrintrDbcEvent',
-            decodedInstruction: decodedCreateInstruction,
-          } as PrintrInstructionData;
+        }
 
         default:
           return null;
@@ -266,7 +309,9 @@ export class PrintrMeteoraProcessor {
     blockInstructions: PrintrInstructionData[],
     protocolStates: Map<string, ProtocolStateOrca>,
   ): Promise<void> {
-    const swapInstructions = blockInstructions.filter((data) => ['swap'].includes(data.type));
+    const swapInstructions = blockInstructions.filter((data) =>
+      ['SwapMeteoraDbc', 'SwapMeteoraDamm'].includes(data.type),
+    );
 
     const createPrintrDbcEvent = blockInstructions.filter((data) =>
       ['CreatePrintrDbcEvent'].includes(data.type),
