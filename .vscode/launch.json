@@ -2,17 +2,15 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "run ichi",
+      "name": "debug",
       "type": "node",
       "request": "launch",
-      "preLaunchTask": "clean state and redis",
-      "program": "${workspaceFolder}/projects/ichi/lib/main.js",
-      "cwd": "${workspaceFolder}/projects/ichi",
-      "args": ["exampleConfigs/aavev3.absinthe.json"],
+      "program": "pnpm start ${workspaceFolder}/adapters/uniswap-v2/tests/config/uniswap-v2.absinthe.json --reset-state",
+      "cwd": "${workspaceFolder}",
       "runtimeArgs": ["--no-deprecation", "--no-warnings", "--enable-source-maps"],
       "skipFiles": ["<node_internals>/**", "${workspaceFolder}/**/node_modules/**/*.js"],
       "sourceMaps": true,
-      "outFiles": ["${workspaceFolder}/projects/ichi/lib/**/*.js"]
+      "outFiles": ["${workspaceFolder}/dist/src/**/*.js"]
     }
   ]
 }

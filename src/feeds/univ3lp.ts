@@ -183,8 +183,8 @@ export const univ3lpFactory: HandlerFactory<'univ3lp'> = (resolve) => async (arg
         }
 
         positionMetadata = {
-          token0: (pos.token0 as string).toLowerCase(),
-          token1: (pos.token1 as string).toLowerCase(),
+          token0: pos.token0.toLowerCase(),
+          token1: pos.token1.toLowerCase(),
           fee: Number(pos.fee),
           tickLower: Number(pos.tickLower),
           tickUpper: Number(pos.tickUpper),

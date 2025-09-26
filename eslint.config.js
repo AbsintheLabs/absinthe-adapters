@@ -34,7 +34,18 @@ export default [
       prettier: prettier,
     },
     rules: {
+      // Prettier
       'prettier/prettier': 'error',
+
+      '@typescript-eslint/no-floating-promises': 'error',
+      '@typescript-eslint/no-misused-promises': 'error',
+      '@typescript-eslint/await-thenable': 'error',
+      '@typescript-eslint/no-unnecessary-type-assertion': 'error',
+
+      '@typescript-eslint/no-non-null-assertion': 'warn',
+      'prefer-const': 'error',
+      'no-var': 'error',
+
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-unused-vars': 'off',
       '@typescript-eslint/no-require-imports': 'off',

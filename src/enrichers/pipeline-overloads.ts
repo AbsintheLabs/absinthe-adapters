@@ -253,7 +253,7 @@ export function pipeline<A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S
   s19: Enricher<S, T>,
   s20: Enricher<T, U>,
 ): Enricher<A, U>;
-// (Add more overloads if you foresee >20 steps frequently)
+// (Add more overloads if you encounter >20 steps)
 
 // ---- Implementation ----
 export function pipeline(...steps: Array<Enricher<any, any>>): Enricher<any, any> {

@@ -1,9 +1,11 @@
 // Asset information interface
+import { AssetType } from '../config/schema.ts';
+
 export interface AssetInfo {
   asset: string; // EVM or Solana address
   tokenId?: string; // OPTIONAL for NFTs
   decimals: number;
-  assetType: string; // erc20, erc721, spl, etc
+  assetType: AssetType; // Use the defined AssetType from schema
 }
 
 export interface RunnerMeta {
@@ -137,7 +139,7 @@ We should always have a protocolName. This is provided by the adapter itself (fo
 How to get the protocolForkOf? This likely shouldn't be a "whatever" you want string since this won't be consistent.
 We should probably provide a list of possible enums that they can match on. We can set this as an optional param
 within the defineAdapter function.
-[ ] Subtask: Pass through the name / forkOf to the data shape
+[x] Subtask: Pass through the name / forkOf to the data shape
 
 2. [x] How do we pass through the type of activity (lend, borrow, hold) if the emitted event is the same? (ex: both use balanceDelta)
 Each window, action, etc, has some sort of role. Usually tied to that particular asset, but NOT always.

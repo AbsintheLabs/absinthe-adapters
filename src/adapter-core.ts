@@ -15,16 +15,16 @@ type OnArgs = {
   block: Block;
   rpcCtx: RpcContext;
   redis: Redis;
+  emit: EmitFunctions;
+  instances: TrackableInstance[];
 };
 
 export type OnLogArgs = OnArgs & {
   log: Log;
-  emit: EmitFunctions;
 };
 
 export type OnTransactionArgs = OnArgs & {
   transaction: Transaction;
-  emit: EmitFunctions;
 };
 
 export type OnInitArgs = {
@@ -65,6 +65,7 @@ export type SemVer = z.infer<typeof SemVer>;
 
 // Adapter definition with schema and builder
 export type AdapterDef<P extends ZodTypeAny> = {
+  manifest?: any; // xxx update this to be a proper type
   name: string;
   semver: string;
   forkOf?: ProtocolFamily;

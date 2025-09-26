@@ -173,7 +173,7 @@ export class Engine {
       await this.enrichWindows(ctx);
       await this.enrichEvents(ctx);
       await this.sendDataToSink(ctx);
-      this.sqdBatchEnd(ctx);
+      await this.sqdBatchEnd(ctx);
       await this.terminateIfNeeded(ctx);
     });
   }
@@ -196,10 +196,11 @@ export class Engine {
 
   async backfillPriceDataForBatch(blocks: any[]) {
     log.debug(`💰 Backfilling price data for batch of ${blocks.length} blocks`);
+    // xxx: figure out how to do this without requiring every block to be present?
     // 1) dedupe to the first block per window
     const windowToFirstBlock = new Map<number, any>();
     for (const block of blocks) {
-      const flushInterval = this.appCfg.flushInterval as number;
+      const flushInterval = this.appCfg.flushInterval;
       const windowStart = Math.floor(block.header.timestamp / flushInterval) * flushInterval;
       if (!windowToFirstBlock.has(windowStart)) windowToFirstBlock.set(windowStart, block);
     }
@@ -309,7 +310,7 @@ export class Engine {
     }
 
     // Type assertion: We know from Zod schema that AssetConfig always has required priceFeed
-    const validatedAssetConfig = assetConfig as AssetConfig;
+    const validatedAssetConfig = assetConfig;
 
     const ctx: ResolveContext = {
       priceCache: this.priceCache,
@@ -320,7 +321,7 @@ export class Engine {
       block,
       asset,
       sqdCtx: this.ctx,
-      bucketMs: this.appCfg.flushInterval as number,
+      bucketMs: this.appCfg.flushInterval,
       sqdRpcCtx: {
         _chain: this.ctx._chain,
         block: {
@@ -471,7 +472,8 @@ export class Engine {
     sqdLogOrTx: Log | Transaction,
     ctx: NormalizedEventContext,
   ): Promise<void> {
-    let { key, user, meta, priceable } = e;
+    const { key, meta, priceable } = e;
+    let { user } = e;
 
     // we have to check if the action is a priceable action or not
     let amount: Amount | null = null;
@@ -795,7 +797,7 @@ export class Engine {
   // When we reach finalBlock: flush everything INCLUDING the last partial window.
   // In live mode (no finalBlock): only flush fully closed windows, never the current one.
   private async flushPeriodic(nowMs: number, height: number) {
-    const w = this.appCfg.flushInterval as number;
+    const w = this.appCfg.flushInterval;
 
     if (this.appCfg.chainArch !== 'evm') return; // todo: currently only evm is supported
     const finalBlock: number | null = this.appCfg.range.toBlock ?? null;
@@ -854,7 +856,7 @@ export class Engine {
         return; // only flush active balances
       }
 
-      const key = balanceKeys[i]!;
+      const key = balanceKeys[i];
       // Parse the Redis key format: 'bal:{asset}:{user}'
       // The asset can contain colons (e.g., 'erc721:0x...:tokenId'), so we need to extract it properly
       const parts = key.split(':');

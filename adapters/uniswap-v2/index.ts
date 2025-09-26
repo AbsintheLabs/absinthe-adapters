@@ -26,6 +26,52 @@ export default registerAdapter({
       message: 'At least one of trackSwaps or trackLP must be enabled',
       path: ['trackSwaps', 'trackLP'],
     }),
+  manifest: {
+    name: 'uniswap-v2',
+    semver: '0.0.1',
+    trackableTypes: [
+      {
+        id: 'swap',
+        kind: 'action',
+        quantityType: 'token_based',
+        inputs: [
+          {
+            role: 'poolAddress',
+            requiredWhen: 'always',
+            description: 'The pool address used to see all occurences of the swap.',
+          },
+          {
+            role: 'token0OrToken1Address',
+            requiredWhen: 'forPricing',
+            description:
+              'The token0 or token1 address used to price the swap. The system will automatically determine which one to use.',
+          },
+        ],
+      },
+      {
+        id: 'lp',
+        kind: 'position',
+        quantityType: 'token_based',
+        inputs: [
+          {
+            role: 'poolAddress',
+            requiredWhen: 'always',
+          },
+          {
+            role: 'token0Address',
+            requiredWhen: 'forPricing',
+            description: 'The token0 address used to price the lp.',
+          },
+          {
+            role: 'token1Address',
+            requiredWhen: 'forPricing',
+            description: 'The token1 address used to price the lp.',
+          },
+        ],
+        requiredPricer: 'univ2nav',
+      },
+    ],
+  },
   build: ({ params }) => {
     // Event topics from the Uniswap V2 ABI
     const transferTopic = univ2Abi.events.Transfer.topic;

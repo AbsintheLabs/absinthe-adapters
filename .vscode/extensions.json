@@ -1,0 +1,16 @@
+{
+  // .vscode/extensions.json
+  "recommendations": [
+    // Essential TypeScript/JavaScript
+    "ms-vscode.vscode-typescript-next",
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode"
+    // Code Quality & Safety
+    // "streetsidesoftware.code-spell-checker",
+  ],
+  "unwantedRecommendations": [
+    // Extensions that might conflict or cause issues
+    "ms-vscode.vscode-typescript", // Conflicts with typescript-next
+    "hookyqr.beautify" // Conflicts with Prettier
+  ]
+}

@@ -132,4 +132,4 @@ async function main() {
   await engine.run();
 }
 
-main();
+await main();
