@@ -1,9 +1,9 @@
-export enum ProtocolFamily {
-  UNISWAP_V2 = 'uniswap-v2',
-  UNISWAP_V3 = 'uniswap-v3',
-  AAVE_V3 = 'aave-v3',
-  COMPOUND_V2 = 'compound-v2',
-  COMPOUND_V3 = 'compound-v3',
-  BALANCER_V2 = 'balancer-v2',
-  CURVE = 'curve',
-}
+// Protocol family values for Zod schema
+export const PROTOCOL_FAMILY_VALUES = [
+  'uniswap-v2',
+  'uniswap-v3',
+  'aave-v3',
+  'compound-v2',
+  'compound-v3',
+  'balancer-v2',
+] as const;

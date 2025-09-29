@@ -1,27 +1,42 @@
 // adapter-registry.ts - Central registry for all adapters
 import { z } from 'zod';
-import { AdapterDef, BuiltAdapter, EngineIO, SemVer } from './adapter-core.ts';
+import { BuiltAdapter, EngineIO, SemVer, AdapterDef } from './adapter-core.ts';
+import { validateHandlers } from './types/adapter.ts';
 
 // Central registry map
-const registry = new Map<string, AdapterDef<z.ZodTypeAny>>();
+const registry = new Map<string, AdapterDef>();
 
-// Register an adapter in the central registry
-export function registerAdapter<S extends z.ZodTypeAny>(def: AdapterDef<S>): AdapterDef<S> {
-  if (registry.has(def.name)) {
-    throw new Error(`Duplicate adapter: ${def.name}`);
+// Helper function to get adapter name and semver
+function getAdapterInfo(def: AdapterDef): { name: string; semver: string } {
+  return { name: def.manifest.name, semver: def.manifest.semver };
+}
+
+// Register a typed adapter with manifest and handlers
+export function registerAdapter(def: AdapterDef): AdapterDef {
+  const { name: adapterName, semver } = getAdapterInfo(def);
+
+  if (registry.has(adapterName)) {
+    throw new Error(`Duplicate adapter: ${adapterName}`);
   }
 
   // Validate semver format
   try {
-    SemVer.parse(def.semver);
+    SemVer.parse(semver);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      throw new Error(`Invalid semver for adapter '${def.name}':\n${z.prettifyError(error)}`);
+      throw new Error(`Invalid semver for adapter '${adapterName}':\n${z.prettifyError(error)}`);
     }
     throw error;
   }
 
-  registry.set(def.name, def);
+  // Validate handler compatibility with manifest
+  try {
+    validateHandlers(def.manifest, def.handlers);
+  } catch (error) {
+    throw new Error(`Handler validation failed for adapter '${adapterName}': ${error.message}`);
+  }
+
+  registry.set(adapterName, def);
   return def; // for tree-shaken side-effect registration
 }
 
@@ -36,6 +51,7 @@ export function buildAdapter(name: string, rawConfig: unknown, io: EngineIO): Bu
   try {
     // Parse and validate the config using the adapter's schema
     const parsed = def.schema.parse(rawConfig);
+
     // Build the adapter with validated params
     const built = def.build({ params: parsed, io });
 
@@ -57,7 +73,7 @@ export function getAvailableAdapters(): string[] {
 
 export function getAdapterMeta(name: string): { name: string; semver: string } | null {
   const def = registry.get(name);
-  return def ? { name: def.name, semver: def.semver } : null;
+  return def ? getAdapterInfo(def) : null;
 }
 
 // Get adapter schema for documentation/validation

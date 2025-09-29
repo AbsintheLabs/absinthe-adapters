@@ -1,5 +1,5 @@
 // Adapter interface and related types
-
+import { z } from 'zod';
 import {
   BalanceDelta,
   PositionStatusChange,
@@ -13,6 +13,7 @@ import { HandlerFactory } from '../feeds/interface.ts';
 import { Block, Log, BaseProcessor, Transaction } from '../eprocessorBuilder.ts';
 import { Redis } from 'ioredis';
 import { MeasureDelta } from './core.ts';
+import { Manifest } from './manifest.ts';
 
 // ------------------------------------------------------------
 // EMIT FUNCTIONS
@@ -39,10 +40,63 @@ export interface EmitFunctions {
   // add more here as scope grows
 }
 
-// Emit functions for transaction handlers
-// export interface TransactionEmitFunctions {
-//   event: (e: OnChainTransaction) => Promise<void>;
-// }
+// ------------------------------------------------------------
+// HANDLER TYPES
+// ------------------------------------------------------------
+
+// Handler context passed to all handlers
+export interface HandlerContext {
+  block: Block;
+  log: Log;
+  emit: EmitFunctions;
+  rpcCtx: RpcContext;
+  redis: Redis;
+}
+
+// Action handler type for 'action' trackables
+export type ActionHandler = (
+  ctx: HandlerContext,
+  trackable: any, // TrackableInstance
+  eventData: any, // Decoded event data
+) => Promise<void>;
+
+// Position handler type for 'position' trackables
+export type PositionHandler = (
+  ctx: HandlerContext,
+  trackable: any, // TrackableInstance
+  eventData: any, // Decoded event data
+) => Promise<void>;
+
+// Union type for all handler types
+export type Handler = ActionHandler | PositionHandler;
+
+// Registry of handlers keyed by trackable ID
+export type Handlers = Record<string, Handler>;
+
+// Trackable instance type (placeholder for now)
+export interface TrackableInstance {
+  id: string;
+  itemId: string;
+  kind: string;
+  quantityType: string;
+  params: Record<string, any>;
+}
+
+// Utility function to validate handler compatibility with manifest
+export function validateHandlers(manifest: Manifest, handlers: Handlers): void {
+  for (const trackable of manifest.trackables) {
+    const handler = handlers[trackable.id];
+    if (!handler) {
+      throw new Error(`Missing handler for trackable '${trackable.id}'`);
+    }
+
+    // Validate that handler type matches trackable kind
+    // For now, we just ensure handlers exist. More sophisticated type checking
+    // can be added later when we have more specific handler signatures
+    // xxx: i think we need to do this here, and make sure that required filters are set, if pricing is provided
+    // xxx: as well as attach additional fields based on the results of the validation (like `shouldPrice` etc)
+  }
+}
 
 // ------------------------------------------------------------
 // ADAPTER INTERFACE
@@ -93,39 +147,22 @@ export type MountCtx = {
   assetFeeds: AssetFeedConfig;
 };
 
-// XXX: we support both for now, but we will migrate all to the new adapter interface (v2)
-export type Adapter = AdapterV2 | AdapterLegacy;
+// export type Adapter = AdapterV2 | AdapterLegacy | TypedAdapter;
+export type Adapter = TypedAdapter;
 
-export interface AdapterV2 {
-  // Called once at boot. Adapter registers all subscriptions and handlers on the processor.
-  buildProcessor: (base: BaseProcessor) => BaseProcessor;
+// Typed adapter interface with manifest and strongly-typed handlers
+export interface TypedAdapter {
+  // Typed manifest with trackables
+  manifest: Manifest;
 
-  // Optional end-of-batch hook for deferred work (e.g., draining queues)
-  onBatchEnd?: (redis: Redis) => Promise<void>;
+  // Strongly-typed handlers that match trackable kinds
+  handlers: Handlers;
 
-  // Optional custom pricing feed handlers
-  customFeeds?: CustomFeedHandlers;
-
-  // Optional projectors for custom event processing
-  projectors?: Projector[];
-}
-
-// Adapter interface (you implement this per protocol)
-export interface AdapterLegacy {
-  onLog?(
-    block: Block,
-    log: Log,
-    emit: EmitFunctions,
-    rpcCtx: RpcContext,
-    redis: Redis,
-  ): Promise<void>;
-  // note: transaction tracking only supports event-based tracking, not time-weighted
-  onTransaction?(block: Block, transaction: Transaction, emit: EmitFunctions): Promise<void>;
-  // Called at the end of each batch for cleanup/deferred operations
-  onBatchEnd?(redis: Redis): Promise<void>;
-  feedConfig: AssetFeedConfig;
-  // Optional custom pricing feed handlers
-  customFeeds?: CustomFeedHandlers;
-  // Optional projectors for custom event processing
-  projectors?: Projector[];
+  // Processor builder function
+  build: (opts: { params: any; io: { redis: Redis; log: (...args: any[]) => void } }) => {
+    buildProcessor: (base: BaseProcessor) => BaseProcessor;
+    onBatchEnd?: (redis: Redis) => Promise<void>;
+    customFeeds?: CustomFeedHandlers;
+    // projectors?: Projector[];
+  };
 }

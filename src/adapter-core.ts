@@ -1,38 +1,56 @@
 // adapter-core.ts - Core types and utilities for the adapter registry pattern
-import { z, ZodTypeAny } from 'zod';
-import { Redis } from 'ioredis';
-import { EmitFunctions, RpcContext, Projector, CustomFeedHandlers } from './types/adapter.ts';
-import { BaseProcessor, Block, Log, Transaction } from './eprocessorBuilder.ts';
-import { ProtocolFamily } from './constants.ts';
+// This file defines the fundamental types and interfaces for the adapter system
 
-// Engine IO interface for dependency injection
+import { z } from 'zod';
+import { Redis } from 'ioredis';
+import { EmitFunctions, RpcContext, CustomFeedHandlers } from './types/adapter.ts';
+import { BaseProcessor, Block, Log, Transaction } from './eprocessorBuilder.ts';
+import { Manifest, ConfigFromManifest } from './types/manifest.ts';
+
+// =============================================================================
+// CORE ENGINE TYPES
+// =============================================================================
+
+/** Engine IO interface for dependency injection */
 export type EngineIO = {
   redis: Redis;
   log: (...args: any[]) => void;
 };
 
+// =============================================================================
+// EVENT HANDLER ARGUMENT TYPES
+// =============================================================================
+
+/** Base arguments provided to all event handlers */
 type OnArgs = {
   block: Block;
   rpcCtx: RpcContext;
   redis: Redis;
   emit: EmitFunctions;
-  instances: TrackableInstance[];
+  instances: any[]; // Will be properly typed later when we define the full instance structure
 };
 
+/** Arguments for log event handlers */
 export type OnLogArgs = OnArgs & {
   log: Log;
 };
 
+/** Arguments for transaction event handlers */
 export type OnTransactionArgs = OnArgs & {
   transaction: Transaction;
 };
 
+/** Arguments for initialization handlers */
 export type OnInitArgs = {
   rpcCtx: RpcContext;
   redis: Redis;
 };
 
-// Adapter hooks that define the contract for all adapters
+// =============================================================================
+// ADAPTER LIFECYCLE TYPES
+// =============================================================================
+
+/** Core adapter interface defining all available hooks */
 export type AdapterHooks = {
   // Function to extend the base processor with adapter-specific subscriptions
   buildProcessor: (base: BaseProcessor) => BaseProcessor;
@@ -48,47 +66,72 @@ export type AdapterHooks = {
   // Optional hook called at the end of each batch
   onBatchEnd?: (args: { io: EngineIO; ctx: any }) => Promise<void>;
 
-  // Optional projectors for custom event processing
-  projectors?: Projector[];
-
   // Optional custom feed handlers
   customFeeds?: CustomFeedHandlers;
 };
 
-// Built adapter with contextual state captured by the builder
+/** Built adapter with contextual state captured by the builder */
 export type BuiltAdapter = AdapterHooks;
 
-export const SEMVER_RE =
-  /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*)?(?:\+(?:[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
-export const SemVer = z.string().regex(SEMVER_RE, 'Invalid SemVer').brand<'SemVer'>();
-export type SemVer = z.infer<typeof SemVer>;
+// =============================================================================
+// HANDLER TYPES
+// =============================================================================
 
-// Adapter definition with schema and builder
-export type AdapterDef<P extends ZodTypeAny> = {
-  manifest?: any; // xxx update this to be a proper type
-  name: string;
-  semver: string;
-  forkOf?: ProtocolFamily;
-  schema: P;
+/** Handler function for action-type trackables */
+export type ActionHandler = (evt: unknown, ctx: unknown) => void | Promise<void>;
+
+/** Handler function for position-type trackables */
+export type PositionHandler = (evt: unknown, ctx: unknown) => void | Promise<void>;
+
+// =============================================================================
+// ADAPTER DEFINITION TYPES
+// =============================================================================
+
+// Configuration types are now imported from manifest.ts with proper type inference
+
+/** Adapter definition combining manifest with handlers and build function */
+export type AdapterDef<M extends Manifest> = {
+  manifest: M;
+  handlers: { [K in keyof M['trackables']]: Function };
   build: (opts: {
-    params: z.infer<P>; // Already parsed and transformed
-    io: EngineIO; // DI if you want to build with env
-  }) => BuiltAdapter;
+    manifest: M;
+    config: ConfigFromManifest<M>;
+    io: EngineIO;
+  }) => BuiltAdapter & { manifest: M };
 };
 
-// Factory to help with generics inference
-// todo: remove this import from everywhere
-/**
- * @deprecated This helper is deprecated and will be removed in a future release.
- */
-export function defineAdapter<P extends ZodTypeAny>(def: AdapterDef<P>) {
-  return def;
+// =============================================================================
+// ADAPTER FACTORY
+// =============================================================================
+
+/** Factory function to create typed adapter definitions with preserved generics */
+export function defineAdapter<const M extends Manifest>(def: {
+  manifest: M;
+  handlers: { [K in keyof M['trackables']]: unknown };
+  build: (o: {
+    manifest: M;
+    config: ConfigFromManifest<M>;
+    io: EngineIO;
+  }) => BuiltAdapter & { manifest: M };
+}): AdapterDef<M> {
+  return def as AdapterDef<M>;
 }
 
-// Utility type for address validation with transformation
+// =============================================================================
+// LEGACY UTILITIES (DEPRECATED)
+// =============================================================================
+
+/**
+ * @deprecated Use FieldTypes.EvmAddress from types/manifest.ts instead.
+ * Zod schema for EVM address validation and normalization.
+ */
 export const ZodEvmAddress = z
   .string()
   .regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid EVM address')
   .transform((s) => s.toLowerCase());
 
+/**
+ * @deprecated Use FieldTypes.EvmAddress from types/manifest.ts instead.
+ * Type for EVM address validation results.
+ */
 export type ZodEvmAddress = z.infer<typeof ZodEvmAddress>;

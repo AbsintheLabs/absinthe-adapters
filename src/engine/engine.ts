@@ -411,7 +411,6 @@ export class Engine {
       .exhaustive();
 
     // step 1: first define which emit functions are mapped to which internal engine methods
-    // fixme: later rename LogEmitFunctions to just EmitFunctions for consistent naming
     // fixme: we are passing in the entire block, but this is unecessary and makes things brittle
     // fixme: need to add logindex to the context so we have deterministic behavior for actions in the same block
     const emit = this.createEmitFunctions(commonEventCtx, logOrTx);
@@ -426,6 +425,8 @@ export class Engine {
               block,
               log, // Correctly named for OnLogArgs
               emit,
+              // fixme: Remove rpcCtx from onLog handlers. Instead, provide adapters with just the minimal block/chain info they need to construct their own context.
+              // fixme: Rationale: Passing rpcCtx here tightly couples adapters to the specific shape of the sqd interface, making abstraction and portability harder.
               rpcCtx: {
                 _chain: this.ctx._chain,
                 block: { height: block.header.height },
