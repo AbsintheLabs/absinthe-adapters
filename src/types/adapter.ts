@@ -26,18 +26,27 @@ export type BalanceDeltaReason =
   | 'FINAL'
   | 'INACTIVE_POSITION';
 
-// Emit functions for log handlers
+// Emit functions for log handlers, organized by trackable kind
 export interface EmitFunctions {
-  balanceDelta: (e: BalanceDelta, reason?: BalanceDeltaReason) => Promise<void>;
-  positionUpdate: (e: PositionUpdate) => Promise<void>;
-  positionStatusChange: (e: PositionStatusChange) => Promise<void>;
-  measureDelta: (e: MeasureDelta) => Promise<void>;
-  // event: (e: OnChainEvent) => Promise<void>;
-  reprice: (e: Reprice) => Promise<void>;
-  custom: (namespace: string, type: string, payload: any) => Promise<void>;
-  action: (e: ActionEvent) => Promise<void>;
-  swap: (e: Swap) => Promise<void>;
-  // add more here as scope grows
+  // Action trackable emissions
+  action: {
+    action: (e: ActionEvent) => Promise<void>;
+    swap: (e: Swap) => Promise<void>;
+    // add more action types here as scope grows
+  };
+
+  // Position trackable emissions
+  position: {
+    balanceDelta: (e: BalanceDelta, reason?: BalanceDeltaReason) => Promise<void>;
+    positionUpdate: (e: PositionUpdate) => Promise<void>;
+    positionStatusChange: (e: PositionStatusChange) => Promise<void>;
+    measureDelta: (e: MeasureDelta) => Promise<void>;
+    reprice: (e: Reprice) => Promise<void>;
+    // add more position types here as scope grows
+  };
+
+  // Custom emissions (can be used by either kind)
+  // custom: (namespace: string, type: string, payload: any) => Promise<void>;
 }
 
 // ------------------------------------------------------------

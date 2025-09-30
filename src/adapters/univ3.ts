@@ -113,7 +113,7 @@ export const univ3 = registerAdapter(
             );
           }
         },
-        onLog: async ({ block, log, emit, rpcCtx: rpc, redis }) => {
+        onLog: async ({ block, log, emitFns: emit, rpcCtx: rpc, redis }) => {
           // Helper function to queue reprice operations for a pool
           const queueRepriceForPool = (poolAddress: string, tick?: number) => {
             ctx.repricePromises.push({
@@ -409,7 +409,7 @@ export const univ3 = registerAdapter(
             await emit.positionUpdate({
               // NOTE: if owner is not defined, it probably means that the from block was before the position was created!
               // NOTE: the backup can be to actually make an rpc call in this point in time to get the owner if we don't have it as a safety precaution!
-              user: owner!,
+              user: owner,
               asset: assetKey,
               activity: 'lp',
             });
@@ -436,7 +436,7 @@ export const univ3 = registerAdapter(
               console.error('No owner found for asset: ', assetKey);
             }
             await emit.positionUpdate({
-              user: owner!,
+              user: owner,
               asset: assetKey,
               activity: 'lp',
             });

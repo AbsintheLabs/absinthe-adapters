@@ -26,7 +26,7 @@ type OnArgs = {
   block: Block;
   rpcCtx: RpcContext;
   redis: Redis;
-  emit: EmitFunctions;
+  emitFns: EmitFunctions;
   instances: any[]; // Will be properly typed later when we define the full instance structure
 };
 
@@ -89,15 +89,10 @@ export type PositionHandler = (evt: unknown, ctx: unknown) => void | Promise<voi
 
 // Configuration types are now imported from manifest.ts with proper type inference
 
-/** Adapter definition combining manifest with handlers and build function */
+/** Adapter definition combining manifest with build function */
 export type AdapterDef<M extends Manifest> = {
   manifest: M;
-  handlers: { [K in keyof M['trackables']]: Function };
-  build: (opts: {
-    manifest: M;
-    config: ConfigFromManifest<M>;
-    io: EngineIO;
-  }) => BuiltAdapter & { manifest: M };
+  build: (opts: { config: ConfigFromManifest<M>; io: EngineIO }) => BuiltAdapter;
 };
 
 // =============================================================================
@@ -107,12 +102,7 @@ export type AdapterDef<M extends Manifest> = {
 /** Factory function to create typed adapter definitions with preserved generics */
 export function defineAdapter<const M extends Manifest>(def: {
   manifest: M;
-  handlers: { [K in keyof M['trackables']]: unknown };
-  build: (o: {
-    manifest: M;
-    config: ConfigFromManifest<M>;
-    io: EngineIO;
-  }) => BuiltAdapter & { manifest: M };
+  build: (opts: { config: ConfigFromManifest<M>; io: EngineIO }) => BuiltAdapter;
 }): AdapterDef<M> {
   return def as AdapterDef<M>;
 }

@@ -424,7 +424,7 @@ export class Engine {
             await this.adapter.onLog({
               block,
               log, // Correctly named for OnLogArgs
-              emit,
+              emitFns: emit,
               // fixme: Remove rpcCtx from onLog handlers. Instead, provide adapters with just the minimal block/chain info they need to construct their own context.
               // fixme: Rationale: Passing rpcCtx here tightly couples adapters to the specific shape of the sqd interface, making abstraction and portability harder.
               rpcCtx: {
@@ -443,7 +443,7 @@ export class Engine {
             await this.adapter.onTransaction({
               block,
               transaction: tx, // Correctly named for OnTransactionArgs
-              emit,
+              emitFns: emit,
               rpcCtx: {
                 _chain: this.ctx._chain,
                 block: { height: block.header.height },

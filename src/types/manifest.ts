@@ -69,7 +69,7 @@ export type TrackableDef = {
       ? 'token_based' | 'count' | 'none'
       : QuantityType;
   params: Record<string, FieldDef>; // required
-  filters?: Record<string, FilterDef>; // optional
+  selectors?: Record<string, FilterDef>; // optional
   requiredPricer?: string;
 } & (
   | { kind: 'position'; quantityType: 'token_based' }
@@ -100,8 +100,8 @@ type ParamsFrom<T extends TrackableDef> = {
 };
 
 type FiltersFrom<T extends TrackableDef> =
-  T['filters'] extends Record<string, FilterDef<any>>
-    ? { [K in keyof T['filters']]: InferField<T['filters'][K]> }
+  T['selectors'] extends Record<string, FilterDef<any>>
+    ? { [K in keyof T['selectors']]: InferField<T['selectors'][K]> }
     : never;
 
 type PricingFrom<T extends TrackableDef> = T['requiredPricer'] extends string
@@ -110,7 +110,7 @@ type PricingFrom<T extends TrackableDef> = T['requiredPricer'] extends string
 
 export type InstanceFrom<T extends TrackableDef> = {
   params: ParamsFrom<T>;
-} & (T['filters'] extends Record<string, FilterDef<any>> ? { filters?: FiltersFrom<T> } : {}) &
+} & (T['selectors'] extends Record<string, FilterDef<any>> ? { filters?: FiltersFrom<T> } : {}) &
   PricingFrom<T>;
 
 export type ConfigFromManifest<M extends Manifest> = {
