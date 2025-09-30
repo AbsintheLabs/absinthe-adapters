@@ -71,7 +71,7 @@ export default defineAdapter({
           address: Array.from(poolAddrs),
           topic0: [transferTopic, swapTopic],
         }),
-      onLog: async ({ block, log, emitFns, rpcCtx, redis }) => {
+      onLog: async ({ log, emitFns, rpcCtx, redis }) => {
         const poolAddr = log.address.toLowerCase();
         const topic = log.topics[0];
 

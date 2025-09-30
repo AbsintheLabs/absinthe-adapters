@@ -1,6 +1,6 @@
 // Main Engine class for processing blockchain data
 
-import { Database, LocalDest } from '@subsquid/file-store';
+import { Database } from '@subsquid/file-store';
 import Big from 'big.js';
 import { Redis } from 'ioredis';
 import dotenv from 'dotenv';
@@ -9,12 +9,12 @@ import { EVM_NULL_ADDRESS } from '../utils/constants.ts';
 import { Sink } from '../sinks/index.ts';
 import { RedisTSCache, RedisMetadataCache, RedisHandlerMetadataCache } from '../cache/index.ts';
 import { PricingEngine } from './pricing-engine.ts';
-import { AppConfig, AssetConfig } from '../config/schema.ts';
+import { AppConfig } from '../config/schema.ts';
 import { match } from 'ts-pattern';
 import { EmitFunctions, Projector, BalanceDeltaReason } from '../types/adapter.ts';
 import { Amount, NormalizedEventContext, PositionUpdate, Swap } from '../types/core.ts';
-import { getRuntime } from '../runtime/context.ts';
-
+import { createStateDatabase } from './state.ts';
+import { backfillPriceDataForBatch, priceAsset } from './pricing-backfill.ts';
 import {
   IndexerMode,
   BalanceDelta,
@@ -23,14 +23,7 @@ import {
   Reprice,
   ActionEvent,
 } from '../types/core.ts';
-import { ResolveContext, findConfig } from '../types/pricing.ts';
-import {
-  EnrichmentContext,
-  RawBalanceWindow,
-  RawAction,
-  PricedBalanceWindow,
-  PricedEvent,
-} from '../types/enrichment.ts';
+import { EnrichmentContext, RawBalanceWindow, RawAction } from '../types/enrichment.ts';
 import { Block, Log, Transaction } from '../eprocessorBuilder.ts';
 import { EngineDeps } from '../main.ts';
 import { BuiltAdapter } from '../adapter-core.ts';
@@ -79,9 +72,7 @@ export class Engine {
   private sqdProcessor: any;
 
   constructor(deps: EngineDeps) {
-    const statePath = this.generateStatePath();
-    // don't need tables since we're relying on redis for persistence. This can be hardcoded, this is fine.
-    this.db = new Database({ tables: {}, dest: new LocalDest(statePath) });
+    this.db = createStateDatabase();
 
     // this is kind of an old relic
     this.indexerMode = deps.appCfg.chainArch === 'evm' ? 'evm' : 'solana';
@@ -108,13 +99,6 @@ export class Engine {
     this.priceCache = new RedisTSCache(this.redis);
     this.metadataCache = new RedisMetadataCache(this.redis);
     this.handlerMetadataCache = new RedisHandlerMetadataCache(this.redis);
-  }
-
-  /**
-   * Generate the state path for the SQD database based on the current config hash
-   */
-  private generateStatePath(): string {
-    return '_sqdstate-' + getRuntime().configHash;
   }
 
   /**
@@ -170,7 +154,15 @@ export class Engine {
       const lastBlock = ctx.blocks[ctx.blocks.length - 1];
       // fixme: ensure that this checks if the toBlock is set.
       await this.flushPeriodic(lastBlock.header.timestamp, lastBlock.header.height);
-      await this.backfillPriceDataForBatch(ctx.blocks);
+      await backfillPriceDataForBatch(ctx.blocks, {
+        redis: this.redis,
+        appCfg: this.appCfg,
+        priceCache: this.priceCache,
+        metadataCache: this.metadataCache,
+        handlerMetadataCache: this.handlerMetadataCache,
+        pricingEngine: this.pricingEngine,
+        sqdCtx: this.ctx,
+      });
       await this.enrichWindows(ctx);
       await this.enrichEvents(ctx);
       await this.sendDataToSink(ctx);
@@ -195,151 +187,7 @@ export class Engine {
     }
   }
 
-  async backfillPriceDataForBatch(blocks: any[]) {
-    log.debug(`💰 Backfilling price data for batch of ${blocks.length} blocks`);
-    // xxx: figure out how to do this without requiring every block to be present?
-    // 1) dedupe to the first block per window
-    const windowToFirstBlock = new Map<number, any>();
-    for (const block of blocks) {
-      const flushInterval = this.appCfg.flushInterval;
-      const windowStart = Math.floor(block.header.timestamp / flushInterval) * flushInterval;
-      if (!windowToFirstBlock.has(windowStart)) windowToFirstBlock.set(windowStart, block);
-    }
-    const blocksOfWindowStarts = Array.from(windowToFirstBlock.values());
-    // add the last block to the list of blocks of window starts if it's not already in the list.
-    // this solves a bug where we don't price the last block of the batch.
-    const lastBlock = blocks[blocks.length - 1];
-    if (!windowToFirstBlock.has(lastBlock.header.timestamp)) {
-      blocksOfWindowStarts.push(lastBlock);
-    }
-
-    // 2) collect assets
-    // fixme: this will need to change in the future based on how we support these multiple assets on diff chains
-    const raw = await this.redis.hgetall('assets:tracked');
-    const assets = Object.entries(raw).map(([asset, h]) => ({
-      asset,
-      birth: Number(h) || 0,
-    }));
-
-    log.debug(`💰 Collected ${assets.length} assets to backfill`);
-    log.debug(`💰 Assets: ${assets.map((a) => a.asset).join(', ')}`);
-
-    // 3) build tasks
-    type Task = { block: any; ts: number; asset: string };
-    const tasks: Task[] = [];
-    for (const block of blocksOfWindowStarts) {
-      const ts = block.header.timestamp;
-      const height = block.header.height;
-
-      // Check pricing range - skip pricing if before the specified range
-      if (this.appCfg.pricingRange) {
-        let shouldPrice = false;
-
-        if (this.appCfg.pricingRange.type === 'block') {
-          shouldPrice = height >= this.appCfg.pricingRange.fromBlock;
-        } else if (this.appCfg.pricingRange.type === 'timestamp') {
-          shouldPrice = ts >= this.appCfg.pricingRange.fromTimestamp;
-        }
-
-        if (!shouldPrice) {
-          log.debug(
-            `💰 Skipping pricing for block ${height} (${new Date(ts).toISOString()}) - before pricing range`,
-          );
-          continue;
-        }
-      }
-
-      // BUG: this is the problematic line that's causing drops in our prices
-      const eligible = assets.filter((a) => a.birth <= height);
-      log.debug(`💰 Eligible assets: ${eligible.length}`);
-      log.debug(`💰 assets with birth: ${assets.map((a) => JSON.stringify(a)).join(', ')}`);
-      log.debug('height: ', height);
-      log.debug('blockstart: ', blocks[0].header.height);
-      log.debug('blockend: ', blocks[blocks.length - 1].header.height);
-      log.debug(
-        'blockofwindowstarts: ',
-        blocksOfWindowStarts.map((b) => b.header.height).join(', '),
-      );
-      for (const a of eligible) tasks.push({ block, ts, asset: a.asset });
-    }
-
-    // 4) simple worker pool (no deps)
-    // XXX: move this into the engine variable so that we can easily tweak it later
-    const MAX_CONCURRENCY = 100; // tweak based on your IO headroom
-    let idx = 0;
-
-    const worker = async () => {
-      while (idx < tasks.length) {
-        const i = idx++;
-        const t = tasks[i];
-        try {
-          await this.priceAsset(t.asset, t.ts, t.block);
-          // If you need to collect results:
-          // priceData.push({ block: t.ts, asset: t.asset, price });
-        } catch (err) {
-          log.error(`priceAsset failed for ${t.asset} @ ${t.ts}`, err);
-        }
-      }
-    };
-
-    await Promise.all(Array.from({ length: Math.min(MAX_CONCURRENCY, tasks.length) }, worker));
-  }
-
-  async priceAsset(
-    asset: string,
-    atMs: number,
-    block: any,
-    bypassTopLevelCache: boolean = false,
-  ): Promise<number> {
-    // Get labels from Redis for rule matching
-    const labelsKey = `asset:labels:${asset}`;
-    const labels = await this.redis.hgetall(labelsKey);
-
-    // Use rule-based matching to find the appropriate config for this asset
-    const assetConfig = findConfig(
-      this.appCfg.assetFeedConfig,
-      asset,
-      (assetKey: string) => labels,
-    );
-
-    // xxx: figure out what to do when the asset is not found
-    // or do we return price as 0 and then filter out 0 rows during the enrichment step?
-    // probably this to start, and then figure out a better system later
-    if (!assetConfig) {
-      log.error(`💰 No feed config found for asset: ${asset}`);
-      return 0;
-    }
-
-    // Type assertion: We know from Zod schema that AssetConfig always has required priceFeed
-    const validatedAssetConfig = assetConfig;
-
-    const ctx: ResolveContext = {
-      priceCache: this.priceCache,
-      metadataCache: this.metadataCache,
-      handlerMetadataCache: this.handlerMetadataCache,
-      redis: this.redis,
-      atMs,
-      block,
-      asset,
-      sqdCtx: this.ctx,
-      bucketMs: this.appCfg.flushInterval,
-      sqdRpcCtx: {
-        _chain: this.ctx._chain,
-        block: {
-          height: block.header.height,
-        },
-      },
-      bypassTopLevelCache,
-    };
-
-    if (bypassTopLevelCache) {
-      log.debug('ctx when bypassing top level cache: ', ctx);
-    }
-
-    return await this.pricingEngine.priceAsset(validatedAssetConfig, ctx);
-  }
-
-  // private async enrichEvents(ctx: any): Promise<PricedEvent[]> {
+  // private async enrichEvents(ctx: any): Promise<PricedEvent[]>
   private async enrichEvents(ctx: any): Promise<void> {
     if (this.events.length === 0) return;
 
@@ -791,7 +639,21 @@ export class Engine {
     }
 
     // We want to bypass the top level cache here as we're repricing!
-    await this.priceAsset(e.asset, ts, blockData.block, true);
+    await priceAsset(
+      e.asset,
+      ts,
+      blockData.block,
+      {
+        redis: this.redis,
+        appCfg: this.appCfg,
+        priceCache: this.priceCache,
+        metadataCache: this.metadataCache,
+        handlerMetadataCache: this.handlerMetadataCache,
+        pricingEngine: this.pricingEngine,
+        sqdCtx: this.ctx,
+      },
+      true,
+    );
   }
 
   // behavior:
