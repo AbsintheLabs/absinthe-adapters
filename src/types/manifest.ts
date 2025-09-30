@@ -1,6 +1,7 @@
 // manifest.ts
 import { z } from 'zod';
 import { PROTOCOL_FAMILY_VALUES } from '../constants.ts';
+import { ChainArch } from '../config/schema.ts';
 
 // Simple version type using template literal
 export type Version = `${number}.${number}.${number}`;
@@ -61,6 +62,7 @@ const Filter = Field.extend({
 });
 
 // 3) Define TS manifest shape that uses FieldDef (separate from Zod)
+// Runtime contract - required for execution
 export type TrackableDef = {
   kind: TrackableKind;
   quantityType: TrackableKind extends 'position'
@@ -68,18 +70,19 @@ export type TrackableDef = {
     : TrackableKind extends 'action'
       ? 'token_based' | 'count' | 'none'
       : QuantityType;
-  params: Record<string, FieldDef>; // required
-  selectors?: Record<string, FilterDef>; // optional
-  requiredPricer?: string;
+  params: Record<string, FieldDef>; // required parameters that define tracking context
+  selectors?: Record<string, FilterDef>; // optional filters to narrow tracking
+  requiredPricer?: string; // pricing scheme required for this trackable
 } & (
   | { kind: 'position'; quantityType: 'token_based' }
   | { kind: 'action'; quantityType: 'token_based' | 'count' | 'none' }
 );
 
+// Runtime manifest - used during adapter execution
 export type Manifest = {
-  name: string;
+  name: string; // identifier, used in config
   version: Version;
-  forkOf?: (typeof PROTOCOL_FAMILY_VALUES)[number];
+  chainArch: ChainArch;
   trackables: Record<string, TrackableDef>;
 };
 
@@ -87,9 +90,9 @@ export type Manifest = {
 const Trackable = z.object({
   kind: TrackableKindSchema,
   quantityType: QuantityTypeSchema,
-  params: z.record(z.string(), Field).optional(),
-  filters: z.record(z.string(), Filter).optional(),
-  requiredPricer: z.string().optional(), // for positions that require NAV scheme, etc.
+  params: z.record(z.string(), Field), // required parameters that define tracking context
+  selectors: z.record(z.string(), Filter).optional(), // optional filters to narrow tracking
+  requiredPricer: z.string().optional(), // pricing scheme required for this trackable
 });
 
 // 4) Infer config type from TS manifest (not from Zod)
@@ -99,7 +102,7 @@ type ParamsFrom<T extends TrackableDef> = {
   [K in keyof T['params']]: InferField<T['params'][K]>;
 };
 
-type FiltersFrom<T extends TrackableDef> =
+type SelectorsFrom<T extends TrackableDef> =
   T['selectors'] extends Record<string, FilterDef<any>>
     ? { [K in keyof T['selectors']]: InferField<T['selectors'][K]> }
     : never;
@@ -110,18 +113,33 @@ type PricingFrom<T extends TrackableDef> = T['requiredPricer'] extends string
 
 export type InstanceFrom<T extends TrackableDef> = {
   params: ParamsFrom<T>;
-} & (T['selectors'] extends Record<string, FilterDef<any>> ? { filters?: FiltersFrom<T> } : {}) &
+} & (T['selectors'] extends Record<string, FilterDef<any>>
+  ? { selectors?: SelectorsFrom<T> }
+  : {}) &
   PricingFrom<T>;
 
 export type ConfigFromManifest<M extends Manifest> = {
   [K in keyof M['trackables']]: InstanceFrom<M['trackables'][K]>[];
 };
 
+// Runtime validation schema for manifest
 export const ManifestZ = z
   .object({
     name: z.string().min(1),
     version: z.string() as z.ZodType<Version>,
-    forkOf: z.enum(PROTOCOL_FAMILY_VALUES).optional(),
+    chainArch: ChainArch,
     trackables: z.record(z.string(), Trackable),
   })
   .strict();
+
+// Optional validation schema for metadata
+export const AdapterMetadataZ = z
+  .object({
+    displayName: z.string().min(1),
+    description: z.string().min(1),
+    compatibleWith: z.enum(PROTOCOL_FAMILY_VALUES).optional(),
+    tags: z.array(z.string()).optional(),
+  })
+  .strict();
+
+export type AdapterMetadata = z.infer<typeof AdapterMetadataZ>;

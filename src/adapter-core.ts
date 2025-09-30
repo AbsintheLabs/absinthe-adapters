@@ -6,7 +6,7 @@ import { Redis } from 'ioredis';
 import { EmitFunctions, RpcContext, CustomFeedHandlers } from './types/adapter.ts';
 import { BaseProcessor } from './eprocessorBuilder.ts';
 import { UnifiedEvmLog, UnifiedEvmTransaction } from './types/unified-chain-events.ts';
-import { Manifest, ConfigFromManifest } from './types/manifest.ts';
+import { Manifest, ConfigFromManifest, AdapterMetadata } from './types/manifest.ts';
 
 // =============================================================================
 // CORE ENGINE TYPES
@@ -101,6 +101,7 @@ export type AdapterDef<M extends Manifest> = {
 /** Factory function to create typed adapter definitions with preserved generics */
 export function defineAdapter<const M extends Manifest>(def: {
   manifest: M;
+  metadata: AdapterMetadata;
   build: (opts: { config: ConfigFromManifest<M>; io: EngineIO }) => BuiltAdapter;
 }): AdapterDef<M> {
   return def as AdapterDef<M>;
