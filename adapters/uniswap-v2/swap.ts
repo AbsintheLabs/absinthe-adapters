@@ -1,88 +1,80 @@
-// stub handler for now
-export function handleSwap({ redis, }): Promise<void> {
-    // necessary items:
-    /*
-    - emit - not done yet, needs to have the right type based on trackable type
-    - redis - not done yet, but easy to add
-    - rpc - not done yet, for now, will keep the same one that we have
-    - transactionHash - comes from unified evm event type
-    - transaction.from - comes from unified evm event type
-    - log.address - comes from unified evm event type
-    - log.logIndex - comes from unified evm event type
-    - decoded log data (of the swap) - should stay encoded for now, decoding happens in the handler
-    - trackable instances - comes from the handler context
-    */
+// Swap handler for Uniswap V2
+import Big from 'big.js';
+import { UnifiedEvmLog } from '../../src/types/unified-chain-events.ts';
+import { EmitFunctions } from '../../src/types/adapter.ts';
+import * as univ2Abi from './abi/uniswap-v2.ts';
+import { md5Hash } from '../_shared/index.ts';
+import type { InstanceFrom } from '../../src/types/manifest.ts';
+import type { manifest } from './index.ts';
 
-    //---
-    // Try to get token0 and token1 addresses from redis cache
-    const token0Key = `univ2:${params.poolAddress}:token0`;
-    const token1Key = `univ2:${params.poolAddress}:token1`;
-    let tk0Addr = await redis.get(token0Key);
-    let tk1Addr = await redis.get(token1Key);
+/*
+// | Selector State    | shouldEmitFromSide | shouldEmitToSide | Result             |
+// |-------------------|-------------------|------------------|---------------------|
+// | None              | ✅                | ✅               | Both sides emitted  |
+// | Matches from      | ✅                | ❌               | From side only      |
+// | Matches to        | ❌                | ✅               | To side only        |
+// | Matches neither   | ❌                | ❌               | Nothing emitted     |
+*/
+export async function handleSwap(
+  log: UnifiedEvmLog,
+  emitFns: EmitFunctions,
+  instance: InstanceFrom<typeof manifest.trackables.swap>,
+  tk0Addr: string,
+  tk1Addr: string,
+): Promise<void> {
+  // Decode the log
+  const decoded = univ2Abi.events.Swap.decode({
+    topics: log.topics,
+    data: log.data,
+  });
 
-    if (!tk0Addr || !tk1Addr) {
-        const poolContract = new univ2Abi.Contract(rpc, params.poolAddress);
-        tk0Addr = (await poolContract.token0()).toLowerCase();
-        tk1Addr = (await poolContract.token1()).toLowerCase();
-        await redis.set(token0Key, tk0Addr);
-        await redis.set(token1Key, tk1Addr);
-    }
+  const isToken0ToToken1 = decoded.amount0In > 0n;
 
-    const { amount0In, amount1In, amount0Out, amount1Out } = univ2Abi.events.Swap.decode(log);
-    const isToken0ToToken1 = amount0In > 0n ? true : false;
+  // Get the amounts
+  const fromAmount = isToken0ToToken1 ? decoded.amount0In : decoded.amount1In;
+  const toAmount = isToken0ToToken1 ? decoded.amount1Out : decoded.amount0Out;
 
-    // Get the amounts
-    const fromAmount = isToken0ToToken1 ? amount0In : amount1In;
-    const toAmount = isToken0ToToken1 ? amount1Out : amount0Out;
+  // Get token addresses
+  const fromTokenAddress = isToken0ToToken1 ? tk0Addr : tk1Addr;
+  const toTokenAddress = isToken0ToToken1 ? tk1Addr : tk0Addr;
 
-    // Get token addresses (you'll need these from your pool/pair contract)
-    const fromTokenAddress = isToken0ToToken1 ? tk0Addr : tk1Addr;
-    const toTokenAddress = isToken0ToToken1 ? tk1Addr : tk0Addr;
+  // Get the user from the unified log
+  const user = log.transactionFrom;
 
-    // step 1: get the user as the tx.from
-    const user = log.transaction?.from;
-    if (!user) {
-      console.error('Debug: transaction.from is not found in the log.', {
-        log,
-        transaction: log.transaction,
-      });
-      throw new Error('transaction.from is not found in the log.');
-    }
+  // Format the swap metadata
+  const swapMeta = {
+    fromTkAddress: fromTokenAddress,
+    toTkAddress: toTokenAddress,
+    fromTkAmount: fromAmount.toString(),
+    toTkAmount: toAmount.toString(),
+  };
 
-    // step 2: format the swap metadata
-    const swapMeta = {
-      fromTkAddress: fromTokenAddress,
-      toTkAddress: toTokenAddress,
-      fromTkAmount: fromAmount.toString(),
-      toTkAmount: toAmount.toString(),
-    };
+  // Determine which sides to emit based on selector
+  const swapLegAddress = instance.selectors?.swapLegAddress;
+  const shouldEmitFromSide = !swapLegAddress || swapLegAddress === fromTokenAddress;
+  const shouldEmitToSide = !swapLegAddress || swapLegAddress === toTokenAddress;
 
-    // step 3: emit swap action for each token
-    // from side
-    await emit.swap({
-      // make sure to dedupe the duplicate swaps, we only need to save one!
+  // Helper to emit a single swap side
+  const emitSwapSide = async (asset: string, amount: bigint) => {
+    await emitFns.action.swap({
       key: md5Hash(`${log.transactionHash}${log.logIndex}`),
       priceable: true,
       activity: 'swap',
-      user: user,
+      user,
       amount: {
-        asset: fromTokenAddress,
-        amount: new Big(fromAmount.toString()),
+        asset,
+        amount: new Big(amount.toString()),
       },
       meta: swapMeta,
     });
+  };
 
-    await emit.swap({
-      // make sure to dedupe the duplicate swaps, we only need to save one!
-      key: md5Hash(`${log.transactionHash}${log.logIndex}`),
-      priceable: true,
-      activity: 'swap',
-      user: user,
-      amount: {
-        asset: toTokenAddress,
-        amount: new Big(toAmount.toString()),
-      },
-      meta: swapMeta,
-    });
+  // Emit the appropriate sides
+  if (shouldEmitFromSide) {
+    await emitSwapSide(fromTokenAddress, fromAmount);
+  }
+
+  if (shouldEmitToSide) {
+    await emitSwapSide(toTokenAddress, toAmount);
   }
 }

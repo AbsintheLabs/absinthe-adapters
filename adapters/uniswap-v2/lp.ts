@@ -1,23 +1,31 @@
+// LP (Liquidity Position) handler for Uniswap V2
 import Big from 'big.js';
+import { UnifiedEvmLog } from '../../src/types/unified-chain-events.ts';
+import { EmitFunctions } from '../../src/types/adapter.ts';
+import * as univ2Abi from './abi/uniswap-v2.ts';
 
-// todo: add the fields that i'll actually need!
-export async function handleLpTransfer() {
-  // need:
-  // from, to, value, asset address -> these are all decoded log data
-  // emit functions (balanceDelta and related functions since we're a position trackable)
+export async function handleLpTransfer(
+  log: UnifiedEvmLog,
+  emitFns: EmitFunctions,
+  poolAddress: string,
+): Promise<void> {
+  const decoded = univ2Abi.events.Transfer.decode({
+    topics: log.topics,
+    data: log.data,
+  });
 
-  // LP transfers: subtract from sender, add to receiver
-  await emit.balanceDelta({
-    user: from,
+  // Emit balance deltas for LP token transfers
+  await emitFns.position.balanceDelta({
+    user: decoded.from.toLowerCase(),
     asset: poolAddress,
-    amount: amount.neg(),
+    amount: new Big(decoded.value.toString()).neg(),
     activity: 'hold',
   });
 
-  await emit.balanceDelta({
-    user: to,
+  await emitFns.position.balanceDelta({
+    user: decoded.to.toLowerCase(),
     asset: poolAddress,
-    amount: amount,
+    amount: new Big(decoded.value.toString()),
     activity: 'hold',
   });
 }
