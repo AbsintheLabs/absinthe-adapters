@@ -36,6 +36,7 @@ import { EngineDeps } from '../main.ts';
 import { BuiltAdapter } from '../adapter-core.ts';
 import { windowsPipeline } from '../enrichers/pipelines/windows.ts';
 import { runBatch } from '../enrichers/run-batch.ts';
+import { transformEvmLog, transformEvmTransaction } from '../transforms/evm.ts';
 
 dotenv.config();
 
@@ -415,18 +416,17 @@ export class Engine {
     // fixme: need to add logindex to the context so we have deterministic behavior for actions in the same block
     const emit = this.createEmitFunctions(commonEventCtx, logOrTx);
 
-    // step 2: invoke the handler
+    // step 2: transform SQD types to unified types and invoke the handler
     await match(logOrTx)
       .when(
         (x): x is Log => 'logIndex' in x,
         async (log) => {
           if (this.adapter.onLog) {
+            // Transform SQD log to unified EVM log
+            const unifiedLog = transformEvmLog(block, log, this.appCfg.network.chainId);
             await this.adapter.onLog({
-              block,
-              log, // Correctly named for OnLogArgs
+              log: unifiedLog,
               emitFns: emit,
-              // fixme: Remove rpcCtx from onLog handlers. Instead, provide adapters with just the minimal block/chain info they need to construct their own context.
-              // fixme: Rationale: Passing rpcCtx here tightly couples adapters to the specific shape of the sqd interface, making abstraction and portability harder.
               rpcCtx: {
                 _chain: this.ctx._chain,
                 block: { height: block.header.height },
@@ -440,9 +440,10 @@ export class Engine {
         (x): x is Transaction => 'hash' in x,
         async (tx) => {
           if (this.adapter.onTransaction) {
+            // Transform SQD transaction to unified EVM transaction
+            const unifiedTx = transformEvmTransaction(block, tx, this.appCfg.network.chainId);
             await this.adapter.onTransaction({
-              block,
-              transaction: tx, // Correctly named for OnTransactionArgs
+              transaction: unifiedTx,
               emitFns: emit,
               rpcCtx: {
                 _chain: this.ctx._chain,
@@ -944,17 +945,21 @@ export class Engine {
     logOrTx: Log | Transaction,
   ): EmitFunctions {
     return {
-      balanceDelta: (e: BalanceDelta, reason?: BalanceDeltaReason) =>
-        this.applyBalanceDelta(e, ctx, reason),
-      positionUpdate: (e: PositionUpdate) => this.applyPositionUpdate(e, ctx),
-      reprice: (e: Reprice) => this.applyReprice(e, ctx),
-      positionStatusChange: (e: PositionStatusChange) => this.applyPositionStatusChange(e, ctx),
-      measureDelta: (e: MeasureDelta) => this.applyMeasureDelta(e, ctx),
-      action: (e: ActionEvent) => this.applyAction(e, logOrTx, ctx),
-      swap: (e: Swap) => this.applyAction(e, logOrTx, ctx),
-      custom: async (namespace: string, type: string, payload: any) => {
-        /* dummy fill in for now */
+      action: {
+        action: (e: ActionEvent) => this.applyAction(e, logOrTx, ctx),
+        swap: (e: Swap) => this.applyAction(e, logOrTx, ctx),
       },
+      position: {
+        balanceDelta: (e: BalanceDelta, reason?: BalanceDeltaReason) =>
+          this.applyBalanceDelta(e, ctx, reason),
+        positionUpdate: (e: PositionUpdate) => this.applyPositionUpdate(e, ctx),
+        reprice: (e: Reprice) => this.applyReprice(e, ctx),
+        positionStatusChange: (e: PositionStatusChange) => this.applyPositionStatusChange(e, ctx),
+        measureDelta: (e: MeasureDelta) => this.applyMeasureDelta(e, ctx),
+      },
+      // custom: async (namespace: string, type: string, payload: any) => {
+      //   /* dummy fill in for now */
+      // },
     };
   }
 }

@@ -31,7 +31,7 @@ export const demosVerify = registerAdapter(
             sighash: [userVerifySighash],
           }),
         onTransaction: async ({ transaction, emitFns }) => {
-          const { from, to, hash, transactionIndex } = transaction;
+          const { from, transactionTo: to, hash, transactionIndex } = transaction;
           if (to !== params.onlyMeIdAddress) return;
           await emitFns.action.action({
             key: md5Hash(`${hash}${transactionIndex}`),

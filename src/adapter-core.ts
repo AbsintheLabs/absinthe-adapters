@@ -4,7 +4,8 @@
 import { z } from 'zod';
 import { Redis } from 'ioredis';
 import { EmitFunctions, RpcContext, CustomFeedHandlers } from './types/adapter.ts';
-import { BaseProcessor, Block, Log, Transaction } from './eprocessorBuilder.ts';
+import { BaseProcessor } from './eprocessorBuilder.ts';
+import { UnifiedEvmLog, UnifiedEvmTransaction } from './types/unified-chain-events.ts';
 import { Manifest, ConfigFromManifest } from './types/manifest.ts';
 
 // =============================================================================
@@ -23,21 +24,19 @@ export type EngineIO = {
 
 /** Base arguments provided to all event handlers */
 type OnArgs = {
-  block: Block;
   rpcCtx: RpcContext;
   redis: Redis;
   emitFns: EmitFunctions;
-  instances: any[]; // Will be properly typed later when we define the full instance structure
 };
 
-/** Arguments for log event handlers */
+/** Arguments for log event handlers (uses unified chain types) */
 export type OnLogArgs = OnArgs & {
-  log: Log;
+  log: UnifiedEvmLog;
 };
 
-/** Arguments for transaction event handlers */
+/** Arguments for transaction event handlers (uses unified chain types) */
 export type OnTransactionArgs = OnArgs & {
-  transaction: Transaction;
+  transaction: UnifiedEvmTransaction;
 };
 
 /** Arguments for initialization handlers */
