@@ -36,7 +36,6 @@ dotenv.config();
 export class Engine {
   // put near other constants
   private static readonly BAL_SET_KEY = 'balances:gt0';
-  private static readonly ACTIVE_SET_KEY = 'activebalances';
   private static readonly INACTIVE_SET_KEY = 'inactivebalances';
   private db: Database<any, any>;
   private adapter: BuiltAdapter;
