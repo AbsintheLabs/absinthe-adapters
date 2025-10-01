@@ -5,7 +5,7 @@
     "rootDir": "src",
     "tsBuildInfoFile": "lib/tsconfig.tsbuildinfo"
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "idl.json"],
   "exclude": ["node_modules"],
   "references": [
     {

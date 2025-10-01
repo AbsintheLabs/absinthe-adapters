@@ -1,5 +1,18 @@
+const bs58 = require('bs58');
 const FILE_NAME = 'config.json';
+// ---------- helpers ----------
+type U64Str = string;
+type U32Str = string;
 
+const readU8 = (b: Buffer, o: number) => b.readUInt8(o);
+const readU32 = (b: Buffer, o: number) => b.readUInt32LE(o).toString();
+const readU64 = (b: Buffer, o: number) => b.readBigUInt64LE(o).toString();
+const readPk = (b: Buffer, o: number) => bs58.default.encode(b.subarray(o, o + 32));
+
+const skipHeader = (raw: Buffer) => {
+  if (raw.length < 16) throw new Error('Data too short');
+  return raw.subarray(16); // 8-byte ix disc + 8-byte event disc
+};
 const TOKEN_MINT_DETAILS = [
   {
     mintAddress: 'So11111111111111111111111111111111111111112',
@@ -12,6 +25,8 @@ const TOKEN_MINT_DETAILS = [
     decimals: 9,
   },
 ];
+
+const JUPITER_PRICES_MINT = ['FUTrLwu9Uz6jphYSVuQZRZ98inpC8G9i28fiAs98cy2n'];
 
 const TOKEN_DETAILS = [
   {
@@ -81,4 +96,23 @@ const TOKEN_DETAILS = [
 
 const TOKEN_EXTENSION_PROGRAM_ID = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
 
-export { FILE_NAME, TOKEN_DETAILS, TOKEN_EXTENSION_PROGRAM_ID, TOKEN_MINT_DETAILS };
+const DBC_PROGRAM_ID = 'dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN';
+
+const DAMM_PROGRAM_ID = 'cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG';
+
+export {
+  FILE_NAME,
+  TOKEN_DETAILS,
+  TOKEN_EXTENSION_PROGRAM_ID,
+  TOKEN_MINT_DETAILS,
+  DBC_PROGRAM_ID,
+  DAMM_PROGRAM_ID,
+  JUPITER_PRICES_MINT,
+  readU8,
+  readU32,
+  readU64,
+  readPk,
+  skipHeader,
+  U64Str,
+  U32Str,
+};
