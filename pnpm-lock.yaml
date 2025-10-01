@@ -34,7 +34,7 @@ importers:
         version: 1.3.0(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))
       '@subsquid/typeorm-store':
         specifier: ^1.5.1
-        version: 1.5.1(@subsquid/big-decimal@1.0.0)(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))
+        version: 1.5.1(@subsquid/big-decimal@1.0.0)(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(redis@5.5.6)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))
       '@subsquid/util-internal':
         specifier: ^3.2.0
         version: 3.2.0
@@ -153,7 +153,7 @@ importers:
         version: 1.3.0(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))
       '@subsquid/typeorm-store':
         specifier: ^1.5.1
-        version: 1.5.1(@subsquid/big-decimal@1.0.0)(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))
+        version: 1.5.1(@subsquid/big-decimal@1.0.0)(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(redis@5.5.6)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))
       big.js:
         specifier: ^7.0.1
         version: 7.0.1
@@ -193,7 +193,7 @@ importers:
         version: 1.3.0(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))
       '@subsquid/typeorm-store':
         specifier: ^1.5.1
-        version: 1.5.1(@subsquid/big-decimal@1.0.0)(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))
+        version: 1.5.1(@subsquid/big-decimal@1.0.0)(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(redis@5.5.6)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))
       big.js:
         specifier: ^7.0.1
         version: 7.0.1
@@ -254,7 +254,71 @@ importers:
         version: 1.3.0(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))
       '@subsquid/typeorm-store':
         specifier: ^1.5.1
-        version: 1.5.1(@subsquid/big-decimal@1.0.0)(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))
+        version: 1.5.1(@subsquid/big-decimal@1.0.0)(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(redis@5.5.6)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))
+
+  projects/printr-meteora:
+    dependencies:
+      '@absinthe/common':
+        specifier: workspace:*
+        version: link:../../packages/common
+      '@coral-xyz/anchor':
+        specifier: ^0.31.1
+        version: 0.31.1(bufferutil@4.0.9)(typescript@5.5.4)(utf-8-validate@5.0.10)
+      '@solana/spl-token':
+        specifier: ^0.4.14
+        version: 0.4.14(@solana/web3.js@1.98.4(bufferutil@4.0.9)(typescript@5.5.4)(utf-8-validate@5.0.10))(bufferutil@4.0.9)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.5.4)(utf-8-validate@5.0.10)
+      '@solana/web3.js':
+        specifier: ^1.98.4
+        version: 1.98.4(bufferutil@4.0.9)(typescript@5.5.4)(utf-8-validate@5.0.10)
+      '@subsquid/batch-processor':
+        specifier: 1.0.0-portal-api.a3f844
+        version: 1.0.0-portal-api.a3f844
+      '@subsquid/borsh':
+        specifier: ^0.2.0
+        version: 0.2.0
+      '@subsquid/solana-objects':
+        specifier: 0.0.5-portal-api.a3f844
+        version: 0.0.5-portal-api.a3f844(@subsquid/solana-stream@1.0.0-portal-api.a3f844(@subsquid/util-internal-archive-client@0.1.2(@subsquid/http-client@1.6.1)(@subsquid/logger@1.4.0)))
+      '@subsquid/solana-stream':
+        specifier: 1.0.0-portal-api.a3f844
+        version: 1.0.0-portal-api.a3f844(@subsquid/util-internal-archive-client@0.1.2(@subsquid/http-client@1.6.1)(@subsquid/logger@1.4.0))
+      '@subsquid/typeorm-migration':
+        specifier: ^1.3.0
+        version: 1.3.0(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))
+      '@subsquid/typeorm-store':
+        specifier: 1.6.0-portal-api.a3f844
+        version: 1.6.0-portal-api.a3f844(@subsquid/big-decimal@1.0.0)(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(redis@5.5.6)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))
+      big.js:
+        specifier: ^7.0.1
+        version: 7.0.1
+      bs58:
+        specifier: ^6.0.0
+        version: 6.0.0
+      dotenv:
+        specifier: ^16.4.7
+        version: 16.5.0
+      inflected:
+        specifier: ^1.0.0
+        version: 1.1.7
+      pg:
+        specifier: ^8.13.1
+        version: 8.16.0
+      redis:
+        specifier: ^5.5.6
+        version: 5.5.6
+      typeorm:
+        specifier: ^0.3.20
+        version: 0.3.24(ioredis@5.6.1)(pg@8.16.0)(redis@5.5.6)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4))
+      zod:
+        specifier: ^3.24.3
+        version: 3.25.30
+    devDependencies:
+      '@subsquid/solana-typegen':
+        specifier: 0.6.2-portal-api.a3f844
+        version: 0.6.2-portal-api.a3f844(bufferutil@4.0.9)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.5.4)(utf-8-validate@5.0.10)
+      '@types/node':
+        specifier: 20.17.30
+        version: 20.17.30
 
   projects/spl-transfers:
     dependencies:
@@ -278,7 +342,7 @@ importers:
         version: 1.3.0(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))
       '@subsquid/typeorm-store':
         specifier: ^1.5.1
-        version: 1.5.1(@subsquid/big-decimal@1.0.0)(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))
+        version: 1.5.1(@subsquid/big-decimal@1.0.0)(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(redis@5.5.6)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))
       big.js:
         specifier: ^7.0.1
         version: 7.0.1
@@ -330,7 +394,7 @@ importers:
         version: 1.3.0(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))
       '@subsquid/typeorm-store':
         specifier: ^1.5.1
-        version: 1.5.1(@subsquid/big-decimal@1.0.0)(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))
+        version: 1.5.1(@subsquid/big-decimal@1.0.0)(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(redis@5.5.6)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))
       big.js:
         specifier: ^7.0.1
         version: 7.0.1
@@ -373,7 +437,7 @@ importers:
         version: 1.3.0(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))
       '@subsquid/typeorm-store':
         specifier: ^1.5.1
-        version: 1.5.1(@subsquid/big-decimal@1.0.0)(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))
+        version: 1.5.1(@subsquid/big-decimal@1.0.0)(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(redis@5.5.6)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))
       big.js:
         specifier: ^7.0.1
         version: 7.0.1
@@ -416,7 +480,7 @@ importers:
         version: 1.3.0(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))
       '@subsquid/typeorm-store':
         specifier: ^1.5.1
-        version: 1.5.1(@subsquid/big-decimal@1.0.0)(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))
+        version: 1.5.1(@subsquid/big-decimal@1.0.0)(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(redis@5.5.6)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))
       big.js:
         specifier: ^7.0.1
         version: 7.0.1
@@ -469,7 +533,7 @@ importers:
         version: 1.3.0(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))
       '@subsquid/typeorm-store':
         specifier: ^1.5.1
-        version: 1.5.1(@subsquid/big-decimal@1.0.0)(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))
+        version: 1.5.1(@subsquid/big-decimal@1.0.0)(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(redis@5.5.6)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))
       big.js:
         specifier: ^7.0.1
         version: 7.0.1
@@ -512,7 +576,7 @@ importers:
         version: 1.3.0(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))
       '@subsquid/typeorm-store':
         specifier: ^1.5.1
-        version: 1.5.1(@subsquid/big-decimal@1.0.0)(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))
+        version: 1.5.1(@subsquid/big-decimal@1.0.0)(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(redis@5.5.6)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))
       big.js:
         specifier: ^7.0.1
         version: 7.0.1
@@ -549,7 +613,7 @@ importers:
         version: 1.3.0(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))
       '@subsquid/typeorm-store':
         specifier: ^1.5.1
-        version: 1.5.1(@subsquid/big-decimal@1.0.0)(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))
+        version: 1.5.1(@subsquid/big-decimal@1.0.0)(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(redis@5.5.6)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))
       big.js:
         specifier: ^7.0.1
         version: 7.0.1
@@ -791,6 +855,10 @@ packages:
     resolution: {integrity: sha512-9Mkradf5yS5xiLWrl9WrpjqOrAV+/W2RQHDlbnAZBivoGpOs1ECjoDCkVk4aRG8ZdiFiB8zQEVlxf+8fKkmSfQ==}
     engines: {node: '>=10'}
 
+  '@coral-xyz/anchor-errors@0.31.1':
+    resolution: {integrity: sha512-NhNEku4F3zzUSBtrYz84FzYWm48+9OvmT1Hhnwr6GnPQry2dsEqH/ti/7ASjjpoFTWRnPXrjAIT1qM6Isop+LQ==}
+    engines: {node: '>=10'}
+
   '@coral-xyz/anchor@0.29.0':
     resolution: {integrity: sha512-eny6QNG0WOwqV0zQ7cs/b1tIuzZGmP7U7EcH+ogt4Gdbl8HDmIYVMh/9aTmYZPaFWjtUaI8qSn73uYEXWfATdA==}
     engines: {node: '>=11'}
@@ -798,6 +866,10 @@ packages:
   '@coral-xyz/anchor@0.30.1':
     resolution: {integrity: sha512-gDXFoF5oHgpriXAaLpxyWBHdCs8Awgf/gLHIo6crv7Aqm937CNdY+x+6hoj7QR5vaJV7MxWSQ0NGFzL3kPbWEQ==}
     engines: {node: '>=11'}
+
+  '@coral-xyz/anchor@0.31.1':
+    resolution: {integrity: sha512-QUqpoEK+gi2S6nlYc2atgT2r41TT3caWr/cPUEL8n8Md9437trZ68STknq897b82p5mW0XrTBNOzRbmIRJtfsA==}
+    engines: {node: '>=17'}
 
   '@coral-xyz/borsh@0.29.0':
     resolution: {integrity: sha512-s7VFVa3a0oqpkuRloWVPdCK7hMbAMY270geZOGfCnaqexrP5dTIpbEHL33req6IYPPJ0hYa71cdvJ1h6V55/oQ==}
@@ -810,6 +882,12 @@ packages:
     engines: {node: '>=10'}
     peerDependencies:
       '@solana/web3.js': ^1.68.0
+
+  '@coral-xyz/borsh@0.31.1':
+    resolution: {integrity: sha512-9N8AU9F0ubriKfNE3g1WF0/4dtlGXoBN/hd1PvbNBamBNwRgHxH4P+o3Zt7rSEloW1HUs6LfZEchlx9fW7POYw==}
+    engines: {node: '>=10'}
+    peerDependencies:
+      '@solana/web3.js': ^1.69.0
 
   '@cspotcode/source-map-support@0.8.1':
     resolution: {integrity: sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw==}
@@ -1469,6 +1547,9 @@ packages:
   '@subsquid/batch-processor@0.0.0':
     resolution: {integrity: sha512-9kg2u0kCoayPcXSzRDt696Z/UI7NSJmxGdpuuRqGNmbViOBqCdSXB9Hz+ENTufxIfEacNaEbeN2IZannyuyubg==}
 
+  '@subsquid/batch-processor@1.0.0-portal-api.a3f844':
+    resolution: {integrity: sha512-oxHioLhe+DZqQR4matreDB/jih8zCqtv4hpFWy0Br26LhadoUGzoR0IToVztecMvPlJg8A/Wnbgj0GO4XVRLYA==}
+
   '@subsquid/big-decimal@1.0.0':
     resolution: {integrity: sha512-/wyZEYC4Mlcm7jQWGhZnCvYpIosRmDSlNbv9SJBphE88aaFe8bOxl4sYwM/olzJgCn4Ir45nBsPU0ebF1+nXog==}
 
@@ -1549,6 +1630,11 @@ packages:
       '@subsquid/big-decimal':
         optional: true
 
+  '@subsquid/portal-client@0.2.0':
+    resolution: {integrity: sha512-Pbp6f+dYY72PfcepthbwagpGBuPMI7OA/yQep5WC+IBk2113y2FJk9vfuZKdBfoEVCUTjZhulQwYCV97TyVMQg==}
+    peerDependencies:
+      '@subsquid/http-client': ^1.6.1
+
   '@subsquid/rpc-client@4.11.0':
     resolution: {integrity: sha512-0vVCqNEsi7OW/9sAEAQL6ljxQ2qmowtfMBVOBefw/l4AAib9e/PR1aS7EuBaiKq56e/iKzMOJigqvnEiS3EwFQ==}
 
@@ -1558,26 +1644,51 @@ packages:
   '@subsquid/solana-normalization@0.0.4':
     resolution: {integrity: sha512-idMcpF8RtOR6VXccqZjx2JQ/PVQHcfZ0Q1OfHIGA5Yu7qiUvzxL9XGcL0TE0COAqU6CtKifUzxAt6JnBwMVRXg==}
 
+  '@subsquid/solana-normalization@0.2.0-portal-api.a3f844':
+    resolution: {integrity: sha512-L9KBFLYTHF6TEMDajGHIxEGFzuuySmxL/NcszC5++SsmCUK30JCi9HmQ6qQ9bxxTWlTwF1yQeme0lw1a0apxpA==}
+
   '@subsquid/solana-objects@0.0.2':
     resolution: {integrity: sha512-VLVbOlCE0N0RRuPnHkFb5x2GLPjaBaBfRhsFC8gOTVuhtgktpfGoiRAnC9B/8bieppzGuIYOLKzjzC3IBDL/9w==}
     peerDependencies:
       '@subsquid/solana-stream': ^0.1.0
+
+  '@subsquid/solana-objects@0.0.5-portal-api.a3f844':
+    resolution: {integrity: sha512-Mfy81lDAdZdKCCP9DDjY64MB3n8Kk/XnBjRK5eHjRIID8BNq2lJUyLBBf/N+5v7FYI+bjEU2Pop0Xa0SZKlimg==}
+    peerDependencies:
+      '@subsquid/solana-stream': 1.0.0-portal-api.a3f844
 
   '@subsquid/solana-rpc-data@0.0.3':
     resolution: {integrity: sha512-46erJh2/gppi9IuVDlW1gXhzxLx05mlYcGlg/sHnTcPfAwg9E93S7w1ZRnaM2BMh/7F8npSMABpZcHyATFFwPw==}
     peerDependencies:
       '@subsquid/util-internal-validation': ^0.7.0
 
+  '@subsquid/solana-rpc-data@0.2.1':
+    resolution: {integrity: sha512-t9o/FrBzzvcZxpKpQrrXPfGOYyHspO0l/qFZ5NSf/KFXqJ5acpjRCPISsygUr2U0exW7vQyk7zvYuT/9IXQUsA==}
+    peerDependencies:
+      '@subsquid/util-internal-validation': ^0.8.0
+
   '@subsquid/solana-rpc@0.0.4':
     resolution: {integrity: sha512-xVXjxEZe45i1jgKYqE13t7UJSwk1JWC+jaDKpaL4flJmQwNbS29vAA8D1GmPHQjU+2kdCzyXJ1KLXUz3e4u2Sg==}
     peerDependencies:
       '@subsquid/rpc-client': ^4.11.0
 
+  '@subsquid/solana-rpc@0.1.3':
+    resolution: {integrity: sha512-IvzMvAOkO8H8wzpcDhM/LDI8dmUeBi43IpVBhIXz5mgqo2BnoeB0qoqEdjayKMKrxztu4NAnAz78DPG45ROUWA==}
+    peerDependencies:
+      '@subsquid/rpc-client': ^4.13.0
+
   '@subsquid/solana-stream@0.1.4':
     resolution: {integrity: sha512-WyVrN81M7CDnKlyegDok38qTEVifsdFJKNwPWMpMDwk//xBrobPlTwFiWXsDpoNu1UE9hFe18eBClmGmwlijKQ==}
 
+  '@subsquid/solana-stream@1.0.0-portal-api.a3f844':
+    resolution: {integrity: sha512-2R9mmH5BkLa5nHA9miWcDjNfFkf1zRrZIW0RmKdjZw0s9uhJXB/29a1eSjugCjGkngeoIHp2FxhABwdtv4TLPQ==}
+
   '@subsquid/solana-typegen@0.6.1':
     resolution: {integrity: sha512-jT5YdH+Bbme8Dz//0HVy3ajVCoePpj0nXy2+3ocP7zXio9VUO3ac1TFKrHBwRZacUnJ/Pv0zkR+hz3rcixFbIQ==}
+    hasBin: true
+
+  '@subsquid/solana-typegen@0.6.2-portal-api.a3f844':
+    resolution: {integrity: sha512-rNOEbqT0SCY/iQGpdF7W32MXq3x91fAweuGx0WNXRa0MJYjCz6EB78Jsv/2Z+TLy5Gl5Y63vdxUYpLG8WR7hFA==}
     hasBin: true
 
   '@subsquid/typeorm-codegen@2.0.2':
@@ -1604,6 +1715,12 @@ packages:
       '@subsquid/big-decimal': ^1.0.0
       typeorm: ^0.3.17
 
+  '@subsquid/typeorm-store@1.6.0-portal-api.a3f844':
+    resolution: {integrity: sha512-B5oeyU3IVsDWXfG2EIuu1ryZID/rWlNu8711wSlE1mCXmHHXsgH9RkihGh14gAAe4bgWb9T2NnoOY0ocP2J4fA==}
+    peerDependencies:
+      '@subsquid/big-decimal': ^1.0.0
+      typeorm: ^0.3.17
+
   '@subsquid/util-internal-archive-client@0.1.2':
     resolution: {integrity: sha512-XATZWOIHUqIuqzb9hxaFIsz/BItb5qLoYjk6uhFcR9ART2AExXLU5l26SvSrq3hUnqfznIkQMZVQ1SKqnGzx4g==}
     peerDependencies:
@@ -1626,6 +1743,9 @@ packages:
 
   '@subsquid/util-internal-counters@1.3.2':
     resolution: {integrity: sha512-GxpOIL36JXSo0KdOT7k6CsI4DY804rn/X7pTdfKhych0ReHaDghnwNyvgb7Njv9euEHWUt4MxXbfQ9YrbpPDng==}
+
+  '@subsquid/util-internal-data-source@0.0.1-portal-api.a3f844':
+    resolution: {integrity: sha512-gJ4WatzKNx4RbalH9Tggm2rdUtfB2T+zby5Zp9UJwWOHysOZ+a0DiRugExxISxxOmOkS3rb9EUHMuNIEfZVBeQ==}
 
   '@subsquid/util-internal-hex@1.2.2':
     resolution: {integrity: sha512-E43HVqf23jP5hvtWF9GsiN8luANjnJ1daR2SVTwaIUAYU/uNjv1Bi6tHz2uexlflBhyxAgBDmHgunXZ45wQTIw==}
@@ -1668,6 +1788,14 @@ packages:
     resolution: {integrity: sha512-Y8o7am+btlHxJuPtS/0+qNe+QkyAOuxSSXhccRwj2mRUlYG81MnxWFgYs4ac+pWeayLfU/3SBvQJH5g7L82fTQ==}
     peerDependencies:
       '@subsquid/logger': ^1.3.3
+    peerDependenciesMeta:
+      '@subsquid/logger':
+        optional: true
+
+  '@subsquid/util-internal-validation@0.8.0':
+    resolution: {integrity: sha512-qrQ1L871pAtVy0LJ+JLTZk6x4QyHZqgMGCrlSJvXw3VZLBXDBDycTcKlZ96p5VcQRp6xFnYmVSPy9dl9SPXZHQ==}
+    peerDependencies:
+      '@subsquid/logger': ^1.4.0
     peerDependenciesMeta:
       '@subsquid/logger':
         optional: true
@@ -1963,6 +2091,9 @@ packages:
   base-x@4.0.1:
     resolution: {integrity: sha512-uAZ8x6r6S3aUM9rbHGVOIsR15U/ZSc82b3ymnCPsT45Gk1DDvhDPdIgB5MrhirZWt+5K0EEPQH985kNqZgNPFw==}
 
+  base-x@5.0.1:
+    resolution: {integrity: sha512-M7uio8Zt++eg3jPj+rHMfCC+IuygQHHCOU+IYsVtik6FWjuYpVt/+MRKcgsAMHh8mMFAwnB+Bs+mTrFiXjMzKg==}
+
   base64-js@1.5.1:
     resolution: {integrity: sha512-AKpaYlHn8t4SVbOHCy+b5+KKgvR4vrsD8vbvrbiQJps7fKDTkjkDry6ji0rUJjC0kzbNePLwzxq8iypo41qeWA==}
 
@@ -2022,6 +2153,9 @@ packages:
 
   bs58@5.0.0:
     resolution: {integrity: sha512-r+ihvQJvahgYT50JD05dyJNKlmmSlMoOGwn1lCcEzanPglg7TxYjioQUYehQ9mAR/+hOSd2jRc/Z2y5UxBymvQ==}
+
+  bs58@6.0.0:
+    resolution: {integrity: sha512-PD0wEnEYg6ijszw/u8s+iI3H17cTymlrwkKhDhPZq+Sokl3AU4htyBFTjAeNAlCCmg0f53g6ih3jATyCKftTfw==}
 
   bson@5.5.1:
     resolution: {integrity: sha512-ix0EwukN2EpC0SRWIj/7B5+A6uQMQy6KMREI9qQqvgpkV2frH63T0UDVd1SYedL6dNCmDBYB3QtXi4ISk9YT+g==}
@@ -4217,6 +4351,8 @@ snapshots:
 
   '@coral-xyz/anchor-errors@0.30.1': {}
 
+  '@coral-xyz/anchor-errors@0.31.1': {}
+
   '@coral-xyz/anchor@0.29.0(bufferutil@4.0.9)(typescript@5.5.4)(utf-8-validate@5.0.10)':
     dependencies:
       '@coral-xyz/borsh': 0.29.0(@solana/web3.js@1.98.4(bufferutil@4.0.9)(typescript@5.5.4)(utf-8-validate@5.0.10))
@@ -4262,6 +4398,27 @@ snapshots:
       - typescript
       - utf-8-validate
 
+  '@coral-xyz/anchor@0.31.1(bufferutil@4.0.9)(typescript@5.5.4)(utf-8-validate@5.0.10)':
+    dependencies:
+      '@coral-xyz/anchor-errors': 0.31.1
+      '@coral-xyz/borsh': 0.31.1(@solana/web3.js@1.98.4(bufferutil@4.0.9)(typescript@5.5.4)(utf-8-validate@5.0.10))
+      '@noble/hashes': 1.8.0
+      '@solana/web3.js': 1.98.4(bufferutil@4.0.9)(typescript@5.5.4)(utf-8-validate@5.0.10)
+      bn.js: 5.2.2
+      bs58: 4.0.1
+      buffer-layout: 1.2.2
+      camelcase: 6.3.0
+      cross-fetch: 3.2.0
+      eventemitter3: 4.0.7
+      pako: 2.1.0
+      superstruct: 0.15.5
+      toml: 3.0.0
+    transitivePeerDependencies:
+      - bufferutil
+      - encoding
+      - typescript
+      - utf-8-validate
+
   '@coral-xyz/borsh@0.29.0(@solana/web3.js@1.98.4(bufferutil@4.0.9)(typescript@5.5.4)(utf-8-validate@5.0.10))':
     dependencies:
       '@solana/web3.js': 1.98.4(bufferutil@4.0.9)(typescript@5.5.4)(utf-8-validate@5.0.10)
@@ -4269,6 +4426,12 @@ snapshots:
       buffer-layout: 1.2.2
 
   '@coral-xyz/borsh@0.30.1(@solana/web3.js@1.98.4(bufferutil@4.0.9)(typescript@5.5.4)(utf-8-validate@5.0.10))':
+    dependencies:
+      '@solana/web3.js': 1.98.4(bufferutil@4.0.9)(typescript@5.5.4)(utf-8-validate@5.0.10)
+      bn.js: 5.2.2
+      buffer-layout: 1.2.2
+
+  '@coral-xyz/borsh@0.31.1(@solana/web3.js@1.98.4(bufferutil@4.0.9)(typescript@5.5.4)(utf-8-validate@5.0.10))':
     dependencies:
       '@solana/web3.js': 1.98.4(bufferutil@4.0.9)(typescript@5.5.4)(utf-8-validate@5.0.10)
       bn.js: 5.2.2
@@ -5128,6 +5291,16 @@ snapshots:
       '@subsquid/util-internal-range': 0.3.0
       prom-client: 14.2.0
 
+  '@subsquid/batch-processor@1.0.0-portal-api.a3f844':
+    dependencies:
+      '@subsquid/logger': 1.4.0
+      '@subsquid/util-internal': 3.2.0
+      '@subsquid/util-internal-counters': 1.3.2
+      '@subsquid/util-internal-data-source': 0.0.1-portal-api.a3f844
+      '@subsquid/util-internal-prometheus-server': 1.3.0(prom-client@14.2.0)
+      '@subsquid/util-internal-range': 0.3.0
+      prom-client: 14.2.0
+
   '@subsquid/big-decimal@1.0.0':
     dependencies:
       big.js: 6.2.2
@@ -5299,6 +5472,14 @@ snapshots:
       - supports-color
       - utf-8-validate
 
+  '@subsquid/portal-client@0.2.0(@subsquid/http-client@1.6.1)(@subsquid/logger@1.4.0)':
+    dependencies:
+      '@subsquid/http-client': 1.6.1
+      '@subsquid/util-internal': 3.2.0
+      '@subsquid/util-internal-validation': 0.8.0(@subsquid/logger@1.4.0)
+    transitivePeerDependencies:
+      - '@subsquid/logger'
+
   '@subsquid/rpc-client@4.11.0':
     dependencies:
       '@subsquid/http-client': 1.6.0
@@ -5331,14 +5512,31 @@ snapshots:
     transitivePeerDependencies:
       - '@subsquid/logger'
 
+  '@subsquid/solana-normalization@0.2.0-portal-api.a3f844(@subsquid/logger@1.4.0)':
+    dependencies:
+      '@subsquid/solana-rpc-data': 0.2.1(@subsquid/util-internal-validation@0.8.0(@subsquid/logger@1.4.0))
+      '@subsquid/util-internal': 3.2.0
+      '@subsquid/util-internal-validation': 0.8.0(@subsquid/logger@1.4.0)
+    transitivePeerDependencies:
+      - '@subsquid/logger'
+
   '@subsquid/solana-objects@0.0.2(@subsquid/solana-stream@0.1.4)':
     dependencies:
       '@subsquid/solana-stream': 0.1.4
       '@subsquid/util-internal': 3.2.0
 
+  '@subsquid/solana-objects@0.0.5-portal-api.a3f844(@subsquid/solana-stream@1.0.0-portal-api.a3f844(@subsquid/util-internal-archive-client@0.1.2(@subsquid/http-client@1.6.1)(@subsquid/logger@1.4.0)))':
+    dependencies:
+      '@subsquid/solana-stream': 1.0.0-portal-api.a3f844(@subsquid/util-internal-archive-client@0.1.2(@subsquid/http-client@1.6.1)(@subsquid/logger@1.4.0))
+      '@subsquid/util-internal': 3.2.0
+
   '@subsquid/solana-rpc-data@0.0.3(@subsquid/util-internal-validation@0.7.0(@subsquid/logger@1.4.0))':
     dependencies:
       '@subsquid/util-internal-validation': 0.7.0(@subsquid/logger@1.4.0)
+
+  '@subsquid/solana-rpc-data@0.2.1(@subsquid/util-internal-validation@0.8.0(@subsquid/logger@1.4.0))':
+    dependencies:
+      '@subsquid/util-internal-validation': 0.8.0(@subsquid/logger@1.4.0)
 
   '@subsquid/solana-rpc@0.0.4(@subsquid/rpc-client@4.11.0)':
     dependencies:
@@ -5348,6 +5546,15 @@ snapshots:
       '@subsquid/util-internal': 3.2.0
       '@subsquid/util-internal-range': 0.3.0
       '@subsquid/util-internal-validation': 0.7.0(@subsquid/logger@1.4.0)
+
+  '@subsquid/solana-rpc@0.1.3(@subsquid/rpc-client@4.13.0)':
+    dependencies:
+      '@subsquid/logger': 1.4.0
+      '@subsquid/rpc-client': 4.13.0
+      '@subsquid/solana-rpc-data': 0.2.1(@subsquid/util-internal-validation@0.8.0(@subsquid/logger@1.4.0))
+      '@subsquid/util-internal': 3.2.0
+      '@subsquid/util-internal-range': 0.3.0
+      '@subsquid/util-internal-validation': 0.8.0(@subsquid/logger@1.4.0)
 
   '@subsquid/solana-stream@0.1.4':
     dependencies:
@@ -5368,12 +5575,56 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  '@subsquid/solana-stream@1.0.0-portal-api.a3f844(@subsquid/util-internal-archive-client@0.1.2(@subsquid/http-client@1.6.1)(@subsquid/logger@1.4.0))':
+    dependencies:
+      '@subsquid/http-client': 1.6.1
+      '@subsquid/logger': 1.4.0
+      '@subsquid/portal-client': 0.2.0(@subsquid/http-client@1.6.1)(@subsquid/logger@1.4.0)
+      '@subsquid/rpc-client': 4.13.0
+      '@subsquid/solana-normalization': 0.2.0-portal-api.a3f844(@subsquid/logger@1.4.0)
+      '@subsquid/solana-rpc': 0.1.3(@subsquid/rpc-client@4.13.0)
+      '@subsquid/solana-rpc-data': 0.2.1(@subsquid/util-internal-validation@0.8.0(@subsquid/logger@1.4.0))
+      '@subsquid/util-internal': 3.2.0
+      '@subsquid/util-internal-data-source': 0.0.1-portal-api.a3f844
+      '@subsquid/util-internal-hex': 1.2.2
+      '@subsquid/util-internal-ingest-tools': 1.1.4(@subsquid/util-internal-archive-client@0.1.2(@subsquid/http-client@1.6.1)(@subsquid/logger@1.4.0))
+      '@subsquid/util-internal-processor-tools': 4.2.1
+      '@subsquid/util-internal-range': 0.3.0
+      '@subsquid/util-internal-validation': 0.8.0(@subsquid/logger@1.4.0)
+      bs58: 5.0.0
+    transitivePeerDependencies:
+      - '@subsquid/util-internal-archive-client'
+      - supports-color
+
   '@subsquid/solana-typegen@0.6.1(bufferutil@4.0.9)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.5.4)(utf-8-validate@5.0.10)':
     dependencies:
       '@solana/addresses': 2.3.0(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.5.4)
       '@solanafm/explorer-kit-idls': 1.1.4(bufferutil@4.0.9)(typescript@5.5.4)(utf-8-validate@5.0.10)
       '@subsquid/borsh': 0.3.0
       '@subsquid/http-client': 1.6.0
+      '@subsquid/logger': 1.4.0
+      '@subsquid/rpc-client': 4.13.0
+      '@subsquid/util-internal': 3.2.0
+      '@subsquid/util-internal-code-printer': 1.2.2
+      '@subsquid/util-internal-commander': 1.4.0(commander@11.1.0)
+      '@subsquid/util-internal-hex': 1.2.2
+      '@subsquid/util-naming': 1.3.0
+      commander: 11.1.0
+    transitivePeerDependencies:
+      - bufferutil
+      - debug
+      - encoding
+      - fastestsmallesttextencoderdecoder
+      - supports-color
+      - typescript
+      - utf-8-validate
+
+  '@subsquid/solana-typegen@0.6.2-portal-api.a3f844(bufferutil@4.0.9)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.5.4)(utf-8-validate@5.0.10)':
+    dependencies:
+      '@solana/addresses': 2.3.0(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.5.4)
+      '@solanafm/explorer-kit-idls': 1.1.4(bufferutil@4.0.9)(typescript@5.5.4)(utf-8-validate@5.0.10)
+      '@subsquid/borsh': 0.3.0
+      '@subsquid/http-client': 1.6.1
       '@subsquid/logger': 1.4.0
       '@subsquid/rpc-client': 4.13.0
       '@subsquid/util-internal': 3.2.0
@@ -5424,7 +5675,14 @@ snapshots:
       dotenv: 16.5.0
       typeorm: 0.3.24(ioredis@5.6.1)(pg@8.16.0)(redis@5.5.6)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4))
 
-  '@subsquid/typeorm-store@1.5.1(@subsquid/big-decimal@1.0.0)(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))':
+  '@subsquid/typeorm-store@1.5.1(@subsquid/big-decimal@1.0.0)(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(redis@5.5.6)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))':
+    dependencies:
+      '@subsquid/big-decimal': 1.0.0
+      '@subsquid/typeorm-config': 4.1.1(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))
+      '@subsquid/util-internal': 3.2.0
+      typeorm: 0.3.24(ioredis@5.6.1)(pg@8.16.0)(redis@5.5.6)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4))
+
+  '@subsquid/typeorm-store@1.6.0-portal-api.a3f844(@subsquid/big-decimal@1.0.0)(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(redis@5.5.6)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))':
     dependencies:
       '@subsquid/big-decimal': 1.0.0
       '@subsquid/typeorm-config': 4.1.1(typeorm@0.3.24(ioredis@5.6.1)(pg@8.16.0)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.5.4)))
@@ -5439,6 +5697,15 @@ snapshots:
     optionalDependencies:
       '@subsquid/logger': 1.4.0
 
+  '@subsquid/util-internal-archive-client@0.1.2(@subsquid/http-client@1.6.1)(@subsquid/logger@1.4.0)':
+    dependencies:
+      '@subsquid/http-client': 1.6.1
+      '@subsquid/util-internal': 3.2.0
+      '@subsquid/util-internal-range': 0.3.0
+    optionalDependencies:
+      '@subsquid/logger': 1.4.0
+    optional: true
+
   '@subsquid/util-internal-binary-heap@1.0.0': {}
 
   '@subsquid/util-internal-code-printer@1.2.2': {}
@@ -5448,6 +5715,10 @@ snapshots:
       commander: 11.1.0
 
   '@subsquid/util-internal-counters@1.3.2': {}
+
+  '@subsquid/util-internal-data-source@0.0.1-portal-api.a3f844':
+    dependencies:
+      '@subsquid/util-internal-range': 0.3.0
 
   '@subsquid/util-internal-hex@1.2.2': {}
 
@@ -5463,6 +5734,14 @@ snapshots:
       '@subsquid/util-internal-range': 0.3.0
     optionalDependencies:
       '@subsquid/util-internal-archive-client': 0.1.2(@subsquid/http-client@1.6.0)(@subsquid/logger@1.4.0)
+
+  '@subsquid/util-internal-ingest-tools@1.1.4(@subsquid/util-internal-archive-client@0.1.2(@subsquid/http-client@1.6.1)(@subsquid/logger@1.4.0))':
+    dependencies:
+      '@subsquid/logger': 1.4.0
+      '@subsquid/util-internal': 3.2.0
+      '@subsquid/util-internal-range': 0.3.0
+    optionalDependencies:
+      '@subsquid/util-internal-archive-client': 0.1.2(@subsquid/http-client@1.6.1)(@subsquid/logger@1.4.0)
 
   '@subsquid/util-internal-json-fix-unsafe-integers@0.0.0': {}
 
@@ -5495,6 +5774,10 @@ snapshots:
   '@subsquid/util-internal-ts-node@0.0.0': {}
 
   '@subsquid/util-internal-validation@0.7.0(@subsquid/logger@1.4.0)':
+    optionalDependencies:
+      '@subsquid/logger': 1.4.0
+
+  '@subsquid/util-internal-validation@0.8.0(@subsquid/logger@1.4.0)':
     optionalDependencies:
       '@subsquid/logger': 1.4.0
 
@@ -5826,6 +6109,8 @@ snapshots:
 
   base-x@4.0.1: {}
 
+  base-x@5.0.1: {}
+
   base64-js@1.5.1: {}
 
   big.js@6.2.2: {}
@@ -5897,6 +6182,10 @@ snapshots:
   bs58@5.0.0:
     dependencies:
       base-x: 4.0.1
+
+  bs58@6.0.0:
+    dependencies:
+      base-x: 5.0.1
 
   bson@5.5.1: {}
 

@@ -1,27 +1,22 @@
-import { DataSourceBuilder, SolanaRpcClient } from '@subsquid/solana-stream';
+import { DataSourceBuilder } from '@subsquid/solana-stream';
 import { validateEnv } from './utils/validateEnv';
 import * as printrAbi from './abi/diRTqkRxqg9fvQXemGosY8hg91Q7DpFqGXLJwG3bEDA';
 const env = validateEnv();
 const { printrMeteoraProtocol } = env;
 
 export const processor = new DataSourceBuilder()
-  .setGateway(printrMeteoraProtocol.gatewayUrl)
-  .setRpc(
-    printrMeteoraProtocol.rpcUrl == null
-      ? undefined
-      : {
-          client: new SolanaRpcClient({
-            url: printrMeteoraProtocol.rpcUrl,
-            // rateLimit: 100 // requests per sec
-          }),
-          strideConcurrency: 10,
-        },
-  )
+  .setPortal({
+    url: 'https://portal.sqd.dev/datasets/solana-mainnet',
+    http: {
+      retryAttempts: Infinity,
+    },
+  })
   .setBlockRange({ from: printrMeteoraProtocol.fromBlock })
   .setFields({
     block: {
       // block header fields
       timestamp: true,
+      hash: true,
     },
     transaction: {
       // transaction fields
@@ -45,7 +40,7 @@ export const processor = new DataSourceBuilder()
     // select instructions, that:
     where: {
       programId: [printrAbi.programId], // where executed by Whirlpool program
-      d8: [printrAbi.instructions.swap.d8],
+      d8: [printrAbi.instructions.swap.d8, printrAbi.instructions.createPrintrDbcFromCompact.d8],
 
       //note: not including closePosition as it wouldn't work.
       // Why =>  because we already have the respective positions for the specific pool stored, and when there would be a closePosition for lets say a position that doesn't exists, we wouldn't do anything.
@@ -60,4 +55,4 @@ export const processor = new DataSourceBuilder()
     },
   })
 
-  .build();
+  .build() as any;
