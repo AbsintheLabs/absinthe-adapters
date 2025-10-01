@@ -132,7 +132,6 @@ You can consider -
 **How to get**:
 
 1. **Alchemy** (Recommended):
-
    - Visit [alchemy.com](https://alchemy.com)
    - Create a free account
    - Create a new app for your target network
@@ -226,7 +225,6 @@ DB_PORT=5432
 **How to get**:
 
 1. **Self-hosted PostgreSQL**:
-
    - Install PostgreSQL from [postgresql.org](https://postgresql.org)
    - Create a database and user
    - Configure connection string

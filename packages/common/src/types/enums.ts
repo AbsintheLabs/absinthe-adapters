@@ -63,6 +63,7 @@ enum TxnTrackingProtocol {
 enum StakingProtocol {
   HEMI = 'hemi',
   VUSDBRIDGE = 'vusd-bridge',
+  MORPHO = 'morpho',
 }
 
 enum GatewayUrl {
