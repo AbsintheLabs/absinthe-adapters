@@ -40,6 +40,11 @@ const TOKEN_METADATA = [
     decimals: 18,
     coingeckoId: 'coinbase-wrapped-staked-eth',
   },
+  {
+    address: '0x4c9edd5852cd905f086c759e8383e09bff1e68b3', // crvUSD
+    decimals: 18,
+    coingeckoId: 'ethena-usde',
+  },
 ];
 
 export { TOKEN_METADATA };

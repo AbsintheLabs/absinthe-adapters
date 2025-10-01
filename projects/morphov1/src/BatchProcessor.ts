@@ -121,7 +121,7 @@ export class MorphoStakingProcessor {
     const { ctx, block, protocolStates } = batchContext;
     const protocolState = protocolStates.get(this.contractAddress)!;
     await this.processLogsForProtocol(ctx, block, protocolState);
-    await this.processPeriodicBalanceFlush(ctx, block, protocolState);
+    // await this.processPeriodicBalanceFlush(ctx, block, protocolState);
   }
 
   private async processLogsForProtocol(
@@ -189,7 +189,6 @@ export class MorphoStakingProcessor {
       return;
     }
 
-    //todo: check if this is loanToken or collateralToken
     const loanToken = marketData.loanToken;
     const tokenMetadata = checkToken(loanToken);
     if (!tokenMetadata) {
@@ -218,7 +217,6 @@ export class MorphoStakingProcessor {
     logger.info(`💰 [MorphoStakingProcessor] Token metadata decimals: ${tokenMetadata.decimals}`);
     const usdValue = pricePosition(tokenPrice, supplyAssets, tokenMetadata.decimals);
 
-    //todo: check if this is correct
     const newHistoryWindows = processValueChangeBalances({
       from: ZERO_ADDRESS,
       to: onBehalf,
@@ -567,122 +565,122 @@ export class MorphoStakingProcessor {
   }
 
   // Periodic snapshot of balances (time-weighted)
-  private async processPeriodicBalanceFlush(
-    ctx: any,
-    block: any,
-    protocolState: ProtocolStateMorpho,
-  ): Promise<void> {
-    const currentTs = block.header.timestamp;
+  // private async processPeriodicBalanceFlush(
+  //   ctx: any,
+  //   block: any,
+  //   protocolState: ProtocolStateMorpho,
+  // ): Promise<void> {
+  //   const currentTs = block.header.timestamp;
 
-    if (!protocolState.processState?.lastInterpolatedTs) {
-      protocolState.processState.lastInterpolatedTs = BigInt(currentTs);
-    }
+  //   if (!protocolState.processState?.lastInterpolatedTs) {
+  //     protocolState.processState.lastInterpolatedTs = BigInt(currentTs);
+  //   }
 
-    while (
-      protocolState.processState.lastInterpolatedTs &&
-      Number(protocolState.processState.lastInterpolatedTs) + this.refreshWindow < currentTs
-    ) {
-      const windowsSinceEpoch = Math.floor(
-        Number(protocolState.processState.lastInterpolatedTs) / this.refreshWindow,
-      );
-      const nextBoundaryTs: number = (windowsSinceEpoch + 1) * this.refreshWindow;
+  //   while (
+  //     protocolState.processState.lastInterpolatedTs &&
+  //     Number(protocolState.processState.lastInterpolatedTs) + this.refreshWindow < currentTs
+  //   ) {
+  //     const windowsSinceEpoch = Math.floor(
+  //       Number(protocolState.processState.lastInterpolatedTs) / this.refreshWindow,
+  //     );
+  //     const nextBoundaryTs: number = (windowsSinceEpoch + 1) * this.refreshWindow;
 
-      for (const [marketId, userPositions] of protocolState.userPositions.entries()) {
-        const marketData = protocolState.marketData.get(marketId);
-        if (!marketData) continue;
+  //     for (const [marketId, userPositions] of protocolState.userPositions.entries()) {
+  //       const marketData = protocolState.marketData.get(marketId);
+  //       if (!marketData) continue;
 
-        const tokenMetadata = checkToken(marketData.loanToken);
-        if (!tokenMetadata) continue;
+  //       const tokenMetadata = checkToken(marketData.loanToken);
+  //       if (!tokenMetadata) continue;
 
-        const marketIndexes = await this.getMarketIndexes(ctx, marketId);
-        if (!marketIndexes) continue;
+  //       const marketIndexes = await this.getMarketIndexes(ctx, marketId);
+  //       if (!marketIndexes) continue;
 
-        for (const [userAddress, position] of userPositions.entries()) {
-          const SCALE = 10n ** 18n;
+  //       for (const [userAddress, position] of userPositions.entries()) {
+  //         const SCALE = 10n ** 18n;
 
-          // Supply snapshot (if any)
-          if (position > 0n) {
-            const supplyAssets = (position * marketIndexes.supplyIndex) / SCALE;
-            if (supplyAssets > 0n) {
-              const tokenPrice = await fetchHistoricalUsd(
-                tokenMetadata.coingeckoId,
-                currentTs,
-                this.env.coingeckoApiKey,
-              );
-              const balanceUsd = pricePosition(tokenPrice, supplyAssets, tokenMetadata.decimals);
+  //         // Supply snapshot (if any)
+  //         if (position > 0n) {
+  //           const supplyAssets = (position * marketIndexes.supplyIndex) / SCALE;
+  //           if (supplyAssets > 0n) {
+  //             const tokenPrice = await fetchHistoricalUsd(
+  //               tokenMetadata.coingeckoId,
+  //               currentTs,
+  //               this.env.coingeckoApiKey,
+  //             );
+  //             const balanceUsd = pricePosition(tokenPrice, supplyAssets, tokenMetadata.decimals);
 
-              protocolState.balanceWindows.push({
-                userAddress: userAddress,
-                deltaAmount: 0,
-                trigger: TimeWindowTrigger.EXHAUSTED,
-                startTs: Number(protocolState.processState.lastInterpolatedTs),
-                endTs: nextBoundaryTs,
-                windowDurationMs: this.refreshWindow,
-                startBlockNumber: 0, // fill if you track start block
-                endBlockNumber: block.header.height,
-                tokenPrice: tokenPrice,
-                tokenDecimals: tokenMetadata.decimals,
-                balanceBefore: supplyAssets.toString(),
-                balanceAfter: supplyAssets.toString(),
-                txHash: null,
-                currency: Currency.USD,
-                valueUsd: balanceUsd,
-                tokens: {
-                  tokenAddress: { value: tokenMetadata.address, type: 'string' },
-                  coingeckoId: { value: tokenMetadata.coingeckoId, type: 'string' },
-                  tokenDecimals: { value: tokenMetadata.decimals.toString(), type: 'number' },
-                  tokenPrice: { value: tokenPrice.toString(), type: 'number' },
-                  marketId: { value: marketId, type: 'string' },
-                  positionSide: { value: 'supply', type: 'string' },
-                },
-              });
-            }
-          }
+  //             protocolState.balanceWindows.push({
+  //               userAddress: userAddress,
+  //               deltaAmount: 0,
+  //               trigger: TimeWindowTrigger.EXHAUSTED,
+  //               startTs: Number(protocolState.processState.lastInterpolatedTs),
+  //               endTs: nextBoundaryTs,
+  //               windowDurationMs: this.refreshWindow,
+  //               startBlockNumber: 0, // fill if you track start block
+  //               endBlockNumber: block.header.height,
+  //               tokenPrice: tokenPrice,
+  //               tokenDecimals: tokenMetadata.decimals,
+  //               balanceBefore: supplyAssets.toString(),
+  //               balanceAfter: supplyAssets.toString(),
+  //               txHash: null,
+  //               currency: Currency.USD,
+  //               valueUsd: balanceUsd,
+  //               tokens: {
+  //                 tokenAddress: { value: tokenMetadata.address, type: 'string' },
+  //                 coingeckoId: { value: tokenMetadata.coingeckoId, type: 'string' },
+  //                 tokenDecimals: { value: tokenMetadata.decimals.toString(), type: 'number' },
+  //                 tokenPrice: { value: tokenPrice.toString(), type: 'number' },
+  //                 marketId: { value: marketId, type: 'string' },
+  //                 positionSide: { value: 'supply', type: 'string' },
+  //               },
+  //             });
+  //           }
+  //         }
 
-          // Borrow snapshot (if any) — borrowShares are stored positive as per your spec
-          if (position > 0n) {
-            const borrowAssets = (position * marketIndexes.borrowIndex) / SCALE;
-            if (borrowAssets > 0n) {
-              const tokenPrice = await fetchHistoricalUsd(
-                tokenMetadata.coingeckoId,
-                currentTs,
-                this.env.coingeckoApiKey,
-              );
-              const balanceUsd = pricePosition(tokenPrice, borrowAssets, tokenMetadata.decimals);
+  //         // Borrow snapshot (if any) — borrowShares are stored positive as per your spec
+  //         if (position > 0n) {
+  //           const borrowAssets = (position * marketIndexes.borrowIndex) / SCALE;
+  //           if (borrowAssets > 0n) {
+  //             const tokenPrice = await fetchHistoricalUsd(
+  //               tokenMetadata.coingeckoId,
+  //               currentTs,
+  //               this.env.coingeckoApiKey,
+  //             );
+  //             const balanceUsd = pricePosition(tokenPrice, borrowAssets, tokenMetadata.decimals);
 
-              protocolState.balanceWindows.push({
-                userAddress: userAddress,
-                deltaAmount: 0,
-                trigger: TimeWindowTrigger.EXHAUSTED,
-                startTs: Number(protocolState.processState.lastInterpolatedTs),
-                endTs: nextBoundaryTs,
-                windowDurationMs: this.refreshWindow,
-                startBlockNumber: 0,
-                endBlockNumber: block.header.height,
-                tokenPrice: tokenPrice,
-                tokenDecimals: tokenMetadata.decimals,
-                balanceBefore: borrowAssets.toString(),
-                balanceAfter: borrowAssets.toString(),
-                txHash: null,
-                currency: Currency.USD,
-                valueUsd: balanceUsd,
-                tokens: {
-                  tokenAddress: { value: tokenMetadata.address, type: 'string' },
-                  coingeckoId: { value: tokenMetadata.coingeckoId, type: 'string' },
-                  tokenDecimals: { value: tokenMetadata.decimals.toString(), type: 'number' },
-                  tokenPrice: { value: tokenPrice.toString(), type: 'number' },
-                  marketId: { value: marketId, type: 'string' },
-                  positionSide: { value: 'borrow', type: 'string' },
-                },
-              });
-            }
-          }
-        }
-      }
+  //             protocolState.balanceWindows.push({
+  //               userAddress: userAddress,
+  //               deltaAmount: 0,
+  //               trigger: TimeWindowTrigger.EXHAUSTED,
+  //               startTs: Number(protocolState.processState.lastInterpolatedTs),
+  //               endTs: nextBoundaryTs,
+  //               windowDurationMs: this.refreshWindow,
+  //               startBlockNumber: 0,
+  //               endBlockNumber: block.header.height,
+  //               tokenPrice: tokenPrice,
+  //               tokenDecimals: tokenMetadata.decimals,
+  //               balanceBefore: borrowAssets.toString(),
+  //               balanceAfter: borrowAssets.toString(),
+  //               txHash: null,
+  //               currency: Currency.USD,
+  //               valueUsd: balanceUsd,
+  //               tokens: {
+  //                 tokenAddress: { value: tokenMetadata.address, type: 'string' },
+  //                 coingeckoId: { value: tokenMetadata.coingeckoId, type: 'string' },
+  //                 tokenDecimals: { value: tokenMetadata.decimals.toString(), type: 'number' },
+  //                 tokenPrice: { value: tokenPrice.toString(), type: 'number' },
+  //                 marketId: { value: marketId, type: 'string' },
+  //                 positionSide: { value: 'borrow', type: 'string' },
+  //               },
+  //             });
+  //           }
+  //         }
+  //       }
+  //     }
 
-      protocolState.processState.lastInterpolatedTs = BigInt(nextBoundaryTs);
-    }
-  }
+  //     protocolState.processState.lastInterpolatedTs = BigInt(nextBoundaryTs);
+  //   }
+  // }
 
   private async finalizeBatch(
     ctx: any,

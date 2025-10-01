@@ -1,21 +1,21 @@
 import { Store } from '@subsquid/typeorm-store';
 import { ActiveBalances, PoolProcessState } from '../model';
 import { DataHandlerContext } from '@subsquid/evm-processor';
-import { ActiveBalancesHemi } from '../utils/types';
+import { ActiveBalancesMorpho } from '../utils/types';
 
 import { ActiveBalance, jsonToMap } from '@absinthe/common';
 
 export async function loadActiveBalancesFromDb(
   ctx: DataHandlerContext<Store>,
   contractAddress: string,
-): Promise<ActiveBalancesHemi | undefined> {
+): Promise<ActiveBalancesMorpho | undefined> {
   const activeBalancesEntity = await ctx.store.findOne(ActiveBalances, {
     where: { id: `${contractAddress}-active-balances` },
   });
 
   if (!activeBalancesEntity) return undefined;
 
-  const flatMap = jsonToMap(activeBalancesEntity.activeBalancesMap as ActiveBalancesHemi);
+  const flatMap = jsonToMap(activeBalancesEntity.activeBalancesMap as ActiveBalancesMorpho);
   const nestedMap = new Map<string, Map<string, ActiveBalance>>();
 
   for (const [key, value] of flatMap.entries()) {
