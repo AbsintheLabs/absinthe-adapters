@@ -18,6 +18,7 @@ jobs:
       compoundv2: ${{ steps.filter.outputs.compoundv2 }}
       demos: ${{ steps.filter.outputs.demos }}
       hemistaking: ${{ steps.filter.outputs.hemistaking }}
+      morphov1: ${{ steps.filter.outputs.morphov1 }}
       izumi: ${{ steps.filter.outputs.izumi }}
       printr: ${{ steps.filter.outputs.printr }}
       uniswapv2: ${{ steps.filter.outputs.uniswapv2 }}
@@ -44,6 +45,8 @@ jobs:
               - 'projects/demos/**'
             hemistaking:
               - 'projects/hemistaking/**'
+            morphov1:
+              - 'projects/morphov1/**'
             izumi:
               - 'projects/izumi/**'
             printr:
@@ -82,6 +85,7 @@ jobs:
       needs.changes.outputs.compoundv2 == 'true' ||
       needs.changes.outputs.demos == 'true' ||
       needs.changes.outputs.hemistaking == 'true' ||
+      needs.changes.outputs.morphov1 == 'true' ||
       needs.changes.outputs.izumi == 'true' ||
       needs.changes.outputs.printr == 'true' ||
       needs.changes.outputs.uniswapv2 == 'true' ||
@@ -153,6 +157,9 @@ jobs:
           fi
           if [[ "${{ needs.changes.outputs.hemistaking }}" == "true" ]]; then
             images_to_build+=("hemistaking")
+          fi
+          if [[ "${{ needs.changes.outputs.morphov1 }}" == "true" ]]; then
+            images_to_build+=("morphov1")
           fi
           if [[ "${{ needs.changes.outputs.izumi }}" == "true" ]]; then
             images_to_build+=("izumi")
