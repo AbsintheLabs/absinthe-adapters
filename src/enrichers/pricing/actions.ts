@@ -1,5 +1,5 @@
 import Big from 'big.js';
-import { log } from '../../utils/logger.ts';
+import { logger } from '../../utils/logger.ts';
 import { ActionEnricher } from '../../types/enrichment.ts';
 import { getPrevSample } from '../utils/timeseries.ts';
 
@@ -20,7 +20,7 @@ export const enrichActionsWithPrice: ActionEnricher = async (actions, context) =
     const time = a.ts;
     const exists = await context.redis.exists(key);
     if (!exists) {
-      log.debug(
+      logger.debug(
         `💰 ENRICH: No price data found for asset ${a.asset} (key: ${key}), user: ${a.user ?? 'unknown'}, setting valueUsd to null`,
       );
       out.push({ ...a, valueUsd: null, totalPosition: null });
@@ -29,7 +29,7 @@ export const enrichActionsWithPrice: ActionEnricher = async (actions, context) =
     // get price at the time
     const price = await getPrevSample(context.redis, key, time);
     if (!price) {
-      log.debug(
+      logger.debug(
         `💰 ENRICH: No price data found for asset ${a.asset} (key: ${key}), user: ${a.user ?? 'unknown'}, setting valueUsd to null`,
       );
       out.push({ ...a, valueUsd: null, totalPosition: null });
@@ -37,7 +37,7 @@ export const enrichActionsWithPrice: ActionEnricher = async (actions, context) =
     }
 
     if (!a.asset) {
-      log.debug(
+      logger.debug(
         `💰 ENRICH: No asset specified for action, user: ${a.user ?? 'unknown'}, setting valueUsd to null`,
       );
       out.push({ ...a, valueUsd: null, totalPosition: null });

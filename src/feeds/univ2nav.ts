@@ -1,7 +1,7 @@
 import { HandlerFactory } from './interface.ts';
 import Big from 'big.js';
 import * as univ2Abi from '../abi/univ2.ts';
-import { log } from '../utils/logger.ts';
+import { logger } from '../utils/logger.ts';
 import { CoreFeedSelector } from '../types/pricing.ts';
 
 // Handler name constant for Uniswap V2 LP NAV pricing
@@ -82,7 +82,7 @@ export const univ2NavFactory: HandlerFactory<typeof UNIV2_NAV_HANDLER> =
 
       return Number(lpTokenPrice.toString());
     } catch (error) {
-      log.warn(`Failed to price Uniswap V2 LP token ${ctx.asset}:`, error);
+      logger.warn(`Failed to price Uniswap V2 LP token ${ctx.asset}:`, error);
       return 0;
     }
   };

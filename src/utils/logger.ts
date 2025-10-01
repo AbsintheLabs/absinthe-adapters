@@ -91,4 +91,4 @@ const createLogger = () => ({
 });
 
 // Export the logger instance
-export const log = createLogger();
+export const logger = createLogger();

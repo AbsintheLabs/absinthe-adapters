@@ -1,6 +1,6 @@
 import { HandlerFactory } from './interface.ts';
 import Big from 'big.js';
-import { log } from '../utils/logger.ts';
+import { logger } from '../utils/logger.ts';
 
 // ABIs
 import * as aaveV3VarDebtAbi from '../abi/aavev3variabledebttoken.ts';
@@ -34,7 +34,7 @@ function parseAssetKey(assetKey: string) {
 export const aavev3varDebtFactory: HandlerFactory<typeof AAVEV3_VAR_DEBT_HANDLER> =
   (resolve) => async (args) => {
     const { assetConfig, ctx, recurse } = args;
-    log.debug('🔍 AAV3VARDEBT: Starting handler for asset:', ctx.asset);
+    logger.debug('🔍 AAV3VARDEBT: Starting handler for asset:', ctx.asset);
 
     const feedConfig = assetConfig.priceFeed as Extract<
       CoreFeedSelector,

@@ -1,6 +1,6 @@
 import { HandlerFactory } from './interface.ts';
 import Big from 'big.js';
-import { log } from '../utils/logger.ts';
+import { logger } from '../utils/logger.ts';
 import { EVM_NULL_ADDRESS } from '../utils/constants.ts';
 import assert from 'assert';
 
@@ -95,12 +95,12 @@ export const univ3lpFactory: HandlerFactory<'univ3lp'> = (resolve) => async (arg
   } = assetConfig.priceFeed;
 
   if (!tokenFeed || (tokenSelector !== 'token0' && tokenSelector !== 'token1')) {
-    log.error('🔍 UNIV3LP: token feed and tokenSelector are required');
+    logger.error('🔍 UNIV3LP: token feed and tokenSelector are required');
     return 0;
   }
 
-  log.debug('🔍 UNIV3LP: Starting handler for asset:', ctx.asset);
-  log.debug('🔍 UNIV3LP: Config:', {
+  logger.debug('🔍 UNIV3LP: Starting handler for asset:', ctx.asset);
+  logger.debug('🔍 UNIV3LP: Config:', {
     nonfungiblepositionmanager,
     tokenFeed: !!tokenFeed,
     tokenSelector,
@@ -108,26 +108,26 @@ export const univ3lpFactory: HandlerFactory<'univ3lp'> = (resolve) => async (arg
 
   // Parse asset key to get position manager and tokenId
   const { pm, tokenId } = parseAssetKey(ctx.asset);
-  log.debug('🔍 UNIV3LP: Parsed asset key:', { pm, tokenId });
+  logger.debug('🔍 UNIV3LP: Parsed asset key:', { pm, tokenId });
 
   // Verify the position manager matches the expected one
   if (pm.toLowerCase() !== nonfungiblepositionmanager.toLowerCase()) {
-    log.error('🔍 UNIV3LP: Position manager mismatch:', {
+    logger.error('🔍 UNIV3LP: Position manager mismatch:', {
       expected: nonfungiblepositionmanager,
       got: pm,
     });
     throw new Error(`Position manager mismatch: expected ${nonfungiblepositionmanager}, got ${pm}`);
   }
-  log.debug('🔍 UNIV3LP: Position manager verified');
+  logger.debug('🔍 UNIV3LP: Position manager verified');
 
   // 1) Read position metadata from the position manager
   const pmContract = new univ3positionsAbi.Contract(ctx.sqdRpcCtx, nonfungiblepositionmanager);
 
   // First try to get metadata from labels (much more efficient)
-  log.debug('🔍 UNIV3LP: Checking for cached labels');
+  logger.debug('🔍 UNIV3LP: Checking for cached labels');
   const labelsKey = `asset:labels:${ctx.asset}`;
   const labels = await ctx.redis.hgetall(labelsKey);
-  log.debug('🔍 UNIV3LP: Labels retrieved:', {
+  logger.debug('🔍 UNIV3LP: Labels retrieved:', {
     hasLabels: !!labels,
     labelKeys: Object.keys(labels || {}),
   });
@@ -144,37 +144,37 @@ export const univ3lpFactory: HandlerFactory<'univ3lp'> = (resolve) => async (arg
       tickUpper: Number(labels.tickUpper),
       pool: String(labels.pool).toLowerCase(),
     };
-    log.debug(`🔍 UNIV3LP: Using cached labels for position ${ctx.asset}:`, {
+    logger.debug(`🔍 UNIV3LP: Using cached labels for position ${ctx.asset}:`, {
       pool: labels.pool,
       token0: labels.token0,
       token1: labels.token1,
     });
   } else {
-    log.debug('🔍 UNIV3LP: No valid labels found, falling back to contract calls');
+    logger.debug('🔍 UNIV3LP: No valid labels found, falling back to contract calls');
     // Fallback to contract call (should rarely happen)
-    log.warn(`No cached labels found for ${ctx.asset}, falling back to contract call`);
+    logger.warn(`No cached labels found for ${ctx.asset}, falling back to contract call`);
     const positionKey = `univ3:position:${nonfungiblepositionmanager}:${tokenId}`;
     positionMetadata = await ctx.handlerMetadataCache.get(UNIV3_LP_HANDLER, positionKey);
 
     if (!positionMetadata) {
-      log.debug('🔍 UNIV3LP: Making contract call to get position data');
+      logger.debug('🔍 UNIV3LP: Making contract call to get position data');
       try {
-        log.debug('🔍 UNIV3LP: Calling positions() contract method');
+        logger.debug('🔍 UNIV3LP: Calling positions() contract method');
         const pos = await pmContract.positions(BigInt(tokenId));
-        log.debug('🔍 UNIV3LP: Position data received:', {
+        logger.debug('🔍 UNIV3LP: Position data received:', {
           token0: pos.token0,
           token1: pos.token1,
           fee: pos.fee,
         });
 
-        log.debug('🔍 UNIV3LP: Getting factory address');
+        logger.debug('🔍 UNIV3LP: Getting factory address');
         const factoryAddress = await pmContract.factory();
-        log.debug('🔍 UNIV3LP: Factory address:', factoryAddress);
+        logger.debug('🔍 UNIV3LP: Factory address:', factoryAddress);
 
-        log.debug('🔍 UNIV3LP: Getting pool address from factory');
+        logger.debug('🔍 UNIV3LP: Getting pool address from factory');
         const factoryContract = new univ3factoryAbi.Contract(ctx.sqdRpcCtx, factoryAddress);
         const poolAddress = await factoryContract.getPool(pos.token0, pos.token1, pos.fee);
-        log.debug('🔍 UNIV3LP: Pool address from factory:', poolAddress);
+        logger.debug('🔍 UNIV3LP: Pool address from factory:', poolAddress);
 
         if (!poolAddress || poolAddress === EVM_NULL_ADDRESS) {
           throw new Error(
@@ -190,10 +190,10 @@ export const univ3lpFactory: HandlerFactory<'univ3lp'> = (resolve) => async (arg
           tickUpper: Number(pos.tickUpper),
           pool: poolAddress.toLowerCase(),
         };
-        log.debug('🔍 UNIV3LP: Caching position metadata');
+        logger.debug('🔍 UNIV3LP: Caching position metadata');
         await ctx.handlerMetadataCache.set(UNIV3_LP_HANDLER, positionKey, positionMetadata);
       } catch (error) {
-        log.error(
+        logger.error(
           `🔍 UNIV3LP: Failed to fetch position ${tokenId} from ${nonfungiblepositionmanager}:`,
           error,
         );
@@ -201,12 +201,12 @@ export const univ3lpFactory: HandlerFactory<'univ3lp'> = (resolve) => async (arg
         return 0;
       }
     } else {
-      log.debug('🔍 UNIV3LP: Using cached position metadata from handler cache');
+      logger.debug('🔍 UNIV3LP: Using cached position metadata from handler cache');
     }
   }
 
   const { token0, token1, tickLower, tickUpper, pool } = positionMetadata;
-  log.debug('🔍 UNIV3LP: Position metadata extracted:', {
+  logger.debug('🔍 UNIV3LP: Position metadata extracted:', {
     token0,
     token1,
     tickLower,
@@ -215,35 +215,35 @@ export const univ3lpFactory: HandlerFactory<'univ3lp'> = (resolve) => async (arg
   });
 
   // 2) Get liquidity for this position
-  log.debug('🔍 UNIV3LP: Getting liquidity for position');
+  logger.debug('🔍 UNIV3LP: Getting liquidity for position');
   const fetchedL = await ctx.handlerMetadataCache.getMeasureAtHeight(
     ctx.asset,
     'liquidity',
     ctx.block.header.height,
   );
-  log.debug('🔍 UNIV3LP: Liquidity retrieved:', {
+  logger.debug('🔍 UNIV3LP: Liquidity retrieved:', {
     liquidity: fetchedL,
     blockHeight: ctx.block.header.height,
   });
 
   if (!fetchedL) {
-    log.warn(
+    logger.warn(
       `🔍 UNIV3LP: No liquidity found for ${ctx.asset} at height ${ctx.block.header.height}`,
     );
     return 0;
   }
 
   const L = new Big(fetchedL);
-  log.debug('🔍 UNIV3LP: Parsed liquidity:', L.toString());
+  logger.debug('🔍 UNIV3LP: Parsed liquidity:', L.toString());
 
   // If liquidity is 0, position has no value
   if (L.eq(0)) {
-    log.debug('🔍 UNIV3LP: Liquidity is 0, returning 0');
+    logger.debug('🔍 UNIV3LP: Liquidity is 0, returning 0');
     return 0;
   }
 
   // 3) Read pool price state (slot0) - try Redis first, fallback to contract
-  log.debug('🔍 UNIV3LP: Reading pool price state');
+  logger.debug('🔍 UNIV3LP: Reading pool price state');
   let sqrtPriceX96: Big;
   let tick: number;
 
@@ -256,17 +256,17 @@ export const univ3lpFactory: HandlerFactory<'univ3lp'> = (resolve) => async (arg
       // Use cached data from Redis
       sqrtPriceX96 = new Big(cachedPriceData.sqrtPriceX96);
       tick = Number(cachedPriceData.tick);
-      log.debug('🔍 UNIV3LP: Using cached price data from Redis:', {
+      logger.debug('🔍 UNIV3LP: Using cached price data from Redis:', {
         tick,
         sqrtPriceX96: sqrtPriceX96.toString(),
         blockHeight: ctx.block.header.height,
       });
     } else {
       // Fallback to contract call
-      log.debug('🔍 UNIV3LP: No cached price data found, calling poolContract.slot0()');
+      logger.debug('🔍 UNIV3LP: No cached price data found, calling poolContract.slot0()');
       const poolContract = new univ3poolAbi.Contract(ctx.sqdRpcCtx, pool);
       const slot0 = await poolContract.slot0();
-      log.debug('🔍 UNIV3LP: Slot0 received from contract:', {
+      logger.debug('🔍 UNIV3LP: Slot0 received from contract:', {
         tick: slot0.tick,
         sqrtPriceX96: slot0.sqrtPriceX96.toString(),
       });
@@ -275,38 +275,38 @@ export const univ3lpFactory: HandlerFactory<'univ3lp'> = (resolve) => async (arg
     }
 
     // 4) Convert ticks → sqrt bounds, then L → token amounts
-    log.debug('🔍 UNIV3LP: Converting ticks to sqrt prices');
+    logger.debug('🔍 UNIV3LP: Converting ticks to sqrt prices');
     const sqrtA = tickToSqrtPriceX96(tickLower);
     const sqrtB = tickToSqrtPriceX96(tickUpper);
-    log.debug('🔍 UNIV3LP: Tick conversions:', {
+    logger.debug('🔍 UNIV3LP: Tick conversions:', {
       tickLower,
       tickUpper,
       sqrtA: sqrtA.toString(),
       sqrtB: sqrtB.toString(),
     });
 
-    log.debug('🔍 UNIV3LP: Calculating token amounts from liquidity');
+    logger.debug('🔍 UNIV3LP: Calculating token amounts from liquidity');
     const { amount0, amount1 } = amountsFromLiquidity(L, sqrtPriceX96, sqrtA, sqrtB);
-    log.debug('🔍 UNIV3LP: Token amounts calculated:', {
+    logger.debug('🔍 UNIV3LP: Token amounts calculated:', {
       amount0: amount0.toString(),
       amount1: amount1.toString(),
     });
 
     // 5) Get token decimals
-    log.debug('🔍 UNIV3LP: Getting token decimals');
+    logger.debug('🔍 UNIV3LP: Getting token decimals');
     const d0 = await getErc20Decimals(ctx, token0);
     const d1 = await getErc20Decimals(ctx, token1);
-    log.debug('🔍 UNIV3LP: Token decimals:', { token0: d0, token1: d1 });
+    logger.debug('🔍 UNIV3LP: Token decimals:', { token0: d0, token1: d1 });
 
     // 6) Resolve the single known token price
     const knownIs0 = tokenSelector === 'token0';
     const knownTokenAddr = knownIs0 ? token0 : token1;
-    log.debug('🔍 UNIV3LP: Resolving known token price', { knownTokenAddr, knownIs0 });
+    logger.debug('🔍 UNIV3LP: Resolving known token price', { knownTokenAddr, knownIs0 });
     const knownResolved = await resolve(tokenFeed, knownTokenAddr, ctx);
-    log.debug('🔍 UNIV3LP: Known token resolved:', { price: knownResolved.price });
+    logger.debug('🔍 UNIV3LP: Known token resolved:', { price: knownResolved.price });
 
     if (!knownResolved || knownResolved.price == null || !(knownResolved.price > 0)) {
-      log.error('🔍 UNIV3LP: Failed to resolve known token price');
+      logger.error('🔍 UNIV3LP: Failed to resolve known token price');
       return 0;
     }
 
@@ -321,7 +321,7 @@ export const univ3lpFactory: HandlerFactory<'univ3lp'> = (resolve) => async (arg
       p0usd = p1usd.times(P01); // USD0 = USD1 * (token1 per token0)
     }
 
-    log.debug('🔍 UNIV3LP: Derived prices:', {
+    logger.debug('🔍 UNIV3LP: Derived prices:', {
       p0usd: p0usd.toString(),
       p1usd: p1usd.toString(),
       P01: P01.toString(),
@@ -332,7 +332,7 @@ export const univ3lpFactory: HandlerFactory<'univ3lp'> = (resolve) => async (arg
     const amount1Decimal = amount1.div(Big(10).pow(d1));
     const valueUsd = amount0Decimal.times(p0usd).plus(amount1Decimal.times(p1usd));
 
-    log.debug('🔍 UNIV3LP: Final calculation:', {
+    logger.debug('🔍 UNIV3LP: Final calculation:', {
       amount0Decimal: amount0Decimal.toString(),
       amount1Decimal: amount1Decimal.toString(),
       p0usd: p0usd.toString(),
@@ -340,11 +340,11 @@ export const univ3lpFactory: HandlerFactory<'univ3lp'> = (resolve) => async (arg
       valueUsd: valueUsd.toString(),
     });
 
-    log.debug('🔍 UNIV3LP: Handler completed successfully, returning:', valueUsd.toNumber());
+    logger.debug('🔍 UNIV3LP: Handler completed successfully, returning:', valueUsd.toNumber());
     return valueUsd.toNumber();
   } catch (error) {
-    log.error(`🔍 UNIV3LP: Failed to price position ${ctx.asset}:`, error);
-    log.debug('🔍 UNIV3LP: Handler failed, returning 0');
+    logger.error(`🔍 UNIV3LP: Failed to price position ${ctx.asset}:`, error);
+    logger.debug('🔍 UNIV3LP: Handler failed, returning 0');
     return 0;
   }
 };

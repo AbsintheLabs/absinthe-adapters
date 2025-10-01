@@ -1,7 +1,7 @@
 import { HandlerFactory } from './interface.ts';
 import * as ichiAbi from '../abi/ichi.ts';
 import Big from 'big.js';
-import { log } from '../utils/logger.ts';
+import { logger } from '../utils/logger.ts';
 
 // Handler name constant for ICHI NAV pricing
 const ICHI_NAV_HANDLER = 'ichinav';

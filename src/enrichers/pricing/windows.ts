@@ -1,5 +1,5 @@
 import Big from 'big.js';
-import { log } from '../../utils/logger.ts';
+import { logger } from '../../utils/logger.ts';
 import { WindowEnricher, PricedBalanceWindow } from '../../types/enrichment.ts';
 import { getPrevSample, getSamplesIn, twaFromSamples } from '../utils/timeseries.ts';
 
@@ -7,7 +7,7 @@ import { getPrevSample, getSamplesIn, twaFromSamples } from '../utils/timeseries
  * Enriches balance windows with time-weighted average price data from Redis TimeSeries
  */
 export const enrichWindowsWithPrice: WindowEnricher = async (windows, context) => {
-  log.debug(`💰 ENRICH: Starting price enrichment for ${windows.length} windows`);
+  logger.debug(`💰 ENRICH: Starting price enrichment for ${windows.length} windows`);
   const out = [];
 
   for (const w of windows) {
@@ -15,17 +15,17 @@ export const enrichWindowsWithPrice: WindowEnricher = async (windows, context) =
     const start = w.startTs;
     const end = w.endTs;
 
-    log.debug(
+    logger.debug(
       `💰 ENRICH: Processing window for asset ${w.asset}, user: ${w.user ?? 'unknown'}, start: ${new Date(start).toISOString()}, end: ${new Date(end).toISOString()}`,
     );
 
     // Fast existence check
     const exists = await context.redis.exists(key);
-    log.debug(
+    logger.debug(
       `💰 ENRICH: Price key ${key} exists: ${exists} for asset ${w.asset}, user: ${w.user ?? 'unknown'}`,
     );
     if (!exists) {
-      log.debug(
+      logger.debug(
         `💰 ENRICH: No price data found for asset ${w.asset} (key: ${key}), user: ${w.user ?? 'unknown'}, setting valueUsd to null`,
       );
       out.push({ ...w, valueUsd: null, totalPosition: null });
@@ -38,16 +38,16 @@ export const enrichWindowsWithPrice: WindowEnricher = async (windows, context) =
       getSamplesIn(context.redis, key, start, end),
     ]);
 
-    log.debug(
+    logger.debug(
       `💰 ENRICH: Got ${points.length} price points for asset ${w.asset}, user: ${w.user ?? 'unknown'}`,
     );
 
     const { avg, coveredMs } = twaFromSamples(start, end, prev, points);
-    log.debug(
+    logger.debug(
       `💰 ENRICH: TWA result for asset ${w.asset}, user: ${w.user ?? 'unknown'}: avg=${avg}, coveredMs=${coveredMs}`,
     );
     if (avg == null) {
-      log.debug(
+      logger.debug(
         `💰 ENRICH: No average price computed for asset ${w.asset}, user: ${w.user ?? 'unknown'}, setting valueUsd to null`,
       );
       out.push({ ...w, valueUsd: null, totalPosition: null });
@@ -65,7 +65,7 @@ export const enrichWindowsWithPrice: WindowEnricher = async (windows, context) =
     const tokens = balanceBefore.div(new Big(10).pow(decimals));
     const totalPosition = tokens.times(priceUsd);
 
-    log.debug(
+    logger.debug(
       `💰 ENRICH: Final window for asset ${w.asset}, user: ${w.user ?? 'unknown'}: valueUsd=${priceUsd}, totalPosition=${totalPosition.toNumber()}, _coverageMs=${coveredMs}, _pointsUsed=${points.length}`,
     );
 

@@ -2,7 +2,7 @@
 
 import { Redis } from 'ioredis';
 import { PriceCacheTS } from '../types/pricing.ts';
-import { log } from '../utils/logger.ts';
+import { logger } from '../utils/logger.ts';
 import { withPrefix } from '../redis/ts-util.ts';
 
 export class RedisTSCache implements PriceCacheTS {
@@ -38,7 +38,7 @@ export class RedisTSCache implements PriceCacheTS {
   }
 
   async set(seriesKey: string, timestampMs: number, price: number) {
-    log.debug('setting price for', seriesKey, timestampMs, price);
+    logger.debug('setting price for', seriesKey, timestampMs, price);
     const key = this.key(seriesKey);
     await this.ensureSeries(key, seriesKey);
     const fullKey = withPrefix(this.redis, key);

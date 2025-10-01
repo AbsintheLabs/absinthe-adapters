@@ -2,7 +2,7 @@
 import { readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { log } from '../utils/logger.js';
+import { logger } from '../utils/logger.js';
 
 type LoadOptions = {
   // Explicit path to the adapters directory at repo root (default: auto-resolve)
@@ -93,7 +93,7 @@ export async function loadAllAdapters(opts: LoadOptions = {}): Promise<string[]>
     }
   }
   if (!adaptersDir) {
-    log.warn('[adapter-loader] No adapters directory found. Checked:', candidates);
+    logger.warn('[adapter-loader] No adapters directory found. Checked:', candidates);
     return [];
   }
 
@@ -105,19 +105,19 @@ export async function loadAllAdapters(opts: LoadOptions = {}): Promise<string[]>
     try {
       // Convert absolute path to file:// URL for ESM dynamic import
       const url = pathToFileURL(f).href;
-      log.debug(`[adapter-loader] Loading adapter from: ${path.relative(adaptersDir, f)}`);
+      logger.debug(`[adapter-loader] Loading adapter from: ${path.relative(adaptersDir, f)}`);
       await import(url);
       loaded.push(f);
     } catch (err) {
-      log.error(`[adapter-loader] Failed to import ${f}`, err);
+      logger.error(`[adapter-loader] Failed to import ${f}`, err);
     }
   }
   if (loaded.length === 0) {
-    log.warn(
+    logger.warn(
       '[adapter-loader] Found adapters dir but loaded 0 modules. Check file names match patterns.',
     );
   } else {
-    log.debug(`[adapter-loader] Successfully loaded ${loaded.length} adapter modules`);
+    logger.debug(`[adapter-loader] Successfully loaded ${loaded.length} adapter modules`);
   }
   return loaded;
 }

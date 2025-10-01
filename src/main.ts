@@ -11,7 +11,7 @@ import { buildBaseSqdProcessor } from './eprocessorBuilder.ts';
 import { Sink, SinkFactory } from './sinks/index.ts';
 import { Redis } from 'ioredis';
 import { AppConfig } from './config/schema.ts';
-import { log } from './utils/logger.ts';
+import { logger } from './utils/logger.ts';
 
 // New registry imports
 import { EngineIO, BuiltAdapter } from './adapter-core.ts';
@@ -78,17 +78,19 @@ async function main() {
 
   // handle redis connection errors
   redis.on('error', (err) => {
-    log.error('Redis connection error:', err);
-    log.error('Are you sure you have redis running at your specified endpoint?');
+    logger.error('Redis connection error:', err);
+    logger.error('Are you sure you have redis running at your specified endpoint?');
     process.exit(1);
   });
 
   // handle state reset if requested
   if (reset) {
-    log.warn(`[RESET] Clearing state dir "${stateDir}" and Redis keys with prefix "${keyPrefix}"`);
+    logger.warn(
+      `[RESET] Clearing state dir "${stateDir}" and Redis keys with prefix "${keyPrefix}"`,
+    );
     await clearStateDir(stateDir);
     await clearRedisNamespace(redis, keyPrefix);
-    log.warn('[RESET] Completed');
+    logger.warn('[RESET] Completed');
   }
 
   // create EngineIO for dependency injection

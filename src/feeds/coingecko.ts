@@ -1,6 +1,6 @@
 import { HandlerFactory } from './interface.ts';
 import axios from 'axios';
-import { log } from '../utils/logger.ts';
+import { logger } from '../utils/logger.ts';
 
 // Simple function implementation using FeedHandler signature
 export const coinGeckoFactory: HandlerFactory<'coingecko'> = (resolve) => async (args) => {
@@ -29,13 +29,13 @@ export const coinGeckoFactory: HandlerFactory<'coingecko'> = (resolve) => async 
     });
 
     if (!r.data?.market_data?.current_price?.usd) {
-      log.warn(`No market data found for ${coingeckoId} on ${date}`);
+      logger.warn(`No market data found for ${coingeckoId} on ${date}`);
       return 0;
     }
 
     return r.data.market_data.current_price.usd;
   } catch (error) {
-    log.warn(`Failed to fetch historical USD price for ${coingeckoId}:`, error);
+    logger.warn(`Failed to fetch historical USD price for ${coingeckoId}:`, error);
     return 0;
   }
 };

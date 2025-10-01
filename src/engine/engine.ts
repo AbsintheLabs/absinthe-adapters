@@ -4,7 +4,7 @@ import { Database } from '@subsquid/file-store';
 import Big from 'big.js';
 import { Redis } from 'ioredis';
 import dotenv from 'dotenv';
-import { log } from '../utils/logger.ts';
+import { logger } from '../utils/logger.ts';
 import { EVM_NULL_ADDRESS } from '../utils/constants.ts';
 import { Sink } from '../sinks/index.ts';
 import { RedisTSCache, RedisMetadataCache, RedisHandlerMetadataCache } from '../cache/index.ts';
@@ -123,9 +123,9 @@ export class Engine {
     // main loop
     // FIXME: add typing in here
     this.sqdProcessor.run(this.db, async (ctx: any) => {
-      log.debug(`🏁 START BATCH. Blocks: ${ctx.blocks.length}.`);
-      log.debug(`Starting block: ${ctx.blocks[0].header.height}.`);
-      log.debug(`Ending block: ${ctx.blocks[ctx.blocks.length - 1].header.height}.`);
+      logger.debug(`🏁 START BATCH. Blocks: ${ctx.blocks.length}.`);
+      logger.debug(`Starting block: ${ctx.blocks[0].header.height}.`);
+      logger.debug(`Ending block: ${ctx.blocks[ctx.blocks.length - 1].header.height}.`);
       this.ctx = ctx;
 
       // XXX: this will change when we add solana support (will it always be blocks, logs, transactions?)
@@ -145,7 +145,7 @@ export class Engine {
       await this.adapter.onBatchEnd?.({
         io: {
           redis: this.redis,
-          log: log.debug,
+          log: logger.debug,
         },
         ctx,
       });
@@ -175,12 +175,12 @@ export class Engine {
       this.appCfg.range.toBlock != null &&
       ctx.blocks[ctx.blocks.length - 1].header.height >= this.appCfg.range.toBlock
     ) {
-      log.info('🏁 Processing final batch. Flushing sink and exiting...');
+      logger.info('🏁 Processing final batch. Flushing sink and exiting...');
       try {
         if (this.sink.flush) await this.sink.flush();
         if (this.sink.close) await this.sink.close();
       } catch (err) {
-        log.error('Error while flushing/closing sink before exit', err);
+        logger.error('Error while flushing/closing sink before exit', err);
       }
       process.exit(0);
     }
@@ -205,7 +205,7 @@ export class Engine {
   // private async enrichWindows(ctx: any): Promise<PricedBalanceWindow[]> {
   private async enrichWindows(ctx: any): Promise<void> {
     if (this.windows.length === 0) {
-      log.debug('⚠️ NO WINDOWS TO ENRICH');
+      logger.debug('⚠️ NO WINDOWS TO ENRICH');
       return;
     }
 
@@ -216,7 +216,7 @@ export class Engine {
       redis: this.redis,
     };
 
-    log.debug(`about to enrich windows: ${this.windows.length}`);
+    logger.debug(`about to enrich windows: ${this.windows.length}`);
     const enrichedWindows = await runBatch(this.windows, windowsPipeline, enrichCtx);
     this.enrichedWindows = enrichedWindows;
   }
@@ -472,7 +472,7 @@ export class Engine {
   }
 
   private async applyPositionStatusChange(e: PositionStatusChange, blockData: any): Promise<void> {
-    log.debug('applyPositionStatusChange: ', e);
+    logger.debug('applyPositionStatusChange: ', e);
     const ts = blockData.ts;
     const height = blockData.height;
     const txHash = blockData.txHash;
@@ -512,7 +512,7 @@ export class Engine {
     const isToggled = isInactive === e.active;
     const shouldToggleOn = isInactive && e.active;
     const shouldToggleOff = !isInactive && !e.active;
-    log.debug(
+    logger.debug(
       'applyPositionStatusChange',
       key,
       isInactive,
@@ -523,7 +523,7 @@ export class Engine {
 
     // attempting to toggle off
     if (shouldToggleOff) {
-      log.debug('toggle off', key);
+      logger.debug('toggle off', key);
 
       // Only emit INACTIVE_POSITION window if position was previously active
       // if (!isInactive) {
@@ -561,7 +561,7 @@ export class Engine {
     } else {
       // Toggling ON: start tracking again (no window to emit now)
       if (shouldToggleOn) {
-        log.debug('toggle on', key);
+        logger.debug('toggle on', key);
         await this.redis.srem(Engine.INACTIVE_SET_KEY, key);
         await this.redis.hset(key, {
           updatedTs: String(ts),
@@ -617,7 +617,7 @@ export class Engine {
   private async applyReprice(e: Reprice, blockData: any): Promise<void> {
     const ts = blockData.ts;
     const height = blockData.height;
-    log.debug('applyReprice: ', e.asset, ts, blockData);
+    logger.debug('applyReprice: ', e.asset, ts, blockData);
 
     // Check pricing range - skip repricing if before the specified range
     if (this.appCfg.pricingRange) {
@@ -630,7 +630,7 @@ export class Engine {
       }
 
       if (!shouldPrice) {
-        log.debug(
+        logger.debug(
           `💰 Skipping repricing for asset ${e.asset} at block ${height} (${new Date(ts).toISOString()}) - before pricing range`,
         );
         return;
@@ -667,7 +667,7 @@ export class Engine {
     const reachedFinal = finalBlock != null && height === finalBlock;
     const backfilling = finalBlock != null && height < finalBlock;
 
-    log.debug('reached final: ', reachedFinal);
+    logger.debug('reached final: ', reachedFinal);
     // If still backfilling, skip for speed
     if (backfilling) return;
 
@@ -691,7 +691,7 @@ export class Engine {
     // get keys that are active and greater than 0
     const balanceKeys = await this.redis.sdiff([Engine.BAL_SET_KEY, Engine.INACTIVE_SET_KEY]);
     if (balanceKeys.length === 0) {
-      log.debug('No balance keys found in flushPeriodic()');
+      logger.debug('No balance keys found in flushPeriodic()');
       return;
     }
 
@@ -715,7 +715,7 @@ export class Engine {
 
       const amt = new Big(amountStr || '0');
       if (amt.lte(0)) {
-        log.debug('amount is less than or equal to 0, skipping for user');
+        logger.debug('amount is less than or equal to 0, skipping for user');
         return; // only flush active balances
       }
 
@@ -724,7 +724,7 @@ export class Engine {
       // The asset can contain colons (e.g., 'erc721:0x...:tokenId'), so we need to extract it properly
       const parts = key.split(':');
       if (parts[0] !== 'bal') {
-        log.error(`Invalid Redis key format: ${key}`);
+        logger.error(`Invalid Redis key format: ${key}`);
         return;
       }
 

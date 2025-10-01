@@ -92,20 +92,20 @@ export interface TrackableInstance {
 }
 
 // Utility function to validate handler compatibility with manifest
-export function validateHandlers(manifest: Manifest, handlers: Handlers): void {
-  for (const trackable of manifest.trackables) {
-    const handler = handlers[trackable.id];
-    if (!handler) {
-      throw new Error(`Missing handler for trackable '${trackable.id}'`);
-    }
+// export function validateHandlers(manifest: Manifest, handlers: Handlers): void {
+//   for (const trackable of Object.values(manifest.trackables)) {
+//     const handler = handlers[trackable];
+//     if (!handler) {
+//       throw new Error(`Missing handler for trackable '${trackable.id}'`);
+//     }
 
-    // Validate that handler type matches trackable kind
-    // For now, we just ensure handlers exist. More sophisticated type checking
-    // can be added later when we have more specific handler signatures
-    // xxx: i think we need to do this here, and make sure that required filters are set, if pricing is provided
-    // xxx: as well as attach additional fields based on the results of the validation (like `shouldPrice` etc)
-  }
-}
+//     // Validate that handler type matches trackable kind
+//     // For now, we just ensure handlers exist. More sophisticated type checking
+//     // can be added later when we have more specific handler signatures
+//     // xxx: i think we need to do this here, and make sure that required filters are set, if pricing is provided
+//     // xxx: as well as attach additional fields based on the results of the validation (like `shouldPrice` etc)
+//   }
+// }
 
 // ------------------------------------------------------------
 // ADAPTER INTERFACE

@@ -1,6 +1,6 @@
 // Pricing backfill utilities for batch processing
 import { Redis } from 'ioredis';
-import { log } from '../utils/logger.ts';
+import { logger } from '../utils/logger.ts';
 import { AppConfig } from '../config/schema.ts';
 import { ResolveContext, findConfig } from '../types/pricing.ts';
 import { PricingEngine } from './pricing-engine.ts';
@@ -23,7 +23,7 @@ export async function backfillPriceDataForBatch(
   blocks: any[],
   deps: PricingBackfillDeps,
 ): Promise<void> {
-  log.debug(`💰 Backfilling price data for batch of ${blocks.length} blocks`);
+  logger.debug(`💰 Backfilling price data for batch of ${blocks.length} blocks`);
 
   // 1) dedupe to the first block per window
   const windowToFirstBlock = new Map<number, any>();
@@ -47,8 +47,8 @@ export async function backfillPriceDataForBatch(
     birth: Number(h) || 0,
   }));
 
-  log.debug(`💰 Collected ${assets.length} assets to backfill`);
-  log.debug(`💰 Assets: ${assets.map((a) => a.asset).join(', ')}`);
+  logger.debug(`💰 Collected ${assets.length} assets to backfill`);
+  logger.debug(`💰 Assets: ${assets.map((a) => a.asset).join(', ')}`);
 
   // 3) build tasks
   type Task = { block: any; ts: number; asset: string };
@@ -68,7 +68,7 @@ export async function backfillPriceDataForBatch(
       }
 
       if (!shouldPrice) {
-        log.debug(
+        logger.debug(
           `💰 Skipping pricing for block ${height} (${new Date(ts).toISOString()}) - before pricing range`,
         );
         continue;
@@ -76,12 +76,15 @@ export async function backfillPriceDataForBatch(
     }
 
     const eligible = assets.filter((a) => a.birth <= height);
-    log.debug(`💰 Eligible assets: ${eligible.length}`);
-    log.debug(`💰 assets with birth: ${assets.map((a) => JSON.stringify(a)).join(', ')}`);
-    log.debug('height: ', height);
-    log.debug('blockstart: ', blocks[0].header.height);
-    log.debug('blockend: ', blocks[blocks.length - 1].header.height);
-    log.debug('blockofwindowstarts: ', blocksOfWindowStarts.map((b) => b.header.height).join(', '));
+    logger.debug(`💰 Eligible assets: ${eligible.length}`);
+    logger.debug(`💰 assets with birth: ${assets.map((a) => JSON.stringify(a)).join(', ')}`);
+    logger.debug('height: ', height);
+    logger.debug('blockstart: ', blocks[0].header.height);
+    logger.debug('blockend: ', blocks[blocks.length - 1].header.height);
+    logger.debug(
+      'blockofwindowstarts: ',
+      blocksOfWindowStarts.map((b) => b.header.height).join(', '),
+    );
     for (const a of eligible) tasks.push({ block, ts, asset: a.asset });
   }
 
@@ -96,7 +99,7 @@ export async function backfillPriceDataForBatch(
       try {
         await priceAsset(t.asset, t.ts, t.block, deps, false);
       } catch (err) {
-        log.error(`priceAsset failed for ${t.asset} @ ${t.ts}`, err);
+        logger.error(`priceAsset failed for ${t.asset} @ ${t.ts}`, err);
       }
     }
   };
@@ -122,7 +125,7 @@ export async function priceAsset(
   const assetConfig = findConfig(deps.appCfg.assetFeedConfig, asset, (assetKey: string) => labels);
 
   if (!assetConfig) {
-    log.error(`💰 No feed config found for asset: ${asset}`);
+    logger.error(`💰 No feed config found for asset: ${asset}`);
     return 0;
   }
 
@@ -148,7 +151,7 @@ export async function priceAsset(
   };
 
   if (bypassTopLevelCache) {
-    log.debug('ctx when bypassing top level cache: ', ctx);
+    logger.debug('ctx when bypassing top level cache: ', ctx);
   }
 
   return await deps.pricingEngine.priceAsset(validatedAssetConfig, ctx);
