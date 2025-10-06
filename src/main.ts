@@ -73,7 +73,7 @@ async function main() {
   // Use the same configHash to prefix Redis
   const keyPrefix = configHash.slice(0, 6) + ':';
   const stateDir = deriveStateDirFromHash(configHash);
-  const redis = new Redis(appCfg.redisUrl, { keyPrefix });
+  const redis = new Redis(appCfg.redisUrl, { keyPrefix, maxRetriesPerRequest: 5 });
 
   // handle redis connection errors
   try {
@@ -107,7 +107,7 @@ async function main() {
   };
 
   // build adapter
-  const adapter = buildAdapter(appCfg.adapterConfig.adapterId, appCfg.adapterConfig.params, io);
+  const adapter = buildAdapter(appCfg.adapterConfig.adapterId, appCfg.adapterConfig.config, io);
 
   // get adapter meta and set in runtime
   const adapterId = appCfg.adapterConfig.adapterId;

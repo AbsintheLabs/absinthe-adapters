@@ -29,36 +29,54 @@
   },
   "adapterConfig": {
     "adapterId": "uniswap-v2",
-    "params": {
-      "poolAddress": "0x0621bae969de9c153835680f158f481424c0720a",
-      "trackSwaps": false,
-      "trackLp": true
-    }
-  },
-  "assetFeedConfig": [
-    {
-      "match": {
-        "key": "0xAA40c0c7644e0b2B224509571e10ad20d9C4ef28"
-      },
-      "config": {
-        "assetType": "erc20",
-        "priceFeed": {
-          "kind": "pegged",
-          "usdPegValue": 115764.58
+    "config": {
+      "swap": [
+        {
+          "params": {
+            "poolAddress": "0x0621bae969de9c153835680f158f481424c0720a"
+          },
+          "assetSelectors": {
+            "swapLegAddress": "0xAA40c0c7644e0b2B224509571e10ad20d9C4ef28"
+          },
+          "pricing": {
+            "assetType": "erc20",
+            "priceFeed": {
+              "kind": "pegged",
+              "usdPegValue": 115764.58
+            }
+          }
+        },
+        {
+          "params": {
+            "poolAddress": "0x0621bae969de9c153835680f158f481424c0720a"
+          },
+          "assetSelectors": {
+            "swapLegAddress": "0xad11a8BEb98bbf61dbb1aa0F6d6F2ECD87b35afA"
+          },
+          "pricing": {
+            "assetType": "erc20",
+            "priceFeed": {
+              "kind": "pegged",
+              "usdPegValue": 1
+            }
+          }
         }
-      }
-    },
-    {
-      "match": {
-        "key": "0xad11a8BEb98bbf61dbb1aa0F6d6F2ECD87b35afA"
-      },
-      "config": {
-        "assetType": "erc20",
-        "priceFeed": {
-          "kind": "pegged",
-          "usdPegValue": 1
+      ],
+      "lp": [
+        {
+          "params": {
+            "poolAddress": "0x0621bae969de9c153835680f158f481424c0720a"
+          },
+          "pricing": {
+            "assetType": "erc20",
+            "priceFeed": {
+              "kind": "univ2nav",
+              "token0": "0xAA40c0c7644e0b2B224509571e10ad20d9C4ef28",
+              "token1": "0xad11a8BEb98bbf61dbb1aa0F6d6F2ECD87b35afA"
+            }
+          }
         }
-      }
+      ]
     }
-  ]
+  }
 }

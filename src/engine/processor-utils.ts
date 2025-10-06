@@ -11,7 +11,7 @@ import { EvmBatchProcessor } from '@subsquid/evm-processor';
  *
  * @param sqdProcessor - The Subsquid processor instance to modify
  */
-export function ensureTransactionDataForLogs(sqdProcessor: EvmBatchProcessor): void {
+export function ensureTransactionDataForLogs(sqdProcessor: EvmBatchProcessor): EvmBatchProcessor {
   for (const request of sqdProcessor['requests']) {
     if (request.request.logs) {
       request.request.logs.forEach((log: any) => {
@@ -19,4 +19,5 @@ export function ensureTransactionDataForLogs(sqdProcessor: EvmBatchProcessor): v
       });
     }
   }
+  return sqdProcessor;
 }

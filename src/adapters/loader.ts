@@ -109,6 +109,7 @@ export async function loadAllAdapters(opts: LoadOptions = {}): Promise<string[]>
       await import(url);
       loaded.push(f);
     } catch (err) {
+      // we intentionally don't throw so a misconfigured adapter doesn't block the whole app for adapters that are working
       logger.error(`[adapter-loader] Failed to import ${f}`, err);
     }
   }

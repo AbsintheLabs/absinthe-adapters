@@ -49,9 +49,11 @@ export function buildBaseSqdProcessor(cfg: AppConfig) {
       to: true,
       from: true,
       gas: true,
-      gasPrice: true,
+      effectiveGasPrice: true,
       gasUsed: true,
       status: true,
+      value: true,
+      sighash: true,
     },
   });
 

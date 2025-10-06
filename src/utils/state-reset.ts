@@ -2,9 +2,16 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import type { Redis } from 'ioredis';
 
+/**
+ * Format a state directory path from a hash
+ */
+export function formatStateDir(hash: string): string {
+  return `_sqdstate-${hash}`;
+}
+
 /** Same dir rule you used in Engine.generateStatePath */
 export function deriveStateDirFromHash(hash: string) {
-  return `_sqdstate-${hash}`;
+  return formatStateDir(hash);
 }
 
 /** Delete the state directory for this run (if it exists). */

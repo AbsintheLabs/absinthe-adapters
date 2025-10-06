@@ -39,14 +39,14 @@ export interface UnifiedEvmLog extends UnifiedBase {
   // Transaction context (optional - may not always be available)
   transactionFrom: string;
   transactionTo: string;
-  gasUsed: bigint;
-  effectiveGasPrice: bigint;
+  gasUsed: string;
+  effectiveGasPrice: string;
 }
 
 export interface UnifiedEvmTransaction extends UnifiedBase {
   transactionFrom: string;
   transactionTo: string;
-  value: bigint;
+  value: string;
   input: string; // calldata
 
   // Block
@@ -54,8 +54,8 @@ export interface UnifiedEvmTransaction extends UnifiedBase {
 
   chainId: number;
 
-  gasUsed: bigint;
-  effectiveGasPrice: bigint;
+  gasUsed: string;
+  effectiveGasPrice: string;
   status: number; // 1 = success, 0 = failure
 }
 

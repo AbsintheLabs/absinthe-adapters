@@ -1,12 +1,13 @@
 // State management utilities for the engine
 import { Database, LocalDest } from '@subsquid/file-store';
 import { getRuntime } from '../runtime/context.ts';
+import { formatStateDir } from '../utils/state-reset.ts';
 
 /**
  * Generate the state path for the SQD database based on the current config hash
  */
 export function generateStatePath(): string {
-  return '_sqdstate-' + getRuntime().configHash;
+  return formatStateDir(getRuntime().configHash);
 }
 
 /**

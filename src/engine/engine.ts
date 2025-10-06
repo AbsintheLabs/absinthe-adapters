@@ -91,7 +91,7 @@ export class Engine {
     this.sqdProcessor = deps.sqdProcessor;
 
     // Ensure logs have transaction data for gas calculations
-    addTransactionDataForSqdLogs(this.sqdProcessor);
+    this.sqdProcessor = addTransactionDataForSqdLogs(this.sqdProcessor);
 
     // 6) Pricing + caches
     this.pricingEngine = new PricingEngine(this.adapter.customFeeds);
@@ -228,7 +228,9 @@ export class Engine {
     };
 
     logger.debug(`about to enrich windows: ${this.windows.length}`);
-    const enrichedWindows = await runBatch(this.windows, windowsPipeline, enrichCtx);
+    // XXX: make sure to uncomment this when we have a real pipeline
+    // const enrichedWindows = await runBatch(this.windows, windowsPipeline, enrichCtx);
+    const enrichedWindows = this.windows;
     this.enrichedWindows = enrichedWindows;
   }
 

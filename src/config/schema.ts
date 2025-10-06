@@ -198,7 +198,7 @@ const Common = z.object({
   assetFeedConfig: AssetFeedConfig.optional().default([]),
   adapterConfig: z.object({
     adapterId: z.string(), // "uniswap-v3", "compound-v2", etc.
-    params: z.unknown(), // Will be validated by the specific adapter
+    config: z.unknown(), // Will be validated against the adapter's manifest
   }),
   pricingRange: PricingRange.optional(), // Optional pricing range - defines when to apply pricing
 });
