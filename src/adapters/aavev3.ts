@@ -52,7 +52,7 @@ export const aavev3 = registerAdapter(
         onInit: async ({ rpcCtx: rpc, redis }) => {
           // Initialize any required state
         },
-        onLog: async ({ block, log, emitFns: emit, rpcCtx: rpc, redis }) => {
+        onLog: async ({ block, log, emitFns: emit, sqdRpcCtx: rpc, redis }) => {
           // Lending
           if (params.aTokenAddress) {
             if (log.topics[0] === transferTopic) {

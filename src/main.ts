@@ -15,7 +15,7 @@ import { logger } from './utils/logger.ts';
 
 // New registry imports
 import { EngineIO, BuiltAdapter } from './adapter-core.ts';
-import { buildAdapter, getAdapterMeta } from './adapter-registry.ts';
+import { buildAdapter, getAdapterMeta as getAdapterManifest } from './adapter-registry.ts';
 import { Engine } from './engine/engine.ts';
 
 import { loadAllAdapters } from './adapters/loader.ts';
@@ -41,11 +41,11 @@ async function main() {
   // dynamically load and register all adapters
   await loadAllAdapters();
 
-  // load config
+  // load runtime config
   const appCfg = await loadConfig(process.argv[2]);
 
   // check for reset flag
-  const reset = process.argv.includes('--reset-state');
+  const reset = process.argv.includes('--reset-state') || process.argv.includes('-r');
 
   // initialize runtime context with config hash and other metadata
   const configHash = md5HashCanonical(appCfg, 8);
@@ -67,7 +67,6 @@ async function main() {
   const sink = SinkFactory.create(appCfg.sinkConfig);
 
   // create base processor
-  // note: we're using types from two different processors (processor.ts and from the official sqd lib), so we should fix this later
   const baseSqdProcessor = buildBaseSqdProcessor(appCfg);
 
   // create redis connection (ioredis auto-connects)
@@ -77,9 +76,17 @@ async function main() {
   const redis = new Redis(appCfg.redisUrl, { keyPrefix });
 
   // handle redis connection errors
-  redis.on('error', (err) => {
+  try {
+    await redis.ping();
+  } catch (err) {
     logger.error('Redis connection error:', err);
     logger.error('Are you sure you have redis running at your specified endpoint?');
+    process.exit(1);
+  }
+
+  // persist the error handler to not run the indexer with redis failures
+  redis.on('error', (err) => {
+    logger.error('Something went wrong with the redis connection:', err);
     process.exit(1);
   });
 
@@ -99,18 +106,19 @@ async function main() {
     log: console.log,
   };
 
-  // first build adapter
+  // build adapter
   const adapter = buildAdapter(appCfg.adapterConfig.adapterId, appCfg.adapterConfig.params, io);
 
-  // then get it's meta and set in runtime
+  // get adapter meta and set in runtime
   const adapterId = appCfg.adapterConfig.adapterId;
-  const meta = getAdapterMeta(adapterId);
-  if (!meta) {
+  const manifest = getAdapterManifest(adapterId);
+  if (!manifest) {
     throw new Error(`Unknown adapter: ${adapterId}`);
   }
+
   setRuntime({
-    adapterName: meta.name,
-    adapterVersion: meta.semver,
+    adapterName: manifest.name,
+    adapterVersion: manifest.semver,
   });
 
   // set chain runtime context
@@ -120,7 +128,7 @@ async function main() {
     chainShortName: getChainShortName(appCfg.network.chainId),
   });
 
-  // construct the real processor using the adapter
+  // construct the real sqd processor using the adapter
   const sqdProcessor = adapter.buildProcessor(baseSqdProcessor);
   const deps: EngineDeps = {
     appCfg,

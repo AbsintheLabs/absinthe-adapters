@@ -197,7 +197,7 @@ export interface ResolveContext {
   // bucketMs: number;
   bucketMs: number;
   // sqd context to make rpc calls
-  sqdCtx: ProcessorContext<any>;
+  sqdCtx: ProcessorContext;
   // used directly by subsquid, helper method to make rpc calls
   sqdRpcCtx: {
     _chain: Chain;

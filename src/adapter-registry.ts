@@ -1,90 +1,65 @@
-// adapter-registry.ts - Central registry for all adapters
-import { z } from 'zod';
-import { BuiltAdapter, EngineIO, SemVer, AdapterDef } from './adapter-core.ts';
-import { validateHandlers } from './types/adapter.ts';
+// adapter-registry.ts - Simplified registry for manifest-based adapters
+import { EngineIO, BuiltAdapter } from './adapter-core.ts';
+import { AdapterMetadata, ConfigFromManifest, Manifest } from './types/manifest.ts';
+import { validateConfigAgainstManifest } from './config/validation.ts'; // you'll need this
 
-// Central registry map
-const registry = new Map<string, AdapterDef>();
+// Central registry map: adapterId -> AdapterDef
+const registry = new Map<string, AdapterDef<Manifest>>();
 
-// Helper function to get adapter name and semver
-function getAdapterInfo(def: AdapterDef): { name: string; semver: string } {
-  return { name: def.manifest.name, semver: def.manifest.semver };
+/** Adapter definition combining manifest with build function */
+export type AdapterDef<M extends Manifest> = {
+  manifest: M;
+  build: (opts: { config: ConfigFromManifest<M>; io: EngineIO }) => BuiltAdapter;
+};
+
+export function defineAdapter<const M extends Manifest>(def: {
+  manifest: M;
+  metadata: AdapterMetadata;
+  build: (opts: { config: ConfigFromManifest<M>; io: EngineIO }) => BuiltAdapter;
+}): AdapterDef<M> {
+  const adapterDef = def as AdapterDef<M>;
+
+  // Register immediately as side effect
+  registerAdapter(adapterDef);
+
+  return adapterDef;
 }
 
-// Register a typed adapter with manifest and handlers
-export function registerAdapter(def: AdapterDef): AdapterDef {
-  const { name: adapterName, semver } = getAdapterInfo(def);
+// Register an adapter (called by each adapter's loader)
+function registerAdapter(def: AdapterDef<Manifest>): AdapterDef<Manifest> {
+  const adapterId = def.manifest.name;
 
-  if (registry.has(adapterName)) {
-    throw new Error(`Duplicate adapter: ${adapterName}`);
+  if (registry.has(adapterId)) {
+    throw new Error(`Duplicate adapter: ${adapterId}`);
   }
 
-  // Validate semver format
-  try {
-    SemVer.parse(semver);
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      throw new Error(`Invalid semver for adapter '${adapterName}':\n${z.prettifyError(error)}`);
-    }
-    throw error;
-  }
-
-  // Validate handler compatibility with manifest
-  try {
-    validateHandlers(def.manifest, def.handlers);
-  } catch (error) {
-    throw new Error(`Handler validation failed for adapter '${adapterName}': ${error.message}`);
-  }
-
-  registry.set(adapterName, def);
-  return def; // for tree-shaken side-effect registration
+  registry.set(adapterId, def);
+  return def;
 }
 
-// Build an adapter by name with runtime validation
-export function buildAdapter(name: string, rawConfig: unknown, io: EngineIO): BuiltAdapter {
-  const def = registry.get(name);
+// Build an adapter with validated runtime config
+export function buildAdapter(adapterId: string, rawConfig: unknown, io: EngineIO): BuiltAdapter {
+  const def = registry.get(adapterId);
+
   if (!def) {
     const available = Array.from(registry.keys()).join(', ');
-    throw new Error(`Unknown adapter: ${name}. Available adapters: ${available}`);
+    throw new Error(`Unknown adapter: ${adapterId}. Available: ${available}`);
   }
 
-  try {
-    // Parse and validate the config using the adapter's schema
-    const parsed = def.schema.parse(rawConfig);
+  // Validate that rawConfig matches the manifest's trackables structure
+  const validatedConfig = validateConfigAgainstManifest(rawConfig, def.manifest);
 
-    // Build the adapter with validated params
-    const built = def.build({ params: parsed, io });
-
-    return built;
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      throw new Error(`Invalid configuration for adapter '${name}':\n${z.prettifyError(error)}`);
-    }
-    throw new Error(
-      `Failed to build adapter '${name}': ${error instanceof Error ? error.message : String(error)}`,
-    );
-  }
+  // Build the adapter with validated config
+  return def.build({ config: validatedConfig, io });
 }
 
-// Get available adapter names
-export function getAvailableAdapters(): string[] {
-  return Array.from(registry.keys());
+// Get adapter manifest (for runtime metadata)
+export function getAdapterMeta(adapterId: string): { name: string; semver: string } | null {
+  const def = registry.get(adapterId);
+  return def ? { name: def.manifest.name, semver: def.manifest.version } : null;
 }
 
-export function getAdapterMeta(name: string): { name: string; semver: string } | null {
-  const def = registry.get(name);
-  return def ? getAdapterInfo(def) : null;
-}
-
-// Get adapter schema for documentation/validation
-export function getAdapterSchema(name: string) {
-  return registry.get(name)?.schema;
-}
-
-// List all adapters with their schemas
-export function listAdapters(): Array<{ name: string; schema: z.ZodTypeAny }> {
-  return Array.from(registry.entries()).map(([name, def]) => ({
-    name,
-    schema: def.schema,
-  }));
+// Get full manifest if needed elsewhere
+export function getManifest(adapterId: string): Manifest | null {
+  return registry.get(adapterId)?.manifest ?? null;
 }

@@ -8,15 +8,17 @@ import { enrichAssetMetadata } from '../pricing/asset-metadata.ts';
 
 import { requireShape } from '../core.ts';
 import { pipeline } from '../pipeline-overloads.ts';
-import { RawBalanceWindow } from '../../types/enrichment.ts';
+import { PositionBase } from '../../types/enrichment.ts';
 
-export const windowsPipeline = pipeline(
-  requireShape<RawBalanceWindow>(),
-  addRunnerMeta(),
-  addChainMetadata(),
-  enrichAssetMetadata(),
-  addTWBEventType(),
-  addProtocolMetadata(),
-  addWindowComputations(),
-  addAdapterProtocolMeta(),
-);
+// Any object that extends position base can be enriched with this pipeline
+export const windowsPipeline = <T extends PositionBase>() =>
+  pipeline(
+    requireShape<T>(),
+    addRunnerMeta(),
+    addChainMetadata(),
+    enrichAssetMetadata(),
+    addTWBEventType(),
+    addProtocolMetadata(),
+    addWindowComputations(),
+    addAdapterProtocolMeta(),
+  );

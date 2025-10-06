@@ -10,9 +10,8 @@ import { Sink } from '../sinks/index.ts';
 import { RedisTSCache, RedisMetadataCache, RedisHandlerMetadataCache } from '../cache/index.ts';
 import { PricingEngine } from './pricing-engine.ts';
 import { AppConfig } from '../config/schema.ts';
-import { match } from 'ts-pattern';
-import { EmitFunctions, Projector, BalanceDeltaReason } from '../types/adapter.ts';
-import { Amount, NormalizedEventContext, PositionUpdate, Swap } from '../types/core.ts';
+import { WindowReason } from '../types/adapter.ts';
+import { ActionEventBase, PositionUpdate, Swap } from '../types/core.ts';
 import { createStateDatabase } from './state.ts';
 import { backfillPriceDataForBatch, priceAsset } from './pricing-backfill.ts';
 import {
@@ -23,41 +22,48 @@ import {
   Reprice,
   ActionEvent,
 } from '../types/core.ts';
-import { EnrichmentContext, RawBalanceWindow, RawAction } from '../types/enrichment.ts';
-import { Block, Log, Transaction } from '../eprocessorBuilder.ts';
+import { EnrichmentContext, RawBalanceWindow, RawWindow } from '../types/enrichment.ts';
+import { ProcessorContext } from '../eprocessorBuilder.ts';
 import { EngineDeps } from '../main.ts';
 import { BuiltAdapter } from '../adapter-core.ts';
 import { windowsPipeline } from '../enrichers/pipelines/windows.ts';
 import { runBatch } from '../enrichers/run-batch.ts';
-import { transformEvmLog, transformEvmTransaction } from '../transforms/evm.ts';
+import { transformSqdLogToUnified, transformSqdTransactionToUnified } from '../transforms/evm.ts';
+import { getRuntime } from '../runtime/context.ts';
+import { ensureTransactionDataForLogs as addTransactionDataForSqdLogs } from './processor-utils.ts';
+import { InstanceFrom, TrackableDef } from '../types/manifest.ts';
+import { UnifiedBase } from '../types/unified-chain-events.ts';
 
 dotenv.config();
 
 export class Engine {
-  // put near other constants
+  // consts
   private static readonly BAL_SET_KEY = 'balances:gt0';
   private static readonly INACTIVE_SET_KEY = 'inactivebalances';
+  private static readonly LAST_FLUSH_BOUNDARY_KEY = 'abs:flush:boundary';
+  private static readonly BALANCE_FIELDS = {
+    AMOUNT: 'amount',
+    UPDATED_TS_MS: 'updatedTsMs',
+    UPDATED_HEIGHT: 'updatedHeight',
+    TX_REF: 'txRef',
+    CTX: 'ctx',
+  } as const;
+
   private db: Database<any, any>;
   private adapter: BuiltAdapter;
 
   // todo: change number to bigint/something that encodes token info
   private redis: Redis;
-  private windows: RawBalanceWindow[] = [];
-  private events: RawAction[] = [];
-
-  // Projectors for custom event processing
-  private projectors: Map<string, Projector> = new Map();
+  // private windows: RawBalanceWindow[] = [];
+  private windows: RawWindow[] = [];
+  // private events: RawAction[] = [];
+  private events: ActionEventBase[] = [];
 
   // Enriched data ready to be sent to sink
   // XXX: we'll need to fix these typing issues later
   private enrichedEvents: any[] = [];
   private enrichedWindows: any[] = [];
 
-  // Redis key for storing the last flush boundary (crash-resistant)
-  private get lastFlushBoundaryKey(): string {
-    // don't need to prefix since we get that automatically from ioredis key prefixing
-    return `abs:flush:boundary`;
-  }
   private sink: Sink;
   private indexerMode: IndexerMode;
 
@@ -66,14 +72,15 @@ export class Engine {
   private metadataCache: RedisMetadataCache;
   private handlerMetadataCache: RedisHandlerMetadataCache;
   private pricingEngine: PricingEngine;
-  private ctx: any;
+  private ctx: ProcessorContext;
   private appCfg: AppConfig;
+  // fixme: sqd type magic, not really sure what's happening here, using any for now
   private sqdProcessor: any;
 
   constructor(deps: EngineDeps) {
     this.db = createStateDatabase();
 
-    // this is kind of an old relic
+    // todo: remove: this is an old relic
     this.indexerMode = deps.appCfg.chainArch === 'evm' ? 'evm' : 'solana';
 
     // 5) Infra
@@ -83,15 +90,8 @@ export class Engine {
     this.adapter = deps.adapter;
     this.sqdProcessor = deps.sqdProcessor;
 
-    // hack: add transaction: true for each addLog method of the sqdProcessor
-    const p = deps.sqdProcessor;
-    for (const request of p['requests']) {
-      if (request.request.logs) {
-        request.request.logs.forEach((log: any) => {
-          log.transaction = true;
-        });
-      }
-    }
+    // Ensure logs have transaction data for gas calculations
+    addTransactionDataForSqdLogs(this.sqdProcessor);
 
     // 6) Pricing + caches
     this.pricingEngine = new PricingEngine(this.adapter.customFeeds);
@@ -105,7 +105,7 @@ export class Engine {
    * Returns -1 if no boundary has been stored yet (first run)
    */
   private async getLastFlushBoundary(): Promise<number> {
-    const boundary = await this.redis.get(this.lastFlushBoundaryKey);
+    const boundary = await this.redis.get(Engine.LAST_FLUSH_BOUNDARY_KEY);
     return boundary ? Number(boundary) : -1;
   }
 
@@ -113,31 +113,42 @@ export class Engine {
    * Set the last flush boundary in Redis
    */
   private async setLastFlushBoundary(boundary: number): Promise<void> {
-    await this.redis.set(this.lastFlushBoundaryKey, boundary.toString());
+    await this.redis.set(Engine.LAST_FLUSH_BOUNDARY_KEY, boundary.toString());
   }
 
-  // note: we probably want to be able to pass other types of processors in here, not just evm ones, but solana too!
-  // can make a builder class for evm + solana that gently wraps over the subsquid methods to make sure that we're exposing the right ones
-  // this will likely be a simple wrapper on top of the sqd methods on the sqd processor class
-  async run(): Promise<void> {
+  async run() {
     // main loop
-    // FIXME: add typing in here
-    this.sqdProcessor.run(this.db, async (ctx: any) => {
+    this.sqdProcessor.run(this.db, async (ctx: ProcessorContext) => {
       logger.debug(`🏁 START BATCH. Blocks: ${ctx.blocks.length}.`);
       logger.debug(`Starting block: ${ctx.blocks[0].header.height}.`);
       logger.debug(`Ending block: ${ctx.blocks[ctx.blocks.length - 1].header.height}.`);
       this.ctx = ctx;
 
-      // XXX: this will change when we add solana support (will it always be blocks, logs, transactions?)
+      // xxx: we can extract the run() loop to a factory which will decide whether to use sqd, etc.
+      // we'll stub out the data fetching from the actual run loop
       for (const block of ctx.blocks) {
         for (const log of block.logs) {
-          await this.ingest(block, log);
+          const unifiedLog = transformSqdLogToUnified(block, log, getRuntime().chainId);
+          await this.adapter.onLog?.({
+            emitFns: this.createEmitFunctions(unifiedLog),
+            log: unifiedLog,
+            sqdRpcCtx: {
+              _chain: ctx._chain,
+              block: { height: block.header.height },
+            },
+            redis: this.redis,
+          });
         }
         // even if no work is done, empty for loop in v8 is very fast
         for (const transaction of block.transactions) {
           // only process successful function calls
           if (transaction.status === 1) {
-            await this.ingest(block, transaction);
+            const unifiedTx = transformSqdTransactionToUnified(
+              block,
+              transaction,
+              getRuntime().chainId,
+            );
+            // await this.ingestEvmTransaction(unifiedTx);
           }
         }
       }
@@ -231,79 +242,6 @@ export class Engine {
     }
   }
 
-  // Subsquid hands logs to this
-  async ingest(block: Block, logOrTx: Log | Transaction) {
-    const commonEventCtx = match(logOrTx)
-      .returnType<NormalizedEventContext>()
-      .when(
-        (x): x is Log => 'logIndex' in x,
-        (log) => ({
-          eventType: 'log',
-          ts: block.header.timestamp,
-          height: block.header.height,
-          txHash: log.transactionHash,
-          logIndex: log.logIndex,
-          block: block,
-        }),
-      )
-      .when(
-        (x): x is Transaction => 'hash' in x,
-        (tx) => ({
-          eventType: 'transaction',
-          ts: block.header.timestamp,
-          height: block.header.height,
-          block: block,
-          txHash: tx.hash,
-        }),
-      )
-      .exhaustive();
-
-    // step 1: first define which emit functions are mapped to which internal engine methods
-    // fixme: we are passing in the entire block, but this is unecessary and makes things brittle
-    // fixme: need to add logindex to the context so we have deterministic behavior for actions in the same block
-    const emit = this.createEmitFunctions(commonEventCtx, logOrTx);
-
-    // step 2: transform SQD types to unified types and invoke the handler
-    await match(logOrTx)
-      .when(
-        (x): x is Log => 'logIndex' in x,
-        async (log) => {
-          if (this.adapter.onLog) {
-            // Transform SQD log to unified EVM log
-            const unifiedLog = transformEvmLog(block, log, this.appCfg.network.chainId);
-            await this.adapter.onLog({
-              log: unifiedLog,
-              emitFns: emit,
-              rpcCtx: {
-                _chain: this.ctx._chain,
-                block: { height: block.header.height },
-              },
-              redis: this.redis,
-            });
-          }
-        },
-      )
-      .when(
-        (x): x is Transaction => 'hash' in x,
-        async (tx) => {
-          if (this.adapter.onTransaction) {
-            // Transform SQD transaction to unified EVM transaction
-            const unifiedTx = transformEvmTransaction(block, tx, this.appCfg.network.chainId);
-            await this.adapter.onTransaction({
-              transaction: unifiedTx,
-              emitFns: emit,
-              rpcCtx: {
-                _chain: this.ctx._chain,
-                block: { height: block.header.height },
-              },
-              redis: this.redis,
-            });
-          }
-        },
-      )
-      .exhaustive();
-  }
-
   private async sqdBatchEnd(ctx: any) {
     // clear windows at the end of the batch
     this.windows.length = 0;
@@ -316,159 +254,115 @@ export class Engine {
     ctx.store.setForceFlush(true);
   }
 
-  private async applyAction(
-    e: ActionEvent,
-    sqdLogOrTx: Log | Transaction,
-    ctx: NormalizedEventContext,
-  ): Promise<void> {
-    const { key, meta, priceable } = e;
-    let { user } = e;
-
-    // we have to check if the action is a priceable action or not
-    let amount: Amount | null = null;
-    if (e.priceable) {
-      amount = e.amount;
+  private async applyAction(e: ActionEventBase): Promise<void> {
+    // todo: move this to a helper function so it can be reused across all handlers that might need to register assets
+    const isPriceableInstance = (i: InstanceFrom<TrackableDef>): boolean => i.pricing !== undefined;
+    if (isPriceableInstance(e.trackableInstance)) {
+      // tbd... registerAssetForPricing()
+      // await this.redis.hsetnx('assets:tracked', e.);
+      // this was the old implementation here
+      // await this.redis.hsetnx('assets:tracked', amount.asset.toLowerCase(), ctx.height.toString());
     }
-
-    // data cleaning:
-    if (this.indexerMode === 'evm') {
-      user = user.toLowerCase();
-      if (amount) {
-        amount.asset = amount.asset.toLowerCase();
-      }
-    }
-
-    if (amount) {
-      await this.redis.hsetnx('assets:tracked', amount.asset.toLowerCase(), ctx.height.toString());
-    }
-
-    // type narrowing
-    const logIndex = 'logIndex' in sqdLogOrTx ? sqdLogOrTx.logIndex : undefined;
-    const transaction = (
-      'transaction' in sqdLogOrTx ? sqdLogOrTx.transaction : sqdLogOrTx
-    ) as Transaction;
-
-    const event: RawAction = {
-      // engine stuff
-      key: key,
-      user: user,
-      meta: meta,
-      // role: role,
-      // asset stuff
-      asset: amount?.asset,
-      amount: amount?.amount.toString(),
-      priceable: priceable,
-      // block stuff
-      ts: ctx.ts,
-      height: ctx.height,
-      blockNumber: ctx.height, // fixme: we have a duplicate field for blocknumber (we have one already for height)
-      txHash: ctx.txHash,
-      blockHash: ctx.block.header.hash, // todo: do we really need this? we can omit to keep the normalized context smaller
-      // transaction stuff
-      gasUsed: transaction?.gasUsed?.toString(),
-      gasPrice: transaction?.gasPrice?.toString(),
-      from: transaction?.from,
-      to: transaction?.to,
-      // log stuff
-      ...(logIndex ? { logIndex: logIndex } : {}), // only include logIndex if it exists
-    };
-    this.events.push(event);
+    this.events.push(e);
   }
 
-  private async applyBalanceDelta(
+  private async applyBalanceDelta<T extends UnifiedBase>(
     e: BalanceDelta,
-    ctx: NormalizedEventContext,
-    reason: BalanceDeltaReason = 'BALANCE_DELTA',
-  ): Promise<void> {
-    const ts = ctx.ts;
-    const height = ctx.height;
-
-    // data cleaning:
-    // fixme: we should probably do this in the emit functions before we call it in the applyBalanceDelta function
-    if (this.indexerMode === 'evm') {
-      e.user = e.user.toLowerCase();
-      e.asset = e.asset.toLowerCase();
-    }
-
+    d: T,
+    ti: InstanceFrom<TrackableDef>,
+    // The default behavior is a change in balance.
+    reason: WindowReason = 'BALANCE_CHANGED',
+  ) {
     // Skip balance deltas for null addresses (mints/burns should not be tracked as user balances)
+    // This is a good default
     if (e.user === EVM_NULL_ADDRESS) {
       return;
     }
 
-    const key = `bal:${e.asset}:${e.user}`;
-
-    // Load current state (single HMGET with pipeline if you batch)
-    const [amountStr, updatedTsStr, updatedHeightStr, prevTxHashStr] = await this.redis.hmget(
-      key,
-      'amount',
-      'updatedTs',
-      'updatedHeight',
-      'txHash',
+    const balanceKey = `bal:${e.asset}:${e.user}`;
+    const [
+      amountStr,
+      lastUpdateTsMsStr,
+      lastUpdateHeightStr,
+      lastUpdateTxRefStr,
+      lastUpdateCtxStr,
+    ] = await this.redis.hmget(
+      balanceKey,
+      Engine.BALANCE_FIELDS.AMOUNT,
+      Engine.BALANCE_FIELDS.UPDATED_TS_MS, // Last time this balance changed
+      Engine.BALANCE_FIELDS.UPDATED_HEIGHT, // Last block/slot where this balance changed
+      Engine.BALANCE_FIELDS.TX_REF, // Last transaction that modified this balance
+      Engine.BALANCE_FIELDS.CTX, // The on-chain log/tx that modified this balance
     );
-    const oldAmt = new Big(amountStr || '0');
-    const oldTs = updatedTsStr ? Number(updatedTsStr) : ts;
-    const oldHeight = updatedHeightStr ? Number(updatedHeightStr) : height;
-    const prevTxHash = prevTxHashStr || null;
 
-    // Apply delta
-    const newAmt = oldAmt.plus(e.amount);
+    // Parse the stored values, using current event data as defaults for first-time balances
+    const previousAmount = new Big(amountStr || '0');
+    const previousTsMs = lastUpdateTsMsStr ? Number(lastUpdateTsMsStr) : d.tsMs;
+    const previousHeight = lastUpdateHeightStr ? Number(lastUpdateHeightStr) : d.height;
+    const previousTxRef = lastUpdateTxRefStr || null;
+    const lastUpdateCtx = lastUpdateCtxStr ? JSON.parse(lastUpdateCtxStr) : {};
 
-    // Check active status at the moment of the delta
-    // const isActive = await this.redis.sIsMember(Engine.ACTIVE_SET_KEY, key);
-    const isInactive = await this.redis.sismember(Engine.INACTIVE_SET_KEY, key);
+    // Calculate new balance after applying this delta
+    const newAmount = previousAmount.plus(e.amount);
 
-    // Only emit a window for balance deltas if ACTIVE
-    if (!isInactive && oldAmt.gt(0) && oldTs < ts) {
-      const window: RawBalanceWindow = {
+    // Update their balance
+    await this.redis.hset(balanceKey, {
+      [Engine.BALANCE_FIELDS.AMOUNT]: newAmount.toString(),
+      [Engine.BALANCE_FIELDS.UPDATED_TS_MS]: String(d.tsMs),
+      [Engine.BALANCE_FIELDS.UPDATED_HEIGHT]: String(d.height),
+      [Engine.BALANCE_FIELDS.TX_REF]: d.txRef,
+      [Engine.BALANCE_FIELDS.CTX]: JSON.stringify(d),
+    });
+
+    // Update balances greater than 0 set
+    if (newAmount.gt(0)) {
+      await this.redis.sadd(Engine.BAL_SET_KEY, balanceKey);
+    } else {
+      await this.redis.srem(Engine.BAL_SET_KEY, balanceKey);
+    }
+
+    // Track the asset in Redis if this trackable is priceable
+    if (ti.pricing !== undefined) {
+      await this.redis.hsetnx('assets:tracked', e.asset, d.height.toString());
+    }
+
+    // Emit a window if required
+    if (newAmount.gt(0) && previousTsMs < d.tsMs) {
+      const window: RawWindow = {
         user: e.user,
         asset: e.asset,
-        startTs: oldTs,
-        endTs: ts,
-        startHeight: oldHeight,
-        endHeight: height,
-        trigger: reason,
-        rawBefore: oldAmt.toString(),
-        rawAfter: newAmt.toString(),
-        startTxRef: prevTxHash,
-        endTxRef: ctx.txHash,
         activity: e.activity,
-        logIndex: ctx.logIndex,
         meta: e.meta,
+        startTs: previousTsMs,
+        endTs: d.tsMs,
+        startHeight: previousHeight,
+        endHeight: d.height,
+        startValue: previousAmount.toString(),
+        endValue: newAmount.toString(),
+        startTxRef: previousTxRef,
+        endTxRef: d.txRef,
+        trigger: reason,
+        startContext: lastUpdateCtx,
+        endContext: d,
       };
       this.windows.push(window);
     }
-
-    await Promise.all([
-      this.redis.hset(key, {
-        amount: newAmt.toString(),
-        updatedTs: String(ts),
-        updatedHeight: String(height),
-        txHash: ctx.txHash,
-      }),
-      // Maintain HAS-BALANCE set for scans/flush
-      newAmt.gt(0)
-        ? this.redis.sadd(Engine.BAL_SET_KEY, key)
-        : this.redis.srem(Engine.BAL_SET_KEY, key),
-      // this.redis.sAdd('assets:tracked', e.asset.toLowerCase()),
-      this.redis.hsetnx('assets:tracked', e.asset.toLowerCase(), height.toString()),
-    ]);
   }
 
-  // fixme: make this take in normalized position context
   private async applyPositionUpdate(e: PositionUpdate, blockData: any): Promise<void> {
-    // Thin wrapper around applyBalanceDelta to follow DRY principle
-    // Position updates don't change balance but update metadata/timestamps
-    await this.applyBalanceDelta(
-      {
-        user: e.user,
-        asset: e.asset,
-        activity: e.activity,
-        amount: new Big(0), // No balance change for position updates
-        meta: e.meta,
-      },
-      blockData,
-      'POSITION_UPDATE',
-    );
+    // // Thin wrapper around applyBalanceDelta to follow DRY principle
+    // // Position updates don't change balance but update metadata/timestamps
+    // await this.applyBalanceDelta(
+    //   {
+    //     user: e.user,
+    //     asset: e.asset,
+    //     activity: e.activity,
+    //     amount: new Big(0), // No balance change for position updates
+    //     meta: e.meta,
+    //   },
+    //   blockData,
+    //   'POSITION_REVALUED',
+    // );
   }
 
   private async applyPositionStatusChange(e: PositionStatusChange, blockData: any): Promise<void> {
@@ -536,7 +430,7 @@ export class Engine {
           endTs: ts,
           startHeight: lastUpdatedHeight,
           endHeight: height,
-          trigger: 'INACTIVE_POSITION',
+          trigger: 'POSITION_DEACTIVATED',
           rawBefore: amt.toString(),
           rawAfter: amt.toString(),
           startTxRef: prevTxHash,
@@ -547,7 +441,7 @@ export class Engine {
           activity: 'hold',
           meta: e.meta,
         };
-        this.windows.push(window);
+        // this.windows.push(window);
       }
 
       // Add to inactive set
@@ -749,14 +643,14 @@ export class Engine {
             endTs: finalTs,
             startHeight: Number(updatedHeightStr),
             endHeight: height,
-            trigger: 'FINAL',
+            trigger: 'INDEXER_STOPPED',
             rawBefore: amt.toString(),
             rawAfter: amt.toString(),
             startTxRef: prevTxHash,
             // xxx: this should probably not be a hold, and instead be whatever the last activity type was?
             activity: 'hold',
           };
-          this.windows.push(window);
+          // this.windows.push(window);
           writePromises.push(
             this.redis.hset(key, { updatedTs: String(finalTs), updatedHeight: String(height) }),
           );
@@ -771,14 +665,14 @@ export class Engine {
             endTs: currentWindowStart,
             startHeight: Number(updatedHeightStr),
             endHeight: height,
-            trigger: 'EXHAUSTED',
+            trigger: 'PERIOD_ELAPSED',
             rawBefore: amt.toString(),
             rawAfter: amt.toString(),
             startTxRef: prevTxHash,
             // fixme: this should probably not be a hold, and instead be whatever the last activity type was?
             activity: 'hold',
           };
-          this.windows.push(window);
+          // this.windows.push(window);
           // Advance cursor to the start of the current window (we didn't emit the live window)
           writePromises.push(
             this.redis.hset(key, {
@@ -799,28 +693,30 @@ export class Engine {
     }
   }
 
-  private createEmitFunctions(
-    this: Engine,
-    ctx: NormalizedEventContext,
-    // note: we'll later need to clean this up to work cleanly with solana
-    logOrTx: Log | Transaction,
-  ): EmitFunctions {
+  private createEmitFunctions<TData extends UnifiedBase>(d: TData) {
     return {
       action: {
-        action: (e: ActionEvent) => this.applyAction(e, logOrTx, ctx),
-        swap: (e: Swap) => this.applyAction(e, logOrTx, ctx),
+        action: async (e: ActionEvent) => this.applyAction(e),
+        swap: async (e: Swap) => this.applyAction(e),
       },
       position: {
-        balanceDelta: (e: BalanceDelta, reason?: BalanceDeltaReason) =>
-          this.applyBalanceDelta(e, ctx, reason),
-        positionUpdate: (e: PositionUpdate) => this.applyPositionUpdate(e, ctx),
-        reprice: (e: Reprice) => this.applyReprice(e, ctx),
-        positionStatusChange: (e: PositionStatusChange) => this.applyPositionStatusChange(e, ctx),
-        measureDelta: (e: MeasureDelta) => this.applyMeasureDelta(e, ctx),
+        balanceDelta: async (e: BalanceDelta, reason?: WindowReason) => {
+          // data cleaning
+          if (this.indexerMode === 'evm') {
+            e.user = e.user.toLowerCase();
+            e.asset = e.asset.toLowerCase();
+          }
+          await this.applyBalanceDelta(e, d, e.trackableInstance, reason);
+        },
+        // positionUpdate: (e: PositionUpdate) => this.applyPositionUpdate(e),
+        positionUpdate: async (e: PositionUpdate) => {},
+        // reprice: (e: Reprice) => this.applyReprice(e),
+        reprice: async (e: Reprice) => {},
+        // positionStatusChange: (e: PositionStatusChange) => this.applyPositionStatusChange(e),
+        positionStatusChange: async (e: PositionStatusChange) => {},
+        // measureDelta: (e: MeasureDelta) => this.applyMeasureDelta(e),
+        measureDelta: async (e: MeasureDelta) => {},
       },
-      // custom: async (namespace: string, type: string, payload: any) => {
-      //   /* dummy fill in for now */
-      // },
     };
   }
 }

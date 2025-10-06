@@ -16,6 +16,7 @@ async function resolveAndValidate(raw: unknown) {
   return AppConfig.parse(interpolated);
 }
 
+// todo: change order so it pulls from env url first, then file
 export async function loadConfig(filename?: string) {
   // Priority 1: Explicitly provided file path (from command line args)
   if (filename) {

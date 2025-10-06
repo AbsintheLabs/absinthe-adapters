@@ -3,10 +3,13 @@ import Big from 'big.js';
 import { UnifiedEvmLog } from '../../src/types/unified-chain-events.ts';
 import { EmitFunctions } from '../../src/types/adapter.ts';
 import * as univ2Abi from './abi/uniswap-v2.ts';
+import type { InstanceFrom } from '../../src/types/manifest.ts';
+import type { manifest } from './index.ts';
 
 export async function handleLpTransfer(
   log: UnifiedEvmLog,
   emitFns: EmitFunctions,
+  instance: InstanceFrom<typeof manifest.trackables.lp>,
   poolAddress: string,
 ): Promise<void> {
   const decoded = univ2Abi.events.Transfer.decode({
@@ -20,6 +23,7 @@ export async function handleLpTransfer(
     asset: poolAddress,
     amount: new Big(decoded.value.toString()).neg(),
     activity: 'hold',
+    trackableInstance: instance,
   });
 
   await emitFns.position.balanceDelta({
@@ -27,5 +31,6 @@ export async function handleLpTransfer(
     asset: poolAddress,
     amount: new Big(decoded.value.toString()),
     activity: 'hold',
+    trackableInstance: instance,
   });
 }

@@ -10,5 +10,6 @@
     "rootDir": ".",
     "skipLibCheck": true
   },
-  "include": ["src", "adapters"]
+  "include": ["src", "adapters"],
+  "exclude": ["src/adapters"]
 }

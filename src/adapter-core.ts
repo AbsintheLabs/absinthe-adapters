@@ -3,7 +3,7 @@
 
 import { z } from 'zod';
 import { Redis } from 'ioredis';
-import { EmitFunctions, RpcContext, CustomFeedHandlers } from './types/adapter.ts';
+import { EmitFunctions, SqdRpcCtx, CustomFeedHandlers } from './types/adapter.ts';
 import { BaseProcessor } from './eprocessorBuilder.ts';
 import { UnifiedEvmLog, UnifiedEvmTransaction } from './types/unified-chain-events.ts';
 import { Manifest, ConfigFromManifest, AdapterMetadata } from './types/manifest.ts';
@@ -24,7 +24,7 @@ export type EngineIO = {
 
 /** Base arguments provided to all event handlers */
 type OnArgs = {
-  rpcCtx: RpcContext;
+  sqdRpcCtx: SqdRpcCtx;
   redis: Redis;
   emitFns: EmitFunctions;
 };
@@ -41,7 +41,7 @@ export type OnTransactionArgs = OnArgs & {
 
 /** Arguments for initialization handlers */
 export type OnInitArgs = {
-  rpcCtx: RpcContext;
+  rpcCtx: SqdRpcCtx;
   redis: Redis;
 };
 
@@ -73,39 +73,21 @@ export type AdapterHooks = {
 export type BuiltAdapter = AdapterHooks;
 
 // =============================================================================
-// HANDLER TYPES
-// =============================================================================
-
-/** Handler function for action-type trackables */
-export type ActionHandler = (evt: unknown, ctx: unknown) => void | Promise<void>;
-
-/** Handler function for position-type trackables */
-export type PositionHandler = (evt: unknown, ctx: unknown) => void | Promise<void>;
-
-// =============================================================================
 // ADAPTER DEFINITION TYPES
 // =============================================================================
-
-// Configuration types are now imported from manifest.ts with proper type inference
-
-/** Adapter definition combining manifest with build function */
-export type AdapterDef<M extends Manifest> = {
-  manifest: M;
-  build: (opts: { config: ConfigFromManifest<M>; io: EngineIO }) => BuiltAdapter;
-};
 
 // =============================================================================
 // ADAPTER FACTORY
 // =============================================================================
 
 /** Factory function to create typed adapter definitions with preserved generics */
-export function defineAdapter<const M extends Manifest>(def: {
-  manifest: M;
-  metadata: AdapterMetadata;
-  build: (opts: { config: ConfigFromManifest<M>; io: EngineIO }) => BuiltAdapter;
-}): AdapterDef<M> {
-  return def as AdapterDef<M>;
-}
+// export function defineAdapter<const M extends Manifest>(def: {
+//   manifest: M;
+//   metadata: AdapterMetadata;
+//   build: (opts: { config: ConfigFromManifest<M>; io: EngineIO }) => BuiltAdapter;
+// }): AdapterDef<M> {
+//   return def as AdapterDef<M>;
+// }
 
 // =============================================================================
 // LEGACY UTILITIES (DEPRECATED)

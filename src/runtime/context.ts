@@ -1,5 +1,4 @@
 import { ChainArch } from '../config/schema.ts';
-import { getChainShortName, getChainInfo } from '../utils/chain-utils.ts';
 
 export type Runtime = {
   // machine
@@ -21,6 +20,7 @@ export type Runtime = {
 
 let RUNTIME: Runtime | undefined;
 
+// bug: it's possible for runtime to never be fully set!
 export function setRuntime(partial: Partial<Runtime>) {
   RUNTIME = { ...(RUNTIME ?? ({} as Runtime)), ...partial };
 }

@@ -42,7 +42,7 @@ export const univ2 = registerAdapter(
             address: [params.poolAddress],
             topic0: [transferTopic, swapTopic],
           }),
-        onLog: async ({ block, log, emitFns, rpcCtx: rpc, redis }) => {
+        onLog: async ({ block, log, emitFns, sqdRpcCtx: rpc, redis }) => {
           // Handle LP token transfers (when LP tracking is enabled)
           // Try to get token0 and token1 addresses from redis cache
           const token0Key = `univ2:${params.poolAddress}:token0`;

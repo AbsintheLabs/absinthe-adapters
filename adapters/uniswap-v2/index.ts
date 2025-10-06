@@ -1,5 +1,4 @@
 // New registry imports
-import { defineAdapter } from '../../src/adapter-core.ts';
 import { Manifest, evmAddress } from '../../src/types/manifest.ts';
 import { metadata } from './metadata.ts';
 
@@ -9,6 +8,7 @@ import * as univ2Abi from './abi/uniswap-v2.ts';
 // Handlers
 import { handleSwap } from './swap.ts';
 import { handleLpTransfer } from './lp.ts';
+import { defineAdapter } from '../_shared/index.ts';
 
 export const manifest = {
   name: 'uniswap-v2',
@@ -19,20 +19,20 @@ export const manifest = {
       kind: 'action',
       quantityType: 'token_based',
       params: {
-        poolAddress: evmAddress('The pool address used to see all occurences of the swap.'),
+        poolAddress: evmAddress('The pool address to track'),
       },
-      selectors: {
-        swapLegAddress: {
-          ...evmAddress('The token0 or token1 address used to price the swap.'),
-          requiredForPricing: true,
-        },
+      assetSelectors: {
+        // Swaps need assetSelectors: the pool has 2 tokens, we need to specify which one to price
+        swapLegAddress: evmAddress('The token0 or token1 address to price'),
       },
     },
     lp: {
       kind: 'position',
       quantityType: 'token_based',
       params: {
-        poolAddress: evmAddress('The pool address used to see all occurences of the lp.'),
+        // For UniV2 LP, the pool address uniquely identifies the LP token
+        // No assetSelectors needed - params alone are sufficient
+        poolAddress: evmAddress('The pool address to track'),
       },
       requiredPricer: 'univ2nav',
     },
@@ -59,9 +59,8 @@ export default defineAdapter({
           address: Array.from(poolAddrs),
           topic0: [transferTopic, swapTopic],
         }),
-      onLog: async ({ log, emitFns, rpcCtx, redis }) => {
+      onLog: async ({ log, emitFns, sqdRpcCtx, redis }) => {
         const poolAddr = log.address;
-        const topic = log.topics[0];
 
         // Cache token addresses for this pool
         const token0Key = `univ2:${poolAddr}:token0`;
@@ -71,7 +70,7 @@ export default defineAdapter({
 
         if (!tk0Addr || !tk1Addr) {
           try {
-            const poolContract = new univ2Abi.Contract(rpcCtx, poolAddr);
+            const poolContract = new univ2Abi.Contract(sqdRpcCtx, poolAddr);
             tk0Addr = (await poolContract.token0()).toLowerCase();
             tk1Addr = (await poolContract.token1()).toLowerCase();
             await redis.set(token0Key, tk0Addr);
@@ -84,16 +83,17 @@ export default defineAdapter({
         }
 
         // Handle Transfer events (LP position changes)
-        if (topic === transferTopic) {
+        if (log.topic0 === transferTopic) {
           const lpInstances = config.lp?.filter((l) => l.params.poolAddress === poolAddr) || [];
 
-          if (lpInstances.length > 0) {
-            await handleLpTransfer(log, emitFns, poolAddr);
+          // Fan out to handle each instance separately
+          for (const instance of lpInstances) {
+            await handleLpTransfer(log, emitFns, instance, poolAddr);
           }
         }
 
         // Handle Swap events (swap actions)
-        if (topic === swapTopic) {
+        if (log.topic0 === swapTopic) {
           const swapInstances = config.swap?.filter((s) => s.params.poolAddress === poolAddr) || [];
 
           // Fan out to handle each instance separately

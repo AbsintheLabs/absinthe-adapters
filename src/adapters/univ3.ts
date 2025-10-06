@@ -113,7 +113,7 @@ export const univ3 = registerAdapter(
             );
           }
         },
-        onLog: async ({ block, log, emitFns: emit, rpcCtx: rpc, redis }) => {
+        onLog: async ({ block, log, emitFns: emit, sqdRpcCtx: rpc, redis }) => {
           // Helper function to queue reprice operations for a pool
           const queueRepriceForPool = (poolAddress: string, tick?: number) => {
             ctx.repricePromises.push({

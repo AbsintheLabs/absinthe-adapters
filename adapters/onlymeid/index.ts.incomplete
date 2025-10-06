@@ -5,11 +5,10 @@ import z from 'zod';
 import * as onlyMeIdAbi from './abi/onlymeid.ts';
 
 // New registry imports
-import { registerAdapter } from '../_shared/index.ts';
 // utils
-import { ZodEvmAddress, md5Hash } from '../_shared/index.ts';
+import { ZodEvmAddress, defineAdapter, md5Hash } from '../_shared/index.ts';
 
-export default registerAdapter({
+export default defineAdapter({
   name: 'onlymeid',
   semver: '0.0.1',
   schema: z.object({

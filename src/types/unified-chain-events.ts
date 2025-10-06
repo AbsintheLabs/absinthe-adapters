@@ -4,47 +4,60 @@
 // EVM UNIFIED TYPES
 // =============================================================================
 
-export type UnifiedEvmLog = {
+/**
+ * UnifiedBase provides a minimal, chain-agnostic reference to a blockchain event or record.
+ * This interface is intended to be embedded in all unified event types (EVM, Solana, etc.)
+ * to standardize the core identifying fields across chains.
+ *
+ * Fields:
+ *   - tsMs:   The timestamp of the event in milliseconds since Unix epoch (UTC).
+ *   - height: The block height (EVM) or slot (Solana) at which the event occurred.
+ *   - txRef:  A chain-agnostic transaction reference (e.g., EVM tx hash, Solana tx signature).
+ */
+export interface UnifiedBase {
+  /** Timestamp in milliseconds since Unix epoch (UTC) */
+  tsMs: number;
+  /** Block height (EVM) or slot (Solana) where the event occurred */
+  height: number;
+  /** Chain-agnostic transaction reference (EVM tx hash, Solana tx signature, etc.) */
+  txRef: string;
+}
+
+export interface UnifiedEvmLog extends UnifiedBase {
   // Event identification
   address: string; // lowercase, normalized
+  topic0: string;
   topics: string[]; // topics[0] is the event signature
   data: string; // hex-encoded log data
 
-  // Position in blockchain
-  blockNumber: number;
-  blockTimestampMs: number; // Unix timestamp in milliseconds
-  transactionHash: string;
+  // Position in the block
   logIndex: number;
 
   // Chain context
   chainId: number;
 
   // Transaction context (optional - may not always be available)
-  transactionFrom?: string;
-  transactionTo?: string;
-  gasUsed?: bigint;
-  effectiveGasPrice?: bigint;
-};
-
-export type UnifiedEvmTransaction = {
-  hash: string;
   transactionFrom: string;
-  transactionTo: string | null; // null for contract creation
+  transactionTo: string;
+  gasUsed: bigint;
+  effectiveGasPrice: bigint;
+}
+
+export interface UnifiedEvmTransaction extends UnifiedBase {
+  transactionFrom: string;
+  transactionTo: string;
   value: bigint;
   input: string; // calldata
 
   // Block
-  blockNumber: number;
-  blockTimestampMs: number; // Unix timestamp in milliseconds
   transactionIndex: number;
 
   chainId: number;
 
-  gasUsed?: bigint;
-  effectiveGasPrice?: bigint;
-  gasLimit?: bigint;
-  status?: number; // 1 = success, 0 = failure
-};
+  gasUsed: bigint;
+  effectiveGasPrice: bigint;
+  status: number; // 1 = success, 0 = failure
+}
 
 // // =============================================================================
 // // SOLANA UNIFIED TYPES (future)
@@ -87,11 +100,3 @@ export type UnifiedEvmTransaction = {
 
 //   // ... etc
 // };
-
-// // =============================================================================
-// // CHAIN TYPE UNIONS
-// // =============================================================================
-
-// export type UnifiedLog = UnifiedEvmLog | UnifiedSolanaInstruction | UnifiedStellarOperation;
-// export type UnifiedTransaction = UnifiedEvmTransaction | UnifiedSolanaTransaction;
-// export type UnifiedBlock = UnifiedEvmBlock; // extend as needed

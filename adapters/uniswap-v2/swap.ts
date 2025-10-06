@@ -8,12 +8,12 @@ import type { InstanceFrom } from '../../src/types/manifest.ts';
 import type { manifest } from './index.ts';
 
 /*
-// | Selector State    | shouldEmitFromSide | shouldEmitToSide | Result             |
-// |-------------------|-------------------|------------------|---------------------|
-// | None              | ✅                | ✅               | Both sides emitted  |
-// | Matches from      | ✅                | ❌               | From side only      |
-// | Matches to        | ❌                | ✅               | To side only        |
-// | Matches neither   | ❌                | ❌               | Nothing emitted     |
+// | Asset Selector State    | shouldEmitFromSide | shouldEmitToSide | Result             |
+// |------------------------|-------------------|------------------|---------------------|
+// | None                   | ✅                | ✅               | Both sides emitted  |
+// | Matches from           | ✅                | ❌               | From side only      |
+// | Matches to             | ❌                | ✅               | To side only        |
+// | Matches neither        | ❌                | ❌               | Nothing emitted     |
 */
 export async function handleSwap(
   log: UnifiedEvmLog,
@@ -49,22 +49,22 @@ export async function handleSwap(
     toTkAmount: toAmount.toString(),
   };
 
-  // Determine which sides to emit based on selector
-  const swapLegAddress = instance.selectors?.swapLegAddress;
+  // Determine which sides to emit based on asset selector
+  const swapLegAddress = instance.assetSelectors?.swapLegAddress;
   const shouldEmitFromSide = !swapLegAddress || swapLegAddress === fromTokenAddress;
   const shouldEmitToSide = !swapLegAddress || swapLegAddress === toTokenAddress;
 
   // Helper to emit a single swap side
   const emitSwapSide = async (asset: string, amount: bigint) => {
     await emitFns.action.swap({
-      key: md5Hash(`${log.transactionHash}${log.logIndex}`),
-      priceable: true,
+      key: md5Hash(`${log.txRef}${log.logIndex}`),
       activity: 'swap',
       user,
       amount: {
         asset,
         amount: new Big(amount.toString()),
       },
+      trackableInstance: instance,
       meta: swapMeta,
     });
   };

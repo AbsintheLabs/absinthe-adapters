@@ -18,9 +18,8 @@ export type FieldDef<T extends z.ZodTypeAny = z.ZodTypeAny> = {
   schema: T;
 };
 
-export type FilterDef<T extends z.ZodTypeAny = z.ZodTypeAny> = FieldDef<T> & {
-  requiredForPricing?: boolean;
-};
+// AssetSelectorDef identifies which asset to track/price (required when pricing is configured)
+export type AssetSelectorDef<T extends z.ZodTypeAny = z.ZodTypeAny> = FieldDef<T>;
 
 // 2) Helper functions return FieldDef<T> with proper generics
 export const evmAddress = (description: string): FieldDef<z.ZodType<string>> => ({
@@ -57,28 +56,62 @@ const Field = z.object({
   schema: z.any(), // ZodSchema - this is fine for runtime validation
 });
 
-const Filter = Field.extend({
-  requiredForPricing: z.boolean().default(false).optional(),
-});
-
 // 3) Define TS manifest shape that uses FieldDef (separate from Zod)
 // Runtime contract - required for execution
-export type TrackableDef = {
-  kind: TrackableKind;
-  quantityType: TrackableKind extends 'position'
-    ? 'token_based'
-    : TrackableKind extends 'action'
-      ? 'token_based' | 'count' | 'none'
-      : QuantityType;
-  params: Record<string, FieldDef>; // required parameters that define tracking context
-  selectors?: Record<string, FilterDef>; // optional filters to narrow tracking
+//
+// TYPE SAFETY RULES:
+// 1. Only token_based trackables can have `requiredPricer`
+// 2. Only token_based trackables can have `assetSelectors` (identifies which asset to price)
+// 3. All trackables can have optional `filters` for general filtering
+// 4. count/none actions cannot have assetSelectors or requiredPricer
+//
+// ASSET IDENTIFICATION CONTRACT (token_based trackables):
+// - params + assetSelectors together must uniquely identify the priceable asset
+// - If params alone are sufficient (e.g., UniV2 pool address = LP token), omit assetSelectors
+// - If additional identification needed (e.g., UniV3 token0/token1, swap leg), use assetSelectors
+// - assetSelectors, when present, must be non-empty (enforced at runtime)
+//
+// EXAMPLES:
+// - UniV2 LP: params.poolAddress identifies the LP token → no assetSelectors needed
+// - UniV3 LP: params.nftManager + assetSelectors.{token0,token1} → identifies specific pool LP
+// - Swaps: params.poolAddress + assetSelectors.swapLegAddress → identifies which token to price
+//
+// - filters: Optional general filtering (e.g., minAmount, user address, etc.)
+//   - Not related to pricing, purely for narrowing event scope
+
+// Position trackables are always token_based
+type PositionTrackableDef = {
+  kind: 'position';
+  quantityType: 'token_based';
+  params: Record<string, FieldDef>;
+  assetSelectors?: Record<string, AssetSelectorDef>; // Optional: Additional asset identification if needed
+  filters?: Record<string, FieldDef>; // Optional general filters
   requiredPricer?: string; // pricing scheme required for this trackable
-} & (
-  | { kind: 'position'; quantityType: 'token_based' }
-  | { kind: 'action'; quantityType: 'token_based' | 'count' | 'none' }
-);
+};
+
+// Action trackables with token_based can have asset selectors and pricing
+type ActionTokenBasedDef = {
+  kind: 'action';
+  quantityType: 'token_based';
+  params: Record<string, FieldDef>;
+  assetSelectors?: Record<string, AssetSelectorDef>; // Optional: Additional asset identification if needed
+  filters?: Record<string, FieldDef>; // Optional general filters
+  requiredPricer?: string; // pricing scheme required for this trackable
+};
+
+// Action trackables with count or none cannot have asset selectors or pricing
+type ActionNonTokenDef = {
+  kind: 'action';
+  quantityType: 'count' | 'none';
+  params: Record<string, FieldDef>;
+  filters?: Record<string, FieldDef>; // Can still have general filters
+  // No assetSelectors or requiredPricer allowed
+};
+
+export type TrackableDef = PositionTrackableDef | ActionTokenBasedDef | ActionNonTokenDef;
 
 // Runtime manifest - used during adapter execution
+// This is necessary to have this duplication to avoid some more type magic down the line
 export type Manifest = {
   name: string; // identifier, used in config
   version: Version;
@@ -87,13 +120,28 @@ export type Manifest = {
 };
 
 // Keep Zod schema for runtime validation (but don't use z.infer for TS types)
-const Trackable = z.object({
-  kind: TrackableKindSchema,
-  quantityType: QuantityTypeSchema,
-  params: z.record(z.string(), Field), // required parameters that define tracking context
-  selectors: z.record(z.string(), Filter).optional(), // optional filters to narrow tracking
-  requiredPricer: z.string().optional(), // pricing scheme required for this trackable
-});
+const Trackable = z
+  .object({
+    kind: TrackableKindSchema,
+    quantityType: QuantityTypeSchema,
+    params: z.record(z.string(), Field), // required parameters that define tracking context
+    assetSelectors: z.record(z.string(), Field).optional(), // identifies which asset to track/price
+    filters: z.record(z.string(), Field).optional(), // optional general filters
+    requiredPricer: z.string().optional(), // pricing scheme required for this trackable
+  })
+  .refine(
+    (data) => {
+      // If assetSelectors is provided, it must be non-empty
+      if (data.assetSelectors !== undefined) {
+        return Object.keys(data.assetSelectors).length > 0;
+      }
+      return true;
+    },
+    {
+      message:
+        'assetSelectors, when provided, must contain at least one selector (cannot be empty object)',
+    },
+  );
 
 // 4) Infer config type from TS manifest (not from Zod)
 type InferField<F extends FieldDef<any>> = z.infer<F['schema']>;
@@ -102,20 +150,28 @@ type ParamsFrom<T extends TrackableDef> = {
   [K in keyof T['params']]: InferField<T['params'][K]>;
 };
 
-type SelectorsFrom<T extends TrackableDef> =
-  T['selectors'] extends Record<string, FilterDef<any>>
-    ? { [K in keyof T['selectors']]: InferField<T['selectors'][K]> }
-    : never;
+type AssetSelectorsFrom<T extends TrackableDef> = T extends {
+  assetSelectors: Record<string, AssetSelectorDef<any>>;
+}
+  ? { [K in keyof T['assetSelectors']]: InferField<T['assetSelectors'][K]> }
+  : never;
 
-type PricingFrom<T extends TrackableDef> = T['requiredPricer'] extends string
-  ? { pricing?: { kind: T['requiredPricer'] } & Record<string, unknown> }
-  : { pricing?: Record<string, unknown> };
+type FiltersFrom<T extends TrackableDef> = T extends {
+  filters: Record<string, FieldDef<any>>;
+}
+  ? { [K in keyof T['filters']]: InferField<T['filters'][K]> }
+  : never;
+
+type PricingFrom<T extends TrackableDef> = {
+  pricing?: Record<string, unknown>;
+};
 
 export type InstanceFrom<T extends TrackableDef> = {
   params: ParamsFrom<T>;
-} & (T['selectors'] extends Record<string, FilterDef<any>>
-  ? { selectors?: SelectorsFrom<T> }
+} & (T extends { assetSelectors: Record<string, AssetSelectorDef<any>> }
+  ? { assetSelectors?: AssetSelectorsFrom<T> }
   : {}) &
+  (T extends { filters: Record<string, FieldDef<any>> } ? { filters?: FiltersFrom<T> } : {}) &
   PricingFrom<T>;
 
 export type ConfigFromManifest<M extends Manifest> = {
@@ -135,10 +191,22 @@ export const ManifestZ = z
 // Optional validation schema for metadata
 export const AdapterMetadataZ = z
   .object({
-    displayName: z.string().min(1),
-    description: z.string().min(1),
+    displayName: z.string().min(1).max(40),
+    description: z.string().min(1).max(280),
     compatibleWith: z.enum(PROTOCOL_FAMILY_VALUES).optional(),
-    tags: z.array(z.string()).optional(),
+    author: z.string().min(1).max(40),
+    authorUrl: z.httpUrl().optional(),
+    authorIcon: z.httpUrl().optional(),
+    tags: z
+      .array(z.string().transform((tag) => tag.toLowerCase()))
+      .max(16)
+      .optional(),
+    category: z
+      .enum(['trading', 'lending', 'staking', 'tokens', 'identity', 'marketplace'])
+      .optional(),
+    adapterIcon: z.httpUrl().optional(),
+    status: z.enum(['stable', 'beta', 'alpha', 'deprecated']).optional(),
+    createdAt: z.string().date(),
   })
   .strict();
 

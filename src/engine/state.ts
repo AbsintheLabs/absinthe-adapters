@@ -12,7 +12,7 @@ export function generateStatePath(): string {
 /**
  * Create a new database instance for SQD processor state
  */
-export function createStateDatabase(): Database<any, any> {
+export function createStateDatabase(): Database<{}, LocalDest> {
   const statePath = generateStatePath();
   return new Database({ tables: {}, dest: new LocalDest(statePath) });
 }

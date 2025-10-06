@@ -13,7 +13,7 @@ type TimeWindowTrigger =
 
 import { MetadataCache, PriceCacheTS, HandlerMetadataCache } from './pricing.ts';
 import { Activity } from './core.ts';
-import { BalanceDeltaReason } from './adapter.ts';
+import { WindowReason } from './adapter.ts';
 
 /*
 each enricher is stateless and operates on a single item at a time so it's very easy to reason about and test.
@@ -97,6 +97,67 @@ TWB:
 // RAW OBJECTS (from engine before enrichment)
 // ------------------------------------------------------------
 
+export interface AssetRegistration {
+  asset: string;
+}
+
+// export interface WindowBase {
+//   // befores
+//   startTsMs: number;
+//   startHeight: number;
+//   startTxRef: string;
+//   startValue: string;
+//   // afters
+//   endHeight?: number;
+//   endTsMs: number;
+//   endTxRef?: string;
+//   endValue?: string;
+//   // cause of the change
+//   trigger: WindowReason;
+// }
+
+export interface RawWindow {
+  // Adapter primitives (universal)
+  user: string;
+  asset: string;
+  activity: Activity;
+  meta?: Record<string, any>;
+
+  // Window timing (universal)
+  startTs: number;
+  endTs: number;
+  startHeight: number;
+  endHeight: number;
+  startValue: string;
+  endValue: string;
+  startTxRef: string;
+  endTxRef: string;
+
+  // window explainability
+  trigger: WindowReason;
+
+  // Chain-specific contexts (opaque blobs)
+  startContext: Record<string, any>; // From Redis JSON
+  endContext: Record<string, any>; // From current unified event
+}
+
+// These get used by the position/window enrichers, so we need to make sure these exist
+// All other fields get passed through to the enriched object
+export interface PositionBase {
+  asset: string;
+  startTs: number;
+  endTs: number;
+  startValue?: string;
+  endValue?: string;
+  meta?: Record<string, any>;
+}
+
+export interface ActionBase {}
+
+/**
+ * @deprecated RawBalanceWindow is deprecated and will be removed in a future release.
+ * Use the updated window types or consult the documentation for alternatives.
+ */
 export interface RawBalanceWindow {
   user: string;
   asset: string;
@@ -105,7 +166,7 @@ export interface RawBalanceWindow {
   endTs: number;
   startHeight: number;
   endHeight?: number;
-  trigger: BalanceDeltaReason;
+  trigger: WindowReason;
   rawBefore: string;
   rawAfter?: string;
   startTxRef: string | null;
@@ -130,6 +191,10 @@ export interface RawMeasureWindow {
   txHash?: string | null;
 }
 
+/**
+ * @deprecated RawAction is deprecated and will be removed in a future release.
+ * Use the updated action types or consult the documentation for alternatives.
+ */
 export interface RawAction {
   key: string;
   user: string;

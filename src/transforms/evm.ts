@@ -2,15 +2,16 @@
 import { Block, Log, Transaction } from '../eprocessorBuilder.ts';
 import { UnifiedEvmLog, UnifiedEvmTransaction } from '../types/unified-chain-events.ts';
 
-export function transformEvmLog(block: Block, log: Log, chainId: number): UnifiedEvmLog {
+export function transformSqdLogToUnified(block: Block, log: Log, chainId: number): UnifiedEvmLog {
   return {
     address: log.address.toLowerCase(),
+    topic0: log.topics[0],
     topics: log.topics,
     data: log.data,
 
-    blockNumber: block.header.height,
-    blockTimestampMs: block.header.timestamp,
-    transactionHash: log.transactionHash,
+    height: block.header.height,
+    tsMs: block.header.timestamp,
+    txRef: log.transactionHash,
     logIndex: log.logIndex,
 
     chainId,
@@ -23,20 +24,20 @@ export function transformEvmLog(block: Block, log: Log, chainId: number): Unifie
   };
 }
 
-export function transformEvmTransaction(
+export function transformSqdTransactionToUnified(
   block: Block,
   tx: Transaction,
   chainId: number,
 ): UnifiedEvmTransaction {
   return {
-    hash: tx.hash,
+    height: block.header.height,
+    tsMs: block.header.timestamp,
+    txRef: tx.hash,
     transactionFrom: tx.from.toLowerCase(),
     transactionTo: tx.to.toLowerCase(),
     value: tx.value,
     input: tx.input,
 
-    blockNumber: block.header.height,
-    blockTimestampMs: block.header.timestamp,
     transactionIndex: tx.transactionIndex,
 
     chainId,

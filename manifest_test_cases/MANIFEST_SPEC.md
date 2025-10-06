@@ -566,7 +566,7 @@ Some Missing Gaps:
 - asset key standardization. Right now, the asset keys can kind of be anything and are set by the adapter. Since each asset is then linked to it's own config (the manifest doesn't really know anything about it, it just maps a string to a config), not sure if it makes sense to standardize them (for better debugability and less indeterminate behavior)
 - I don't like the way we're passing trackable instance into the action() + balanceDelta() handlers. It again, couples us with the specific interface of the trackable instance type.
 - I also don't like the fact that we define `kind` like `action` or `position` but then don't actually invoke `action()` or `balanceDelta()` on them. There's no checks on this. I could pass something as `lp` and it would be treated as an action, but this is technically incorrect. Yes, the `kind` moreso becomes like a metadata tag, but it's not ideal since it introduces an error surface for the developer, harming the DX.
-  [-] Resolve this DX challenge via a new better pattern for handling trackable instances - in progress
+  [-] Resolve this DX challenge via a new better pattern for handling trackable instances
 
 Refactoring:
 
@@ -603,7 +603,6 @@ let's do two-phase.
 if swap, handle swap. if lp, handle lp.
 
 inside the handle swap, we will: 1. decode the log 2. get all instances.swaps where poolAddress matches the log.address 3. for each instance, filter by swapLegAddress if it exists. if none is provided, pass through. if it does, then check against the token0 and token1 addresses for that pool
-\*/
 
 ### Future Scope
 
@@ -652,3 +651,65 @@ Do we even need handlers? Hm...
 
 The point of the manifest is a clean way to define an instance of "what" we're tracking.
 We can provide multiple instances too (although this might be confusing)? Especially with more complex adapters.
+
+---
+
+We come to the central question where we have token_based and we don't really know if we need to price it or not until runtime (not at compile time).
+
+This is because this setting is provided via configuration at runtime.
+
+Given a token_based instance, if a pricingConfig is provided, then we know we need to price it. The next question is: how?
+
+We need to know if we have the pricer attached.
+We see this from the trackable instance.
+We either:
+
+1. Have the adapter writer extract this and tag
+2. Pass through the instance into the handler and have the handler automatically infer (this is less error-prone and since that manifest object does not change, we can depend on this existing)
+
+
+    - Does that imply that we need to pass the instance into the handler every single time? Not sure....
+
+---
+
+I'm having problems wiring everything up inside the engine.
+
+What we want:
+
+- we get a unified event log (or a unified tx shape)
+- that gets passed to the adapter
+- the adapter emits an event
+- the engine processes the event and calls the event handler
+- event handler:
+  1. gets old values for the balance
+  2. marks new assets to track
+  3. updates active balances
+  4. updates the actual balance
+  5. passes through the unified event log
+
+What we want:
+
+- we don't care how unified event log looks like, balanceDelta only needs a few fields (windowbase) to do its job properly
+- we pass in the window base object + unified event log (or whatever this is) into the array (for the pipeline, most of those things then get passed straight through)
+  - this allows us to have flexibility on the types that get passed in, as long as we can extract the window base which actually allows the engine to do its windowing logic properly
+
+Why am I stalling here? How do i fix this system, and make sure it's future proof well enough that we can throw more block chains, data types ,etc at it?
+
+- tx has diff shape than log
+- i am hedging our design so that we can fit in other data in here too (like solana transaction data as well), although could be prematurely optimizating here but it is the immeidate next thing that we have to implement
+- feels like we went from: sqd data shape -> unified event log/tx shape -> engine only needs the window base object to do its job properly (it only concerns about calculating the windows and tracking assets, not anything else) -> after pipeline, we get Base event
+  - pipeline operates statlesslessly building the object one bit at a time, agnostic of the underlying object (it explicitly defines dependencies of the input object if it needs it)
+
+If we want all the data to look the same at the end (since we want the same resulting interface, we either need to massage it after the pipeline or before the pipeline)
+It's much easier to do it before to make the pipeline simpler and be the last step before the actual output
+
+What could actually look different?
+
+- unifiedlog is diff from unifiedtx
+- solana is going to have slightly diff data shape
+
+reqs:
+
+- engine should only see windowcontext (ts,height) and emit windowprimitive
+- assembled handles shape conversions
+- rawbalancewindow is convergence point before pipeline starts (pipeline can take in that shape to start and do its thing)

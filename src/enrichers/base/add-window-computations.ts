@@ -22,8 +22,8 @@ export const addWindowComputations = <
   T extends {
     startTs: number;
     endTs: number;
-    rawBefore?: string;
-    rawAfter?: string;
+    startValue?: string;
+    endValue?: string;
     meta?: any;
   },
 >(): Enricher<T, T & WindowComputationFields> => {
@@ -33,9 +33,9 @@ export const addWindowComputations = <
     const windowDurationMs = isFinite(endTs - startTs) ? endTs - startTs : 0;
 
     let rawDelta: string | undefined;
-    if (item.rawAfter != null && item.rawBefore != null) {
+    if (item.endValue != null && item.startValue != null) {
       try {
-        rawDelta = new Big(item.rawAfter).minus(new Big(item.rawBefore)).toString();
+        rawDelta = new Big(item.endValue).minus(new Big(item.startValue)).toString();
       } catch {
         rawDelta = undefined;
       }
