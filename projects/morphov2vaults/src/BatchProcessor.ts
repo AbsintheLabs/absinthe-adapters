@@ -235,7 +235,7 @@ export class MorphoStakingProcessor {
         tokenPrice: { value: tokenPrice.toString(), type: 'number' },
         vaultAddress: { value: vaultAddress, type: 'string' },
         positionSide: { value: 'supply', type: 'string' },
-        typeMarket: { value: 'morphov1vaults', type: 'string' },
+        typeMarket: { value: 'morphov2vaults', type: 'string' },
       },
     });
 
@@ -294,9 +294,9 @@ export class MorphoStakingProcessor {
 
     const transactionSchema = {
       eventType: MessageType.TRANSACTION,
-      eventName: 'CreateMetaMorpho',
+      eventName: 'CreateVaultV2',
       tokens: {
-        token0Decimals: {
+        asset: {
           value: asset!.toString(),
           type: 'number',
         },
