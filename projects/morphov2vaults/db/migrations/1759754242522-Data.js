@@ -1,0 +1,15 @@
+module.exports = class Data1759754242522 {
+    name = 'Data1759754242522'
+
+    async up(db) {
+        await db.query(`CREATE TABLE "active_balances" ("id" character varying NOT NULL, "active_balances_map" jsonb NOT NULL, CONSTRAINT "PK_74928f950c9f521a27a8e273458" PRIMARY KEY ("id"))`)
+        await db.query(`CREATE TABLE "pool_process_state" ("id" character varying NOT NULL, "last_interpolated_ts" numeric, CONSTRAINT "PK_ce5faef0da4676fbbf3736dd9d9" PRIMARY KEY ("id"))`)
+        await db.query(`CREATE TABLE "market_data" ("id" character varying NOT NULL, "market_data_map" jsonb NOT NULL, CONSTRAINT "PK_f66c35bec52b05f6eae861225e6" PRIMARY KEY ("id"))`)
+    }
+
+    async down(db) {
+        await db.query(`DROP TABLE "active_balances"`)
+        await db.query(`DROP TABLE "pool_process_state"`)
+        await db.query(`DROP TABLE "market_data"`)
+    }
+}
