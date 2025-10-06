@@ -366,7 +366,7 @@ export class MorphoStakingProcessor {
         tokenDecimals: { value: tokenMetadata.decimals.toString(), type: 'number' },
         tokenPrice: { value: tokenPrice.toString(), type: 'number' },
         marketId: { value: marketId, type: 'string' },
-        positionSide: { value: 'borrow', type: 'string' },
+        positionSide: { value: 'repay', type: 'string' },
         typeMarket: { value: 'morphov1markets', type: 'string' },
       },
     });
@@ -444,7 +444,7 @@ export class MorphoStakingProcessor {
         tokenDecimals: { value: tokenMetadata.decimals.toString(), type: 'number' },
         tokenPrice: { value: tokenPrice.toString(), type: 'number' },
         marketId: { value: marketId, type: 'string' },
-        positionSide: { value: 'supply', type: 'string' },
+        positionSide: { value: 'withdraw', type: 'string' },
         typeMarket: { value: 'morphov1markets', type: 'string' },
       },
     });

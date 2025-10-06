@@ -1,14 +1,24 @@
 import {
   ActiveBalance,
+  Chain,
   Currency,
+  HelperProtocolConfig,
   HistoryWindow,
+  MessageType,
   pricePosition,
   ProcessValueChangeBalancesParams,
+  ProtocolConfig,
+  TimeWeightedBalanceEvent,
   TimeWindowTrigger,
+  ValidatedEnvBase,
+  ValidatedStakingProtocolConfig,
+  ValidatedTxnTrackingProtocolConfig,
+  VERSION,
   ZERO_ADDRESS,
 } from '@absinthe/common';
 import { TOKEN_METADATA } from './conts';
 import { MarketDataType, TokenMetadata } from './types';
+import { createHash } from 'crypto';
 
 function flattenNestedMap(
   nestedMap: Map<string, Map<string, ActiveBalance>>,
@@ -150,6 +160,60 @@ function processValueChangeBalances({
   processAddress(from, BigInt(-amount)); // from address loses amount
   processAddress(to, amount); // to address gains amount
   return historyWindows;
+}
+
+function toTimeWeightedBalance(
+  historyWindows: HistoryWindow[],
+  protocol:
+    | ProtocolConfig
+    | ValidatedTxnTrackingProtocolConfig
+    | ValidatedStakingProtocolConfig
+    | HelperProtocolConfig,
+  env: ValidatedEnvBase,
+  chainConfig: Chain,
+): TimeWeightedBalanceEvent[] {
+  return historyWindows.map((e) => {
+    const eventIdComponents = `${chainConfig.networkId}-${e.userAddress}-${e.startTs}-${e.endTs}-${e.windowDurationMs}-${env.absintheApiKey}-${e.type || ''}-${e.tokens.positionSide.value || ''}`;
+    const hash = createHash('md5').update(eventIdComponents).digest('hex').slice(0, 8);
+
+    const apiKeyHash = createHash('md5').update(env.absintheApiKey).digest('hex').slice(0, 8);
+
+    const baseSchema = {
+      version: VERSION,
+      eventId: hash,
+      userId: e.userAddress,
+      chain: chainConfig,
+      contractAddress: protocol.contractAddress.toLowerCase(),
+      protocolName: protocol.name.toLowerCase(),
+      protocolType: protocol.type.toLowerCase(),
+      runner: {
+        runnerId: 'uniswapv2_indexer_001', //todo: get the current PID/ docker-containerId
+        apiKeyHash,
+      },
+      protocolMetadata: e.tokens,
+      currency: e.currency,
+      valueUsd: e.valueUsd,
+    };
+
+    const currentTime = Date.now();
+
+    return {
+      base: baseSchema,
+      eventType: MessageType.TIME_WEIGHTED_BALANCE,
+      indexedTimeMs: currentTime,
+      tokenPrice: e.tokenPrice,
+      tokenDecimals: e.tokenDecimals,
+      balanceBefore: e.balanceBefore,
+      balanceAfter: e.balanceAfter,
+      timeWindowTrigger: e.trigger,
+      startUnixTimestampMs: e.startTs,
+      endUnixTimestampMs: e.endTs,
+      windowDurationMs: e.windowDurationMs,
+      startBlockNumber: e.startBlockNumber,
+      endBlockNumber: e.endBlockNumber,
+      txHash: e.txHash,
+    };
+  });
 }
 
 export {
