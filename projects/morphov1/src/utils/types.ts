@@ -7,7 +7,6 @@ interface ProtocolStateMorpho extends ProtocolState {
   processState: PoolProcessState;
   activeBalances: ActiveBalancesMorpho;
   marketData: Map<string, MarketData>;
-  userPositions: Map<string, Map<string, bigint>>; // marketId -> userAddress -> shares
 }
 
 interface TokenMetadata {
@@ -30,4 +29,26 @@ interface UserPosition {
   collateral: bigint;
 }
 
-export { ProtocolStateMorpho, ActiveBalancesMorpho, TokenMetadata, MarketData, UserPosition };
+// Type definitions
+interface MarketDataType {
+  loanToken: string;
+  collateralToken: string;
+  oracle: string;
+  irm: string;
+  lltv: bigint;
+}
+
+interface MarketIndexes {
+  supplyIndex: bigint; // 1e18-scaled
+  borrowIndex: bigint; // 1e18-scaled
+}
+
+export {
+  ProtocolStateMorpho,
+  ActiveBalancesMorpho,
+  TokenMetadata,
+  MarketData,
+  UserPosition,
+  MarketDataType,
+  MarketIndexes,
+};

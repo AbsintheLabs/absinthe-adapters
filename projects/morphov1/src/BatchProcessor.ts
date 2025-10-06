@@ -1,4 +1,4 @@
-import { ActiveBalances } from './model';
+import { ActiveBalances, MarketData } from './model';
 
 import {
   AbsintheApiClient,
@@ -7,38 +7,34 @@ import {
   Chain,
   Currency,
   logger,
-  processValueChangeBalances,
   TimeWeightedBalanceEvent,
   TimeWindowTrigger,
   ValidatedEnvBase,
   ValidatedStakingProtocolConfig,
   ZERO_ADDRESS,
 } from '@absinthe/common';
-
+import { processValueChangeBalances } from './utils/helper';
 import { processor } from './processor';
 import { createHash } from 'crypto';
 import { TypeormDatabase } from '@subsquid/typeorm-store';
-import { loadActiveBalancesFromDb, loadPoolProcessStateFromDb } from './utils/pool';
+import {
+  loadActiveBalancesFromDb,
+  loadMarketDataFromDb,
+  loadPoolProcessStateFromDb,
+} from './utils/pool';
 import { ProtocolStateMorpho } from './utils/types';
 import * as morphoAbi from './abi/morphov1';
 import { fetchHistoricalUsd } from '@absinthe/common';
 import { mapToJson, toTimeWeightedBalance, pricePosition } from '@absinthe/common';
 import { PoolProcessState } from './model';
-import { checkToken, flattenNestedMap } from './utils/helper';
-
-// Type definitions
-interface MarketData {
-  loanToken: string;
-  collateralToken: string;
-  oracle: string;
-  irm: string;
-  lltv: bigint;
-}
-
-interface MarketIndexes {
-  supplyIndex: bigint; // 1e18-scaled
-  borrowIndex: bigint; // 1e18-scaled
-}
+import {
+  checkToken,
+  flattenNestedMap,
+  flattenNestedMapMarketData,
+  mapToJsonMarketData,
+} from './utils/helper';
+import { MarketDataType, MarketIndexes } from './utils/types';
+import { Contract } from './abi/morphov1';
 
 export class MorphoStakingProcessor {
   private readonly stakingProtocol: ValidatedStakingProtocolConfig;
@@ -61,8 +57,9 @@ export class MorphoStakingProcessor {
     this.apiClient = apiClient;
     this.env = env;
     this.chainConfig = chainConfig;
-    this.schemaName = this.generateSchemaName();
     this.contractAddress = stakingProtocol.contractAddress.toLowerCase();
+
+    this.schemaName = this.generateSchemaName();
   }
 
   private generateSchemaName(): string {
@@ -109,9 +106,9 @@ export class MorphoStakingProcessor {
       transactions: [],
       processState:
         (await loadPoolProcessStateFromDb(ctx, this.contractAddress)) || new PoolProcessState({}),
-      marketData: new Map<string, MarketData>(),
-      // marketId -> userAddress -> UserPosition
-      userPositions: new Map<string, Map<string, bigint>>(),
+      marketData:
+        (await loadMarketDataFromDb(ctx, this.contractAddress)) ||
+        new Map<string, MarketDataType>(),
     });
 
     return protocolStates;
@@ -121,7 +118,6 @@ export class MorphoStakingProcessor {
     const { ctx, block, protocolStates } = batchContext;
     const protocolState = protocolStates.get(this.contractAddress)!;
     await this.processLogsForProtocol(ctx, block, protocolState);
-    // await this.processPeriodicBalanceFlush(ctx, block, protocolState);
   }
 
   private async processLogsForProtocol(
@@ -163,11 +159,6 @@ export class MorphoStakingProcessor {
       await this.processCreateMarketEvent(ctx, block, log, protocolState);
     }
   }
-
-  // -----------------------
-  // Event handlers
-  // -----------------------
-
   // SUPPLY -> supplyShares += shares
   private async processSupplyEvent(
     ctx: any,
@@ -177,33 +168,29 @@ export class MorphoStakingProcessor {
   ): Promise<void> {
     const { id: marketId, onBehalf, assets, shares } = morphoAbi.events.Supply.decode(log);
 
-    console.log(`Processing Supply event for market: ${marketId}`, {
+    logger.info(`Processing Supply event for market: ${marketId}`, {
       onBehalf,
       assets,
       shares,
+      txHash: log.transactionHash,
     });
 
     const marketData = await this.getMarketData(ctx, marketId, protocolState);
     if (!marketData) {
-      console.warn(`Market data not found for market: ${marketId}`);
+      logger.warn(`Market data not found for market: ${marketId}`);
       return;
     }
 
     const loanToken = marketData.loanToken;
     const tokenMetadata = checkToken(loanToken);
     if (!tokenMetadata) {
-      console.warn(`Ignoring supply for unsupported token: ${loanToken}`);
+      logger.warn(`Ignoring supply for unsupported token: ${loanToken}`);
       return;
     }
-
-    // Update user supply position (+)
-    await this.updateUserSupply(protocolState, marketId, onBehalf, BigInt(shares));
-
-    const marketIndexes = await this.getMarketIndexes(ctx, marketId);
-    logger.info(`💰 [MorphoStakingProcessor] Market indexes: ${marketIndexes}`);
+    const marketIndexes = await this.getMarketIndexes(ctx, block, marketId);
+    logger.info(`Market indexes: ${marketIndexes}`);
     if (!marketIndexes) return;
 
-    // supplyIndex is 1e18-scaled
     const supplyAssets = (BigInt(shares) * marketIndexes.supplyIndex) / 10n ** 18n;
 
     const tokenPrice = await fetchHistoricalUsd(
@@ -217,6 +204,7 @@ export class MorphoStakingProcessor {
     logger.info(`💰 [MorphoStakingProcessor] Token metadata decimals: ${tokenMetadata.decimals}`);
     const usdValue = pricePosition(tokenPrice, supplyAssets, tokenMetadata.decimals);
 
+    logger.info(`📊 [MorphoStakingProcessor] Processing value change balances...`);
     const newHistoryWindows = processValueChangeBalances({
       from: ZERO_ADDRESS,
       to: onBehalf,
@@ -230,6 +218,7 @@ export class MorphoStakingProcessor {
       tokenPrice, // number
       tokenDecimals: tokenMetadata.decimals, // number
       tokenAddress: loanToken,
+      marketId: marketId,
       tokens: {
         tokenAddress: { value: tokenMetadata.address, type: 'string' },
         coingeckoId: { value: tokenMetadata.coingeckoId, type: 'string' },
@@ -237,6 +226,7 @@ export class MorphoStakingProcessor {
         tokenPrice: { value: tokenPrice.toString(), type: 'number' },
         marketId: { value: marketId, type: 'string' },
         positionSide: { value: 'supply', type: 'string' },
+        typeMarket: { value: 'morphov1markets', type: 'string' },
       },
     });
 
@@ -252,30 +242,28 @@ export class MorphoStakingProcessor {
   ): Promise<void> {
     const { id: marketId, caller, onBehalf, assets, shares } = morphoAbi.events.Borrow.decode(log);
 
-    console.log(`Processing Borrow event for market: ${marketId}`, {
+    logger.info(`Processing Borrow event for market: ${marketId}`, {
       caller,
       onBehalf,
       assets,
       shares,
+      txHash: log.transactionHash,
     });
 
     const marketData = await this.getMarketData(ctx, marketId, protocolState);
     if (!marketData) {
-      console.warn(`Market data not found for market: ${marketId}`);
+      logger.warn(`Market data not found for market: ${marketId}`);
       return;
     }
 
     const loanToken = marketData.loanToken;
     const tokenMetadata = checkToken(loanToken);
     if (!tokenMetadata) {
-      console.warn(`Ignoring borrow for unsupported token: ${loanToken}`);
+      logger.warn(`Ignoring borrow for unsupported token: ${loanToken}`);
       return;
     }
 
-    // Update user borrow position (+)
-    await this.updateUserBorrow(protocolState, marketId, onBehalf, BigInt(shares));
-
-    const marketIndexes = await this.getMarketIndexes(ctx, marketId);
+    const marketIndexes = await this.getMarketIndexes(ctx, block, marketId);
     if (!marketIndexes) return;
 
     // borrowIndex is 1e18-scaled
@@ -289,8 +277,8 @@ export class MorphoStakingProcessor {
     const usdValue = pricePosition(tokenPrice, borrowAssets, tokenMetadata.decimals);
 
     const newHistoryWindows = processValueChangeBalances({
-      from: onBehalf,
-      to: ZERO_ADDRESS,
+      from: ZERO_ADDRESS,
+      to: onBehalf,
       amount: borrowAssets,
       usdValue,
       blockTimestamp: block.header.timestamp,
@@ -301,6 +289,7 @@ export class MorphoStakingProcessor {
       tokenPrice,
       tokenDecimals: tokenMetadata.decimals,
       tokenAddress: loanToken,
+      marketId: marketId,
       tokens: {
         tokenAddress: { value: tokenMetadata.address, type: 'string' },
         coingeckoId: { value: tokenMetadata.coingeckoId, type: 'string' },
@@ -308,6 +297,7 @@ export class MorphoStakingProcessor {
         tokenPrice: { value: tokenPrice.toString(), type: 'number' },
         marketId: { value: marketId, type: 'string' },
         positionSide: { value: 'borrow', type: 'string' },
+        typeMarket: { value: 'morphov1markets', type: 'string' },
       },
     });
 
@@ -323,30 +313,28 @@ export class MorphoStakingProcessor {
   ): Promise<void> {
     const { id: marketId, caller, onBehalf, assets, shares } = morphoAbi.events.Repay.decode(log);
 
-    console.log(`Processing Repay event for market: ${marketId}`, {
+    logger.info(`Processing Repay event for market: ${marketId}`, {
       caller,
       onBehalf,
       assets,
       shares,
+      txHash: log.transactionHash,
     });
 
     const marketData = await this.getMarketData(ctx, marketId, protocolState);
     if (!marketData) {
-      console.warn(`Market data not found for market: ${marketId}`);
+      logger.warn(`Market data not found for market: ${marketId}`);
       return;
     }
 
     const loanToken = marketData.loanToken;
     const tokenMetadata = checkToken(loanToken);
     if (!tokenMetadata) {
-      console.warn(`Ignoring repay for unsupported token: ${loanToken}`);
+      logger.warn(`Ignoring repay for unsupported token: ${loanToken}`);
       return;
     }
 
-    // Update user borrow position (-)
-    await this.updateUserBorrow(protocolState, marketId, onBehalf, -BigInt(shares));
-
-    const marketIndexes = await this.getMarketIndexes(ctx, marketId);
+    const marketIndexes = await this.getMarketIndexes(ctx, block, marketId);
     if (!marketIndexes) return;
 
     const repayAssets = (BigInt(shares) * marketIndexes.borrowIndex) / 10n ** 18n;
@@ -359,8 +347,8 @@ export class MorphoStakingProcessor {
     const usdValue = pricePosition(tokenPrice, repayAssets, tokenMetadata.decimals);
 
     const newHistoryWindows = processValueChangeBalances({
-      from: ZERO_ADDRESS,
-      to: onBehalf,
+      from: onBehalf,
+      to: ZERO_ADDRESS,
       amount: repayAssets,
       usdValue,
       blockTimestamp: block.header.timestamp,
@@ -371,6 +359,7 @@ export class MorphoStakingProcessor {
       tokenPrice,
       tokenDecimals: tokenMetadata.decimals,
       tokenAddress: loanToken,
+      marketId: marketId,
       tokens: {
         tokenAddress: { value: tokenMetadata.address, type: 'string' },
         coingeckoId: { value: tokenMetadata.coingeckoId, type: 'string' },
@@ -378,6 +367,7 @@ export class MorphoStakingProcessor {
         tokenPrice: { value: tokenPrice.toString(), type: 'number' },
         marketId: { value: marketId, type: 'string' },
         positionSide: { value: 'borrow', type: 'string' },
+        typeMarket: { value: 'morphov1markets', type: 'string' },
       },
     });
 
@@ -400,31 +390,29 @@ export class MorphoStakingProcessor {
       shares,
     } = morphoAbi.events.Withdraw.decode(log);
 
-    console.log(`Processing Withdraw event for market: ${marketId}`, {
+    logger.info(`Processing Withdraw event for market: ${marketId}`, {
       caller,
       onBehalf,
       receiver,
       assets,
       shares,
+      txHash: log.transactionHash,
     });
 
     const marketData = await this.getMarketData(ctx, marketId, protocolState);
     if (!marketData) {
-      console.warn(`Market data not found for market: ${marketId}`);
+      logger.warn(`Market data not found for market: ${marketId}`);
       return;
     }
 
     const loanToken = marketData.loanToken;
     const tokenMetadata = checkToken(loanToken);
     if (!tokenMetadata) {
-      console.warn(`Ignoring withdraw for unsupported token: ${loanToken}`);
+      logger.warn(`Ignoring withdraw for unsupported token: ${loanToken}`);
       return;
     }
 
-    // Update user supply position (-)
-    await this.updateUserSupply(protocolState, marketId, onBehalf, -BigInt(shares));
-
-    const marketIndexes = await this.getMarketIndexes(ctx, marketId);
+    const marketIndexes = await this.getMarketIndexes(ctx, block, marketId);
     if (!marketIndexes) return;
 
     const withdrawAssets = (BigInt(shares) * marketIndexes.supplyIndex) / 10n ** 18n;
@@ -449,6 +437,7 @@ export class MorphoStakingProcessor {
       tokenPrice,
       tokenDecimals: tokenMetadata.decimals,
       tokenAddress: loanToken,
+      marketId: marketId,
       tokens: {
         tokenAddress: { value: tokenMetadata.address, type: 'string' },
         coingeckoId: { value: tokenMetadata.coingeckoId, type: 'string' },
@@ -456,6 +445,7 @@ export class MorphoStakingProcessor {
         tokenPrice: { value: tokenPrice.toString(), type: 'number' },
         marketId: { value: marketId, type: 'string' },
         positionSide: { value: 'supply', type: 'string' },
+        typeMarket: { value: 'morphov1markets', type: 'string' },
       },
     });
 
@@ -470,11 +460,10 @@ export class MorphoStakingProcessor {
   ): Promise<void> {
     const { id: marketId, marketParams } = morphoAbi.events.CreateMarket.decode(log);
 
-    console.log(`Processing CreateMarket event for market: ${marketId}`, {
+    logger.info(`Processing CreateMarket event for market: ${marketId}`, {
       marketParams,
     });
 
-    // Store market data
     protocolState.marketData.set(marketId, {
       loanToken: marketParams.loanToken,
       collateralToken: marketParams.collateralToken,
@@ -483,204 +472,67 @@ export class MorphoStakingProcessor {
       lltv: marketParams.lltv,
     });
 
-    console.log(`Market created: ${marketId}`, {
+    logger.info(`Market created: ${marketId}`, {
       loanToken: marketParams.loanToken,
       collateralToken: marketParams.collateralToken,
     });
   }
 
-  // -----------------------
-  // Helpers
-  // -----------------------
-
   private async getMarketData(
     ctx: any,
     marketId: string,
     protocolState: ProtocolStateMorpho,
-  ): Promise<MarketData | null> {
+  ): Promise<MarketDataType | null> {
     if (protocolState.marketData.has(marketId)) {
       return protocolState.marketData.get(marketId)!;
     }
     return null;
   }
 
-  private async getMarketIndexes(ctx: any, marketId: string): Promise<MarketIndexes | null> {
+  private async getMarketIndexes(
+    ctx: any,
+    block: any,
+    marketId: string,
+  ): Promise<MarketIndexes | null> {
     try {
-      // NOTE: Replace with the actual Morpho Blue contract read for this network.
-      const market = await ctx.contract.market(marketId);
+      // Create the function call data for the market function
+      const marketFunction = morphoAbi.functions.market;
+      const callData = marketFunction.encode({ _0: marketId });
 
+      // Make the historical RPC call using the block height
+      const result = await ctx._chain.client.call('eth_call', [
+        { to: this.contractAddress, data: callData },
+        '0x' + block.header.height.toString(16), // Historical call at specific block
+      ]);
+
+      // Decode the result
+      const market = marketFunction.decodeResult(result);
+
+      logger.info(`Market: ${market}`);
       const tsAssets = BigInt(market.totalSupplyAssets ?? 0);
       const tsShares = BigInt(market.totalSupplyShares ?? 0);
       const tbAssets = BigInt(market.totalBorrowAssets ?? 0);
       const tbShares = BigInt(market.totalBorrowShares ?? 0);
 
+      logger.info(`Total supply assets: ${tsAssets}`);
+      logger.info(`Total supply shares: ${tsShares}`);
+      logger.info(`Total borrow assets: ${tbAssets}`);
+      logger.info(`Total borrow shares: ${tbShares}`);
+
       const SCALE = 10n ** 18n;
 
       const supplyIndex = tsShares === 0n ? SCALE : (tsAssets * SCALE) / tsShares;
-
       const borrowIndex = tbShares === 0n ? SCALE : (tbAssets * SCALE) / tbShares;
+
+      logger.info(`Supply index: ${supplyIndex}`);
+      logger.info(`Borrow index: ${borrowIndex}`);
 
       return { supplyIndex, borrowIndex };
     } catch (error) {
-      console.warn(`Failed to fetch market indexes for ${marketId}:`, error);
+      logger.warn(`Failed to fetch market indexes for ${marketId}:`, error);
       return null;
     }
   }
-
-  private ensureUserPosition(
-    protocolState: ProtocolStateMorpho,
-    marketId: string,
-    userAddress: string,
-  ): bigint {
-    if (!protocolState.userPositions.has(marketId)) {
-      protocolState.userPositions.set(marketId, new Map());
-    }
-    const marketPositions = protocolState.userPositions.get(marketId)!;
-    if (!marketPositions.has(userAddress)) {
-      marketPositions.set(userAddress, 0n);
-    }
-    return marketPositions.get(userAddress)!;
-  }
-
-  private async updateUserSupply(
-    protocolState: ProtocolStateMorpho,
-    marketId: string,
-    userAddress: string,
-    sharesDelta: bigint,
-  ): Promise<void> {
-    let pos = this.ensureUserPosition(protocolState, marketId, userAddress);
-    pos = pos + sharesDelta;
-    protocolState.userPositions.get(marketId)!.set(userAddress, pos);
-  }
-
-  private async updateUserBorrow(
-    protocolState: ProtocolStateMorpho,
-    marketId: string,
-    userAddress: string,
-    sharesDelta: bigint, // + for borrow, - for repay (as requested)
-  ): Promise<void> {
-    let pos = this.ensureUserPosition(protocolState, marketId, userAddress);
-    pos = pos + sharesDelta;
-    protocolState.userPositions.get(marketId)!.set(userAddress, pos);
-  }
-
-  // Periodic snapshot of balances (time-weighted)
-  // private async processPeriodicBalanceFlush(
-  //   ctx: any,
-  //   block: any,
-  //   protocolState: ProtocolStateMorpho,
-  // ): Promise<void> {
-  //   const currentTs = block.header.timestamp;
-
-  //   if (!protocolState.processState?.lastInterpolatedTs) {
-  //     protocolState.processState.lastInterpolatedTs = BigInt(currentTs);
-  //   }
-
-  //   while (
-  //     protocolState.processState.lastInterpolatedTs &&
-  //     Number(protocolState.processState.lastInterpolatedTs) + this.refreshWindow < currentTs
-  //   ) {
-  //     const windowsSinceEpoch = Math.floor(
-  //       Number(protocolState.processState.lastInterpolatedTs) / this.refreshWindow,
-  //     );
-  //     const nextBoundaryTs: number = (windowsSinceEpoch + 1) * this.refreshWindow;
-
-  //     for (const [marketId, userPositions] of protocolState.userPositions.entries()) {
-  //       const marketData = protocolState.marketData.get(marketId);
-  //       if (!marketData) continue;
-
-  //       const tokenMetadata = checkToken(marketData.loanToken);
-  //       if (!tokenMetadata) continue;
-
-  //       const marketIndexes = await this.getMarketIndexes(ctx, marketId);
-  //       if (!marketIndexes) continue;
-
-  //       for (const [userAddress, position] of userPositions.entries()) {
-  //         const SCALE = 10n ** 18n;
-
-  //         // Supply snapshot (if any)
-  //         if (position > 0n) {
-  //           const supplyAssets = (position * marketIndexes.supplyIndex) / SCALE;
-  //           if (supplyAssets > 0n) {
-  //             const tokenPrice = await fetchHistoricalUsd(
-  //               tokenMetadata.coingeckoId,
-  //               currentTs,
-  //               this.env.coingeckoApiKey,
-  //             );
-  //             const balanceUsd = pricePosition(tokenPrice, supplyAssets, tokenMetadata.decimals);
-
-  //             protocolState.balanceWindows.push({
-  //               userAddress: userAddress,
-  //               deltaAmount: 0,
-  //               trigger: TimeWindowTrigger.EXHAUSTED,
-  //               startTs: Number(protocolState.processState.lastInterpolatedTs),
-  //               endTs: nextBoundaryTs,
-  //               windowDurationMs: this.refreshWindow,
-  //               startBlockNumber: 0, // fill if you track start block
-  //               endBlockNumber: block.header.height,
-  //               tokenPrice: tokenPrice,
-  //               tokenDecimals: tokenMetadata.decimals,
-  //               balanceBefore: supplyAssets.toString(),
-  //               balanceAfter: supplyAssets.toString(),
-  //               txHash: null,
-  //               currency: Currency.USD,
-  //               valueUsd: balanceUsd,
-  //               tokens: {
-  //                 tokenAddress: { value: tokenMetadata.address, type: 'string' },
-  //                 coingeckoId: { value: tokenMetadata.coingeckoId, type: 'string' },
-  //                 tokenDecimals: { value: tokenMetadata.decimals.toString(), type: 'number' },
-  //                 tokenPrice: { value: tokenPrice.toString(), type: 'number' },
-  //                 marketId: { value: marketId, type: 'string' },
-  //                 positionSide: { value: 'supply', type: 'string' },
-  //               },
-  //             });
-  //           }
-  //         }
-
-  //         // Borrow snapshot (if any) — borrowShares are stored positive as per your spec
-  //         if (position > 0n) {
-  //           const borrowAssets = (position * marketIndexes.borrowIndex) / SCALE;
-  //           if (borrowAssets > 0n) {
-  //             const tokenPrice = await fetchHistoricalUsd(
-  //               tokenMetadata.coingeckoId,
-  //               currentTs,
-  //               this.env.coingeckoApiKey,
-  //             );
-  //             const balanceUsd = pricePosition(tokenPrice, borrowAssets, tokenMetadata.decimals);
-
-  //             protocolState.balanceWindows.push({
-  //               userAddress: userAddress,
-  //               deltaAmount: 0,
-  //               trigger: TimeWindowTrigger.EXHAUSTED,
-  //               startTs: Number(protocolState.processState.lastInterpolatedTs),
-  //               endTs: nextBoundaryTs,
-  //               windowDurationMs: this.refreshWindow,
-  //               startBlockNumber: 0,
-  //               endBlockNumber: block.header.height,
-  //               tokenPrice: tokenPrice,
-  //               tokenDecimals: tokenMetadata.decimals,
-  //               balanceBefore: borrowAssets.toString(),
-  //               balanceAfter: borrowAssets.toString(),
-  //               txHash: null,
-  //               currency: Currency.USD,
-  //               valueUsd: balanceUsd,
-  //               tokens: {
-  //                 tokenAddress: { value: tokenMetadata.address, type: 'string' },
-  //                 coingeckoId: { value: tokenMetadata.coingeckoId, type: 'string' },
-  //                 tokenDecimals: { value: tokenMetadata.decimals.toString(), type: 'number' },
-  //                 tokenPrice: { value: tokenPrice.toString(), type: 'number' },
-  //                 marketId: { value: marketId, type: 'string' },
-  //                 positionSide: { value: 'borrow', type: 'string' },
-  //               },
-  //             });
-  //           }
-  //         }
-  //       }
-  //     }
-
-  //     protocolState.processState.lastInterpolatedTs = BigInt(nextBoundaryTs);
-  //   }
-  // }
 
   private async finalizeBatch(
     ctx: any,
@@ -695,7 +547,6 @@ export class MorphoStakingProcessor {
     );
     await this.apiClient.send(balances);
 
-    // Save to database
     await ctx.store.upsert(
       new PoolProcessState({
         id: `${this.contractAddress}-process-state`,
@@ -706,6 +557,12 @@ export class MorphoStakingProcessor {
       new ActiveBalances({
         id: `${this.contractAddress}-active-balances`,
         activeBalancesMap: mapToJson(flattenNestedMap(protocolState.activeBalances)),
+      }),
+    );
+    await ctx.store.upsert(
+      new MarketData({
+        id: `${this.contractAddress}-market-data`,
+        marketDataMap: mapToJsonMarketData(protocolState.marketData),
       }),
     );
   }
