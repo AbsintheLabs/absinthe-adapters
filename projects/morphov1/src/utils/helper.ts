@@ -53,6 +53,8 @@ function mapToJsonMarketData(map: Map<string, MarketDataType>): Record<string, a
       oracle: value.oracle,
       irm: value.irm,
       lltv: value.lltv.toString(),
+      borrowIndex: value.borrowIndex.toString(),
+      supplyIndex: value.supplyIndex.toString(),
     };
   }
   return result;

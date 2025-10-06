@@ -5,6 +5,8 @@ import { ActiveBalancesMorpho, MarketDataType } from '../utils/types';
 
 import { ActiveBalance, jsonToMap } from '@absinthe/common';
 
+const SCALE = 10n ** 18n;
+
 export async function loadActiveBalancesFromDb(
   ctx: DataHandlerContext<Store>,
   contractAddress: string,
@@ -57,9 +59,9 @@ export async function loadMarketDataFromDb(
       collateralToken: value.collateralToken,
       oracle: value.oracle,
       irm: value.irm,
-      lltv: BigInt(value.lltv),
-      borrowIndex: BigInt(value.borrowIndex),
-      supplyIndex: BigInt(value.supplyIndex),
+      lltv: BigInt(value.lltv || SCALE.toString()),
+      borrowIndex: BigInt(value.borrowIndex || SCALE.toString()),
+      supplyIndex: BigInt(value.supplyIndex || SCALE.toString()),
     });
   }
 
