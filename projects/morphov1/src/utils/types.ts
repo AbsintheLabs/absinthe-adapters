@@ -21,6 +21,8 @@ interface MarketData {
   oracle: string;
   irm: string;
   lltv: bigint;
+  borrowIndex: bigint;
+  supplyIndex: bigint;
 }
 
 interface UserPosition {
@@ -36,6 +38,8 @@ interface MarketDataType {
   oracle: string;
   irm: string;
   lltv: bigint;
+  borrowIndex: bigint;
+  supplyIndex: bigint;
 }
 
 interface MarketIndexes {

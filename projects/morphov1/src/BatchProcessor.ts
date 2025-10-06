@@ -35,6 +35,14 @@ import {
 } from './utils/helper';
 import { MarketDataType, MarketIndexes } from './utils/types';
 import { toTimeWeightedBalance } from './utils/helper';
+
+const SCALE = 10n ** 18n;
+
+function deriveIndexFromEvent(assets: bigint, shares: bigint): bigint {
+  if (shares === 0n) return SCALE;
+  return (assets * SCALE) / shares; // matches on-chain rounding (floor)
+}
+
 export class MorphoStakingProcessor {
   private readonly stakingProtocol: ValidatedStakingProtocolConfig;
   private readonly schemaName: string;
@@ -65,7 +73,6 @@ export class MorphoStakingProcessor {
     const uniquePoolCombination = this.contractAddress.concat(
       this.chainConfig.networkId.toString(),
     );
-
     const hash = createHash('md5').update(uniquePoolCombination).digest('hex').slice(0, 8);
     return `morpho-${hash}`;
   }
@@ -86,11 +93,9 @@ export class MorphoStakingProcessor {
 
   private async processBatch(ctx: any): Promise<void> {
     const protocolStates = await this.initializeProtocolStates(ctx);
-
     for (const block of ctx.blocks) {
       await this.processBlock({ ctx, block, protocolStates });
     }
-
     await this.finalizeBatch(ctx, protocolStates);
   }
 
@@ -141,23 +146,20 @@ export class MorphoStakingProcessor {
     if (log.topics[0] === morphoAbi.events.Supply.topic) {
       await this.processSupplyEvent(ctx, block, log, protocolState);
     }
-
     if (log.topics[0] === morphoAbi.events.Borrow.topic) {
       await this.processBorrowEvent(ctx, block, log, protocolState);
     }
-
     if (log.topics[0] === morphoAbi.events.Repay.topic) {
       await this.processRepayEvent(ctx, block, log, protocolState);
     }
-
     if (log.topics[0] === morphoAbi.events.Withdraw.topic) {
       await this.processWithdrawEvent(ctx, block, log, protocolState);
     }
-
     if (log.topics[0] === morphoAbi.events.CreateMarket.topic) {
       await this.processCreateMarketEvent(ctx, block, log, protocolState);
     }
   }
+
   // SUPPLY -> supplyShares += shares
   private async processSupplyEvent(
     ctx: any,
@@ -186,24 +188,24 @@ export class MorphoStakingProcessor {
       logger.warn(`Ignoring supply for unsupported token: ${loanToken}`);
       return;
     }
-    const marketIndexes = await this.getMarketIndexes(ctx, block, marketId);
-    logger.info(`Market indexes: ${marketIndexes}`);
-    if (!marketIndexes) return;
 
-    const supplyAssets = (BigInt(shares) * marketIndexes.supplyIndex) / 10n ** 18n;
+    // Use the canonical amount from the event
+    const supplyAssets = BigInt(assets);
+
+    // Derive and store the pre-event supply index
+    const supplyIndex = deriveIndexFromEvent(BigInt(assets), BigInt(shares));
+    protocolState.marketData.set(marketId, {
+      ...marketData,
+      supplyIndex,
+    });
 
     const tokenPrice = await fetchHistoricalUsd(
       tokenMetadata.coingeckoId,
       block.header.timestamp,
       this.env.coingeckoApiKey,
     );
-
-    logger.info(`💰 [MorphoStakingProcessor] Token price: $${tokenPrice}`);
-    logger.info(`💰 [MorphoStakingProcessor] Supply assets: $${supplyAssets}`);
-    logger.info(`💰 [MorphoStakingProcessor] Token metadata decimals: ${tokenMetadata.decimals}`);
     const usdValue = pricePosition(tokenPrice, supplyAssets, tokenMetadata.decimals);
 
-    logger.info(`📊 [MorphoStakingProcessor] Processing value change balances...`);
     const newHistoryWindows = processValueChangeBalances({
       from: ZERO_ADDRESS,
       to: onBehalf,
@@ -214,8 +216,8 @@ export class MorphoStakingProcessor {
       txHash: log.transactionHash,
       activeBalances: protocolState.activeBalances,
       windowDurationMs: this.refreshWindow,
-      tokenPrice, // number
-      tokenDecimals: tokenMetadata.decimals, // number
+      tokenPrice,
+      tokenDecimals: tokenMetadata.decimals,
       tokenAddress: loanToken,
       marketId: marketId,
       tokens: {
@@ -232,7 +234,7 @@ export class MorphoStakingProcessor {
     protocolState.balanceWindows.push(...newHistoryWindows);
   }
 
-  // BORROW -> borrowShares += shares  (per your spec: borrow is +ve)
+  // BORROW -> borrowShares += shares  (recorded as +ve activity per your convention)
   private async processBorrowEvent(
     ctx: any,
     block: any,
@@ -262,11 +264,15 @@ export class MorphoStakingProcessor {
       return;
     }
 
-    const marketIndexes = await this.getMarketIndexes(ctx, block, marketId);
-    if (!marketIndexes) return;
+    // Use the canonical amount from the event
+    const borrowAssets = BigInt(assets);
 
-    // borrowIndex is 1e18-scaled
-    const borrowAssets = (BigInt(shares) * marketIndexes.borrowIndex) / 10n ** 18n;
+    // Derive and store the pre-event borrow index
+    const borrowIndex = deriveIndexFromEvent(BigInt(assets), BigInt(shares));
+    protocolState.marketData.set(marketId, {
+      ...marketData,
+      borrowIndex,
+    });
 
     const tokenPrice = await fetchHistoricalUsd(
       tokenMetadata.coingeckoId,
@@ -303,7 +309,7 @@ export class MorphoStakingProcessor {
     protocolState.balanceWindows.push(...newHistoryWindows);
   }
 
-  // REPAY -> borrowShares -= shares  (per your spec: repay recorded as -ve)
+  // REPAY -> borrowShares -= shares  (recorded as -ve)
   private async processRepayEvent(
     ctx: any,
     block: any,
@@ -333,10 +339,14 @@ export class MorphoStakingProcessor {
       return;
     }
 
-    const marketIndexes = await this.getMarketIndexes(ctx, block, marketId);
-    if (!marketIndexes) return;
+    const repayAssets = BigInt(assets);
 
-    const repayAssets = (BigInt(shares) * marketIndexes.borrowIndex) / 10n ** 18n;
+    // Derive and store the pre-event borrow index from the event
+    const borrowIndex = deriveIndexFromEvent(BigInt(assets), BigInt(shares));
+    protocolState.marketData.set(marketId, {
+      ...marketData,
+      borrowIndex,
+    });
 
     const tokenPrice = await fetchHistoricalUsd(
       tokenMetadata.coingeckoId,
@@ -411,10 +421,15 @@ export class MorphoStakingProcessor {
       return;
     }
 
-    const marketIndexes = await this.getMarketIndexes(ctx, block, marketId);
-    if (!marketIndexes) return;
+    // Use the canonical amount from the event
+    const withdrawAssets = BigInt(assets);
 
-    const withdrawAssets = (BigInt(shares) * marketIndexes.supplyIndex) / 10n ** 18n;
+    // Derive and store the pre-event supply index
+    const supplyIndex = deriveIndexFromEvent(BigInt(assets), BigInt(shares));
+    protocolState.marketData.set(marketId, {
+      ...marketData,
+      supplyIndex,
+    });
 
     const tokenPrice = await fetchHistoricalUsd(
       tokenMetadata.coingeckoId,
@@ -469,6 +484,8 @@ export class MorphoStakingProcessor {
       oracle: marketParams.oracle,
       irm: marketParams.irm,
       lltv: marketParams.lltv,
+      borrowIndex: SCALE, // initialize sane defaults
+      supplyIndex: SCALE,
     });
 
     logger.info(`Market created: ${marketId}`, {
@@ -488,43 +505,30 @@ export class MorphoStakingProcessor {
     return null;
   }
 
+  // Kept for periodic accrual ticks (NOT used inside event handlers)
   private async getMarketIndexes(
     ctx: any,
     block: any,
     marketId: string,
   ): Promise<MarketIndexes | null> {
     try {
-      // Create the function call data for the market function
       const marketFunction = morphoAbi.functions.market;
       const callData = marketFunction.encode({ _0: marketId });
 
-      // Make the historical RPC call using the block height
       const result = await ctx._chain.client.call('eth_call', [
         { to: this.contractAddress, data: callData },
-        '0x' + block.header.height.toString(16), // Historical call at specific block
+        '0x' + block.header.height.toString(16), // end-of-block state
       ]);
 
-      // Decode the result
       const market = marketFunction.decodeResult(result);
 
-      logger.info(`Market: ${market}`);
       const tsAssets = BigInt(market.totalSupplyAssets ?? 0);
       const tsShares = BigInt(market.totalSupplyShares ?? 0);
       const tbAssets = BigInt(market.totalBorrowAssets ?? 0);
       const tbShares = BigInt(market.totalBorrowShares ?? 0);
 
-      logger.info(`Total supply assets: ${tsAssets}`);
-      logger.info(`Total supply shares: ${tsShares}`);
-      logger.info(`Total borrow assets: ${tbAssets}`);
-      logger.info(`Total borrow shares: ${tbShares}`);
-
-      const SCALE = 10n ** 18n;
-
       const supplyIndex = tsShares === 0n ? SCALE : (tsAssets * SCALE) / tsShares;
       const borrowIndex = tbShares === 0n ? SCALE : (tbAssets * SCALE) / tbShares;
-
-      logger.info(`Supply index: ${supplyIndex}`);
-      logger.info(`Borrow index: ${borrowIndex}`);
 
       return { supplyIndex, borrowIndex };
     } catch (error) {
