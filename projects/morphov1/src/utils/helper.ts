@@ -222,4 +222,5 @@ export {
   flattenNestedMapMarketData,
   mapToJsonMarketData,
   processValueChangeBalances,
+  toTimeWeightedBalance,
 };

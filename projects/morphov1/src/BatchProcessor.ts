@@ -25,7 +25,7 @@ import {
 import { ProtocolStateMorpho } from './utils/types';
 import * as morphoAbi from './abi/morphov1';
 import { fetchHistoricalUsd } from '@absinthe/common';
-import { mapToJson, toTimeWeightedBalance, pricePosition } from '@absinthe/common';
+import { mapToJson, pricePosition } from '@absinthe/common';
 import { PoolProcessState } from './model';
 import {
   checkToken,
@@ -34,8 +34,7 @@ import {
   mapToJsonMarketData,
 } from './utils/helper';
 import { MarketDataType, MarketIndexes } from './utils/types';
-import { Contract } from './abi/morphov1';
-
+import { toTimeWeightedBalance } from './utils/helper';
 export class MorphoStakingProcessor {
   private readonly stakingProtocol: ValidatedStakingProtocolConfig;
   private readonly schemaName: string;
