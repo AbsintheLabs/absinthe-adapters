@@ -152,7 +152,7 @@ export class MorphoStakingProcessor {
     }
 
     if (log.topics[0] === morphoFactoryAbi.events.CreateMetaMorpho.topic) {
-      await this.processCreateMetaMorphoEvent(ctx, block, log, protocolState);
+      await this.processCreateMetaMorphoEvent(ctx, block, log, protocolState, vaultAddress);
     }
   }
   private async processTransferEvent(
@@ -164,23 +164,23 @@ export class MorphoStakingProcessor {
   ): Promise<void> {
     const { from, to, value } = morphoVaultsAbi.events.Transfer.decode(log);
 
-    logger.info(`Processing Transfer event for market: ${from}`, {
+    logger.info(`Processing Transfer event for market: ${vaultAddress}`, {
       from,
       to,
       value,
       txHash: log.transactionHash,
     });
 
-    const marketData = await this.getMarketData(ctx, from, protocolState); //todo
+    const marketData = await this.getMarketData(ctx, vaultAddress, protocolState); //todo
     if (!marketData) {
-      logger.warn(`Market data not found for market: ${from}`);
+      logger.warn(`Market data not found for market: ${vaultAddress}`);
       return;
     }
 
-    const loanToken = marketData.asset;
-    const tokenMetadata = checkToken(loanToken);
+    const asset = marketData.asset;
+    const tokenMetadata = checkToken(asset);
     if (!tokenMetadata) {
-      logger.warn(`Ignoring supply for unsupported token: ${loanToken}`);
+      logger.warn(`Ignoring supply for unsupported token: ${asset}`);
       return;
     }
     const marketIndex = await this.getMarketIndexes(ctx, block, vaultAddress);
@@ -213,7 +213,7 @@ export class MorphoStakingProcessor {
       windowDurationMs: this.refreshWindow,
       tokenPrice, // number
       tokenDecimals: tokenMetadata.decimals, // number
-      tokenAddress: loanToken,
+      tokenAddress: asset,
       vaultAddress: vaultAddress,
       tokens: {
         tokenAddress: { value: tokenMetadata.address, type: 'string' },
@@ -234,6 +234,7 @@ export class MorphoStakingProcessor {
     block: any,
     log: any,
     protocolState: ProtocolStateMorpho,
+    vaultAddress: string,
   ): Promise<void> {
     const { metaMorpho, asset, caller, name, symbol, salt } =
       morphoFactoryAbi.events.CreateMetaMorpho.decode(log);
@@ -241,6 +242,11 @@ export class MorphoStakingProcessor {
     logger.info(`Processing CreateMetaMorpho event for market: ${metaMorpho}`, {
       metaMorpho,
     });
+
+    if (metaMorpho.toLowerCase() != vaultAddress.toLowerCase()) {
+      logger.warn(`Market does not match: ${metaMorpho} !== ${vaultAddress}`);
+      return;
+    }
 
     protocolState.marketData.set(metaMorpho.toLowerCase(), {
       asset,
@@ -374,6 +380,13 @@ export class MorphoStakingProcessor {
         this.stakingProtocol,
         this.env,
         this.chainConfig,
+      );
+
+      logger.info(
+        `💰 [MorphoStakingProcessor] Sending transactions: ${JSON.stringify(transactions, null, 2)}`,
+      );
+      logger.info(
+        `💰 [MorphoStakingProcessor] Sending balances: ${JSON.stringify(balances, null, 2)}`,
       );
 
       await this.apiClient.send(transactions);
