@@ -155,7 +155,7 @@ interface ValidatedEnvBase {
   absintheApiUrl: string;
   absintheApiKey: string;
   coingeckoApiKey: string;
-  sendToApiFromTimestamp?: number; // Unix timestamp in milliseconds
+  sendToApiFromTimestamp?: number; // Unix timestamp in ms
 }
 
 export {
