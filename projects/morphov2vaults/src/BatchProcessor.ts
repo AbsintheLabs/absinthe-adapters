@@ -479,14 +479,15 @@ export class MorphoStakingProcessor {
     protocolState: ProtocolStateMorpho,
     vaultAddress: string,
   ): Promise<void> {
-    const { sender, adapter, assets, ids, change } = morphoVaultsAbi.events.Deallocate.decode(log);
+    const { sender, adapter, assets, ids, penaltyAssets } =
+      morphoVaultsAbi.events.ForceDeallocate.decode(log);
 
     logger.info(`Processing ForceDeallocate event for market: ${vaultAddress}`, {
       sender,
       adapter,
       assets,
       ids,
-      change,
+      penaltyAssets,
     });
 
     const { gasPrice, gasUsed, hash } = log.transaction;
@@ -523,8 +524,8 @@ export class MorphoStakingProcessor {
           value: ids!.toString(),
           type: 'string',
         },
-        change: {
-          value: change!.toString(),
+        penaltyAssets: {
+          value: penaltyAssets!.toString(),
           type: 'number',
         },
         adapter: {
