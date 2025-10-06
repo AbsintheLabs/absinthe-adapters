@@ -1,7 +1,7 @@
 import { Store } from '@subsquid/typeorm-store';
-import { ActiveBalances, PoolProcessState } from '../model';
+import { ActiveBalances, MarketData, PoolProcessState } from '../model';
 import { DataHandlerContext } from '@subsquid/evm-processor';
-import { ActiveBalancesMorpho } from '../utils/types';
+import { ActiveBalancesMorpho, MarketDataType } from '../utils/types';
 
 import { ActiveBalance, jsonToMap } from '@absinthe/common';
 
@@ -37,4 +37,29 @@ export async function loadPoolProcessStateFromDb(
     where: { id: `${contractAddress}-process-state` },
   });
   return poolProcessState || undefined;
+}
+
+export async function loadMarketDataFromDb(
+  ctx: DataHandlerContext<Store>,
+  contractAddress: string,
+): Promise<Map<string, MarketDataType> | undefined> {
+  const marketData = await ctx.store.findOne(MarketData, {
+    where: { id: `${contractAddress}-market-data` },
+  });
+
+  if (!marketData) return undefined;
+
+  // Convert the stored JSON back to a Map
+  const marketDataMap = new Map<string, MarketDataType>();
+  for (const [key, value] of Object.entries(marketData.marketDataMap as MarketDataType)) {
+    marketDataMap.set(key, {
+      loanToken: value.loanToken,
+      collateralToken: value.collateralToken,
+      oracle: value.oracle,
+      irm: value.irm,
+      lltv: BigInt(value.lltv),
+    });
+  }
+
+  return marketDataMap;
 }

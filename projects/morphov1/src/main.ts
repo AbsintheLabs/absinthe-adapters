@@ -30,4 +30,5 @@ const morphoStakingProcessor = new MorphoStakingProcessor(
   env.baseConfig,
   chainConfig,
 );
+
 morphoStakingProcessor.run();

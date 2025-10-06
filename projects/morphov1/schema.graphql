@@ -7,3 +7,8 @@ type PoolProcessState @entity {
   id: ID!
   lastInterpolatedTs: BigInt
 }
+
+type MarketData @entity {
+  id: ID!
+  marketDataMap: JSON!
+}

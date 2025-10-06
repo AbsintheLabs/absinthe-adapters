@@ -61,6 +61,7 @@ interface ProcessValueChangeParams extends BaseProcessValueChangeParams {
 
 interface ProcessValueChangeBalancesParams extends BaseProcessValueChangeParams {
   tokenAddress: string;
+  marketId?: string;
 }
 
 interface Runner {
