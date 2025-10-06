@@ -58,6 +58,8 @@ export async function loadMarketDataFromDb(
       oracle: value.oracle,
       irm: value.irm,
       lltv: BigInt(value.lltv),
+      borrowIndex: BigInt(value.borrowIndex),
+      supplyIndex: BigInt(value.supplyIndex),
     });
   }
 
