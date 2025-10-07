@@ -29,5 +29,5 @@ status.txt
 # *.absinthe.json
 out*.txt
 *.log
-_sqdstate-*
+_sqdstate/
 _runs/

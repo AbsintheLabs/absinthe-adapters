@@ -21,7 +21,7 @@ export function uniqueFilePath(p: string): string {
 
 /**
  * Build a per-run directory:
- *   <baseDir>/_runs/<hash>/<YYYYMMDD-HHMMSS>[-pid]
+ *   <baseDir>/_runs/<YYYYMMDD-HHMMSS>-<hash>-<pid>
  */
 export function deriveRunDir(baseDir: string, hash: string): string {
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -35,7 +35,7 @@ export function deriveRunDir(baseDir: string, hash: string): string {
     pad(d.getMinutes()),
     pad(d.getSeconds()),
   ].join('');
-  const runDir = path.join(baseDir, '_runs', hash, `${stamp}-${process.pid}`);
+  const runDir = path.join(baseDir, '_runs', `${stamp}-${hash}-${process.pid}`);
   ensureDir(runDir);
   return runDir;
 }

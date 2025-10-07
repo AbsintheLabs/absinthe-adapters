@@ -28,6 +28,8 @@ import { ABSINTHE_VERSION } from './version.ts';
 import os from 'os';
 import { clearStateDir, clearRedisNamespace, deriveStateDirFromHash } from './utils/state-reset.ts';
 import { getChainShortName } from './utils/chain-utils.ts';
+import { parseCliArgs, hasFlag } from './utils/cli-args.ts';
+
 // todo: move this somewhere else with typing definitions
 export interface EngineDeps {
   appCfg: AppConfig;
@@ -41,11 +43,14 @@ async function main() {
   // dynamically load and register all adapters
   await loadAllAdapters();
 
-  // load runtime config
-  const appCfg = await loadConfig(process.argv[2]);
+  // Parse CLI arguments (skip first two: node and script path)
+  const { configPath, flags } = parseCliArgs(process.argv.slice(2));
 
-  // check for reset flag
-  const reset = process.argv.includes('--reset-state') || process.argv.includes('-r');
+  // Check for reset flag
+  const reset = hasFlag(flags, '--reset-state', '-r');
+
+  // load runtime config
+  const appCfg = await loadConfig(configPath);
 
   // initialize runtime context with config hash and other metadata
   const configHash = md5HashCanonical(appCfg, 8);
@@ -130,6 +135,7 @@ async function main() {
 
   // construct the real sqd processor using the adapter
   const sqdProcessor = adapter.buildSqdProcessor(baseSqdProcessor);
+  logger.debug('Successfully built sqdProcessor');
   const deps: EngineDeps = {
     appCfg,
     sink,
@@ -139,6 +145,7 @@ async function main() {
   };
 
   const engine = new Engine(deps);
+  logger.debug('Successfully constructed engine');
   await engine.run();
 }
 

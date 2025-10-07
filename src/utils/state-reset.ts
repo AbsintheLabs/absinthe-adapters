@@ -4,9 +4,10 @@ import type { Redis } from 'ioredis';
 
 /**
  * Format a state directory path from a hash
+ * Structure: _sqdstate/<hash>
  */
 export function formatStateDir(hash: string): string {
-  return `_sqdstate-${hash}`;
+  return path.join('_sqdstate', hash);
 }
 
 /** Same dir rule you used in Engine.generateStatePath */

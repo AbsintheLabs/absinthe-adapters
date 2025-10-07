@@ -20,8 +20,8 @@
     "finality": 75
   },
   "range": {
-    "fromBlock": 18000000,
-    "toBlock": 19000000
+    "fromBlock": 2000000,
+    "toBlock": 2005000
   },
   "adapterConfig": {
     "adapterId": "erc20-holdings",
