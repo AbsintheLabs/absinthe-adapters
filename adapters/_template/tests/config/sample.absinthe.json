@@ -1,0 +1,66 @@
+{
+  "chainArch": "evm",
+  "flushInterval": "48h",
+  "redisUrl": "${env:REDIS_URL}",
+  "sinkConfig": {
+    "sinks": [
+      {
+        "sinkType": "stdout"
+      },
+      {
+        "sinkType": "csv",
+        "path": "protocol-sample.csv"
+      }
+    ]
+  },
+  "network": {
+    "chainId": 1,
+    "gatewayUrl": "https://v2.archive.subsquid.io/network/ethereum-mainnet",
+    "rpcUrl": "https://eth.llamarpc.com",
+    "finality": 75
+  },
+  "range": {
+    "fromBlock": 18000000,
+    "toBlock": 19000000
+  },
+  "pricingRange": {
+    "type": "block",
+    "fromBlock": 20000000
+  },
+  "adapterConfig": {
+    "adapterId": "protocol-name",
+    "config": {
+      "actionExample": [
+        {
+          "params": {
+            "contractAddress": "0x1234567890123456789012345678901234567890"
+          },
+          "assetSelectors": {
+            "tokenAddress": "0x0987654321098765432109876543210987654321"
+          },
+          "pricing": {
+            "assetType": "erc20",
+            "priceFeed": {
+              "kind": "coingecko",
+              "coinId": "ethereum"
+            }
+          }
+        }
+      ],
+      "positionExample": [
+        {
+          "params": {
+            "contractAddress": "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+          },
+          "pricing": {
+            "assetType": "erc20",
+            "priceFeed": {
+              "kind": "coingecko",
+              "coinId": "usd-coin"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

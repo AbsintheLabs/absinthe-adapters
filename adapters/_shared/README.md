@@ -10,25 +10,32 @@ This template provides a starting point for building new Absinthe adapters. It f
    cp -r adapters/_template adapters/your-protocol-name
    ```
 
-2. **Update the manifest** (`index.ts`)
+2. Copy ABIs into the `abi` directory
+3. Generate typed ABIs
+
+```bash
+npx squid-evm-typegen ./adapters/your-protocol-name/abi-types ./adapters/your-protocol-name/abi/*.json
+```
+
+4. **Update the manifest** (`index.ts`)
    - Change `name` to your protocol name
    - Define your `trackables` (actions and/or positions)
    - Specify required `params` and optional `assetSelectors`
 
-3. **Add your ABIs** (`abi/`)
+5. **Add your ABIs** (`abi/`)
    - Export contract ABIs as TypeScript
    - Define event topics you need to listen to
 
-4. **Create metadata** (`metadata.ts`)
+6. **Create metadata** (`metadata.ts`)
    - Define chain-specific addresses and config
    - Include factory addresses, start blocks, etc.
 
-5. **Implement handlers**
+7. **Implement handlers**
    - Use `action-handler.ts` for one-time events (swaps, claims, bridges)
    - Use `position-handler.ts` for ongoing balances (LP, staking)
    - Emit appropriate events using `emitFns`
 
-6. **Wire it up** in `index.ts`
+8. **Wire it up** in `index.ts`
    - Collect addresses from config in `build()`
    - Define which logs to subscribe to in `buildProcessor()`
    - Route events to handlers in `onLog()`

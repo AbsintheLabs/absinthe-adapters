@@ -81,7 +81,7 @@ export default defineAdapter({
        * buildProcessor: Define which logs/transactions to subscribe to
        * The base processor builder lets you add filters for logs, transactions, traces, etc.
        */
-      buildProcessor: (base) =>
+      buildSqdProcessor: (base) =>
         base.addLog({
           address: Array.from(contractAddresses),
           topic0: [
