@@ -47,6 +47,8 @@ export class Engine {
     UPDATED_HEIGHT: 'updatedHeight',
     TX_REF: 'txRef',
     CTX: 'ctx',
+    ACTIVITY: 'activity',
+    META: 'meta',
   } as const;
 
   private db: Database<any, any>;
@@ -319,6 +321,8 @@ export class Engine {
       [Engine.BALANCE_FIELDS.UPDATED_HEIGHT]: String(d.height),
       [Engine.BALANCE_FIELDS.TX_REF]: d.txRef,
       [Engine.BALANCE_FIELDS.CTX]: JSON.stringify(d),
+      [Engine.BALANCE_FIELDS.ACTIVITY]: e.activity,
+      [Engine.BALANCE_FIELDS.META]: JSON.stringify(e.meta || {}),
     });
 
     // Update balances greater than 0 set
@@ -335,6 +339,10 @@ export class Engine {
 
     // Emit a window if required
     if (newAmount.gt(0) && previousTsMs < d.tsMs) {
+      if (previousTxRef === null) {
+        logger.error(`previousTxRef is null for key: ${balanceKey}`);
+        throw new Error(`previousTxRef is null for key: ${balanceKey}`);
+      }
       const window: RawWindow = {
         user: e.user,
         asset: e.asset,
@@ -598,7 +606,18 @@ export class Engine {
 
     // ---- READ PHASE (auto-pipelined) ----
     const rows = await Promise.all(
-      balanceKeys.map((k) => this.redis.hmget(k, 'amount', 'updatedTs', 'updatedHeight', 'txHash')),
+      balanceKeys.map((k) =>
+        this.redis.hmget(
+          k,
+          Engine.BALANCE_FIELDS.AMOUNT,
+          Engine.BALANCE_FIELDS.UPDATED_TS_MS,
+          Engine.BALANCE_FIELDS.UPDATED_HEIGHT,
+          Engine.BALANCE_FIELDS.TX_REF,
+          Engine.BALANCE_FIELDS.CTX,
+          Engine.BALANCE_FIELDS.ACTIVITY,
+          Engine.BALANCE_FIELDS.META,
+        ),
+      ),
     );
 
     // ---- WRITE PHASE (collect promises; auto-pipelined non-atomically) ----
@@ -607,12 +626,8 @@ export class Engine {
     // Process each balance key asynchronously
     const processPromises = rows.map(async (vals, i) => {
       if (!vals) return;
-      const [amountStr, updatedTsStr, updatedHeightStr, txHashStr] = vals as [
-        string,
-        string,
-        string,
-        string,
-      ];
+      const [amountStr, updatedTsMsStr, updatedHeightStr, txRefStr, ctxStr, activityStr, metaStr] =
+        vals as [string, string, string, string, string, string, string];
 
       const amt = new Big(amountStr || '0');
       if (amt.lte(0)) {
@@ -636,59 +651,73 @@ export class Engine {
       // Find the user part and extract everything before it
       const userIndex = key.lastIndexOf(`:${user}`);
       const asset = key.substring(4, userIndex); // Skip 'bal:' prefix
-      const lastUpdatedTs = Number(updatedTsStr || 0);
-      const prevTxHash = txHashStr || null;
+
+      const lastUpdatedTsMs = Number(updatedTsMsStr || 0);
+      const lastUpdatedHeight = Number(updatedHeightStr || height);
+      const prevTxRef = txRefStr || null;
+      const activity = activityStr || 'hold';
+      const meta = metaStr ? JSON.parse(metaStr) : {};
+
+      if (prevTxRef === null) {
+        logger.error(`prevTxRef is null for key in flushPeriodic: ${key}`);
+        throw new Error(`prevTxRef is null for key in flushPeriodic: ${key}`);
+      }
 
       if (reachedFinal) {
-        // Case 1: final block — emit once from lastUpdatedTs to final block timestamp
-        const finalTs = nowMs; // the block timestamp of the final block
-        if (lastUpdatedTs < finalTs) {
-          const window: RawBalanceWindow = {
+        // Case 1: final block — emit once from lastUpdatedTsMs to final block timestamp
+        const finalTsMs = nowMs; // the block timestamp of the final block
+        if (lastUpdatedTsMs < finalTsMs) {
+          const window: RawWindow = {
             user,
             asset,
-            startTs: lastUpdatedTs,
-            endTs: finalTs,
-            startHeight: Number(updatedHeightStr),
+            activity,
+            meta,
+            startTs: lastUpdatedTsMs,
+            endTs: finalTsMs,
+            startHeight: lastUpdatedHeight,
             endHeight: height,
+            startValue: amt.toString(),
+            endValue: amt.toString(),
+            startTxRef: prevTxRef,
+            endTxRef: null,
             trigger: 'INDEXER_STOPPED',
-            rawBefore: amt.toString(),
-            rawAfter: amt.toString(),
-            startTxRef: prevTxHash,
-            // xxx: this should probably not be a hold, and instead be whatever the last activity type was?
-            activity: 'hold',
           };
-          // this.windows.push(window);
-          writePromises.push(
-            this.redis.hset(key, { updatedTs: String(finalTs), updatedHeight: String(height) }),
-          );
-        }
-      } else {
-        // Case 2: live mode — emit once from lastUpdatedTs to currentWindowStart if lastUpdatedTs is NOT in the current window
-        if (lastUpdatedTs < currentWindowStart) {
-          const window: RawBalanceWindow = {
-            user,
-            asset,
-            startTs: lastUpdatedTs,
-            endTs: currentWindowStart,
-            startHeight: Number(updatedHeightStr),
-            endHeight: height,
-            trigger: 'PERIOD_ELAPSED',
-            rawBefore: amt.toString(),
-            rawAfter: amt.toString(),
-            startTxRef: prevTxHash,
-            // fixme: this should probably not be a hold, and instead be whatever the last activity type was?
-            activity: 'hold',
-          };
-          // this.windows.push(window);
-          // Advance cursor to the start of the current window (we didn't emit the live window)
+          this.windows.push(window);
           writePromises.push(
             this.redis.hset(key, {
-              updatedTs: String(currentWindowStart),
-              updatedHeight: String(height),
+              [Engine.BALANCE_FIELDS.UPDATED_TS_MS]: String(finalTsMs),
+              [Engine.BALANCE_FIELDS.UPDATED_HEIGHT]: String(height),
             }),
           );
         }
-        // else: lastUpdatedTs is inside the current window, so skip emitting
+      } else {
+        // Case 2: live mode — emit once from lastUpdatedTsMs to currentWindowStart if lastUpdatedTsMs is NOT in the current window
+        if (lastUpdatedTsMs < currentWindowStart) {
+          const window: RawWindow = {
+            user,
+            asset,
+            activity,
+            meta,
+            startTs: lastUpdatedTsMs,
+            endTs: currentWindowStart,
+            startHeight: lastUpdatedHeight,
+            endHeight: height,
+            startValue: amt.toString(),
+            endValue: amt.toString(),
+            startTxRef: prevTxRef,
+            endTxRef: null,
+            trigger: 'PERIOD_ELAPSED',
+          };
+          this.windows.push(window);
+          // Advance cursor to the start of the current window (we didn't emit the live window)
+          writePromises.push(
+            this.redis.hset(key, {
+              [Engine.BALANCE_FIELDS.UPDATED_TS_MS]: String(currentWindowStart),
+              [Engine.BALANCE_FIELDS.UPDATED_HEIGHT]: String(height),
+            }),
+          );
+        }
+        // else: lastUpdatedTsMs is inside the current window, so skip emitting
       }
     });
 

@@ -38,14 +38,14 @@ export interface UnifiedEvmLog extends UnifiedBase {
 
   // Transaction context (optional - may not always be available)
   transactionFrom: string;
-  transactionTo: string;
+  transactionTo: string | null;
   gasUsed: string;
   effectiveGasPrice: string;
 }
 
 export interface UnifiedEvmTransaction extends UnifiedBase {
   transactionFrom: string;
-  transactionTo: string;
+  transactionTo: string | null;
   value: string;
   input: string; // calldata
 

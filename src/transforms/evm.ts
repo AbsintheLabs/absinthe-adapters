@@ -65,6 +65,11 @@ function formatZodError(error: z.ZodError, context: Record<string, unknown>): st
 }
 
 export function transformSqdLogToUnified(block: Block, log: Log, chainId: number): UnifiedEvmLog {
+  if (!log.transaction) {
+    logger.error('Log has no transaction', { log });
+    throw new Error('Log has no transaction');
+  }
+
   // Validate block header
   const blockHeaderResult = BlockHeaderSchema.safeParse(block.header);
   if (!blockHeaderResult.success) {
@@ -102,7 +107,7 @@ export function transformSqdLogToUnified(block: Block, log: Log, chainId: number
     chainId,
 
     transactionFrom: log.transaction.from,
-    transactionTo: log.transaction.to,
+    transactionTo: log.transaction.to ?? null,
     gasUsed: log.transaction.gasUsed.toString(),
     effectiveGasPrice: log.transaction.effectiveGasPrice.toString(),
   };
@@ -154,7 +159,7 @@ export function transformSqdTransactionToUnified(
     tsMs: block.header.timestamp,
     txRef: tx.hash,
     transactionFrom: tx.from.toLowerCase(),
-    transactionTo: tx.to.toLowerCase(),
+    transactionTo: tx.to?.toLowerCase() ?? null,
     value: tx.value.toString(),
     input: tx.input,
 

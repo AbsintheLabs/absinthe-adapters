@@ -38,7 +38,7 @@ export async function interpolateStrict(
     const bySource = new Map<string, Set<string>>();
     for (const m of missing) {
       if (!bySource.has(m.source)) bySource.set(m.source, new Set());
-      bySource.get(m.source).add(m.key);
+      bySource.get(m.source)?.add(m.key);
     }
     const lines: string[] = [];
     for (const [source, keys] of bySource) {

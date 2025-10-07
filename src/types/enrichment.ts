@@ -131,14 +131,15 @@ export interface RawWindow {
   startValue: string;
   endValue: string;
   startTxRef: string;
-  endTxRef: string;
+  endTxRef: string | null;
 
   // window explainability
   trigger: WindowReason;
 
   // Chain-specific contexts (opaque blobs)
-  startContext: Record<string, any>; // From Redis JSON
-  endContext: Record<string, any>; // From current unified event
+  // Only present for event-triggered windows, not periodic flushes
+  startContext?: Record<string, any>; // From Redis JSON
+  endContext?: Record<string, any>; // From current unified event
 }
 
 // These get used by the position/window enrichers, so we need to make sure these exist

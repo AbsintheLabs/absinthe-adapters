@@ -5,6 +5,7 @@
     "moduleResolution": "nodenext",
     "allowImportingTsExtensions": true,
     "rewriteRelativeImportExtensions": true,
+    "strictNullChecks": true,
     "declaration": true,
     "outDir": "dist",
     "rootDir": ".",
