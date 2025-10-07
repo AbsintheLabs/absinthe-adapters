@@ -117,7 +117,7 @@ export class Engine {
   }
 
   async run() {
-    // main loop
+    // main loop - note: run() never returns, it calls process.exit() internally
     this.sqdProcessor.run(this.db, async (ctx: ProcessorContext) => {
       logger.debug(`🏁 START BATCH. Blocks: ${ctx.blocks.length}.`);
       logger.debug(`Starting block: ${ctx.blocks[0].header.height}.`);
@@ -181,20 +181,26 @@ export class Engine {
     });
   }
 
-  // todo: make sure that this gets replaced with the sqd runner (encapsulate into sqd logic rather than having this part of the engine)
+  /**
+   * Check if we've reached the target block and terminate if so.
+   * This is called at the end of each batch, after setForceFlush(true) has been set,
+   * so SQD will persist state before the next batch starts.
+   */
   private async terminateIfNeeded(ctx: any) {
     if (
       this.appCfg.range.toBlock != null &&
       ctx.blocks[ctx.blocks.length - 1].header.height >= this.appCfg.range.toBlock
     ) {
-      logger.info('🏁 Processing final batch. Flushing sink and exiting...');
+      logger.info('🏁 Reached target block. Flushing sinks and exiting...');
       try {
         if (this.sink.flush) await this.sink.flush();
         if (this.sink.close) await this.sink.close();
+        logger.info('✅ All data flushed successfully. Exiting...');
       } catch (err) {
         logger.error('Error while flushing/closing sink before exit', err);
       }
-      process.exit(0);
+      // Exit immediately - SQD will persist state because setForceFlush was called
+      // process.exit(0);
     }
   }
 

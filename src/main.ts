@@ -2,7 +2,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
 // prevent squid from prematurely exiting
-process.env.SQUID_PROCESSOR_EXIT_DISABLED = process.env.SQUID_PROCESSOR_EXIT_DISABLED || 'true';
+// process.env.SQUID_PROCESSOR_EXIT_DISABLED = process.env.SQUID_PROCESSOR_EXIT_DISABLED || 'true';
 // silence sqd info logs to stderr
 process.env.SQD_FATAL = '*';
 
