@@ -50,6 +50,12 @@ export class Engine {
     ACTIVITY: 'activity',
     META: 'meta',
   } as const;
+  private static readonly MEASURE_FIELDS = {
+    AMOUNT: 'amount',
+    UPDATED_TS_MS: 'updatedTsMs',
+    UPDATED_HEIGHT: 'updatedHeight',
+    TX_REF: 'txRef',
+  } as const;
 
   private db: Database<any, any>;
   private adapter: BuiltAdapter;
@@ -466,46 +472,35 @@ export class Engine {
     }
   }
 
-  private async applyMeasureDelta(e: MeasureDelta, blockData: any): Promise<void> {
-    const ts = blockData.ts;
-    const height = blockData.height;
-
-    // data cleaning:
-    if (this.indexerMode === 'evm') {
-      e.asset = e.asset.toLowerCase();
-    }
-
-    const key = `meas:${e.asset}:${e.metric}`;
+  private async applyMeasureDelta<T extends UnifiedBase>(e: MeasureDelta, d: T): Promise<void> {
+    const measureKey = `meas:${e.asset}:${e.metric}`;
 
     // Load current state
-    // fixme: remove the extra variables that we don't need anymore
-    const [amountStr, updatedTsStr, updatedHeightStr, updatedTxHashStr] = await this.redis.hmget(
-      key,
-      'amount',
-      'updatedTs',
-      'updatedHeight',
-      'updatedTxHash',
-    );
+    const [amountStr] = await this.redis.hmget(measureKey, Engine.MEASURE_FIELDS.AMOUNT);
 
-    const oldAmt = new Big(amountStr || '0');
-    const newAmt = oldAmt.plus(e.delta);
-    const oldTs = updatedTsStr ? Number(updatedTsStr) : ts;
-    const oldHeight = updatedHeightStr ? Number(updatedHeightStr) : height;
-    const prevTxHash = updatedTxHashStr || null;
+    const previousAmount = new Big(amountStr || '0');
+    const newAmount = previousAmount.plus(e.delta);
 
-    // Store the delta for historical reconstruction
-    await this.redis.zadd(`${key}:d`, height, e.delta.toString());
+    // Store the delta for historical reconstruction (indexed by height)
+    await this.redis.zadd(`${measureKey}:d`, d.height, e.delta.toString());
 
-    await Promise.all([
-      this.redis.hset(key, {
-        amount: newAmt.toString(),
-        updatedTs: String(ts),
-        updatedHeight: String(height),
-      }),
-      newAmt.gt(0) ? this.redis.sadd('meas:active', key) : this.redis.srem('meas:active', key),
-      // Track asset-metric combinations for backfilling
-      this.redis.hsetnx('meas:tracked', `${e.asset}:${e.metric}`, height.toString()),
-    ]);
+    // Update measure state
+    await this.redis.hset(measureKey, {
+      [Engine.MEASURE_FIELDS.AMOUNT]: newAmount.toString(),
+      [Engine.MEASURE_FIELDS.UPDATED_TS_MS]: String(d.tsMs),
+      [Engine.MEASURE_FIELDS.UPDATED_HEIGHT]: String(d.height),
+      [Engine.MEASURE_FIELDS.TX_REF]: d.txRef,
+    });
+
+    // Track active measures (amount > 0)
+    if (newAmount.gt(0)) {
+      await this.redis.sadd('meas:active', measureKey);
+    } else {
+      await this.redis.srem('meas:active', measureKey);
+    }
+
+    // Track asset-metric combinations for backfilling
+    await this.redis.hsetnx('meas:tracked', `${e.asset}:${e.metric}`, d.height.toString());
   }
 
   private async applyReprice(e: Reprice, blockData: any): Promise<void> {
@@ -746,8 +741,13 @@ export class Engine {
           }
           await this.applyPositionStatusChange(e, d);
         },
-        // measureDelta: (e: MeasureDelta) => this.applyMeasureDelta(e),
-        measureDelta: async (e: MeasureDelta) => {},
+        measureDelta: async (e: MeasureDelta) => {
+          // data cleaning
+          if (this.indexerMode === 'evm') {
+            e.asset = e.asset.toLowerCase();
+          }
+          await this.applyMeasureDelta(e, d);
+        },
       },
     };
   }
