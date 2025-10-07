@@ -503,10 +503,10 @@ export class Engine {
     await this.redis.hsetnx('meas:tracked', `${e.asset}:${e.metric}`, d.height.toString());
   }
 
-  private async applyReprice(e: Reprice, blockData: any): Promise<void> {
-    const ts = blockData.ts;
-    const height = blockData.height;
-    logger.debug('applyReprice: ', e.asset, ts, blockData);
+  private async applyReprice<T extends UnifiedBase>(e: Reprice, d: T): Promise<void> {
+    const ts = d.tsMs;
+    const height = d.height;
+    logger.debug('applyReprice: ', e.asset, ts, d);
 
     // Check pricing range - skip repricing if before the specified range
     if (this.appCfg.pricingRange) {
@@ -530,7 +530,7 @@ export class Engine {
     await priceAsset(
       e.asset,
       ts,
-      blockData.block,
+      d,
       {
         redis: this.redis,
         appCfg: this.appCfg,
@@ -731,8 +731,7 @@ export class Engine {
             e.trackableInstance,
             'POSITION_REVALUED',
           ),
-        // reprice: (e: Reprice) => this.applyReprice(e),
-        reprice: async (e: Reprice) => {},
+        reprice: (e: Reprice) => this.applyReprice(e, d),
         positionStatusChange: async (e: PositionStatusChange) => {
           // data cleaning
           if (this.indexerMode === 'evm') {
