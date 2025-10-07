@@ -212,7 +212,7 @@ export class MorphoStakingProcessor {
       activeBalances: protocolState.activeBalances,
       windowDurationMs: this.refreshWindow,
       tokenPrice, // number
-      tokenDecimals: tokenMetadata.decimals, // number
+      tokenDecimals: tokenMetadata.decimals,
       tokenAddress: asset,
       vaultAddress: vaultAddress,
       tokens: {
