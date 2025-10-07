@@ -197,7 +197,7 @@ export class MorphoStakingProcessor {
       return;
     }
     const marketIndex = await this.getMarketIndexes(ctx, block, vaultAddress);
-    logger.info(`Market indexes: ${marketIndex}`);
+    logger.info(`Market indexes: ${JSON.stringify(marketIndex)}`);
     if (!marketIndex) return;
 
     const supplyAssets = (BigInt(shares) * marketIndex) / 10n ** 18n;
@@ -234,6 +234,9 @@ export class MorphoStakingProcessor {
         tokenDecimals: { value: tokenMetadata.decimals.toString(), type: 'number' },
         tokenPrice: { value: tokenPrice.toString(), type: 'number' },
         vaultAddress: { value: vaultAddress, type: 'string' },
+        totalSupply: { value: marketIndex.toString(), type: 'number' },
+        totalAssets: { value: marketIndex.toString(), type: 'number' },
+        sharePrice: { value: marketIndex.toString(), type: 'number' },
         positionSide: { value: 'supply', type: 'string' },
         typeMarket: { value: 'morphov2vaults', type: 'string' },
       },
@@ -579,8 +582,8 @@ export class MorphoStakingProcessor {
       const market = marketFunctionTotalAssets.decodeResult(assetsResult);
       const supply = marketFunctionTotalSupply.decodeResult(supplyResult);
 
-      logger.info(`Market: ${market}`);
-      logger.info(`Supply: ${supply}`);
+      logger.info(`assets: ${market}`);
+      logger.info(`supply: ${supply}`);
 
       const tsAssets = BigInt(market ?? 0);
       const tsSupply = BigInt(supply ?? 0);
