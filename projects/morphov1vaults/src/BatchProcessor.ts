@@ -202,7 +202,7 @@ export class MorphoStakingProcessor {
 
     logger.info(`📊 [MorphoStakingProcessor] Processing value change balances...`);
     const newHistoryWindows = processValueChangeBalances({
-      from: ZERO_ADDRESS,
+      from: from,
       to: to,
       amount: supplyAssets,
       usdValue,

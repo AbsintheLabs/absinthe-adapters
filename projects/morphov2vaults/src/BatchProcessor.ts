@@ -197,7 +197,7 @@ export class MorphoStakingProcessor {
       return;
     }
     const marketIndex = await this.getMarketIndexes(ctx, block, vaultAddress);
-    logger.info(`Market indexes: ${JSON.stringify(marketIndex)}`);
+    logger.info(`Market indexes: ${marketIndex}`);
     if (!marketIndex) return;
 
     const supplyAssets = (BigInt(shares) * marketIndex) / 10n ** 18n;
@@ -215,7 +215,7 @@ export class MorphoStakingProcessor {
 
     logger.info(`📊 [MorphoStakingProcessor] Processing value change balances...`);
     const newHistoryWindows = processValueChangeBalances({
-      from: ZERO_ADDRESS,
+      from: from,
       to: to,
       amount: supplyAssets,
       usdValue,
