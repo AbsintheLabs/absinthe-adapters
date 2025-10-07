@@ -54,7 +54,7 @@ export default defineAdapter({
     const swapTopic = univ2Abi.events.Swap.topic;
 
     return {
-      buildProcessor: (base) =>
+      buildSqdProcessor: (base) =>
         base.addLog({
           address: Array.from(poolAddrs),
           topic0: [transferTopic, swapTopic],

@@ -52,7 +52,7 @@ export type OnInitArgs = {
 /** Core adapter interface defining all available hooks */
 export type AdapterHooks = {
   // Function to extend the base processor with adapter-specific subscriptions
-  buildProcessor: (base: BaseProcessor) => BaseProcessor;
+  buildSqdProcessor: (base: BaseProcessor) => BaseProcessor;
 
   // Optional hook called when the adapter is initialized
   onInit?: (args: OnInitArgs) => Promise<void>;

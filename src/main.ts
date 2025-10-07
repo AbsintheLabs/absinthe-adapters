@@ -129,7 +129,7 @@ async function main() {
   });
 
   // construct the real sqd processor using the adapter
-  const sqdProcessor = adapter.buildProcessor(baseSqdProcessor);
+  const sqdProcessor = adapter.buildSqdProcessor(baseSqdProcessor);
   const deps: EngineDeps = {
     appCfg,
     sink,
