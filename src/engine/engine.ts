@@ -229,7 +229,7 @@ export class Engine {
     };
 
     logger.debug(`about to enrich windows: ${this.windows.length}`);
-    const enrichedWindows = await runBatch(this.windows, windowsPipeline, enrichCtx);
+    const enrichedWindows = await runBatch(this.windows, windowsPipeline(), enrichCtx);
     this.enrichedWindows = enrichedWindows;
   }
 
