@@ -173,14 +173,15 @@ export class Engine {
         pricingEngine: this.pricingEngine,
         sqdCtx: this.ctx,
       });
-      await this.enrichWindows(ctx);
-      await this.enrichEvents(ctx);
-      await this.sendDataToSink(ctx);
+      await this.enrichWindows();
+      await this.enrichEvents();
+      await this.sendDataToSink();
       await this.sqdBatchEnd(ctx);
       await this.terminateIfNeeded(ctx);
     });
   }
 
+  // todo: make sure that this gets replaced with the sqd runner (encapsulate into sqd logic rather than having this part of the engine)
   private async terminateIfNeeded(ctx: any) {
     if (
       this.appCfg.range.toBlock != null &&
@@ -198,7 +199,7 @@ export class Engine {
   }
 
   // private async enrichEvents(ctx: any): Promise<PricedEvent[]>
-  private async enrichEvents(ctx: any): Promise<void> {
+  private async enrichEvents(): Promise<void> {
     if (this.events.length === 0) return;
 
     const enrichCtx: EnrichmentContext = {
@@ -214,7 +215,7 @@ export class Engine {
   }
 
   // private async enrichWindows(ctx: any): Promise<PricedBalanceWindow[]> {
-  private async enrichWindows(ctx: any): Promise<void> {
+  private async enrichWindows(): Promise<void> {
     if (this.windows.length === 0) {
       logger.debug('⚠️ NO WINDOWS TO ENRICH');
       return;
@@ -228,13 +229,11 @@ export class Engine {
     };
 
     logger.debug(`about to enrich windows: ${this.windows.length}`);
-    // XXX: make sure to uncomment this when we have a real pipeline
-    // const enrichedWindows = await runBatch(this.windows, windowsPipeline, enrichCtx);
-    const enrichedWindows = this.windows;
+    const enrichedWindows = await runBatch(this.windows, windowsPipeline, enrichCtx);
     this.enrichedWindows = enrichedWindows;
   }
 
-  async sendDataToSink(ctx: any) {
+  async sendDataToSink() {
     // Send enriched data to sink with loose coupling
     if (this.enrichedWindows.length > 0) {
       await this.sink.write(this.enrichedWindows);
