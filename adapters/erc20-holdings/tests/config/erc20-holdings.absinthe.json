@@ -5,9 +5,6 @@
   "sinkConfig": {
     "sinks": [
       {
-        "sinkType": "stdout"
-      },
-      {
         "sinkType": "csv",
         "path": "positions.csv"
       }

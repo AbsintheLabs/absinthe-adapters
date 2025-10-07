@@ -280,7 +280,7 @@ export class Engine {
     d: T,
     ti: InstanceFrom<TrackableDef>,
     // The default behavior is a change in balance.
-    reason: WindowReason = 'BALANCE_CHANGED',
+    reason: WindowReason,
   ) {
     // Skip balance deltas for null addresses (mints/burns should not be tracked as user balances)
     // This is a good default
@@ -289,6 +289,10 @@ export class Engine {
     }
 
     const balanceKey = `bal:${e.asset}:${e.user}`;
+
+    // Check if position is inactive
+    const isInactive = (await this.redis.sismember(Engine.INACTIVE_SET_KEY, balanceKey)) === 1;
+
     const [
       amountStr,
       lastUpdateTsMsStr,
@@ -314,7 +318,7 @@ export class Engine {
     // Calculate new balance after applying this delta
     const newAmount = previousAmount.plus(e.amount);
 
-    // Update their balance
+    // ALWAYS update the balance state (even if inactive)
     await this.redis.hset(balanceKey, {
       [Engine.BALANCE_FIELDS.AMOUNT]: newAmount.toString(),
       [Engine.BALANCE_FIELDS.UPDATED_TS_MS]: String(d.tsMs),
@@ -337,8 +341,8 @@ export class Engine {
       await this.redis.hsetnx('assets:tracked', e.asset, d.height.toString());
     }
 
-    // Emit a window if required
-    if (newAmount.gt(0) && previousTsMs < d.tsMs) {
+    // ONLY emit window if position is ACTIVE
+    if (!isInactive && newAmount.gt(0) && previousTsMs < d.tsMs) {
       if (previousTxRef === null) {
         logger.error(`previousTxRef is null for key: ${balanceKey}`);
         throw new Error(`previousTxRef is null for key: ${balanceKey}`);
@@ -364,120 +368,101 @@ export class Engine {
     }
   }
 
-  private async applyPositionUpdate(e: PositionUpdate, blockData: any): Promise<void> {
-    // // Thin wrapper around applyBalanceDelta to follow DRY principle
-    // // Position updates don't change balance but update metadata/timestamps
-    // await this.applyBalanceDelta(
-    //   {
-    //     user: e.user,
-    //     asset: e.asset,
-    //     activity: e.activity,
-    //     amount: new Big(0), // No balance change for position updates
-    //     meta: e.meta,
-    //   },
-    //   blockData,
-    //   'POSITION_REVALUED',
-    // );
-  }
+  private async applyPositionStatusChange<T extends UnifiedBase>(
+    e: PositionStatusChange,
+    d: T,
+  ): Promise<void> {
+    const user = e.user;
+    const asset = e.asset;
 
-  private async applyPositionStatusChange(e: PositionStatusChange, blockData: any): Promise<void> {
-    logger.debug('applyPositionStatusChange: ', e);
-    const ts = blockData.ts;
-    const height = blockData.height;
-    const txHash = blockData.txHash;
+    const balanceKey = `bal:${asset}:${user}`;
 
-    // normalize
-    let user = e.user;
-    let asset = e.asset;
-    if (this.indexerMode === 'evm') {
-      user = user.toLowerCase();
-      asset = asset.toLowerCase();
+    // Check current inactive status
+    const isInactive = (await this.redis.sismember(Engine.INACTIVE_SET_KEY, balanceKey)) === 1;
+
+    // Determine if we need to toggle
+    const shouldToggleOff = !isInactive && !e.active;
+    const shouldToggleOn = isInactive && e.active;
+
+    // Nothing to do if already in the desired state
+    if (!shouldToggleOff && !shouldToggleOn) {
+      logger.debug(`Position already in desired state (active=${e.active}): ${balanceKey}`);
+      return;
     }
 
-    // balance hash for this (asset,user)
-    const key = `bal:${asset}:${user}`;
+    logger.debug(`Position status change: ${balanceKey}, active=${e.active}`);
 
-    // fetch current row
-    const [amountStr, updatedTsStr, updatedHeightStr, prevTxHashStr] = await this.redis.hmget(
-      key,
-      'amount',
-      'updatedTs',
-      'updatedHeight',
-      'txHash',
-    );
-    const amt = new Big(amountStr || '0');
-    const lastUpdatedTs = updatedTsStr ? Number(updatedTsStr) : ts;
-    const lastUpdatedHeight = updatedHeightStr ? Number(updatedHeightStr) : height;
-    const prevTxHash = prevTxHashStr || null;
-
-    // If we were tracking this key as active, close the window and drop from set
-    // const isActive = await this.redis.sIsMember(Engine.ACTIVE_SET_KEY, key);
-    const isInactive = (await this.redis.sismember(Engine.INACTIVE_SET_KEY, key)) === 1;
-
-    // isInactive == true and e.active == false means nothing to do
-    // isInactive == false and e.active == true means nothing to do
-    // isInactive == true and e.active == true means toggle on
-    // isInactive == false and e.active == false means toggle off
-    const isToggled = isInactive === e.active;
-    const shouldToggleOn = isInactive && e.active;
-    const shouldToggleOff = !isInactive && !e.active;
-    logger.debug(
-      'applyPositionStatusChange',
-      key,
-      isInactive,
-      e.active,
-      shouldToggleOn,
-      shouldToggleOff,
-    );
-
-    // attempting to toggle off
     if (shouldToggleOff) {
-      logger.debug('toggle off', key);
+      // DEACTIVATING: Close any open window, then mark as inactive
+      const [
+        amountStr,
+        lastUpdateTsMsStr,
+        lastUpdateHeightStr,
+        lastUpdateTxRefStr,
+        lastUpdateCtxStr,
+      ] = await this.redis.hmget(
+        balanceKey,
+        Engine.BALANCE_FIELDS.AMOUNT,
+        Engine.BALANCE_FIELDS.UPDATED_TS_MS,
+        Engine.BALANCE_FIELDS.UPDATED_HEIGHT,
+        Engine.BALANCE_FIELDS.TX_REF,
+        Engine.BALANCE_FIELDS.CTX,
+      );
 
-      // Only emit INACTIVE_POSITION window if position was previously active
-      // if (!isInactive) {
-      // Emit window only if there was time elapsed and a positive balance
-      if (amt.gt(0) && lastUpdatedTs < ts) {
-        const window: RawBalanceWindow = {
+      const amount = new Big(amountStr || '0');
+      const lastUpdateTsMs = lastUpdateTsMsStr ? Number(lastUpdateTsMsStr) : d.tsMs;
+      const lastUpdateHeight = lastUpdateHeightStr ? Number(lastUpdateHeightStr) : d.height;
+      const prevTxRef = lastUpdateTxRefStr || null;
+      const lastUpdateCtx = lastUpdateCtxStr ? JSON.parse(lastUpdateCtxStr) : {};
+
+      // Emit closing window if there's a positive balance and time has elapsed
+      if (amount.gt(0) && lastUpdateTsMs < d.tsMs) {
+        if (prevTxRef === null) {
+          logger.error(`prevTxRef is null for key: ${balanceKey}`);
+          throw new Error(`prevTxRef is null for key: ${balanceKey}`);
+        }
+
+        const window: RawWindow = {
           user,
           asset,
-          startTs: lastUpdatedTs,
-          endTs: ts,
-          startHeight: lastUpdatedHeight,
-          endHeight: height,
-          trigger: 'POSITION_DEACTIVATED',
-          rawBefore: amt.toString(),
-          rawAfter: amt.toString(),
-          startTxRef: prevTxHash,
-          endTxRef: blockData.txHash,
-          // activity: e.activity,
-          // logIndex: blockData. // fixme!
-          // xxx: this should probably not be a hold, but instead we should pass the activity from the 'e' method
           activity: 'hold',
-          meta: e.meta,
+          meta: e.meta || {},
+          startTs: lastUpdateTsMs,
+          endTs: d.tsMs,
+          startHeight: lastUpdateHeight,
+          endHeight: d.height,
+          startValue: amount.toString(),
+          endValue: amount.toString(),
+          startTxRef: prevTxRef,
+          endTxRef: d.txRef,
+          trigger: 'POSITION_DEACTIVATED',
+          startContext: lastUpdateCtx,
+          endContext: d,
         };
-        // this.windows.push(window);
+        this.windows.push(window);
       }
 
-      // Add to inactive set
-      await this.redis.sadd(Engine.INACTIVE_SET_KEY, key);
-      await this.redis.hset(key, {
-        updatedTs: String(ts),
-        updatedHeight: String(height),
-        txHash: txHash,
+      // Mark as inactive
+      await this.redis.sadd(Engine.INACTIVE_SET_KEY, balanceKey);
+
+      // Update metadata
+      await this.redis.hset(balanceKey, {
+        [Engine.BALANCE_FIELDS.UPDATED_TS_MS]: String(d.tsMs),
+        [Engine.BALANCE_FIELDS.UPDATED_HEIGHT]: String(d.height),
+        [Engine.BALANCE_FIELDS.TX_REF]: d.txRef,
+        [Engine.BALANCE_FIELDS.CTX]: JSON.stringify(d),
       });
-      // }
-    } else {
-      // Toggling ON: start tracking again (no window to emit now)
-      if (shouldToggleOn) {
-        logger.debug('toggle on', key);
-        await this.redis.srem(Engine.INACTIVE_SET_KEY, key);
-        await this.redis.hset(key, {
-          updatedTs: String(ts),
-          updatedHeight: String(height),
-          txHash: txHash,
-        });
-      }
+    } else if (shouldToggleOn) {
+      // REACTIVATING: Remove from inactive set and update metadata
+      // No window is emitted - the next balance change will start a new window
+      await this.redis.srem(Engine.INACTIVE_SET_KEY, balanceKey);
+
+      await this.redis.hset(balanceKey, {
+        [Engine.BALANCE_FIELDS.UPDATED_TS_MS]: String(d.tsMs),
+        [Engine.BALANCE_FIELDS.UPDATED_HEIGHT]: String(d.height),
+        [Engine.BALANCE_FIELDS.TX_REF]: d.txRef,
+        [Engine.BALANCE_FIELDS.CTX]: JSON.stringify(d),
+      });
     }
   }
 
@@ -736,7 +721,7 @@ export class Engine {
         swap: async (e: Swap) => this.applyAction(e),
       },
       position: {
-        balanceDelta: async (e: BalanceDelta, reason?: WindowReason) => {
+        balanceDelta: async (e: BalanceDelta, reason: WindowReason = 'BALANCE_CHANGED') => {
           // data cleaning
           if (this.indexerMode === 'evm') {
             e.user = e.user.toLowerCase();
@@ -744,12 +729,23 @@ export class Engine {
           }
           await this.applyBalanceDelta(e, d, e.trackableInstance, reason);
         },
-        // positionUpdate: (e: PositionUpdate) => this.applyPositionUpdate(e),
-        positionUpdate: async (e: PositionUpdate) => {},
+        positionUpdate: (e: PositionUpdate) =>
+          this.applyBalanceDelta(
+            { ...e, amount: new Big(0) },
+            d,
+            e.trackableInstance,
+            'POSITION_REVALUED',
+          ),
         // reprice: (e: Reprice) => this.applyReprice(e),
         reprice: async (e: Reprice) => {},
-        // positionStatusChange: (e: PositionStatusChange) => this.applyPositionStatusChange(e),
-        positionStatusChange: async (e: PositionStatusChange) => {},
+        positionStatusChange: async (e: PositionStatusChange) => {
+          // data cleaning
+          if (this.indexerMode === 'evm') {
+            e.user = e.user.toLowerCase();
+            e.asset = e.asset.toLowerCase();
+          }
+          await this.applyPositionStatusChange(e, d);
+        },
         // measureDelta: (e: MeasureDelta) => this.applyMeasureDelta(e),
         measureDelta: async (e: MeasureDelta) => {},
       },

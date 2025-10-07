@@ -23,6 +23,19 @@ export interface UnifiedBase {
   txRef: string;
 }
 
+/**
+ * IMPORTANT: All fields in types extending UnifiedBase must be JSON-serializable.
+ *
+ * The engine stores UnifiedBase-derived event contexts in Redis as JSON strings.
+ * Non-serializable types (e.g., BigInt, Date, custom class instances) will cause
+ * serialization failures. Use primitive types (string, number, boolean) or plain
+ * objects/arrays only.
+ *
+ * Examples:
+ *   ✓ Good: string, number, boolean, string[], Record<string, string>
+ *   ✗ Bad:  BigInt, Date, Map, Set, class instances
+ */
+
 export interface UnifiedEvmLog extends UnifiedBase {
   // Event identification
   address: string; // lowercase, normalized

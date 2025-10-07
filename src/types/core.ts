@@ -29,13 +29,7 @@ export type BalanceDelta = {
 };
 
 // Syntactic sugar over BalanceDelta for position updates (amount is always new Big(0))
-export type PositionUpdate = {
-  user: string;
-  asset: string;
-  activity: Activity;
-  // only support primitive types for metadata with flat structure
-  meta?: Record<string, MetadataValue>;
-};
+export type PositionUpdate = Omit<BalanceDelta, 'amount'>;
 
 export type PositionStatusChange = {
   user: string;
