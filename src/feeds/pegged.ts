@@ -1,5 +1,5 @@
-import { HandlerFactory } from './interface.ts';
+import { defineFeed } from './define.ts';
 
-export const peggedFactory: HandlerFactory<'pegged'> = (resolve) => async (args) => {
+export default defineFeed('pegged', (resolve) => async (args) => {
   return args.assetConfig.priceFeed.usdPegValue;
-};
+});

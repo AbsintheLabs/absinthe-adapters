@@ -1,4 +1,4 @@
-import { HandlerFactory } from './interface.ts';
+import { defineFeed } from './define.ts';
 import * as ichiAbi from '../abi/ichi.ts';
 import Big from 'big.js';
 import { logger } from '../utils/logger.ts';
@@ -7,7 +7,7 @@ import { logger } from '../utils/logger.ts';
 const ICHI_NAV_HANDLER = 'ichinav';
 
 // Simple function implementation using FeedHandler signature
-export const ichinavFactory: HandlerFactory<'ichinav'> = (resolve) => async (args) => {
+export default defineFeed('ichinav', (resolve) => async (args) => {
   const { assetConfig, ctx } = args;
   const { token0, token1 } = assetConfig.priceFeed;
 
@@ -72,4 +72,4 @@ export const ichinavFactory: HandlerFactory<'ichinav'> = (resolve) => async (arg
 
   // return { price: price.toNumber(), metadata: { decimals: ichiTokenDecimals } };
   return price.toNumber();
-};
+});

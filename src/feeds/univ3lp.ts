@@ -1,4 +1,4 @@
-import { HandlerFactory } from './interface.ts';
+import { defineFeed } from './define.ts';
 import Big from 'big.js';
 import { logger } from '../utils/logger.ts';
 import { EVM_NULL_ADDRESS } from '../utils/constants.ts';
@@ -85,7 +85,7 @@ async function getErc20Decimals(ctx: any, addr: string): Promise<number> {
 }
 
 // ---------- Main handler ----------
-export const univ3lpFactory: HandlerFactory<'univ3lp'> = (resolve) => async (args) => {
+export default defineFeed('univ3lp', (resolve) => async (args) => {
   const { assetConfig, ctx } = args;
   const {
     token: tokenFeed,
@@ -347,4 +347,4 @@ export const univ3lpFactory: HandlerFactory<'univ3lp'> = (resolve) => async (arg
     logger.debug('🔍 UNIV3LP: Handler failed, returning 0');
     return 0;
   }
-};
+});

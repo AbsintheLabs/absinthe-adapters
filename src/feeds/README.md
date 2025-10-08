@@ -8,6 +8,36 @@ Hold on to that idea while we zoom in.
 
 ⸻
 
+## Creating a New Pricing Handler
+
+To create a new pricing handler, use `defineFeed` which automatically registers your handler:
+
+```typescript
+import { defineFeed } from './define.ts';
+
+export default defineFeed('myhandler', (resolve) => async (args) => {
+  const { assetConfig, ctx } = args;
+
+  // Your pricing logic here
+  // Use resolve() to recursively price dependencies
+
+  return priceInUsd;
+});
+```
+
+**Key benefits of `defineFeed`:**
+
+- Automatic registration on import (no manual `globalFeedRegistry.register()` needed)
+- Type-safe handler kind matching
+- Consistent pattern across all handlers
+- Auto-discovered by the pricing engine
+
+⸻
+
+## How It Works
+
+⸻
+
 1. Key type aliases (the plumbing)
 
 Alias What it really is Purpose
@@ -24,11 +54,18 @@ Factory → returns HandlerFn where recurse already points to PricingEngine.reso
 
 2. Registry boot-up (happens once)
 
-const registry = new HandlerRegistry()
+```typescript
+// Handlers auto-register when imported via defineFeed()
+await loadAllFeeds(); // Discovers and imports all feed modules
 
-registry.register('coingecko', coinGeckoFactory)
-registry.register('pegged', peggedFactory)
-registry.initialize(() => pricingEngine.resolveSelector.bind(pricingEngine))
+// PricingEngine then initializes:
+const registry = new HandlerRegistry();
+const coreFeeds = globalFeedRegistry.getAll(); // Get all registered handlers
+for (const [kind, factory] of coreFeeds) {
+  registry.register(kind, factory);
+}
+registry.initialize(() => pricingEngine.resolveSelector.bind(pricingEngine));
+```
 
 initialize does two things: 1. Calls every factory, injecting the exact same ExecutorFn (the resolver) as recurse. 2. Stores the resulting HandlerFns in handlers for O(1) lookup at runtime.
 

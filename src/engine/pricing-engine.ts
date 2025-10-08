@@ -17,13 +17,8 @@ import { metadataResolver } from './asset-handlers.ts';
 import { CustomFeedHandlers } from '../types/adapter.ts';
 import { logger } from '../utils/logger.ts';
 
-// default feeds
-import { univ3lpFactory } from '../feeds/univ3lp.ts';
-import { coinGeckoFactory } from '../feeds/coingecko.ts';
-import { peggedFactory } from '../feeds/pegged.ts';
-import { ichinavFactory } from '../feeds/ichinav.ts';
-import { univ2NavFactory } from '../feeds/univ2nav.ts';
-import { aavev3varDebtFactory } from '../feeds/aavev3varDebtToken.ts';
+// Feed auto-discovery
+import { globalFeedRegistry } from '../feeds/registry.ts';
 export class HandlerRegistry {
   private factories = new Map<string, HandlerFactory<any>>();
   private handlers = new Map<string, HandlerFn>();
@@ -89,18 +84,15 @@ export class PricingEngine {
   constructor(customFeeds?: CustomFeedHandlers) {
     logger.debug('PricingEngine: Initializing...');
 
-    // Register all core handlers
-    logger.debug('PricingEngine: Registering core handlers');
-    // XXX: can we auto-register these as well?
-    this.registry.register('coingecko', coinGeckoFactory);
-    this.registry.register('pegged', peggedFactory);
-    this.registry.register('ichinav', ichinavFactory);
-    this.registry.register('univ2nav', univ2NavFactory);
-    this.registry.register('univ3lp', univ3lpFactory);
-    // this.registry.register('aavev3vardebt', aavev3varDebtFactory);
-    // fixme: add more handlers here...
+    // Register all auto-discovered core handlers
+    logger.debug('PricingEngine: Registering auto-discovered core handlers');
+    const coreFeeds = globalFeedRegistry.getAll();
+    for (const [kind, factory] of coreFeeds) {
+      this.registry.register(kind, factory);
+    }
+    logger.debug(`PricingEngine: Registered ${coreFeeds.size} core handlers`);
 
-    // Register custom feeds if provided
+    // Register custom feeds if provided (allow overrides)
     if (customFeeds) {
       logger.debug(`PricingEngine: Registering ${Object.keys(customFeeds).length} custom feeds`);
       for (const [kind, factory] of Object.entries(customFeeds)) {

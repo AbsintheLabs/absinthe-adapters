@@ -1,9 +1,9 @@
-import { HandlerFactory } from './interface.ts';
+import { defineFeed } from './define.ts';
 import axios from 'axios';
 import { logger } from '../utils/logger.ts';
 
 // Simple function implementation using FeedHandler signature
-export const coinGeckoFactory: HandlerFactory<'coingecko'> = (resolve) => async (args) => {
+export default defineFeed('coingecko', (resolve) => async (args) => {
   const { assetConfig, ctx } = args;
   const coingeckoId = assetConfig.priceFeed.id;
   const atMs = ctx.atMs;
@@ -38,4 +38,4 @@ export const coinGeckoFactory: HandlerFactory<'coingecko'> = (resolve) => async 
     logger.warn(`Failed to fetch historical USD price for ${coingeckoId}:`, error);
     return 0;
   }
-};
+});

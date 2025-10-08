@@ -88,6 +88,13 @@ export const CoreFeedSelector = z.discriminatedUnion('kind', [
     tokenSelector: z.enum(['token0', 'token1']),
     token: z.lazy(TokenSelectorRef),
   }),
+  z.object({
+    kind: z.literal('aavev3vardebt'),
+    debtTokenAddress: EvmAddress,
+    underlyingTokenAddress: EvmAddress,
+    poolAddress: EvmAddress,
+    underlyingTokenFeed: z.lazy(TokenSelectorRef),
+  }),
 ]);
 
 // Extensible feed selector that allows custom implementations
