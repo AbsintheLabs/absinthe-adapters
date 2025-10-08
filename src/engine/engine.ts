@@ -22,17 +22,18 @@ import {
   Reprice,
   ActionEvent,
 } from '../types/core.ts';
-import { EnrichmentContext, RawBalanceWindow, RawWindow } from '../types/enrichment.ts';
+import { EnrichmentContext, RawAction, RawBalanceWindow, RawWindow } from '../types/enrichment.ts';
 import { ProcessorContext } from '../eprocessorBuilder.ts';
 import { EngineDeps } from '../main.ts';
 import { BuiltAdapter } from '../adapter-core.ts';
-import { windowsPipeline } from '../enrichers/pipelines/windows.ts';
+import { windowsPipeline } from '../enrichers/pipelines/window-pipeline.ts';
 import { runBatch } from '../enrichers/run-batch.ts';
 import { transformSqdLogToUnified, transformSqdTransactionToUnified } from '../transforms/evm.ts';
 import { getRuntime } from '../runtime/context.ts';
 import { ensureTransactionDataForLogs as addTransactionDataForSqdLogs } from './processor-utils.ts';
 import { InstanceFrom, TrackableDef } from '../types/manifest.ts';
 import { UnifiedBase } from '../types/unified-chain-events.ts';
+import { actionPipeline } from '../enrichers/pipelines/action-pipeline.ts';
 
 dotenv.config();
 
@@ -60,12 +61,9 @@ export class Engine {
   private db: Database<any, any>;
   private adapter: BuiltAdapter;
 
-  // todo: change number to bigint/something that encodes token info
   private redis: Redis;
-  // private windows: RawBalanceWindow[] = [];
   private windows: RawWindow[] = [];
-  // private events: RawAction[] = [];
-  private events: ActionEventBase[] = [];
+  private events: RawAction[] = [];
 
   // Enriched data ready to be sent to sink
   // XXX: we'll need to fix these typing issues later
@@ -166,11 +164,11 @@ export class Engine {
           redis: this.redis,
           log: logger.debug,
         },
+        // fixme: figure out if we really need ctx to be passed in here like this
         ctx,
       });
       // we only need to get the timestamp at the end of the batch, rather than every single block
       const lastBlock = ctx.blocks[ctx.blocks.length - 1];
-      // fixme: ensure that this checks if the toBlock is set.
       await this.flushPeriodic(lastBlock.header.timestamp, lastBlock.header.height);
       await backfillPriceDataForBatch(ctx.blocks, {
         redis: this.redis,
@@ -208,6 +206,8 @@ export class Engine {
         logger.error('Error while flushing/closing sink before exit', err);
       }
       // Exit immediately - SQD will persist state because setForceFlush was called
+      // Commented out because sqd will quit itself, this was cuasing issues when we were doing this prematurely
+      // since sqd was not able to save the state to the file in these cases
       // process.exit(0);
     }
   }
@@ -223,9 +223,8 @@ export class Engine {
       redis: this.redis,
     };
 
-    // todo: create the actionsPipeline and call it here
-    // const enrichedEvents = await runBatch(this.events, actionEven, enrichCtx);
-    // this.enrichedEvents = enrichedEvents;
+    const enrichedEvents = await runBatch(this.events, actionPipeline(), enrichCtx);
+    this.enrichedEvents = enrichedEvents;
   }
 
   // private async enrichWindows(ctx: any): Promise<PricedBalanceWindow[]> {
@@ -269,16 +268,62 @@ export class Engine {
     ctx.store.setForceFlush(true);
   }
 
-  private async applyAction(e: ActionEventBase): Promise<void> {
-    // todo: move this to a helper function so it can be reused across all handlers that might need to register assets
-    const isPriceableInstance = (i: InstanceFrom<TrackableDef>): boolean => i.pricing !== undefined;
-    if (isPriceableInstance(e.trackableInstance)) {
-      // tbd... registerAssetForPricing()
-      // await this.redis.hsetnx('assets:tracked', e.);
-      // this was the old implementation here
-      // await this.redis.hsetnx('assets:tracked', amount.asset.toLowerCase(), ctx.height.toString());
+  private isPriceableInstance(ti: InstanceFrom<TrackableDef>): boolean {
+    return ti.pricing !== undefined;
+  }
+
+  private async applyAction<T extends UnifiedBase>(e: ActionEvent, d: T): Promise<void> {
+    const quantityType = e.trackableInstance.quantityType;
+
+    // const hasAmountField = 'amount' in e && e.amount !== undefined && e.amount !== null;
+    // const hasAssetField =
+    //   'asset' in e && (e as any).asset !== undefined && (e as any).asset !== null;
+
+    // Validate structure based on quantity type
+    // if (quantityType === 'token_based') {
+    //   if (!hasAmountField || !hasAssetField) {
+    //     throw new Error('token_based action must include both amount and asset');
+    //   }
+    // } else if (quantityType === 'count') {
+    //   if (!hasAmountField) {
+    //     throw new Error('count action must include amount');
+    //   }
+    //   if (hasAssetField) {
+    //     throw new Error('count action must not include asset');
+    //   }
+    // } else if (quantityType === 'none') {
+    //   if (hasAmountField || hasAssetField) {
+    //     throw new Error('none action must not include amount or asset');
+    //   }
+    // }
+
+    // Track asset for pricing for token_based actions with pricing configured
+    if (quantityType === 'token_based' && this.isPriceableInstance(e.trackableInstance)) {
+      await this.redis.hsetnx('assets:tracked', (e as any).asset, d.height.toString());
     }
-    this.events.push(e);
+
+    // Construct RawAction object using explicit quantityType
+    const rawAction: RawAction = {
+      key: e.key,
+      user: e.user,
+      quantityType,
+      activity: e.activity,
+      meta: e.meta,
+      ts: d.tsMs,
+      height: d.height,
+      value:
+        quantityType === 'token_based' || quantityType === 'count'
+          ? ((e as any).amount.toString?.() ?? (e as any).amount)
+          : null,
+      txRef: d.txRef,
+      ctx: d,
+    };
+
+    if (quantityType === 'token_based') {
+      rawAction.asset = (e as any).asset;
+    }
+
+    this.events.push(rawAction);
   }
 
   private async applyBalanceDelta<T extends UnifiedBase>(
@@ -343,7 +388,7 @@ export class Engine {
     }
 
     // Track the asset in Redis if this trackable is priceable
-    if (ti.pricing !== undefined) {
+    if (this.isPriceableInstance(ti)) {
       await this.redis.hsetnx('assets:tracked', e.asset, d.height.toString());
     }
 
@@ -712,8 +757,19 @@ export class Engine {
   private createEmitFunctions<TData extends UnifiedBase>(d: TData) {
     return {
       action: {
-        action: async (e: ActionEvent) => this.applyAction(e),
-        swap: async (e: Swap) => this.applyAction(e),
+        action: async (e: ActionEvent) => {
+          // data cleaning
+          if (this.indexerMode === 'evm') {
+            e.user = e.user.toLowerCase();
+            if ('asset' in e && (e as any).asset) {
+              (e as any).asset = (e as any).asset.toLowerCase();
+            }
+          }
+          await this.applyAction(e, d);
+        },
+        swap: async (e: Swap) => {
+          await this.applyAction(e, d);
+        },
       },
       position: {
         balanceDelta: async (e: BalanceDelta, reason: WindowReason = 'BALANCE_CHANGED') => {

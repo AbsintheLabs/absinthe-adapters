@@ -60,10 +60,8 @@ export async function handleSwap(
       key: md5Hash(`${log.txRef}${log.logIndex}`),
       activity: 'swap',
       user,
-      amount: {
-        asset,
-        amount: new Big(amount.toString()),
-      },
+      asset,
+      amount: new Big(amount.toString()),
       trackableInstance: instance,
       meta: swapMeta,
     });

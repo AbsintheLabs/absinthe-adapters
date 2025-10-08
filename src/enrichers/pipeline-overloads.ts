@@ -261,6 +261,8 @@ export function pipeline(...steps: Array<Enricher<any, any>>): Enricher<any, any
     let cur = item;
     for (const step of steps) {
       cur = await step(cur, ctx);
+      // Short circuit on undefined
+      if (cur === undefined) return undefined;
     }
     return cur;
   };

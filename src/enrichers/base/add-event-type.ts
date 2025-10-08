@@ -14,3 +14,12 @@ export const addTWBEventType = <T extends object>(): Enricher<T, T & EventTypeFi
     };
   };
 };
+
+export const addActionEventType = <T extends object>(): Enricher<T, T & EventTypeField> => {
+  return (item) => {
+    return {
+      ...item,
+      eventType: 'action',
+    };
+  };
+};

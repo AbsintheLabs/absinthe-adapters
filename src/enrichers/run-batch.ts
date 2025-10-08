@@ -8,6 +8,6 @@ export async function runBatch<I, O>(
 ): Promise<O[]> {
   // Straight map + Promise.all keeps order stable
   const results = await Promise.all(items.map((it) => pipe(it, ctx)));
-  // Filter out any undefined results that might occur from enricher errors
+  // Filter out any undefined results that are either: errors or filtered out by the enricher
   return results.filter((result) => result !== undefined);
 }

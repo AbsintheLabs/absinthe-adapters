@@ -14,6 +14,7 @@ type TimeWindowTrigger =
 import { MetadataCache, PriceCacheTS, HandlerMetadataCache } from './pricing.ts';
 import { Activity } from './core.ts';
 import { WindowReason } from './adapter.ts';
+import { QuantityType } from './manifest.ts';
 
 /*
 each enricher is stateless and operates on a single item at a time so it's very easy to reason about and test.
@@ -142,6 +143,23 @@ export interface RawWindow {
   endContext?: Record<string, any>; // From current unified event
 }
 
+export interface RawAction {
+  key: string;
+  user: string;
+  quantityType: QuantityType;
+  asset?: string;
+  activity: Activity;
+  meta?: Record<string, any>;
+
+  // Window timing (universal)
+  ts: number;
+  height: number;
+  value: string;
+  txRef: string;
+
+  ctx?: Record<string, any>; // From Redis JSON
+}
+
 // These get used by the position/window enrichers, so we need to make sure these exist
 // All other fields get passed through to the enriched object
 export interface PositionBase {
@@ -196,25 +214,25 @@ export interface RawMeasureWindow {
  * @deprecated RawAction is deprecated and will be removed in a future release.
  * Use the updated action types or consult the documentation for alternatives.
  */
-export interface RawAction {
-  key: string;
-  user: string;
-  priceable: boolean;
-  asset?: string;
-  amount?: string;
-  meta?: Record<string, any>;
-  ts: number;
-  height: number;
-  txHash: string;
-  blockNumber: number;
-  blockHash: string;
-  logIndex?: number;
-  gasUsed?: string;
-  gasPrice?: string;
-  // role?: ActionRole;
-  from?: string;
-  to?: string;
-}
+// export interface RawAction {
+//   key: string;
+//   user: string;
+//   priceable: boolean;
+//   asset?: string;
+//   amount?: string;
+//   meta?: Record<string, any>;
+//   ts: number;
+//   height: number;
+//   txHash: string;
+//   blockNumber: number;
+//   blockHash: string;
+//   logIndex?: number;
+//   gasUsed?: string;
+//   gasPrice?: string;
+//   // role?: ActionRole;
+//   from?: string;
+//   to?: string;
+// }
 
 // ------------------------------------------------------------
 // ENRICHMENT CONTEXT

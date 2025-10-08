@@ -11,4 +11,4 @@ export { enrichWindowsWithPrice } from './pricing/windows.ts';
 
 // Utility functions
 export { getPrevSample, getSamplesIn, twaFromSamples } from './utils/timeseries.ts';
-export { dedupeActions, filterOutZeroValueEvents } from './utils/filters.ts';
+export { dedupeActions } from './utils/dedupe-actions.ts';

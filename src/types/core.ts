@@ -69,10 +69,19 @@ export type Activity =
 
 // ACTION RELATED TYPES
 
-export type Amount = {
-  asset: string;
-  amount: Big;
-};
+// export type Amount = {
+//   asset: string;
+//   amount: Big;
+// };
+
+// export type ActionEventPriced = ActionEventBase & {
+//   amount: Big;
+//   asset: string;
+// };
+
+// export type ActionEventUnpriced = ActionEventBase;
+
+// export type ActionEvent = ActionEventPriced | ActionEventUnpriced;
 
 // potentially, make key optional and generate a uuid for it by defualt? otherwise, too easy to make a mistake
 export type ActionEventBase = {
@@ -83,18 +92,18 @@ export type ActionEventBase = {
   meta?: Record<string, MetadataValue>;
 };
 
-export type ActionEventPriced = ActionEventBase & {
-  // priceable: true;
-  amount: Amount;
+export type ActionTokenBased = ActionEventBase & {
+  asset: string;
+  amount: Big;
 };
 
-export type ActionEventUnpriced = ActionEventBase & {
-  // priceable: false;
-};
+export type ActionCount = ActionEventBase & { amount: Big };
 
-export type ActionEvent = ActionEventPriced | ActionEventUnpriced;
+export type ActionNone = ActionEventBase;
 
-export type Swap = ActionEventPriced & {
+export type ActionEvent = ActionTokenBased | ActionCount | ActionNone;
+
+export type Swap = ActionTokenBased & {
   activity: 'swap';
   meta: {
     fromTkAddress: string;

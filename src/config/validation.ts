@@ -78,7 +78,9 @@ function validateInstance(
   trackableDef: TrackableDef,
   instanceIdx: number,
 ): any {
-  const validated: Record<string, any> = {};
+  const validated: Record<string, any> = {
+    quantityType: trackableDef.quantityType,
+  };
 
   // 1. Validate required params
   if (!instance.params || typeof instance.params !== 'object') {
