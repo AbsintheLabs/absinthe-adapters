@@ -11,6 +11,22 @@
       "skipFiles": ["<node_internals>/**", "${workspaceFolder}/**/node_modules/**/*.js"],
       "sourceMaps": true,
       "outFiles": ["${workspaceFolder}/dist/src/**/*.js"]
+    },
+    {
+      "name": "debug swaponly",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/dist/src/main.js",
+      "args": [
+        "-r",
+        "${workspaceFolder}/adapters/uniswap-v2/tests/config/uniswap-v2.absinthe-swaponly.json"
+      ],
+      "cwd": "${workspaceFolder}",
+      "runtimeArgs": ["--no-deprecation", "--no-warnings", "--enable-source-maps"],
+      "skipFiles": ["<node_internals>/**", "${workspaceFolder}/**/node_modules/**/*.js"],
+      "sourceMaps": true,
+      "outFiles": ["${workspaceFolder}/dist/src/**/*.js"],
+      "preLaunchTask": "npm: build"
     }
   ]
 }

@@ -137,6 +137,9 @@ export interface RawWindow {
   // window explainability
   trigger: WindowReason;
 
+  // Pricing handler ID (for looking up price config)
+  pricingHandlerId?: string;
+
   // Chain-specific contexts (opaque blobs)
   // Only present for event-triggered windows, not periodic flushes
   startContext?: Record<string, any>; // From Redis JSON
@@ -156,6 +159,9 @@ export interface RawAction {
   height: number;
   value: string;
   txRef: string;
+
+  // Pricing handler ID (for looking up price config)
+  pricingHandlerId?: string;
 
   ctx?: Record<string, any>; // From Redis JSON
 }

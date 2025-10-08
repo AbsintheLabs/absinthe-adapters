@@ -9,11 +9,11 @@ import { EVM_NULL_ADDRESS } from '../utils/constants.ts';
 import { Sink } from '../sinks/index.ts';
 import { RedisTSCache, RedisMetadataCache, RedisHandlerMetadataCache } from '../cache/index.ts';
 import { PricingEngine } from './pricing-engine.ts';
-import { AppConfig } from '../config/schema.ts';
+import { AppConfig, AssetConfig } from '../config/schema.ts';
 import { WindowReason } from '../types/adapter.ts';
 import { ActionEventBase, PositionUpdate, Swap } from '../types/core.ts';
 import { createStateDatabase } from './state.ts';
-import { backfillPriceDataForBatch, priceAsset } from './pricing-backfill.ts';
+import { backfillPriceDataForBatch, pricePricingHandler } from './pricing-backfill.ts';
 import {
   IndexerMode,
   BalanceDelta,
@@ -34,6 +34,8 @@ import { ensureTransactionDataForLogs as addTransactionDataForSqdLogs } from './
 import { InstanceFrom, TrackableDef } from '../types/manifest.ts';
 import { UnifiedBase } from '../types/unified-chain-events.ts';
 import { actionPipeline } from '../enrichers/pipelines/action-pipeline.ts';
+import { generatePricingHandlerId } from '../utils/pricing-handler-id.ts';
+import { md5HashCanonical } from '../utils/stable-hash.ts';
 
 dotenv.config();
 
@@ -268,8 +270,45 @@ export class Engine {
     ctx.store.setForceFlush(true);
   }
 
-  private isPriceableInstance(ti: InstanceFrom<TrackableDef>): boolean {
-    return ti.pricing !== undefined;
+  /**
+   * Generate a stable ID for a trackable instance based on its configuration.
+   * This ID uniquely identifies a pricing strategy scope.
+   */
+  private generateTrackableInstanceId(ti: InstanceFrom<TrackableDef>): string {
+    // Hash the trackable instance's identifying properties
+    const key = {
+      params: ti.params,
+      quantityType: ti.quantityType,
+      // Include assetSelectors if present (for swaps)
+      ...('assetSelectors' in ti && ti.assetSelectors ? { assetSelectors: ti.assetSelectors } : {}),
+    };
+    return md5HashCanonical(key, 16);
+  }
+
+  /**
+   * Register an asset for pricing under a specific trackable instance.
+   * This allows multiple assets to share the same pricing strategy.
+   */
+  private async registerAssetForPricing(
+    trackableInstanceId: string,
+    asset: string,
+    pricingConfig: AssetConfig,
+  ): Promise<string> {
+    const pricingHandlerId = generatePricingHandlerId(pricingConfig);
+
+    // Store the pricing config (if not already stored)
+    const handlerKey = `pricing:handler:${pricingHandlerId}`;
+    await this.redis.setnx(handlerKey, JSON.stringify(pricingConfig));
+    await this.redis.sadd('pricing:handlers:registry', pricingHandlerId);
+
+    // Register the (trackableInstance, asset) → handler mapping
+    const registryKey = `pricing:assets:${trackableInstanceId}`;
+    await this.redis.hset(registryKey, asset, pricingHandlerId);
+
+    // Add trackable instance to registry set for efficient lookup (avoids keys() scan)
+    await this.redis.sadd('pricing:trackables:registry', trackableInstanceId);
+
+    return pricingHandlerId;
   }
 
   private async applyAction<T extends UnifiedBase>(e: ActionEvent, d: T): Promise<void> {
@@ -298,8 +337,23 @@ export class Engine {
     // }
 
     // Track asset for pricing for token_based actions with pricing configured
-    if (quantityType === 'token_based' && this.isPriceableInstance(e.trackableInstance)) {
-      await this.redis.hsetnx('assets:tracked', (e as any).asset, d.height.toString());
+    let pricingHandlerId: string | undefined;
+    if (
+      quantityType === 'token_based' &&
+      'asset' in e &&
+      e.trackableInstance.pricing !== undefined
+    ) {
+      const asset = e.asset;
+
+      // Generate a stable trackable instance ID
+      const trackableInstanceId = this.generateTrackableInstanceId(e.trackableInstance);
+
+      // Register this specific asset for this trackable instance
+      pricingHandlerId = await this.registerAssetForPricing(
+        trackableInstanceId,
+        asset,
+        e.trackableInstance.pricing,
+      );
     }
 
     // Construct RawAction object using explicit quantityType
@@ -316,6 +370,7 @@ export class Engine {
           ? ((e as any).amount.toString?.() ?? (e as any).amount)
           : null,
       txRef: d.txRef,
+      pricingHandlerId,
       ctx: d,
     };
 
@@ -388,8 +443,14 @@ export class Engine {
     }
 
     // Track the asset in Redis if this trackable is priceable
-    if (this.isPriceableInstance(ti)) {
-      await this.redis.hsetnx('assets:tracked', e.asset, d.height.toString());
+    let pricingHandlerId: string | undefined;
+    if (ti.pricing !== undefined) {
+      const trackableInstanceId = this.generateTrackableInstanceId(ti);
+      pricingHandlerId = await this.registerAssetForPricing(
+        trackableInstanceId,
+        e.asset,
+        ti.pricing,
+      );
     }
 
     // ONLY emit window if position is ACTIVE
@@ -412,6 +473,7 @@ export class Engine {
         startTxRef: previousTxRef,
         endTxRef: d.txRef,
         trigger: reason,
+        pricingHandlerId,
         startContext: lastUpdateCtx,
         endContext: d,
       };
@@ -551,7 +613,12 @@ export class Engine {
   private async applyReprice<T extends UnifiedBase>(e: Reprice, d: T): Promise<void> {
     const ts = d.tsMs;
     const height = d.height;
-    logger.debug('applyReprice: ', e.asset, ts, d);
+
+    // Only reprice if trackable has pricing configured
+    if (!e.trackableInstance.pricing) {
+      logger.debug('Reprice called on trackable without pricing config, skipping');
+      return;
+    }
 
     // Check pricing range - skip repricing if before the specified range
     if (this.appCfg.pricingRange) {
@@ -565,28 +632,50 @@ export class Engine {
 
       if (!shouldPrice) {
         logger.debug(
-          `💰 Skipping repricing for asset ${e.asset} at block ${height} (${new Date(ts).toISOString()}) - before pricing range`,
+          `💰 Skipping repricing at block ${height} (${new Date(ts).toISOString()}) - before pricing range`,
         );
         return;
       }
     }
 
-    // We want to bypass the top level cache here as we're repricing!
-    await priceAsset(
-      e.asset,
-      ts,
-      d,
-      {
-        redis: this.redis,
-        appCfg: this.appCfg,
-        priceCache: this.priceCache,
-        metadataCache: this.metadataCache,
-        handlerMetadataCache: this.handlerMetadataCache,
-        pricingEngine: this.pricingEngine,
-        sqdCtx: this.ctx,
-      },
-      true,
-    );
+    // Get trackable instance ID and all registered assets for this trackable
+    const trackableInstanceId = this.generateTrackableInstanceId(e.trackableInstance);
+    const registryKey = `pricing:assets:${trackableInstanceId}`;
+    const assetToPricingHandler = await this.redis.hgetall(registryKey);
+
+    if (Object.keys(assetToPricingHandler).length === 0) {
+      logger.debug(
+        `No assets registered for trackable instance ${trackableInstanceId}, skipping reprice`,
+      );
+      return;
+    }
+
+    // Reprice each asset registered for this trackable instance
+    for (const [asset, pricingHandlerId] of Object.entries(assetToPricingHandler)) {
+      logger.debug(`applyReprice for asset ${asset}: handler ${pricingHandlerId}, ts ${ts}`);
+
+      try {
+        await pricePricingHandler(
+          // pricingHandlerId,
+          e.trackableInstance.pricing,
+          asset, // Pass the specific asset
+          ts,
+          d,
+          {
+            redis: this.redis,
+            appCfg: this.appCfg,
+            priceCache: this.priceCache,
+            metadataCache: this.metadataCache,
+            handlerMetadataCache: this.handlerMetadataCache,
+            pricingEngine: this.pricingEngine,
+            sqdCtx: this.ctx,
+          },
+          true, // bypass cache for instant repricing
+        );
+      } catch (error) {
+        logger.error(`Failed to reprice asset ${asset} with handler ${pricingHandlerId}:`, error);
+      }
+    }
   }
 
   // behavior:

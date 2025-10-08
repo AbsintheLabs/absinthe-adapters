@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { Manifest, TrackableDef, FieldDef, ConfigFromManifest } from '../types/manifest.ts';
+import { AssetConfig } from './schema.ts';
 
 /**
  * Validates runtime config against an adapter's manifest.
@@ -149,15 +150,20 @@ function validateInstance(
 
   // 4. Validate pricing config (if provided)
   if (instance.pricing !== undefined) {
-    // Basic validation - pricing must be an object
-    // Detailed pricing validation would happen elsewhere in the pricing engine
-    if (typeof instance.pricing !== 'object' || instance.pricing === null) {
+    // Validate pricing against AssetConfig schema
+    try {
+      validated.pricing = AssetConfig.parse(instance.pricing);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const issues = error.issues.map((issue) => issue.message).join(', ');
+        throw new Error(
+          `Instance ${instanceIdx} of trackable '${trackableId}': pricing validation failed: ${issues}`,
+        );
+      }
       throw new Error(
-        `Instance ${instanceIdx} of trackable '${trackableId}': pricing must be an object`,
+        `Instance ${instanceIdx} of trackable '${trackableId}': pricing validation failed: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
-
-    validated.pricing = instance.pricing;
 
     // If trackable requires pricing, ensure pricing is provided
     if ('requiredPricer' in trackableDef && trackableDef.requiredPricer) {

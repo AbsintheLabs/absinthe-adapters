@@ -18,11 +18,7 @@
   },
   "range": {
     "fromBlock": 1451314,
-    "toBlock": 2481775
-  },
-  "pricingRange": {
-    "type": "block",
-    "fromBlock": 30000000
+    "toBlock": 1670019
   },
   "adapterConfig": {
     "adapterId": "uniswap-v2",

@@ -1,7 +1,7 @@
 // manifest.ts
 import { z } from 'zod';
 import { PROTOCOL_FAMILY_VALUES } from '../constants.ts';
-import { ChainArch } from '../config/schema.ts';
+import { ChainArch, AssetConfig } from '../config/schema.ts';
 
 // Simple version type using template literal
 export type Version = `${number}.${number}.${number}`;
@@ -78,6 +78,53 @@ const Field = z.object({
 //
 // - filters: Optional general filtering (e.g., minAmount, user address, etc.)
 //   - Not related to pricing, purely for narrowing event scope
+
+/*
+In our runtime config, we need to provide the object that follows the manifest shape for each trackable definition.
+Remember that there can be more than one instance for each trackable definition. For example, a univ2 adapter can define a
+swap trackable, and then we can have multiple instances of the swap trackable (for example, for each pool we want to track) in there.
+
+By defualt, if it's a token_based trackable, it will just give us the value in scaled tokens.
+However if we want to price it, we need to provide the assetSelectors (one asset definition per trackable instance) and then
+a pricing definition (which is a recursive definition that defines the price feed for that selected asset).
+
+Right now, the runtime config doesn't parse the pricing definition, so it's not used anywhere.
+
+However, we want each trackable to use that pricing definition.
+
+This is how we currently find the config for an asset (this is the old architecture)
+export function findConfig(
+  rules: AssetFeedConfig,
+  assetKey: string,
+  getLabels: (k: string) => Record<string, string> | undefined,
+): AssetConfig | undefined {
+  const labels = getLabels(assetKey) || {};
+
+  for (const rule of rules) {
+    const { match } = rule;
+
+    // Check key glob match
+    if (match.key) {
+      const regex = globToRegex(match.key.toLowerCase());
+      if (regex.test(assetKey.toLowerCase())) {
+        return rule.config;
+      }
+    }
+
+    // Check label selectors
+    if (match.matchLabels || match.matchExpressions) {
+      if (labelsMatch(labels, match.matchLabels, match.matchExpressions)) {
+        return rule.config;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+However, things are significantly simpler now, since each trackable instance defines exactly HOW it should price itself.
+So we don't need to do this matching or resolution, we just need to pass the pricing definition to the pricing engine for each trackable instance.
+*/
 
 // Position trackables are always token_based
 type PositionTrackableDef = {
@@ -163,7 +210,7 @@ type FiltersFrom<T extends TrackableDef> = T extends {
   : never;
 
 type PricingFrom<T extends TrackableDef> = {
-  pricing?: Record<string, unknown>;
+  pricing?: AssetConfig;
 };
 
 export type InstanceFrom<T extends TrackableDef> = {

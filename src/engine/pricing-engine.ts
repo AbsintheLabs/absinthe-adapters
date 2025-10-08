@@ -24,15 +24,6 @@ import { peggedFactory } from '../feeds/pegged.ts';
 import { ichinavFactory } from '../feeds/ichinav.ts';
 import { univ2NavFactory } from '../feeds/univ2nav.ts';
 import { aavev3varDebtFactory } from '../feeds/aavev3varDebtToken.ts';
-
-type Key = string; // stable cache key for a selector
-
-function stableKey(sel: unknown): Key {
-  // deterministic JSON, keys sorted once is good enough here
-  // todo: need to ensure that this is actually stable
-  return JSON.stringify(sel, Object.keys(sel as any).sort());
-}
-
 export class HandlerRegistry {
   private factories = new Map<string, HandlerFactory<any>>();
   private handlers = new Map<string, HandlerFn>();
@@ -100,14 +91,14 @@ export class PricingEngine {
 
     // Register all core handlers
     logger.debug('PricingEngine: Registering core handlers');
-    // xxx: can we auto-register these as well?
+    // XXX: can we auto-register these as well?
     this.registry.register('coingecko', coinGeckoFactory);
     this.registry.register('pegged', peggedFactory);
     this.registry.register('ichinav', ichinavFactory);
     this.registry.register('univ2nav', univ2NavFactory);
     this.registry.register('univ3lp', univ3lpFactory);
     // this.registry.register('aavev3vardebt', aavev3varDebtFactory);
-    // add more handlers here...
+    // fixme: add more handlers here...
 
     // Register custom feeds if provided
     if (customFeeds) {

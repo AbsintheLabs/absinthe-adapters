@@ -1,8 +1,8 @@
 // Pricing backfill utilities for batch processing
 import { Redis } from 'ioredis';
 import { logger } from '../utils/logger.ts';
-import { AppConfig } from '../config/schema.ts';
-import { ResolveContext, findConfig } from '../types/pricing.ts';
+import { AppConfig, AssetConfig } from '../config/schema.ts';
+import { ResolveContext } from '../types/pricing.ts';
 import { PricingEngine } from './pricing-engine.ts';
 import { RedisTSCache, RedisMetadataCache, RedisHandlerMetadataCache } from '../cache/index.ts';
 
@@ -19,6 +19,7 @@ export interface PricingBackfillDeps {
 /**
  * Backfill price data for a batch of blocks
  */
+// fixme: prevent blocks from being passed in here as a whole, this makes it less scalable and ties us with sqd objects
 export async function backfillPriceDataForBatch(
   blocks: any[],
   deps: PricingBackfillDeps,
@@ -40,19 +41,51 @@ export async function backfillPriceDataForBatch(
     blocksOfWindowStarts.push(lastBlock);
   }
 
-  // 2) collect assets
-  const raw = await deps.redis.hgetall('assets:tracked');
-  const assets = Object.entries(raw).map(([asset, h]) => ({
-    asset,
-    birth: Number(h) || 0,
-  }));
+  // 2) Get all registered trackable instances from registry set (O(N) vs O(keyspace) scan)
+  const trackableInstanceIds = await deps.redis.smembers('pricing:trackables:registry');
+  logger.debug(
+    `💰 Found ${trackableInstanceIds.length} trackable instances with registered assets`,
+  );
 
-  logger.debug(`💰 Collected ${assets.length} assets to backfill`);
-  logger.debug(`💰 Assets: ${assets.map((a) => a.asset).join(', ')}`);
+  // 3) Collect all (trackableInstance, asset, handler) tuples
+  type AssetHandler = { asset: string; handlerId: string; config: AssetConfig };
+  const allAssetHandlers: AssetHandler[] = [];
 
-  // 3) build tasks
-  type Task = { block: any; ts: number; asset: string };
+  for (const trackableInstanceId of trackableInstanceIds) {
+    const registryKey = `pricing:assets:${trackableInstanceId}`;
+    const assetToPricingHandler = await deps.redis.hgetall(registryKey);
+
+    for (const [asset, pricingHandlerId] of Object.entries(assetToPricingHandler)) {
+      // Load the pricing config for this handler
+      const handlerKey = `pricing:handler:${pricingHandlerId}`;
+      const configJson = await deps.redis.get(handlerKey);
+
+      if (!configJson) {
+        logger.warn(`💰 No config JSON found for handler ${pricingHandlerId}`);
+        continue;
+      }
+
+      try {
+        const config = JSON.parse(configJson) as AssetConfig;
+        allAssetHandlers.push({ asset, handlerId: pricingHandlerId, config });
+      } catch (error) {
+        logger.error(`Failed to parse pricing config for handler ${pricingHandlerId}:`, error);
+      }
+    }
+  }
+
+  logger.debug(`💰 Collected ${allAssetHandlers.length} asset-handler pairs to backfill`);
+
+  // 4) build tasks (one task per asset per window)
+  type Task = {
+    block: any;
+    ts: number;
+    asset: string;
+    handlerId: string;
+    config: AssetConfig;
+  };
   const tasks: Task[] = [];
+
   for (const block of blocksOfWindowStarts) {
     const ts = block.header.timestamp;
     const height = block.header.height;
@@ -75,20 +108,22 @@ export async function backfillPriceDataForBatch(
       }
     }
 
-    const eligible = assets.filter((a) => a.birth <= height);
-    logger.debug(`💰 Eligible assets: ${eligible.length}`);
-    logger.debug(`💰 assets with birth: ${assets.map((a) => JSON.stringify(a)).join(', ')}`);
-    logger.debug('height: ', height);
-    logger.debug('blockstart: ', blocks[0].header.height);
-    logger.debug('blockend: ', blocks[blocks.length - 1].header.height);
-    logger.debug(
-      'blockofwindowstarts: ',
-      blocksOfWindowStarts.map((b) => b.header.height).join(', '),
-    );
-    for (const a of eligible) tasks.push({ block, ts, asset: a.asset });
+    // Price each (asset, handler) pair once per window
+    for (const assetHandler of allAssetHandlers) {
+      tasks.push({
+        block,
+        ts,
+        asset: assetHandler.asset,
+        handlerId: assetHandler.handlerId,
+        config: assetHandler.config,
+      });
+    }
   }
 
-  // 4) simple worker pool
+  logger.debug(`💰 Total pricing tasks: ${tasks.length}`);
+
+  // fixme: refactor this with a more scalable solution than a custom worker pool
+  // 5) simple worker pool
   const MAX_CONCURRENCY = 100;
   let idx = 0;
 
@@ -97,9 +132,12 @@ export async function backfillPriceDataForBatch(
       const i = idx++;
       const t = tasks[i];
       try {
-        await priceAsset(t.asset, t.ts, t.block, deps, false);
+        await pricePricingHandler(t.config, t.asset, t.ts, t.block, deps, false);
       } catch (err) {
-        logger.error(`priceAsset failed for ${t.asset} @ ${t.ts}`, err);
+        logger.error(
+          `priceAsset failed for asset ${t.asset} with handler ${t.handlerId} @ ${t.ts}`,
+          err,
+        );
       }
     }
   };
@@ -108,28 +146,20 @@ export async function backfillPriceDataForBatch(
 }
 
 /**
- * Price a single asset at a specific timestamp
+ * Price a pricing handler for a specific asset at a specific timestamp
+ * This is the core function that prices by handler ID and asset, enabling reuse across trackables
  */
-export async function priceAsset(
+export async function pricePricingHandler(
+  // handlerId: string,
+  config: AssetConfig,
   asset: string,
   atMs: number,
+  // fixme: prevent block from being passed in here as a whole, this makes it less scalable and ties us with sqd objects
   block: any,
   deps: PricingBackfillDeps,
   bypassTopLevelCache: boolean = false,
 ): Promise<number> {
-  // Get labels from Redis for rule matching
-  const labelsKey = `asset:labels:${asset}`;
-  const labels = await deps.redis.hgetall(labelsKey);
-
-  // Use rule-based matching to find the appropriate config for this asset
-  const assetConfig = findConfig(deps.appCfg.assetFeedConfig, asset, (assetKey: string) => labels);
-
-  if (!assetConfig) {
-    logger.error(`💰 No feed config found for asset: ${asset}`);
-    return 0;
-  }
-
-  const validatedAssetConfig = assetConfig;
+  const validatedAssetConfig = config;
 
   const ctx: ResolveContext = {
     priceCache: deps.priceCache,
@@ -138,7 +168,7 @@ export async function priceAsset(
     redis: deps.redis,
     atMs,
     block,
-    asset,
+    asset, // Use the specific asset being priced
     sqdCtx: deps.sqdCtx,
     bucketMs: deps.appCfg.flushInterval,
     sqdRpcCtx: {

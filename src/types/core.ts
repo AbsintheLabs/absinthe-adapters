@@ -124,7 +124,7 @@ export function isPriceableInstance(instance: InstanceFrom<TrackableDef>): boole
 }
 
 export type Reprice = {
-  asset: string;
+  trackableInstance: InstanceFrom<TrackableDef>;
 };
 
 // ------------------------------------------------------------

@@ -666,9 +666,7 @@ We either:
 
 1. Have the adapter writer extract this and tag
 2. Pass through the instance into the handler and have the handler automatically infer (this is less error-prone and since that manifest object does not change, we can depend on this existing)
-
-
-    - Does that imply that we need to pass the instance into the handler every single time? Not sure....
+   - Does that imply that we need to pass the instance into the handler every single time? Not sure....
 
 ---
 
@@ -713,3 +711,393 @@ reqs:
 - engine should only see windowcontext (ts,height) and emit windowprimitive
 - assembled handles shape conversions
 - rawbalancewindow is convergence point before pipeline starts (pipeline can take in that shape to start and do its thing)
+
+---
+
+Before, we completely decoupled the pricing from the thing that was being tracked. This made life hard.
+We independently ingested the price and the thing that was being tracked.
+
+Now, instead of matching on asset key, it's better to just price each asset based on trackable id.
+
+Each window or action will have a trackableId (hash of the trackable instance, for example).
+When we need to price an asset, we can:
+
+1. register the pricing handler ID
+2. invoke the pricing handler for each registered price handler (as we move through time)
+
+When we need to gather a TWAP or price an action at a moment in time, we can:
+
+1. for each row, get it's price handler ID
+2. lookup price for that price handler ID
+
+Pro:
+
+- assets that are being priced the same way can be re-used across multiple trackable instances
+- trackable instances that are tracking the same asset in different ways can each individually have their own logic
+
+It's incorrect to assume that we have 1 price from the pricefeed for all assets.
+
+What we're really saying is:
+
+- All assets matched by this trackable are going to use this price feed. It's still on a per-asset basis, but all those assets are going to use the same price feed
+  - when we reprice, we shouldn't just supply the asset, but the price feed as well?
+
+  the reason we have reprice is because if we don't want to wait for the next pricing period to come around, we can refresh the price at that point in time
+  - we could also just reprice by passing in the pricing handler rather than the asset (aka: instead of passing asset key, just pass trackable instance and then the reprice will call the pricing handler for that trackable instance)
+
+Problem:
+
+- each trackable instance can match to multiple assets (for example, univ3 lp matches to multiple nfts that each get priced in the same way)
+- we register all of the pricing handlers for each trackable instance
+- HOWEVER, it's not enough to invoke the pricing handler alone. since we still need to track each "asset"
+  - for example, for univ3, we need to invoke the pricing handler for each diff nft asset
+
+This means, we really have to do this:
+
+- when we see a new asset, we register a tuple: (assetAddress, pricingHandlerId)
+- the backfill looks at each registered asset, and invokes all the pricingHandlerIds for that asset
+
+Edge Cases to make design more robust:
+Ex 1: we have 2 swap trackables. WETH/USDC and WETH/WBTC pools. We select WETH for both (same asset), but want to use different price feeds for each (to enforce better isolation)
+SOLUTION: each time we see the swap action, we register (asset, pricingHandlerId). This actually means that we will be backfilling the price both times this way
+
+FLAG: this means that the pricehandlerID is not enough to take the whole thing. It actually is just the top level (the leaf). Is this true?
+
+EDGE CASE:
+What happens if we have a recursive price definition, where the top is the same, but the internal is different? Or vice versa? In this case, each pricefeedresolution
+
+Before it was clean since we just priced pure assets. And if we already had the asset price, then we didn't need to get it again (it was cached).
+This was very simple to reason about and effective.
+
+However, now we are saying that the same asset can have different price feeds.
+Questions:
+
+1. do we really need to cover this case? It will almost never be used. It should only be implemented if it makes the system easier to reason about and less bug prone.
+2. It will make it more explicit. If you accidentally have an asset match, it won't be clear why a particular price feed was being used.
+
+The correct mental model is:
+
+- config block defines a pricing strategy. Asset discovery happens at runtime.
+
+The confusing part was NOT that the assetSelectors returns ONE asset. It can return ANY number of assets that should ALL be priced via the same strategy.
+Ex: coingecko price feed means we will price likely the 1 asset that represents that token
+Ex: univ3 price feed will match on every single nft position and then each asset address will use the univ3 nav pricer. We want to make sure that it matches on the pool address since we define in terms of one asset.
+
+Key insight: each trackable instance needs to resolve pricing to a single asset BUT multiple assets can be matched to that one asset. For example, univ3 pool means each nft of that pool (each nft is diff asset) but we want to price them all via the same strategy that where token1 of the pool is in WETH.
+
+Claude Summary:
+
+## Mental Model Clarification
+
+### The Core Structure
+
+```
+Trackable Instance
+  ↓
+defines pricing in terms of → Reference Asset (the "pricing subject")
+  ↓
+matches/applies to → Matched Assets (the "things that need prices")
+```
+
+### Key Insight (Restated)
+
+**One trackable instance = one pricing strategy = one reference asset**
+**But that strategy can apply to MANY matched assets**
+
+The reference asset defines **how** to price (e.g., "price token1 of this UniV3 pool via CoinGecko WETH feed").
+The matched assets define **what** needs those prices (e.g., NFT #42, NFT #108, NFT #299 from that pool).
+
+---
+
+## Examples
+
+### Example 1: ERC20 Swap (Simple Case)
+
+```json
+{
+  "params": { "poolAddress": "0x..." },
+  "assetSelectors": { "swapLegAddress": "0xWETH" },
+  "pricing": { "priceFeed": { "kind": "coingecko", "coinId": "weth" } }
+}
+```
+
+- **Reference asset**: `0xWETH` (the thing we're defining pricing for)
+- **Matched assets**: `[0xWETH]` (just one—the same token)
+- **Strategy**: CoinGecko WETH feed
+
+**Mental model**: The reference asset and matched assets are the same because ERC20 tokens don't have sub-instances.
+
+---
+
+### Example 2: UniV3 LP (Complex Case)
+
+```json
+{
+  "params": { "poolAddress": "0xUNIV3_WETH_USDC" },
+  "pricing": {
+    "assetType": "univ3-lp",
+    "navPricing": {
+      "token0": { "priceFeed": { "kind": "coingecko", "coinId": "weth" } },
+      "token1": { "priceFeed": { "kind": "pegged", "usdPegValue": 1 } }
+    }
+  }
+}
+```
+
+- **Reference asset**: The pool itself (conceptually: "a position in WETH/USDC pool")
+- **Matched assets**: `[NFT #42, NFT #108, NFT #299, ...]` (all NFTs for this pool)
+- **Strategy**: UniV3 NAV pricer using WETH CoinGecko + USDC peg
+
+**Mental model**:
+
+- The pricing strategy is defined **once** in terms of the pool's tokens
+- But it gets **applied** to every NFT that represents a position in that pool
+- Each NFT is a different asset address, but they all use the same strategy
+
+---
+
+## The Indirection Chain
+
+```
+Config Block
+  ↓ defines
+Pricing Strategy (references pool's token0/token1)
+  ↓ applies to
+Matched Assets (NFT #42, #108, #299...)
+  ↓ each needs
+Handler invocation: resolve(strategyId, nftAddress, block)
+  ↓ which internally
+Looks up pool for that NFT → gets token0/token1 → prices them → calculates NAV
+```
+
+---
+
+## Why This Model Works
+
+### 1. **Pricing is defined once, applied many times**
+
+- You configure the strategy **once** (e.g., "price this pool's positions using WETH feed")
+- The system discovers **N assets** (NFTs) that need that strategy
+- The handler is invoked **N times** with different asset addresses
+
+### 2. **The handler needs the asset address**
+
+```typescript
+resolve(pricingHandlerId, assetAddress, block);
+```
+
+- For NFTs, `assetAddress` is the NFT token ID
+- The handler looks up: "which pool does this NFT belong to?"
+- Then applies the pool's pricing strategy (already captured in `pricingHandlerId`)
+
+### 3. **Asset selectors vs params**
+
+- **`params`**: Define what trackable instance we're configuring (e.g., which pool)
+- **`assetSelectors`**: Define which assets within that instance to price (for swaps: which leg; for LPs: implicit—all NFTs)
+
+---
+
+## Reconciling Your Original Confusion
+
+> "Each trackable instance needs to resolve pricing to a single asset BUT multiple assets can be matched to that one asset"
+
+**Reframed**: Each trackable instance defines a pricing strategy in terms of **one reference context** (e.g., a pool), but that strategy **applies to multiple matched assets** (e.g., NFTs).
+
+The "single asset" is not literally one asset address—it's one **pricing definition** (one strategy). The matched assets are the actual things that get priced using that strategy.
+
+# Checklist
+
+- Identify where the engine currently assumes one asset per trackable instance
+- Modify registration to store `(trackableInstanceId, asset) → pricingHandlerId` mapping
+- Update backfill to iterate over all registered `(trackableInstance, asset)` pairs
+- Ensure handlers receive the specific asset address when invoked
+
+---
+
+## Current Problem in the Engine
+
+The engine registers pricing handlers per **trackable instance** but doesn't account for the fact that:
+
+1. Multiple assets can be emitted for the same trackable instance (e.g., both sides of a swap)
+2. The pricing handler needs the specific **asset address** to resolve pricing
+
+Looking at this code:
+
+```typescript
+// Track asset for pricing for token_based actions with pricing configured
+let pricingHandlerId: string | undefined;
+if (quantityType === 'token_based' && e.trackableInstance.pricing !== undefined) {
+  pricingHandlerId = await this.registerPricingHandler(e.trackableInstance.pricing);
+}
+```
+
+**Issue**: This registers the handler once per trackable instance, but doesn't associate it with the specific asset being emitted.
+
+---
+
+## Proposed Changes
+
+### 1. Change Registration Model
+
+**Before**: `pricingHandlerId` stored per event
+**After**: Register `(trackableInstanceId, asset) → pricingHandlerId` in Redis
+
+```typescript
+/**
+ * Register an asset for pricing under a specific trackable instance.
+ * This allows multiple assets to share the same pricing strategy.
+ */
+private async registerAssetForPricing(
+  trackableInstanceId: string,
+  asset: string,
+  pricingConfig: AssetConfig
+): Promise<string> {
+  const pricingHandlerId = generatePricingHandlerId(pricingConfig);
+
+  // Store the pricing config (if not already stored)
+  const handlerKey = `pricing:handler:${pricingHandlerId}`;
+  await this.redis.setnx(handlerKey, JSON.stringify(pricingConfig));
+  await this.redis.sadd('pricing:handlers:registry', pricingHandlerId);
+
+  // Register the (trackableInstance, asset) → handler mapping
+  const registryKey = `pricing:assets:${trackableInstanceId}`;
+  await this.redis.hset(registryKey, asset, pricingHandlerId);
+
+  return pricingHandlerId;
+}
+```
+
+### 2. Update `applyAction` to Register Per Asset
+
+```typescript
+private async applyAction<T extends UnifiedBase>(e: ActionEvent, d: T): Promise<void> {
+  const quantityType = e.trackableInstance.quantityType;
+
+  // Track asset for pricing for token_based actions with pricing configured
+  let pricingHandlerId: string | undefined;
+  if (quantityType === 'token_based' && e.trackableInstance.pricing !== undefined) {
+    const asset = (e as any).asset;
+
+    // Generate a stable trackable instance ID
+    const trackableInstanceId = this.generateTrackableInstanceId(e.trackableInstance);
+
+    // Register this specific asset for this trackable instance
+    pricingHandlerId = await this.registerAssetForPricing(
+      trackableInstanceId,
+      asset,
+      e.trackableInstance.pricing
+    );
+  }
+
+  // ... rest of the function remains the same
+}
+```
+
+### 3. Update `applyBalanceDelta` Similarly
+
+```typescript
+private async applyBalanceDelta<T extends UnifiedBase>(
+  e: BalanceDelta,
+  d: T,
+  ti: InstanceFrom<TrackableDef>,
+  reason: WindowReason,
+) {
+  // ... existing code ...
+
+  // Track the asset in Redis if this trackable is priceable
+  let pricingHandlerId: string | undefined;
+  if (ti.pricing !== undefined) {
+    const trackableInstanceId = this.generateTrackableInstanceId(ti);
+    pricingHandlerId = await this.registerAssetForPricing(
+      trackableInstanceId,
+      e.asset,
+      ti.pricing
+    );
+  }
+
+  // ... rest of the function remains the same
+}
+```
+
+### 4. Add Helper to Generate Trackable Instance ID
+
+```typescript
+/**
+ * Generate a stable ID for a trackable instance based on its configuration.
+ * This ID uniquely identifies a pricing strategy scope.
+ */
+private generateTrackableInstanceId(ti: InstanceFrom<TrackableDef>): string {
+  // Hash the trackable instance's identifying properties
+  // For UniV3: adapterId + kind + poolAddress
+  // For Swap: adapterId + kind + poolAddress + swapLegAddress (from assetSelectors)
+  const key = JSON.stringify({
+    adapterId: ti.adapterId,
+    kind: ti.kind,
+    params: ti.params,
+    // Include assetSelectors if present (for swaps)
+    ...(ti.assetSelectors && { assetSelectors: ti.assetSelectors }),
+  });
+  return md5Hash(key);
+}
+```
+
+### 5. Update Backfill to Handle Multiple Assets per Trackable
+
+In `pricing-backfill.ts`, the backfill needs to:
+
+1. Scan all registered trackable instances
+2. For each trackable, get all its registered assets
+3. Price each asset using its handler
+
+```typescript
+// In pricing-backfill.ts
+export async function backfillPriceDataForBatch(blocks, deps) {
+  // Get all registered trackable instances
+  const trackableKeys = await deps.redis.keys('pricing:assets:*');
+
+  for (const trackableKey of trackableKeys) {
+    const trackableInstanceId = trackableKey.replace('pricing:assets:', '');
+
+    // Get all assets registered for this trackable instance
+    const assetToPricingHandler = await deps.redis.hgetall(trackableKey);
+
+    // Price each asset
+    for (const [asset, pricingHandlerId] of Object.entries(assetToPricingHandler)) {
+      const pricingConfig = await getPricingHandler(pricingHandlerId, deps.redis);
+
+      for (const block of blocks) {
+        await pricePricingHandler(
+          pricingHandlerId,
+          pricingConfig,
+          asset, // ← Pass the specific asset
+          block.header.timestamp,
+          block,
+          deps,
+        );
+      }
+    }
+  }
+}
+```
+
+---
+
+## Key Changes Summary
+
+| **Aspect**             | **Before**                  | **After**                                                     |
+| ---------------------- | --------------------------- | ------------------------------------------------------------- |
+| **Registration**       | Per trackable instance      | Per `(trackableInstance, asset)` pair                         |
+| **Redis Structure**    | `pricing:handler:{id}`      | `pricing:assets:{trackableId}` → hash of `{asset: handlerId}` |
+| **Handler Invocation** | `resolve(handlerId, block)` | `resolve(handlerId, asset, block)`                            |
+| **Backfill**           | One price per trackable     | One price per asset per trackable                             |
+
+---
+
+## Validation
+
+✅ **Multiple assets per trackable**: Swap emits two assets → both registered under same trackable
+✅ **Same pricing strategy**: Both assets use the same `pricingHandlerId` (derived from trackable config)
+✅ **Handler gets asset context**: Backfill passes specific asset address to handler
+✅ **No duplicate registration**: `hset` ensures each asset is registered once per trackable
+
+**Proceed?** This allows the engine to track multiple assets per trackable instance while maintaining a single pricing strategy definition.

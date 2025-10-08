@@ -76,7 +76,7 @@ async function main() {
 
   // create redis connection (ioredis auto-connects)
   // Use the same configHash to prefix Redis
-  const keyPrefix = configHash.slice(0, 6) + ':';
+  const keyPrefix = configHash + ':';
   const stateDir = deriveStateDirFromHash(configHash);
   const redis = new Redis(appCfg.redisUrl, { keyPrefix, maxRetriesPerRequest: 5 });
 
