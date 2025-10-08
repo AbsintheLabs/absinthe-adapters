@@ -47,11 +47,13 @@ async function processSwap(
   );
   const valueUsd = analysis.displayAmount * solanaPriceInUsd;
 
-  let outputWalletOwner = null;
-  outputWalletOwner = await getOwnerFromTokenAccount(analysis.outputWallet, connection);
-  if (!outputWalletOwner) {
-    outputWalletOwner = analysis.payer;
-  }
+  const outputWalletOwner = analysis.payer;
+
+  // let outputWalletOwner = null;
+  // outputWalletOwner = await getOwnerFromTokenAccount(analysis.outputWallet, connection);
+  // if (!outputWalletOwner) {
+  //   outputWalletOwner = analysis.payer;
+  // }
 
   const transactionSchema = {
     eventType: MessageType.TRANSACTION,
