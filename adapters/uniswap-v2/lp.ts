@@ -21,7 +21,7 @@ export async function handleLpTransfer(
   await emitFns.position.balanceDelta({
     user: decoded.from.toLowerCase(),
     asset: poolAddress,
-    amount: new Big(decoded.value.toString()).neg(),
+    amount: -decoded.value,
     activity: 'hold',
     trackableInstance: instance,
   });
@@ -29,7 +29,7 @@ export async function handleLpTransfer(
   await emitFns.position.balanceDelta({
     user: decoded.to.toLowerCase(),
     asset: poolAddress,
-    amount: new Big(decoded.value.toString()),
+    amount: decoded.value,
     activity: 'hold',
     trackableInstance: instance,
   });

@@ -61,7 +61,7 @@ export async function handleSwap(
       activity: 'swap',
       user,
       asset,
-      amount: new Big(amount.toString()),
+      amount: amount,
       trackableInstance: instance,
       meta: swapMeta,
     });

@@ -16,12 +16,14 @@ import { InstanceFrom, TrackableDef } from './manifest.ts';
 
 // TWB RELATED TYPES
 
+type Numberish = string | bigint;
+
 export type MetadataValue = number | string;
 
 export type BalanceDelta = {
   user: string;
   asset: string;
-  amount: Big;
+  amount: Numberish;
   activity: Activity;
   trackableInstance: InstanceFrom<TrackableDef>;
   // only support primitive types for metadata with flat structure
@@ -42,7 +44,7 @@ export type PositionStatusChange = {
 export type MeasureDelta = {
   asset: string; // e.g., "erc721:<PM>:<tokenId>"
   metric: string; // "liquidity" | "debt" | "shares" | ...
-  delta: Big; // bigint or decimal string
+  delta: Numberish; // bigint or decimal string
   // optional for direct attribution; can be resolved later
   user?: string;
 };
@@ -94,7 +96,7 @@ export type ActionEventBase = {
 
 export type ActionTokenBased = ActionEventBase & {
   asset: string;
-  amount: Big;
+  amount: Numberish;
 };
 
 export type ActionCount = ActionEventBase & { amount: Big };

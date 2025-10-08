@@ -422,7 +422,8 @@ export class Engine {
     const lastUpdateCtx = lastUpdateCtxStr ? JSON.parse(lastUpdateCtxStr) : {};
 
     // Calculate new balance after applying this delta
-    const newAmount = previousAmount.plus(e.amount);
+    const amt = new Big(e.amount.toString());
+    const newAmount = previousAmount.plus(amt);
 
     // ALWAYS update the balance state (even if inactive)
     await this.redis.hset(balanceKey, {
@@ -586,7 +587,8 @@ export class Engine {
     const [amountStr] = await this.redis.hmget(measureKey, Engine.MEASURE_FIELDS.AMOUNT);
 
     const previousAmount = new Big(amountStr || '0');
-    const newAmount = previousAmount.plus(e.delta);
+    const delta = new Big(e.delta.toString());
+    const newAmount = previousAmount.plus(delta);
 
     // Store the delta for historical reconstruction (indexed by height)
     await this.redis.zadd(`${measureKey}:d`, d.height, e.delta.toString());
@@ -850,8 +852,8 @@ export class Engine {
           // data cleaning
           if (this.indexerMode === 'evm') {
             e.user = e.user.toLowerCase();
-            if ('asset' in e && (e as any).asset) {
-              (e as any).asset = (e as any).asset.toLowerCase();
+            if ('asset' in e && e.asset) {
+              e.asset = e.asset.toLowerCase();
             }
           }
           await this.applyAction(e, d);
@@ -870,12 +872,7 @@ export class Engine {
           await this.applyBalanceDelta(e, d, e.trackableInstance, reason);
         },
         positionUpdate: (e: PositionUpdate) =>
-          this.applyBalanceDelta(
-            { ...e, amount: new Big(0) },
-            d,
-            e.trackableInstance,
-            'POSITION_REVALUED',
-          ),
+          this.applyBalanceDelta({ ...e, amount: 0n }, d, e.trackableInstance, 'POSITION_REVALUED'),
         reprice: (e: Reprice) => this.applyReprice(e, d),
         positionStatusChange: async (e: PositionStatusChange) => {
           // data cleaning

@@ -55,14 +55,14 @@ export default defineAdapter({
         await emitFns.position.balanceDelta({
           user: from,
           asset: assetAddress,
-          amount: new Big(value.toString()).neg(),
+          amount: -value,
           activity: 'hold',
           trackableInstance: instance,
         });
         await emitFns.position.balanceDelta({
           user: to,
           asset: assetAddress,
-          amount: new Big(value.toString()),
+          amount: value,
           activity: 'hold',
           trackableInstance: instance,
         });
