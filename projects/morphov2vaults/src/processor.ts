@@ -27,7 +27,6 @@ const earliestFromBlock = morphoStakingProtocol.fromBlock;
 
 export const processor = new EvmBatchProcessor()
   .setGateway(morphoStakingProtocol.gatewayUrl)
-  .setRpcEndpoint(morphoStakingProtocol.rpcUrl)
   .setBlockRange({
     from: earliestFromBlock,
     ...(morphoStakingProtocol.toBlock !== 0 ? { to: Number(morphoStakingProtocol.toBlock) } : {}),

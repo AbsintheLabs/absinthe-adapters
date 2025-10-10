@@ -143,6 +143,7 @@ export class MorphoStakingProcessor {
     log: any,
     protocolState: ProtocolStateMorpho,
   ): Promise<void> {
+    //todo: we should actually subtract and add the shares instead of adding/subtracting the assets - tested locally (not pushing) - we will cover this in new adapter architecture
     if (log.topics[0] === morphoAbi.events.Supply.topic) {
       await this.processSupplyEvent(ctx, block, log, protocolState);
     }
@@ -206,6 +207,7 @@ export class MorphoStakingProcessor {
     );
     const usdValue = pricePosition(tokenPrice, supplyAssets, tokenMetadata.decimals);
 
+    //todo: we should actually subtract and add the shares instead of adding/subtracting the assets - tested locally (not pushing) - we will cover this in new adapter architecture
     const newHistoryWindows = processValueChangeBalances({
       from: ZERO_ADDRESS,
       to: onBehalf,

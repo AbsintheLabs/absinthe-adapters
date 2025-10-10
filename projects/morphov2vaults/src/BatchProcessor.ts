@@ -168,6 +168,7 @@ export class MorphoStakingProcessor {
       await this.processForceDeallocateEvent(ctx, block, log, protocolState, vaultAddress);
     }
   }
+  //todo: we should actually subtract and add the shares instead of adding/subtracting the assets - tested locally (not pushing) - we will cover this in new adapter architecture
   private async processTransferEvent(
     ctx: any,
     block: any,

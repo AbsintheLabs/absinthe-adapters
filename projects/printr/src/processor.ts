@@ -22,7 +22,6 @@ if (!printrBondingCurveProtocol) {
 const earliestFromBlock = printrBondingCurveProtocol.fromBlock;
 export const processor = new EvmBatchProcessor()
   .setGateway(printrBondingCurveProtocol.gatewayUrl)
-  .setRpcEndpoint(printrBondingCurveProtocol.rpcUrl)
   .setBlockRange({
     from: earliestFromBlock,
     ...(printrBondingCurveProtocol.toBlock != 0
