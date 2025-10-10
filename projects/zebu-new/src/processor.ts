@@ -27,7 +27,6 @@ export function createProcessor(clients: ZebuClientConfigWithChain[]) {
 
   return new EvmBatchProcessor()
     .setGateway(clients[0].gatewayUrl)
-    .setRpcEndpoint(clients[0].rpcUrl)
     .setBlockRange({
       from: fromBlock,
     })
