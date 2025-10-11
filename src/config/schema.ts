@@ -208,6 +208,13 @@ const Common = z.object({
     config: z.unknown(), // Will be validated against the adapter's manifest
   }),
   pricingRange: PricingRange.optional(), // Optional pricing range - defines when to apply pricing
+  excludeContractAccounts: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe(
+      'Filter out protocol contracts, keeping only human-controlled accounts (EOAs, EIP-7702, ERC-4337)',
+    ),
 });
 
 // EVM-only
@@ -222,7 +229,7 @@ const EvmCfg = z.object({
   }),
   range: z.object({
     fromBlock: z.number().int().nonnegative(),
-    toBlock: z.number().int().nonnegative().optional(),
+    toBlock: z.number().int().positive().optional(),
   }),
 });
 

@@ -6,19 +6,20 @@ import { addTWBEventType } from '../base/add-event-type.ts';
 import { addChainMetadata } from '../base/add-chain-metadata.ts';
 import { enrichAssetMetadata } from '../pricing/asset-metadata.ts';
 
-import { requireShape } from '../core.ts';
-import { pipeline } from '../pipeline-overloads.ts';
+import { Pipe, requireShape } from '../core.ts';
 import { RawWindow } from '../../types/enrichment.ts';
 
-// Any object that extends position base can be enriched with this pipeline
-export const windowsPipeline = <T extends RawWindow>() =>
-  pipeline(
-    requireShape<T>(),
-    addRunnerMeta(),
-    addChainMetadata(),
-    enrichAssetMetadata(),
-    addTWBEventType(),
-    addProtocolMetadata(),
-    addWindowComputations(),
-    addAdapterProtocolMeta(),
-  );
+/**
+ * Window enrichment pipeline.
+ *
+ * Uses the composable Pipe API for type-safe enrichment chains.
+ */
+export const windowsPipeline = () =>
+  Pipe.start(requireShape<RawWindow>())
+    .pipe(addRunnerMeta())
+    .pipe(addChainMetadata())
+    .pipe(enrichAssetMetadata())
+    .pipe(addTWBEventType())
+    .pipe(addProtocolMetadata())
+    .pipe(addWindowComputations())
+    .pipe(addAdapterProtocolMeta());

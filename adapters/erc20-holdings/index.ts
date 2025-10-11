@@ -1,7 +1,6 @@
 // Registry imports
 import { Manifest, evmAddress } from '../../src/types/manifest.ts';
 import { metadata } from './metadata.ts';
-import Big from 'big.js';
 
 // Protocol ABI imports
 import * as erc20Abi from './abi-types/erc20.ts';
@@ -38,14 +37,6 @@ export default defineAdapter({
           topic0: [transferTopic],
         }),
 
-      /**
-       * onLog: Process each matching log event
-       *
-       * This is the hot path - runs for every matching event.
-       * Use emitFns to output Balance/Measure/Action/Reprice events.
-       * Use redis for caching data you need across events.
-       * Use sqdRpcCtx for making contract calls (expensive - cache results!).
-       */
       onLog: async ({ log, emitFns }) => {
         const { from, to, value } = erc20Abi.events.Transfer.decode(log);
         const assetAddress = log.address;

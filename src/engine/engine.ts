@@ -7,7 +7,12 @@ import dotenv from 'dotenv';
 import { logger } from '../utils/logger.ts';
 import { EVM_NULL_ADDRESS } from '../utils/constants.ts';
 import { Sink } from '../sinks/index.ts';
-import { RedisTSCache, RedisMetadataCache, RedisHandlerMetadataCache } from '../cache/index.ts';
+import {
+  RedisTSCache,
+  RedisMetadataCache,
+  RedisHandlerMetadataCache,
+  RedisEoaDetector,
+} from '../cache/index.ts';
 import { PricingEngine } from './pricing-engine.ts';
 import { AppConfig, AssetConfig } from '../config/schema.ts';
 import { WindowReason } from '../types/adapter.ts';
@@ -27,7 +32,6 @@ import { ProcessorContext } from '../eprocessorBuilder.ts';
 import { EngineDeps } from '../main.ts';
 import { BuiltAdapter } from '../adapter-core.ts';
 import { windowsPipeline } from '../enrichers/pipelines/window-pipeline.ts';
-import { runBatch } from '../enrichers/run-batch.ts';
 import { transformSqdLogToUnified, transformSqdTransactionToUnified } from '../transforms/evm.ts';
 import { getRuntime } from '../runtime/context.ts';
 import { ensureTransactionDataForLogs as addTransactionDataForSqdLogs } from './processor-utils.ts';
@@ -79,6 +83,7 @@ export class Engine {
   private priceCache: RedisTSCache;
   private metadataCache: RedisMetadataCache;
   private handlerMetadataCache: RedisHandlerMetadataCache;
+  private eoaDetector: RedisEoaDetector;
   private pricingEngine: PricingEngine;
   private ctx: ProcessorContext;
   private appCfg: AppConfig;
@@ -106,6 +111,7 @@ export class Engine {
     this.priceCache = new RedisTSCache(this.redis);
     this.metadataCache = new RedisMetadataCache(this.redis);
     this.handlerMetadataCache = new RedisHandlerMetadataCache(this.redis);
+    this.eoaDetector = new RedisEoaDetector(this.redis, this.appCfg.network.rpcUrl);
   }
 
   /**
@@ -223,9 +229,12 @@ export class Engine {
       metadataCache: this.metadataCache,
       handlerMetadataCache: this.handlerMetadataCache,
       redis: this.redis,
+      eoaDetector: this.eoaDetector,
+      appCfg: this.appCfg,
     };
 
-    const enrichedEvents = await runBatch(this.events, actionPipeline(), enrichCtx);
+    const pipeline = actionPipeline();
+    const enrichedEvents = await pipeline.runBatch(this.events, enrichCtx);
     this.enrichedEvents = enrichedEvents;
   }
 
@@ -241,10 +250,13 @@ export class Engine {
       metadataCache: this.metadataCache,
       handlerMetadataCache: this.handlerMetadataCache,
       redis: this.redis,
+      eoaDetector: this.eoaDetector,
+      appCfg: this.appCfg,
     };
 
     logger.debug(`about to enrich windows: ${this.windows.length}`);
-    const enrichedWindows = await runBatch(this.windows, windowsPipeline(), enrichCtx);
+    const pipeline = windowsPipeline();
+    const enrichedWindows = await pipeline.runBatch(this.windows, enrichCtx);
     this.enrichedWindows = enrichedWindows;
   }
 

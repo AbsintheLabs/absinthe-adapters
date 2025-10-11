@@ -6,12 +6,22 @@ import { HandlerMetadataCache } from '../types/pricing.ts';
 export class RedisHandlerMetadataCache implements HandlerMetadataCache {
   constructor(private redis: Redis) {}
 
+  /**
+   * Generate the full Redis key including keyPrefix.
+   * redis.call() bypasses ioredis's automatic keyPrefix, so we must manually include it.
+   */
   private key(handlerName: string, key: string) {
-    return `handlerMeta:${handlerName}:${key}`;
+    const prefix = this.redis?.options?.keyPrefix ?? '';
+    return `${prefix}handlerMeta:${handlerName}:${key}`;
   }
 
+  /**
+   * Generate the handler prefix pattern for scanning keys.
+   * Must include the keyPrefix since redis.call() bypasses automatic prefixing.
+   */
   private handlerPrefix(handlerName: string) {
-    return `handlerMeta:${handlerName}:*`;
+    const prefix = this.redis?.options?.keyPrefix ?? '';
+    return `${prefix}handlerMeta:${handlerName}:*`;
   }
 
   async set(handlerName: string, key: string, data: any): Promise<void> {
@@ -46,7 +56,8 @@ export class RedisHandlerMetadataCache implements HandlerMetadataCache {
 
   // Measure-specific methods
   async getMeasureAtHeight(asset: string, metric: string, height: number): Promise<string | null> {
-    const baseKey = `meas:${asset}:${metric}`;
+    const prefix = this.redis?.options?.keyPrefix ?? '';
+    const baseKey = `${prefix}meas:${asset}:${metric}`;
 
     // Start from initial state (0)
     let amt = BigInt(0);
@@ -67,12 +78,13 @@ export class RedisHandlerMetadataCache implements HandlerMetadataCache {
     metric: string,
     height: number,
   ): Promise<{ value: string; height: number } | null> {
-    const baseKey = `meas:${asset}:${metric}`;
+    const prefix = this.redis?.options?.keyPrefix ?? '';
+    const baseKey = `${prefix}meas:${asset}:${metric}`;
 
     // For now, just return the current state as the "snapshot"
     // TODO: Implement proper snapshot mechanism if needed
-    const amount = (await this.redis.hget(baseKey, 'amount')) as string | null;
-    const updatedHeight = (await this.redis.hget(baseKey, 'updatedHeight')) as string | null;
+    const amount = await this.redis.hget(baseKey, 'amount');
+    const updatedHeight = await this.redis.hget(baseKey, 'updatedHeight');
 
     if (!amount || !updatedHeight) return null;
 

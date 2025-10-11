@@ -15,6 +15,8 @@ import { MetadataCache, PriceCacheTS, HandlerMetadataCache } from './pricing.ts'
 import { Activity } from './core.ts';
 import { WindowReason } from './adapter.ts';
 import { QuantityType } from './manifest.ts';
+import type { EoaDetector } from '../cache/index.ts';
+import type { AppConfig } from '../config/schema.ts';
 
 /*
 each enricher is stateless and operates on a single item at a time so it's very easy to reason about and test.
@@ -154,7 +156,6 @@ export interface RawAction {
   activity: Activity;
   meta?: Record<string, any>;
 
-  // Window timing (universal)
   ts: number;
   height: number;
   value: string;
@@ -249,6 +250,8 @@ export interface EnrichmentContext {
   metadataCache: MetadataCache;
   handlerMetadataCache: HandlerMetadataCache;
   redis: Redis;
+  eoaDetector?: EoaDetector;
+  appCfg?: AppConfig;
 }
 
 // ------------------------------------------------------------

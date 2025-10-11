@@ -16,29 +16,21 @@ export type BaseProcessor = EvmBatchProcessor;
 // export type BaseProcessor = EvmBatchProcessor | SolanaBatchProcessor; // Future: support both
 
 export function buildBaseSqdProcessor(cfg: AppConfig) {
-  // export function buildBaseSqdProcessor(cfg: AppConfig): typeof EvmBatchProcessor | typeof SolanaBatchProcessor {
-  // if (cfg.kind === 'evm') {
   const p = new EvmBatchProcessor()
     .setGateway(cfg.network.gatewayUrl)
-    .setRpcEndpoint(cfg.network.rpcUrl)
     .setFinalityConfirmation(cfg.network.finality)
-    .includeAllBlocks() // needed for proper price backfilling
+    //xxx: can we avoid this? it's slow, wasteful, and couples us to sqd mechanics
+    // if there's a way where we are not tied to all the blocks, then we should do that
+    .includeAllBlocks() // needed for proper price backfilling.
     .setBlockRange({
       from: cfg.range.fromBlock,
       ...(cfg.range.toBlock ? { to: cfg.range.toBlock } : {}),
     });
 
-  // for (const l of cfg.subscriptions.logs)
-  //   p.addLog({
-  //     address: l.addresses,
-  //     ...(adapterTopic0s && adapterTopic0s.length > 0 ? { topic0: adapterTopic0s } : {}),
-  //   });
-
-  // for (const t of cfg.subscriptions.functionCalls)
-  //   p.addTransaction({
-  //     to: t.to,
-  //     sighash: t.sighash,
-  //   });
+  // only set rpc url if it is provided in the config
+  // if (cfg.network.rpcUrl) p.setRpcEndpoint(cfg.network.rpcUrl);
+  // note: right now, we always require the rpc url to be set, even if we don't use it
+  p.setRpcEndpoint(cfg.network.rpcUrl);
 
   p.setFields({
     log: {
@@ -58,17 +50,6 @@ export function buildBaseSqdProcessor(cfg: AppConfig) {
   });
 
   return p;
-  // }
-
-  // Solana branch (outline)
-  // const s = new SolanaBatchProcessor()
-  //   .setGateway(cfg.network.gatewayUrl)
-  //   .setRpcEndpoint({ url: cfg.network.rpcUrl, commitment: cfg.network.commitment })
-  //   .setSlotRange({ from: cfg.range.fromSlot, ...(cfg.range.toSlot ? { to: cfg.range.toSlot } : {}) });
-  // for (const prog of cfg.subscriptions.programs) s.addProgram(prog);
-  // for (const ix of cfg.subscriptions.instructions) s.addInstruction(ix);   // track instructions  [oai_citation:11‡docs.sqd.dev](https://docs.sqd.dev/solana-indexing/sdk/solana-batch/instructions/?utm_source=chatgpt.com)
-  // for (const lg of cfg.subscriptions.logs) s.addLogMessages(lg);
-  // return s;
 }
 
 export type Fields = EvmBatchProcessorFields<typeof buildBaseSqdProcessor>;

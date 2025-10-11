@@ -83,13 +83,13 @@ export function twaFromSamples(
   }
 
   let area = 0;
-  let coveredStart = t0;
+  const coveredStart = t0;
 
   // Walk through in-window samples
   for (; idx < points.length; idx++) {
     const { timestamp: ti, value: vi } = points[idx];
     const dt = Math.max(0, Math.min(ti, end) - t0);
-    if (dt > 0) area += dt * (v0 as number);
+    if (dt > 0) area += dt * v0;
     if (ti >= end) {
       // next sample is beyond end; we'll finish below
       t0 = end;
