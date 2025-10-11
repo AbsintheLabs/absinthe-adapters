@@ -7,11 +7,16 @@
 
 import { z } from 'zod';
 
+import type { EoaDetector } from '../cache/index.ts';
+import type { AppConfig } from '../config/schema.ts';
+
 export type EnrichmentContext = {
   priceCache?: any;
   metadataCache?: any;
   handlerMetadataCache?: any;
   redis?: any;
+  eoaDetector?: EoaDetector;
+  appCfg?: AppConfig;
 };
 
 export type Enricher<I, O> = (item: I, ctx: EnrichmentContext) => O | Promise<O>;

@@ -7,7 +7,12 @@ import dotenv from 'dotenv';
 import { logger } from '../utils/logger.ts';
 import { EVM_NULL_ADDRESS } from '../utils/constants.ts';
 import { Sink } from '../sinks/index.ts';
-import { RedisTSCache, RedisMetadataCache, RedisHandlerMetadataCache } from '../cache/index.ts';
+import {
+  RedisTSCache,
+  RedisMetadataCache,
+  RedisHandlerMetadataCache,
+  RedisEoaDetector,
+} from '../cache/index.ts';
 import { PricingEngine } from './pricing-engine.ts';
 import { AppConfig, AssetConfig } from '../config/schema.ts';
 import { WindowReason } from '../types/adapter.ts';
@@ -78,6 +83,7 @@ export class Engine {
   private priceCache: RedisTSCache;
   private metadataCache: RedisMetadataCache;
   private handlerMetadataCache: RedisHandlerMetadataCache;
+  private eoaDetector: RedisEoaDetector;
   private pricingEngine: PricingEngine;
   private ctx: ProcessorContext;
   private appCfg: AppConfig;
@@ -105,6 +111,7 @@ export class Engine {
     this.priceCache = new RedisTSCache(this.redis);
     this.metadataCache = new RedisMetadataCache(this.redis);
     this.handlerMetadataCache = new RedisHandlerMetadataCache(this.redis);
+    this.eoaDetector = new RedisEoaDetector(this.redis, this.appCfg.network.rpcUrl);
   }
 
   /**
@@ -222,6 +229,8 @@ export class Engine {
       metadataCache: this.metadataCache,
       handlerMetadataCache: this.handlerMetadataCache,
       redis: this.redis,
+      eoaDetector: this.eoaDetector,
+      appCfg: this.appCfg,
     };
 
     const pipeline = actionPipeline();
@@ -241,6 +250,8 @@ export class Engine {
       metadataCache: this.metadataCache,
       handlerMetadataCache: this.handlerMetadataCache,
       redis: this.redis,
+      eoaDetector: this.eoaDetector,
+      appCfg: this.appCfg,
     };
 
     logger.debug(`about to enrich windows: ${this.windows.length}`);

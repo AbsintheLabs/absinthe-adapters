@@ -7,8 +7,13 @@ import { MetadataCache } from '../types/pricing.ts';
 export class RedisMetadataCache implements MetadataCache {
   constructor(private redis: Redis) {}
 
+  /**
+   * Generate the full Redis key including keyPrefix.
+   * redis.call() bypasses ioredis's automatic keyPrefix, so we must manually include it.
+   */
   private key(assetKey: string) {
-    return `metadata:${assetKey}`;
+    const prefix = this.redis?.options?.keyPrefix ?? '';
+    return `${prefix}metadata:${assetKey}`;
   }
 
   async get(assetKey: string): Promise<AssetMetadata | null> {

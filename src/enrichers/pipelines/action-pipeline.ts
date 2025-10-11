@@ -6,6 +6,7 @@ import { addChainMetadata } from '../base/add-chain-metadata.ts';
 import { enrichAssetMetadata } from '../pricing/asset-metadata.ts';
 import { addQuantityBasis } from '../pricing/quantity-basis.ts';
 import { calculateQuantity } from '../pricing/quantity-calculator.ts';
+import { excludeContractAccounts } from '../filters/exclude-contracts.ts';
 
 import { Pipe, requireShape, validatePipeline, validateAndPickShape } from '../core.ts';
 import { RawAction } from '../../types/enrichment.ts';
@@ -30,6 +31,7 @@ import { EnrichedAction, EnrichedActionSchema } from '../../types/events.ts';
 export const actionPipeline = () =>
   validatePipeline<RawAction, EnrichedAction>(
     Pipe.start(requireShape<RawAction>())
+      .pipe(excludeContractAccounts())
       .pipe(dedupeActions())
       .pipe(addRunnerMeta())
       .pipe(addChainMetadata())

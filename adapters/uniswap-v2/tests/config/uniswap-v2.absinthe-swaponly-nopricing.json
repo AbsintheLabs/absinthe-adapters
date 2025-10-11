@@ -2,6 +2,7 @@
   "chainArch": "evm",
   "flushInterval": "48h",
   "redisUrl": "${env:REDIS_URL}",
+  "excludeContractAccounts": true,
   "sinkConfig": {
     "sinks": [
       {
