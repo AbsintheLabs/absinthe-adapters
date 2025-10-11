@@ -18,12 +18,14 @@ export async function handleBid(
     data: log.data,
   });
 
+  const bidTokenAddress = (instance as any).assetSelectors?.bidTokenAddress;
+
   // Emit the bid action with the token asset
   await emitFns.action.action({
     key: md5Hash(`${log.txRef}${log.logIndex}`),
     activity: 'bid',
     user: _bidder.toLowerCase(),
-    asset: '',
+    asset: bidTokenAddress.toLowerCase(),
     amount: _bidAmount,
     trackableInstance: instance,
     meta: {

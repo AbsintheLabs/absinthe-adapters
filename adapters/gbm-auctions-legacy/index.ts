@@ -22,7 +22,6 @@ export const manifest: Manifest = {
         auctionContractAddress: evmAddress('The auction contract address to track'),
       },
       assetSelectors: {
-        // Bids need assetSelectors: specify which token is being bid with
         bidTokenAddress: evmAddress('The token being used for bidding'),
       },
     },
@@ -34,7 +33,7 @@ export const manifest: Manifest = {
       },
     },
   },
-} satisfies Manifest;
+};
 
 export default defineAdapter({
   manifest,

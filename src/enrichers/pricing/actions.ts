@@ -8,7 +8,7 @@ import { getPrevSample } from '../utils/timeseries.ts';
  */
 export const enrichActionsWithPrice: ActionEnricher = async (actions, context) => {
   return [];
-  // const out = [];
+  const out = [];
   // for (const a of actions) {
   //   // don't price non-priceable actions
   //   if (!a.priceable) {

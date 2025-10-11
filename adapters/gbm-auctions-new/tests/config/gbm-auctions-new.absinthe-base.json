@@ -23,6 +23,13 @@
   "adapterConfig": {
     "adapterId": "gbm-auctions-new-base",
     "config": {
+      "bid": [
+        {
+          "params": {
+            "auctionContractAddress": "0x5859Ff44A3BDCD00c7047E68B94e93d34aF0fd71"
+          }
+        }
+      ],
       "claim": [
         {
           "params": {
