@@ -229,7 +229,7 @@ const EvmCfg = z.object({
   }),
   range: z.object({
     fromBlock: z.number().int().nonnegative(),
-    toBlock: z.number().int().nonnegative().optional(),
+    toBlock: z.number().int().positive().optional(),
   }),
 });
 
