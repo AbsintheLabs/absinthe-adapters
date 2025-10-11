@@ -1,5 +1,9 @@
 // Asset information interface
-import { AssetType } from '../config/schema.ts';
+import { z } from 'zod';
+import { AssetType, ChainArch } from '../config/schema.ts';
+import { QuantityBasis } from '../enrichers/pricing/quantity-basis.ts';
+import { Activity } from './core.ts';
+import { QuantityType, QuantityTypeSchema } from './manifest.ts';
 
 export interface AssetInfo {
   asset: string; // EVM or Solana address
@@ -15,6 +19,66 @@ export interface RunnerMeta {
   runnerId: string;
   apiKeyHash?: string;
 }
+
+/**
+ * Zod schema for the final enriched action shape.
+ * Single source of truth - both runtime validation and TypeScript type.
+ *
+ * .strip() automatically removes any extra fields not defined in the schema.
+ * This means the pipeline can add temporary fields during enrichment,
+ * and they'll be automatically cleaned up when parsed.
+ */
+export const EnrichedActionSchema = z
+  .object({
+    // Original RawAction fields
+    key: z.string(),
+    user: z.string(),
+    quantityType: QuantityTypeSchema,
+    asset: z.string().optional(),
+    activity: z.string(), // Activity is a union with string fallback
+    // meta is excluded - transformed to metadataJson by addProtocolMetadata
+    ts: z.number(),
+    height: z.number(),
+    value: z.string(),
+    txRef: z.string(),
+    pricingHandlerId: z.string().optional(),
+    ctx: z.record(z.string(), z.any()).optional(),
+
+    // Added by addRunnerMeta
+    // runner_version: z.string(), // Currently commented out
+    runner_commitSha: z.string().optional(),
+    runner_apiKeyHash: z.string().optional(),
+    runner_configHash: z.string(),
+    runner_runnerId: z.string(),
+
+    // Added by addChainMetadata
+    chainId: z.string(),
+    chainShortName: z.string(),
+    chainArch: ChainArch,
+
+    // Added by addActionEventType
+    eventType: z.literal('action'),
+
+    // Added by addProtocolMetadata
+    metadataJson: z.string().optional(),
+
+    // Added by addAdapterProtocolMeta
+    adapter_version: z.string(),
+    // protocol_name: z.string(), // Currently commented out
+
+    // Added by addQuantityBasis
+    quantityBasis: z.enum(['none', 'count', 'monetary_value', 'asset_amount']),
+
+    // Added by calculateQuantity
+    quantity: z.number(),
+  })
+  .strip(); // Automatically remove extra fields
+
+/**
+ * Final enriched action type after all pipeline transformations.
+ * Inferred directly from the Zod schema - single source of truth.
+ */
+export type EnrichedAction = z.infer<typeof EnrichedActionSchema>;
 
 // Common base interface for all events
 export interface BaseEvent {
@@ -33,17 +97,25 @@ export interface BaseEvent {
 
   // valuation
   valuationCurrency: 'usd' | 'eth';
-  valueUsd: number;
+  valueUsd: number | null;
   // priceSource: string;
-  tokenPriceUsd: number | null;
+  assetPriceUsd: number | null;
 
   // price debug info
   priceSampleCount: number;
   pricingMethodLeaf: string;
-  min: number;
-  max: number;
-  mean: number;
-  std: number;
+  // min: number;
+  // max: number;
+  // mean: number;
+  // std: number;
+
+  // time
+  // priceStartTsMs: number;
+  // priceEndTsMs: number;
+
+  // priced position
+  quantity: string; // most important field
+  quantityBasis: string; // 'raw_units', 'scaled_units', 'monetary_value'
 
   // runner metadata
   version: string; // version of the base event
@@ -85,10 +157,6 @@ interface TimeWeightedBalanceEvent extends BaseEvent {
   rawAfter: string;
   rawDelta: string;
 
-  // priced position
-  quantity: string; // most important field
-  quantityBasis: string; // 'raw_units', 'scaled_units', 'monetary_value'
-
   // gas
   startTxGasUsed?: string;
   startTxEffectiveGasPrice?: string;
@@ -102,6 +170,8 @@ interface ActionEvent extends BaseEvent {
   height: bigint;
   txRef: string; // evm tx hash / solana tx hash
   logIndex?: number;
+
+  rawValue: string;
 
   // transaction metadata
   gasUsed?: number;

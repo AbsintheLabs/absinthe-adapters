@@ -27,7 +27,6 @@ import { ProcessorContext } from '../eprocessorBuilder.ts';
 import { EngineDeps } from '../main.ts';
 import { BuiltAdapter } from '../adapter-core.ts';
 import { windowsPipeline } from '../enrichers/pipelines/window-pipeline.ts';
-import { runBatch } from '../enrichers/run-batch.ts';
 import { transformSqdLogToUnified, transformSqdTransactionToUnified } from '../transforms/evm.ts';
 import { getRuntime } from '../runtime/context.ts';
 import { ensureTransactionDataForLogs as addTransactionDataForSqdLogs } from './processor-utils.ts';
@@ -225,7 +224,8 @@ export class Engine {
       redis: this.redis,
     };
 
-    const enrichedEvents = await runBatch(this.events, actionPipeline(), enrichCtx);
+    const pipeline = actionPipeline();
+    const enrichedEvents = await pipeline.runBatch(this.events, enrichCtx);
     this.enrichedEvents = enrichedEvents;
   }
 
@@ -244,7 +244,8 @@ export class Engine {
     };
 
     logger.debug(`about to enrich windows: ${this.windows.length}`);
-    const enrichedWindows = await runBatch(this.windows, windowsPipeline(), enrichCtx);
+    const pipeline = windowsPipeline();
+    const enrichedWindows = await pipeline.runBatch(this.windows, enrichCtx);
     this.enrichedWindows = enrichedWindows;
   }
 

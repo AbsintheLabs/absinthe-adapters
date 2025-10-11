@@ -5,5 +5,6 @@
   },
   "prettier.requireConfig": true,
   "typescript.tsdk": "node_modules/typescript/lib",
-  "chatgpt.commentCodeLensEnabled": false
+  "chatgpt.commentCodeLensEnabled": false,
+  "typescript.experimental.useTsgo": false
 }

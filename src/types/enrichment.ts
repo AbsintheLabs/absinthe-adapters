@@ -154,7 +154,6 @@ export interface RawAction {
   activity: Activity;
   meta?: Record<string, any>;
 
-  // Window timing (universal)
   ts: number;
   height: number;
   value: string;

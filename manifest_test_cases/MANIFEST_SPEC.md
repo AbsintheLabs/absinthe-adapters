@@ -1101,3 +1101,91 @@ export async function backfillPriceDataForBatch(blocks, deps) {
 ✅ **No duplicate registration**: `hset` ensures each asset is registered once per trackable
 
 **Proceed?** This allows the engine to track multiple assets per trackable instance while maintaining a single pricing strategy definition.
+
+---
+
+This now has to do more with the way we do pricing:
+Price fields that are required. Let's start simple:
+
+- quantityBasis
+- quantity
+<!-- - valueUsd (how much is the position worth)
+- tokenPriceUsd (how much is each asset worth)
+- pricingMethodLeaf (how did we price this?) -->
+
+Values for quantityBasis:
+
+- none (nothing at all) -> this count as 1 by default
+- count (just a number)
+- asset_amt (how much of that asset? accounting for decimals)
+- monetary_value (how much is this worth in usd?)
+
+logic for each:
+
+- `quantityBasis`
+  if quantityType = token_based AND pricingHandlerId is defined -> then monetary_value
+  if quantityType = token_based AND pricingHandlerId is not defined -> then asset_amt
+  if quantityType = count -> then count
+  if quantityType = none -> then 1
+
+- `quantity`
+  if quantityType = token_based, then resolve the number of decimals for the asset
+  tokenQuantity = quantity / (10 \*_ decimals)
+  then, if quantityBasis = monetary_value, fetch the twap price for the asset
+  monetary_value = quantity _ assetPriceUsd
+  if quantityBasis = asset_amt
+  asset_amt = tokenQuantity
+
+if count -> then quantity
+if none -> then 1
+
+Easiest way is to define the shape:
+
+```ts
+{
+  user: string;
+  asset: AssetInfo:
+  activity: Activity;
+  meta?: Record<string, any>;
+  ts: number;
+  height: number;
+  value: string;
+  txRef: string;
+  chainCtx?: Record<string, any>;
+  quantity: string;
+  quantityBasis: string;
+  pricingHandlerId?: string;
+}
+```
+
+---
+
+Here's what we need.
+
+I'm building a pipeline in typescript.
+Each of these is an enricher, that is stateless and operates on a single item at a time. This makes it very easy to reason about, and test.
+
+They will do things like:
+
+- dedupe row
+- add runtime information to each row
+- format existing keys
+- delete extraneous keys
+- enrich with token price
+- format metadata in the proper way
+- check if the address is an EOA or contract, and removes the row if it's not
+
+In effect, it's enrichment, filtering, formatting, etc. Any transformations can go through here.
+
+The pipeline has the following gaurantees:
+
+1. It takes in data that fits a certain shape
+2. Each step can be:
+   1. independent (doesn't require any data from the previous step)
+   2. or require a field (which was in the original data shape OR added by a previous step)
+
+At the end, we have to confirm that the data shape after processing fits the end shape of the data.
+
+This way we have full end to end type safety, and if we change the final shape, the pipeline will fail to compile (fail fast which is good!)
+
+The current architecture doesn't seem to be working, can you please help me create a better set of primitives to do this? We are very overdue on the project, and it needs to be done well and explainable to the team.

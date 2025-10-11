@@ -1,6 +1,6 @@
 // config/load.ts
 import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
+import { join, isAbsolute } from 'path';
 import { AppConfig } from './schema.ts';
 import { interpolateStrict } from './secret-interpolate.ts';
 import { EnvSecretSource } from './secret-source.ts';
@@ -20,7 +20,7 @@ async function resolveAndValidate(raw: unknown) {
 export async function loadConfig(filename?: string) {
   // Priority 1: Explicitly provided file path (from command line args)
   if (filename) {
-    const explicitConfigPath = join(process.cwd(), filename);
+    const explicitConfigPath = isAbsolute(filename) ? filename : join(process.cwd(), filename);
     if (existsSync(explicitConfigPath)) {
       try {
         const configContent = readFileSync(explicitConfigPath, 'utf-8');

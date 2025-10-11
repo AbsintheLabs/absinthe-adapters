@@ -71,8 +71,8 @@ export class RedisHandlerMetadataCache implements HandlerMetadataCache {
 
     // For now, just return the current state as the "snapshot"
     // TODO: Implement proper snapshot mechanism if needed
-    const amount = (await this.redis.hget(baseKey, 'amount')) as string | null;
-    const updatedHeight = (await this.redis.hget(baseKey, 'updatedHeight')) as string | null;
+    const amount = await this.redis.hget(baseKey, 'amount');
+    const updatedHeight = await this.redis.hget(baseKey, 'updatedHeight');
 
     if (!amount || !updatedHeight) return null;
 
