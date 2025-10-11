@@ -1,0 +1,61 @@
+{
+  "chainArch": "evm",
+  "flushInterval": "48h",
+  "redisUrl": "${env:REDIS_URL}",
+  "sinkConfig": {
+    "sinks": [
+      {
+        "sinkType": "csv",
+        "path": "gbm-auctions-new-arb.csv"
+      }
+    ]
+  },
+  "network": {
+    "chainId": 8453,
+    "gatewayUrl": "https://v2.archive.subsquid.io/network/base-mainnet",
+    "rpcUrl": "https://base-mainnet.infura.io/v3/e5b6ee7b35c3402a8fc12263c715a1f8",
+    "finality": 75
+  },
+  "range": {
+    "fromBlock": 1451314,
+    "toBlock": 0
+  },
+  "adapterConfig": {
+    "adapterId": "gbm-auctions-new-arb",
+    "config": {
+      "bid": [
+        {
+          "params": {
+            "auctionContractAddress": "0xd7829F0EFC16086a91Cf211CFbb0E4Ef29D16BEE"
+          },
+          "pricing": {
+            "assetType": "coingecko",
+            "priceFeed": {
+              "kind": "coingecko",
+              "coinId": "ethereum"
+            }
+          }
+        },
+        {
+          "params": {
+            "auctionContractAddress": "0x80320A0000C7A6a34086E2ACAD6915Ff57FfDA31"
+          },
+          "pricing": {
+            "assetType": "coingecko",
+            "priceFeed": {
+              "kind": "coingecko",
+              "coinId": "aavegotchi"
+            }
+          }
+        }
+      ],
+      "claim": [
+        {
+          "params": {
+            "auctionContractAddress": "0xd7829F0EFC16086a91Cf211CFbb0E4Ef29D16BEE"
+          }
+        }
+      ]
+    }
+  }
+}
