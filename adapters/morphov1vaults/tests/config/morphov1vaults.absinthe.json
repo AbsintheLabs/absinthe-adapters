@@ -1,0 +1,56 @@
+{
+  "chainArch": "evm",
+  "flushInterval": "48h",
+  "redisUrl": "${env:REDIS_URL}",
+  "sinkConfig": {
+    "sinks": [
+      {
+        "sinkType": "csv",
+        "path": "morpho-vaultsv1.csv"
+      }
+    ]
+  },
+  "network": {
+    "chainId": 1,
+    "gatewayUrl": "https://v2.archive.subsquid.io/network/ethereum-mainnet",
+    "rpcUrl": "https://mainnet.infura.io/v3/e5b6ee7b35c3402a8fc12263c715a1f8",
+    "finality": 75
+  },
+  "range": {
+    "fromBlock": 23289467
+  },
+  "adapterConfig": {
+    "adapterId": "morpho-vaultsv1",
+    "config": {
+      "createMetaMorphoFactory": [
+        {
+          "params": {
+            "factoryAddress": "0x1897A8997241C1cD4bD0698647e4EB7213535c24"
+          }
+        }
+      ],
+      "vaults": [
+        {
+          "params": {
+            "vaultAddress": "0xdcd35020c5bb97016358578131f012baa9f53cf3"
+          },
+          "pricing": {
+            "assetType": "erc20",
+            "priceFeed": {
+              "kind": "morphovaults",
+              "underlyingAsset": {
+                "pricing": {
+                  "assetType": "erc20",
+                  "priceFeed": {
+                    "kind": "coingecko",
+                    "id": "usd-coin"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
