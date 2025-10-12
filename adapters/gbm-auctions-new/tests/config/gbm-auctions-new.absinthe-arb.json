@@ -11,13 +11,13 @@
     ]
   },
   "network": {
-    "chainId": 8453,
-    "gatewayUrl": "https://v2.archive.subsquid.io/network/base-mainnet",
-    "rpcUrl": "https://base-mainnet.infura.io/v3/e5b6ee7b35c3402a8fc12263c715a1f8",
+    "chainId": 42161,
+    "gatewayUrl": "https://v2.archive.subsquid.io/network/arbitrum-mainnet",
+    "rpcUrl": "https://arbitrum-mainnet.infura.io/v3/e5b6ee7b35c3402a8fc12263c715a1f8",
     "finality": 75
   },
   "range": {
-    "fromBlock": 1451314,
+    "fromBlock": 370444915,
     "toBlock": 0
   },
   "adapterConfig": {
@@ -26,25 +26,31 @@
       "bid": [
         {
           "params": {
-            "auctionContractAddress": "0xd7829F0EFC16086a91Cf211CFbb0E4Ef29D16BEE"
+            "auctionContractAddress": "0x7cED531Bb384dE4e70C0A543dBC5707bDB67632a"
+          },
+          "assetSelectors": {
+            "bidTokenAddress": "0xaf88d065e77c8cc2239327c5edb3a432268e5831"
           },
           "pricing": {
-            "assetType": "coingecko",
+            "assetType": "erc20",
             "priceFeed": {
               "kind": "coingecko",
-              "coinId": "ethereum"
+              "id": "usd-coin"
             }
           }
         },
         {
           "params": {
-            "auctionContractAddress": "0x80320A0000C7A6a34086E2ACAD6915Ff57FfDA31"
+            "auctionContractAddress": "0x7cED531Bb384dE4e70C0A543dBC5707bDB67632a"
+          },
+          "assetSelectors": {
+            "bidTokenAddress": "0x82af49447d8a07e3bd95bd0d56f35241523fbab1"
           },
           "pricing": {
-            "assetType": "coingecko",
+            "assetType": "erc20",
             "priceFeed": {
               "kind": "coingecko",
-              "coinId": "aavegotchi"
+              "id": "ethereum"
             }
           }
         }
@@ -52,7 +58,7 @@
       "claim": [
         {
           "params": {
-            "auctionContractAddress": "0xd7829F0EFC16086a91Cf211CFbb0E4Ef29D16BEE"
+            "auctionContractAddress": "0x7cED531Bb384dE4e70C0A543dBC5707bDB67632a"
           }
         }
       ]

@@ -29,12 +29,15 @@ export async function handleClaim(
     return;
   }
 
+  console.log(winner, saleID, saleID.toString());
+
   // Emit the bid action
   await emitFns.action.action({
     key: md5Hash(`${log.txRef}${log.logIndex}`),
     activity: 'claim',
     user: winner.toLowerCase(),
     trackableInstance: instance,
+    amount: 0n,
     meta: {
       saleID: saleID.toString(),
       winner: 'true',

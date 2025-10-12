@@ -1,5 +1,3 @@
-// LP (Liquidity Position) handler for Uniswap V2
-import Big from 'big.js';
 import { UnifiedEvmLog } from '../../src/types/unified-chain-events.ts';
 import { EmitFunctions } from '../../src/types/adapter.ts';
 import * as gbmAbi from './abi/main.ts';
@@ -11,37 +9,19 @@ const currencies = [
   {
     name: 'USDC',
     symbol: 'usd',
-    address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+    address: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
     decimals: 6,
-  },
-  {
-    name: 'MANA',
-    symbol: 'decentraland',
-    address: '0x0000000000000000000000000000000000000000',
-    decimals: 18,
-  },
-  {
-    name: 'SAND',
-    symbol: 'the-sandbox',
-    address: '0x0000000000000000000000000000000000000000',
-    decimals: 18,
   },
   {
     name: 'GHST',
     symbol: 'aavegotchi',
-    address: '0x0000000000000000000000000000000000000000',
-    decimals: 18,
-  },
-  {
-    name: 'RUM',
-    symbol: 'arrland-rum',
-    address: '0x0000000000000000000000000000000000000000',
+    address: '0xcd2f22236dd9dfe2356d7c543161d4d260fd9bcb',
     decimals: 18,
   },
   {
     name: 'WETH',
     symbol: 'ethereum',
-    address: '0x0000000000000000000000000000000000000000',
+    address: '0x4200000000000000000000000000000000000006',
     decimals: 18,
   },
 ];
@@ -74,41 +54,55 @@ export async function handleBid(
     data: log.data,
   });
 
-  let currencyErc20Address: undefined | string;
+  // Get the configured bidTokenAddress from this instance's assetSelectors
+  const configuredBidToken = (instance as any).assetSelectors?.bidTokenAddress?.toLowerCase();
+
+  if (!configuredBidToken) {
+    console.warn(`No bidTokenAddress specified in assetSelectors for ${contractAddress}`);
+    return;
+  }
+
+  let currencyErc20Address: string | undefined;
 
   // Fetch currency information from contract
   const zebuContract = new gbmAbi.Contract(sqdRpcCtx, contractAddress);
 
   try {
     const currencyAddress = await zebuContract.getSale_Currency_Address(saleID);
+    console.log(currencyAddress);
+    console.log(currencies);
+    currencyErc20Address = currencies.find(
+      (currency) => currency.address.toLowerCase() === currencyAddress.toLowerCase(),
+    )?.address;
 
-    try {
-      currencyErc20Address = currencies.find(
-        (currency) => currency.address.toLowerCase() === currencyAddress.toLowerCase(),
-      )?.address;
-    } catch (error) {
-      console.warn(`Failed to get currency info for ${currencyAddress}:`, error);
-    }
-
-    if (currencyErc20Address == undefined) {
+    if (!currencyErc20Address) {
+      // Check if this is a null currency that should be treated as WETH
       const nullCurrency = nullCurrencyAddresses.find(
         (nullCurr) =>
-          nullCurr.contractAddress.toLowerCase() === currencyAddress.toLowerCase() &&
-          nullCurr.chainId === this.chainId,
+          nullCurr.contractAddress.toLowerCase() === contractAddress.toLowerCase() &&
+          nullCurr.chainId === 8453, // Use the actual chainId from log if available
       );
 
       if (nullCurrency) {
-        try {
-          currencyErc20Address = currencies.find((currency) => currency.name === 'WETH')?.address;
-        } catch (error) {
-          console.warn(`Failed to fetch ETH price for null currency, using 0`, error);
-        }
-      } else {
-        console.warn(`Currency not found in supported list, using 0 USD value`);
+        currencyErc20Address = currencies.find((currency) => currency.name === 'WETH')?.address;
       }
     }
   } catch (error) {
     console.warn(`Failed to fetch currency for auction ${saleID}:`, error);
+    return;
+  }
+
+  // KEY FILTER: Only emit if the dynamic currency matches this instance's configured token
+  if (currencyErc20Address?.toLowerCase() !== configuredBidToken) {
+    // This bid uses a different currency - skip it for this instance
+    return;
+  }
+
+  // Additional safety check - don't emit if currencyErc20Address is null/undefined
+  if (!currencyErc20Address) {
+    console.warn(`No valid currency address for auction ${saleID}, skipping bid`);
+    console.log(bidder, bidamount, saleID, bidIndex, log);
+    return;
   }
 
   // Emit the bid action
@@ -116,7 +110,7 @@ export async function handleBid(
     key: md5Hash(`${log.txRef}${log.logIndex}`),
     activity: 'bid',
     user: bidder.toLowerCase(),
-    asset: currencyErc20Address?.toLowerCase(),
+    asset: currencyErc20Address.toLowerCase(), // Now safe - we checked it's not null
     amount: bidamount,
     trackableInstance: instance,
     meta: {

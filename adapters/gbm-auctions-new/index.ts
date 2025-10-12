@@ -16,9 +16,12 @@ export const manifest: Manifest = {
   trackables: {
     bid: {
       kind: 'action',
-      quantityType: 'none',
+      quantityType: 'token_based',
       params: {
         auctionContractAddress: evmAddress('The auction contract address to track'),
+      },
+      assetSelectors: {
+        bidTokenAddress: evmAddress('The token being used for bidding'),
       },
     },
     claim: {

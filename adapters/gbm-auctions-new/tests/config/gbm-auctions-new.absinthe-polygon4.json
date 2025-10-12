@@ -1,0 +1,126 @@
+{
+  "chainArch": "evm",
+  "flushInterval": "48h",
+  "redisUrl": "${env:REDIS_URL}",
+  "sinkConfig": {
+    "sinks": [
+      {
+        "sinkType": "csv",
+        "path": "gbm-auctions-new-polygon4.csv"
+      }
+    ]
+  },
+  "network": {
+    "chainId": 137,
+    "gatewayUrl": "https://v2.archive.subsquid.io/network/polygon-mainnet",
+    "rpcUrl": "https://polygon-mainnet.infura.io/v3/e5b6ee7b35c3402a8fc12263c715a1f8",
+    "finality": 75
+  },
+  "range": {
+    "fromBlock": 64199277
+  },
+  "adapterConfig": {
+    "adapterId": "gbm-auctions-new-polygon4",
+    "config": {
+      "bid": [
+        {
+          "params": {
+            "auctionContractAddress": "0x19633c8006236f6c016a34B9ca48e98AD10418B4"
+          },
+          "assetSelectors": {
+            "bidTokenAddress": "0x3c499c542cef5e3811e1192ce70d8cc03d5c3359"
+          },
+          "pricing": {
+            "assetType": "erc20",
+            "priceFeed": {
+              "kind": "coingecko",
+              "id": "usd-coin"
+            }
+          }
+        },
+        {
+          "params": {
+            "auctionContractAddress": "0x19633c8006236f6c016a34B9ca48e98AD10418B4"
+          },
+          "assetSelectors": {
+            "bidTokenAddress": "0x7ceb23fd6bc0add59e62ac25578270cff1b9f619"
+          },
+          "pricing": {
+            "assetType": "erc20",
+            "priceFeed": {
+              "kind": "coingecko",
+              "id": "ethereum"
+            }
+          }
+        },
+        {
+          "params": {
+            "auctionContractAddress": "0x19633c8006236f6c016a34B9ca48e98AD10418B4"
+          },
+          "assetSelectors": {
+            "bidTokenAddress": "0xa1c57f48f0deb89f569dfbe6e2b7f46d33606fd4"
+          },
+          "pricing": {
+            "assetType": "erc20",
+            "priceFeed": {
+              "kind": "coingecko",
+              "id": "decentraland"
+            }
+          }
+        },
+        {
+          "params": {
+            "auctionContractAddress": "0x19633c8006236f6c016a34B9ca48e98AD10418B4"
+          },
+          "assetSelectors": {
+            "bidTokenAddress": "0xbbba073c31bf03b8acf7c28ef0738decf3695683"
+          },
+          "pricing": {
+            "assetType": "erc20",
+            "priceFeed": {
+              "kind": "coingecko",
+              "id": "the-sandbox"
+            }
+          }
+        },
+        {
+          "params": {
+            "auctionContractAddress": "0x19633c8006236f6c016a34B9ca48e98AD10418B4"
+          },
+          "assetSelectors": {
+            "bidTokenAddress": "0x385eeac5cb85a38a9a07a70c73e0a3271cfb54a7"
+          },
+          "pricing": {
+            "assetType": "erc20",
+            "priceFeed": {
+              "kind": "coingecko",
+              "id": "aavegotchi"
+            }
+          }
+        },
+        {
+          "params": {
+            "auctionContractAddress": "0x19633c8006236f6c016a34B9ca48e98AD10418B4"
+          },
+          "assetSelectors": {
+            "bidTokenAddress": "0x14e5386f47466a463f85d151653e1736c0c50fc3"
+          },
+          "pricing": {
+            "assetType": "erc20",
+            "priceFeed": {
+              "kind": "coingecko",
+              "id": "arrland-rum"
+            }
+          }
+        }
+      ],
+      "claim": [
+        {
+          "params": {
+            "auctionContractAddress": "0x19633c8006236f6c016a34B9ca48e98AD10418B4"
+          }
+        }
+      ]
+    }
+  }
+}

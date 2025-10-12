@@ -1,0 +1,81 @@
+{
+  "chainArch": "evm",
+  "flushInterval": "48h",
+  "redisUrl": "${env:REDIS_URL}",
+  "sinkConfig": {
+    "sinks": [
+      {
+        "sinkType": "csv",
+        "path": "gbm-auctions-new-base1.csv"
+      }
+    ]
+  },
+  "network": {
+    "chainId": 8453,
+    "gatewayUrl": "https://v2.archive.subsquid.io/network/base-mainnet",
+    "rpcUrl": "https://base-mainnet.infura.io/v3/e5b6ee7b35c3402a8fc12263c715a1f8",
+    "finality": 75
+  },
+  "range": {
+    "fromBlock": 15286409
+  },
+  "adapterConfig": {
+    "adapterId": "gbm-auctions-new-base1",
+    "config": {
+      "bid": [
+        {
+          "params": {
+            "auctionContractAddress": "0x5859Ff44A3BDCD00c7047E68B94e93d34aF0fd71"
+          },
+          "assetSelectors": {
+            "bidTokenAddress": "0x833589fCD6eDb6E08f4c7C32D4f71b54bDA02913"
+          },
+          "pricing": {
+            "assetType": "erc20",
+            "priceFeed": {
+              "kind": "coingecko",
+              "id": "usd-coin"
+            }
+          }
+        },
+        {
+          "params": {
+            "auctionContractAddress": "0x5859Ff44A3BDCD00c7047E68B94e93d34aF0fd71"
+          },
+          "assetSelectors": {
+            "bidTokenAddress": "0x4200000000000000000000000000000000000006"
+          },
+          "pricing": {
+            "assetType": "erc20",
+            "priceFeed": {
+              "kind": "coingecko",
+              "id": "ethereum"
+            }
+          }
+        },
+        {
+          "params": {
+            "auctionContractAddress": "0x5859Ff44A3BDCD00c7047E68B94e93d34aF0fd71"
+          },
+          "assetSelectors": {
+            "bidTokenAddress": "0xcD2F22236DD9Dfe2356D7C543161D4d260FD9BcB"
+          },
+          "pricing": {
+            "assetType": "erc20",
+            "priceFeed": {
+              "kind": "coingecko",
+              "id": "aavegotchi"
+            }
+          }
+        }
+      ],
+      "claim": [
+        {
+          "params": {
+            "auctionContractAddress": "0x5859Ff44A3BDCD00c7047E68B94e93d34aF0fd71"
+          }
+        }
+      ]
+    }
+  }
+}
