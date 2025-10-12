@@ -20,7 +20,7 @@
     "fromBlock": 20328800
   },
   "adapterConfig": {
-    "adapterId": "gbm-auctions-new-base2",
+    "adapterId": "gbm-auctions-new-base",
     "config": {
       "bid": [
         {

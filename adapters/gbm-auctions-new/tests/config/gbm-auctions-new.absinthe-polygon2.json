@@ -20,7 +20,7 @@
     "fromBlock": 61059459
   },
   "adapterConfig": {
-    "adapterId": "gbm-auctions-new-polygon2",
+    "adapterId": "gbm-auctions-new-polygon",
     "config": {
       "bid": [
         {
