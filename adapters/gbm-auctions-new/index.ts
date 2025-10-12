@@ -10,7 +10,7 @@ import { handleClaim } from './claim.ts';
 import { AdapterDef, defineAdapter } from '../_shared/index.ts';
 
 export const manifest: Manifest = {
-  name: 'gbm-auctions-new-base',
+  name: 'gbm-auctions-new',
   version: '0.0.1',
   chainArch: 'evm',
   trackables: {

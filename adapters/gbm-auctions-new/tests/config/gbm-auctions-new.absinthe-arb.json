@@ -21,7 +21,7 @@
     "toBlock": 0
   },
   "adapterConfig": {
-    "adapterId": "gbm-auctions-new-arb",
+    "adapterId": "gbm-auctions-new",
     "config": {
       "bid": [
         {
