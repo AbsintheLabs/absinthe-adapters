@@ -6,6 +6,7 @@ import { md5Hash } from '../_shared/index.ts';
 import type { InstanceFrom } from '../../src/types/manifest.ts';
 import type { manifest } from './index.ts';
 import { logger } from '../../src/utils/logger.ts';
+import { ZERO_ADDRESS } from './consts.ts';
 
 export async function handleClaim(
   log: UnifiedEvmLog,
@@ -19,7 +20,6 @@ export async function handleClaim(
   });
 
   const { winner, saleID } = decoded;
-  const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'; //TODO: move to utils/consts.ts file
 
   if (winner.toLowerCase() === ZERO_ADDRESS.toLowerCase()) {
     logger.warn('Auction_Claimed event with winner ZERO_ADDRESS', {

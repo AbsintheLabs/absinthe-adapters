@@ -4,43 +4,12 @@ import * as gbmAbi from './abi/main.ts';
 import type { InstanceFrom } from '../../src/types/manifest.ts';
 import type { manifest } from './index.ts';
 import { md5Hash } from '../../src/utils/helper.ts';
-
-const currencies = [
-  {
-    name: 'USDC',
-    symbol: 'usd',
-    address: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
-    decimals: 6,
-  },
-  {
-    name: 'GHST',
-    symbol: 'aavegotchi',
-    address: '0xcd2f22236dd9dfe2356d7c543161d4d260fd9bcb',
-    decimals: 18,
-  },
-  {
-    name: 'WETH',
-    symbol: 'ethereum',
-    address: '0x4200000000000000000000000000000000000006',
-    decimals: 18,
-  },
-];
-
-const nullCurrencyAddresses = [
-  {
-    name: 'xyz-7',
-    contractAddress: '0xDD4d9ae148b7c821b8157828806c78BD0FeCE8C4',
-    chainId: 137,
-    fromBlock: 73490308,
-  },
-  {
-    name: 'bify',
-    contractAddress: '0xBEBE4BaF1f02FA150D42A1Be9eD1B4707c5BE49B',
-    chainId: 8453,
-    fromBlock: 33033160,
-  },
-];
-
+import {
+  currenciesBase,
+  currenciesArbitrum,
+  currenciesPolygon,
+  nullCurrencyAddresses,
+} from './consts.ts';
 export async function handleBid(
   log: UnifiedEvmLog,
   emitFns: EmitFunctions,
@@ -55,6 +24,9 @@ export async function handleBid(
   });
 
   // Get the configured bidTokenAddress from this instance's assetSelectors
+
+  const chainId = log.chainId;
+
   const configuredBidToken = (instance as any).assetSelectors?.bidTokenAddress?.toLowerCase();
 
   if (!configuredBidToken) {
@@ -64,13 +36,20 @@ export async function handleBid(
 
   let currencyErc20Address: string | undefined;
 
+  const currencies =
+    chainId === 8453
+      ? currenciesBase
+      : chainId === 42161
+        ? currenciesArbitrum
+        : chainId === 137
+          ? currenciesPolygon
+          : [];
+
   // Fetch currency information from contract
   const zebuContract = new gbmAbi.Contract(sqdRpcCtx, contractAddress);
 
   try {
     const currencyAddress = await zebuContract.getSale_Currency_Address(saleID);
-    console.log(currencyAddress);
-    console.log(currencies);
     currencyErc20Address = currencies.find(
       (currency) => currency.address.toLowerCase() === currencyAddress.toLowerCase(),
     )?.address;
@@ -78,9 +57,7 @@ export async function handleBid(
     if (!currencyErc20Address) {
       // Check if this is a null currency that should be treated as WETH
       const nullCurrency = nullCurrencyAddresses.find(
-        (nullCurr) =>
-          nullCurr.contractAddress.toLowerCase() === contractAddress.toLowerCase() &&
-          nullCurr.chainId === 8453, // Use the actual chainId from log if available
+        (nullCurr) => nullCurr.toLowerCase() === contractAddress.toLowerCase(),
       );
 
       if (nullCurrency) {
