@@ -124,17 +124,17 @@ export class AbsintheApiClient {
     const isTWBE = (d: any): d is TimeWeightedBalanceEvent => 'startUnixTimestampMs' in d;
 
     const beforeCutoff = data.filter((d) =>
-      isTWBE(d) ? d.startUnixTimestampMs < timestamp! : d.unixTimestampMs < timestamp!,
+      isTWBE(d) ? d.startUnixTimestampMs < timestamp : d.unixTimestampMs < timestamp,
     ) as TimeWeightedBalanceEvent[] | TransactionEvent[];
 
     const atCutoff = data.filter((d) =>
       isTWBE(d)
-        ? d.startUnixTimestampMs === timestamp! || d.endUnixTimestampMs === timestamp!
-        : d.unixTimestampMs === timestamp!,
+        ? d.startUnixTimestampMs === timestamp || d.endUnixTimestampMs === timestamp
+        : d.unixTimestampMs === timestamp,
     ) as TimeWeightedBalanceEvent[] | TransactionEvent[];
 
     const afterCutoff = data.filter((d) =>
-      isTWBE(d) ? d.startUnixTimestampMs > timestamp! : d.unixTimestampMs > timestamp!,
+      isTWBE(d) ? d.startUnixTimestampMs > timestamp : d.unixTimestampMs > timestamp,
     ) as TimeWeightedBalanceEvent[] | TransactionEvent[];
 
     if (beforeCutoff.length)
