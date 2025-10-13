@@ -2,8 +2,8 @@
 import { Manifest, evmAddress } from '../../src/types/manifest.ts';
 import { metadata } from './metadata.ts';
 
-import * as factoryAbi from './abi/morphofactoryv1.ts';
-import * as moprhov1Vaults from './abi/morphov1vaults.ts';
+import * as factoryAbi from './abi/morphofactoryv2.ts';
+import * as moprhov2VaultsAbi from './abi/morphov2vaults.ts';
 
 // Handlers
 import { handleVault } from './vault.ts';
@@ -11,7 +11,7 @@ import { handleCreateMetaMorphoFactory } from './createMetaMorpho.ts';
 import { AdapterDef, defineAdapter } from '../_shared/index.ts';
 
 export const manifest: Manifest = {
-  name: 'morpho-vaultsv1',
+  name: 'morpho-vaultsv2',
   version: '0.0.1',
   chainArch: 'evm',
   trackables: {
@@ -37,7 +37,6 @@ export default defineAdapter({
   manifest,
   metadata,
   build: ({ config }) => {
-    // Collect all pool addresses from both swap and lp configs into a single array
     const factoryAddress = new Set([
       ...config.createMetaMorphoFactory.map((factory) => factory.params.factoryAddress as string),
     ]);
@@ -46,9 +45,8 @@ export default defineAdapter({
       ...config.vaults.map((vault) => vault.params.vaultAddress as string),
     ]);
 
-    // define topics
-    const createMetaMorphoTopic = factoryAbi.events.CreateMetaMorpho.topic;
-    const transferTopic = moprhov1Vaults.events.Transfer.topic;
+    const createMetaMorphoTopic = factoryAbi.events.CreateVaultV2.topic;
+    const transferTopic = moprhov2VaultsAbi.events.Transfer.topic;
 
     return {
       buildSqdProcessor: (base) =>

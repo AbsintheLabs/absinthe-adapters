@@ -12,26 +12,22 @@ export default defineFeed(MORPHO_NAV_HANDLER, (resolve) => async ({ assetConfig,
     // ctx.asset is the vaultAddress (what we're pricing)
     const vaultAddress = ctx.asset.toLowerCase();
 
-    // Try to get vault metadata from Redis first (much faster!)
+    // Get vault metadata from Redis (must exist from CreateMetaMorpho event)
     const marketDataKey = `morpho:vault:${vaultAddress}`;
     const marketDataStr = await ctx.redis.get(marketDataKey);
 
-    let underlyingAssetAddress: string;
-
-    if (marketDataStr) {
-      // Found in Redis - use cached data
-      const marketData = JSON.parse(marketDataStr);
-      underlyingAssetAddress = marketData.asset.toLowerCase();
-      logger.debug(
-        `Retrieved vault metadata from Redis for ${vaultAddress}: underlying=${underlyingAssetAddress}`,
-      );
-    } else {
-      // Fallback: fetch from contract (in case vault wasn't created via factory)
-      logger.debug(`Vault ${vaultAddress} not in Redis, fetching from contract`);
-      const vaultContract = new morphov1Vaults.Contract(ctx.sqdRpcCtx, vaultAddress);
-      underlyingAssetAddress = (await vaultContract.asset()).toLowerCase();
-      logger.debug(`Fetched underlying asset from contract: ${underlyingAssetAddress}`);
+    if (!marketDataStr) {
+      logger.warn(`Vault ${vaultAddress} not found in Redis - skipping pricing`);
+      return 0;
     }
+
+    const marketData = JSON.parse(marketDataStr);
+    const underlyingAssetAddress = marketData.asset.toLowerCase();
+    const underlyingDecimals = marketData.underlyingDecimals;
+
+    logger.debug(
+      `Retrieved vault metadata from Redis for ${vaultAddress}: underlying=${underlyingAssetAddress}, decimals=${underlyingDecimals}`,
+    );
 
     // Get conversion rate: 1 share (1e18) → X assets
     const vaultContract = new morphov1Vaults.Contract(ctx.sqdRpcCtx, vaultAddress);
@@ -51,9 +47,11 @@ export default defineFeed(MORPHO_NAV_HANDLER, (resolve) => async ({ assetConfig,
     );
 
     // Calculate vault share price
-    // 1 share (1e18) = marketIndex assets
-    // share_price = asset_price * (marketIndex / 1e18)
-    const sharePrice = new Big(underlyingPriceResult.price).mul(marketIndex.toString()).div(1e18);
+    // 1 share (1e18) = marketIndex assets (in underlying's decimals)
+    // share_price = asset_price * (marketIndex / 10^underlyingDecimals)
+    const sharePrice = new Big(underlyingPriceResult.price)
+      .mul(marketIndex.toString())
+      .div(10 ** underlyingDecimals);
 
     logger.debug(`Final vault share price for ${vaultAddress}: ${sharePrice.toString()}`);
 
