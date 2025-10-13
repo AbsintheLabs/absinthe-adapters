@@ -1,0 +1,1260 @@
+---
+globs: adapters/**/*.ts
+alwaysApply: false
+---
+# **Absinthe Adapter Engineering Guide — Questions & Answers**
+
+*Focus: Writing adapters, trackables mental model, and pricing integration*
+
+---
+
+## **Section 1: Manifest Design & Trackables**
+
+### **Q1.1: What is a trackable, and why does an adapter define multiple trackables?**
+
+**Answer:**
+
+A **trackable** is a type of on-chain activity or position that your adapter can track and measure. Each trackable defines:
+
+- **What** you're tracking (action vs position)
+- **How** to measure it (token_based, count, or none)
+- **What parameters** are needed to identify instances of it
+- **What selectors** narrow it down to priceable assets (if needed)
+
+An adapter defines multiple trackables when the protocol has distinct measurable behaviors. For example, Uniswap V2 has:
+
+- **`swap`** trackable (kind: `action`, quantityType: `token_based`) — tracks individual swap events
+- **`lp`** trackable (kind: `position`, quantityType: `token_based`) — tracks liquidity provider positions over time
+
+Each trackable becomes an independent configuration namespace in the runtime config, allowing users to track different aspects of the same protocol.
+
+---
+
+### **Q1.2: Define the three `quantityType` values and give a concrete example of when to use each.**
+
+**Answer:**
+
+| quantityType | When to use | Example | What gets measured |
+| --- | --- | --- | --- |
+| **`token_based`** | Tracking amounts of fungible or semi-fungible assets | UniV2 swap volume, ERC20 holdings, LP positions | Token amounts (scaled by decimals), optionally priced in USD |
+| **`count`** | Tracking occurrences where the number matters but there's no asset | Number of votes cast, number of claims executed | Integer count |
+| **`none`** | Tracking that something happened, period | Identity verification event, contract deployment | Just the fact it occurred (quantity = 1) |
+
+**Key rule:** Only `token_based` trackables can have pricing and `assetSelectors`.
+
+---
+
+### **Q1.3: What's the difference between `params`, `assetSelectors`, and `filters` in a trackable definition?**
+
+**Answer:**
+
+```tsx
+// Example manifest trackable
+swap: {
+  kind: 'action',
+  quantityType: 'token_based',
+  params: {
+    poolAddress: evmAddress('The pool address to track')
+  },
+  assetSelectors: {
+    swapLegAddress: evmAddress('Which token to price')
+  },
+  filters: {
+    minAmount: numberField('Only track swaps above this threshold')
+  }
+}
+
+```
+
+| Field | Purpose | Required? | Used for pricing? |
+| --- | --- | --- | --- |
+| **`params`** | Define WHAT instance you're tracking | Always | Helps identify the asset context |
+| **`assetSelectors`** | Narrow down to ONE priceable asset | Only for token_based with pricing | Yes — identifies the exact asset to price |
+| **`filters`** | General filtering (users, amounts, etc.) | Optional | No — just narrows event scope |
+
+**Mental model:**
+
+- `params` = "I want to track this pool"
+- `assetSelectors` = "Within that pool, price this specific token"
+- `filters` = "Only when the swap is above $1000"
+
+---
+
+### **Q1.4: Why does UniV2 `swap` need `assetSelectors` but UniV2 `lp` doesn't?**
+
+**Answer:**
+
+**UniV2 Swap (`assetSelectors` needed):**
+
+- A swap event involves TWO tokens (token0 and token1)
+- The user must pick ONE to price (you can't price "a swap" — you price "WETH volume" or "USDC volume")
+- `swapLegAddress` selector identifies which token's volume to measure
+
+**UniV2 LP (`assetSelectors` NOT needed):**
+
+- The pool address IS the LP token address
+- There's only ONE asset to track: the LP token itself
+- `params.poolAddress` alone uniquely identifies the priceable asset
+- The `univ2nav` pricer internally handles token0/token1 (hidden from user)
+
+**Rule:** Use `assetSelectors` when `params` alone can't uniquely identify a single priceable asset.
+
+---
+
+## **Section 2: Writing the Adapter**
+
+### **Q2.1: Walk through the structure of `defineAdapter()`. What are the three required pieces?**
+
+**Answer:**
+
+```tsx
+export default defineAdapter({
+  manifest,  // 1. The trackable definitions
+  metadata,  // 2. Display info for UIs
+  build: ({ config }) => ({  // 3. Builder function
+    buildSqdProcessor: (base) => { /* ... */ },
+    onLog: async ({ log, emitFns, sqdRpcCtx, redis }) => { /* ... */ }
+  })
+});
+
+```
+
+1. **`manifest`**: Defines trackable types (validated at runtime)
+2. **`metadata`**: Human-readable info (display name, description, author, etc.)
+3. **`build({ config })`**: Returns processor setup and event handlers
+    - `buildSqdProcessor`: Tells SQD which events to subscribe to
+    - `onLog`: Processes each subscribed event and calls `emitFns`
+
+**Key insight:** The `config` parameter gives you access to all trackable instances the user configured (e.g., `config.swap[]`, `config.lp[]`).
+
+---
+
+### **Q2.2: In `buildSqdProcessor`, you see this code. Explain each part:**
+
+```tsx
+buildSqdProcessor: (base) =>
+  base.addLog({
+    address: Array.from(poolAddrs),
+    topic0: [transferTopic, swapTopic],
+  })
+
+```
+
+**Answer:**
+
+- **`base`**: The SQD processor builder (chain-specific, e.g., Arbitrum, Base)
+- **`.addLog()`**: Subscribe to EVM log events matching a filter
+- **`address`**: Only listen to events from these contract addresses
+- **`topic0`**: Only listen to events with these event signatures (Transfer, Swap)
+
+**Why this pattern?**
+
+- Collect all pool addresses from BOTH `config.swap` and `config.lp` (they share pools)
+- Subscribe to BOTH Transfer (for LP tracking) and Swap topics
+- SQD delivers matching logs to `onLog`, which routes them to handlers
+
+**Common mistake:** Forgetting to collect addresses from all trackables that might share contracts.
+
+---
+
+### **Q2.3: In the `onLog` handler, what is the routing pattern for multiple trackables?**
+
+**Answer:**
+
+```tsx
+onLog: async ({ log, emitFns, sqdRpcCtx, redis }) => {
+  const poolAddr = log.address;
+
+  // Route by topic0 (event signature)
+  if (log.topic0 === transferTopic) {
+    // Get all LP instances for this pool
+    const lpInstances = config.lp?.filter(l => l.params.poolAddress === poolAddr) || [];
+
+    // Fan out: one handler call per instance
+    for (const instance of lpInstances) {
+      await handleLpTransfer(log, emitFns, instance, poolAddr);
+    }
+  }
+
+  if (log.topic0 === swapTopic) {
+    const swapInstances = config.swap?.filter(s => s.params.poolAddress === poolAddr) || [];
+
+    for (const instance of swapInstances) {
+      await handleSwap(log, emitFns, instance, tk0Addr, tk1Addr);
+    }
+  }
+}
+
+```
+
+**Two-phase dispatch:**
+
+1. **Route by event type** (topic0) to the right handler function
+2. **Fan out by instances** — multiple trackable instances can match the same event
+
+**Why fan out?** A user might configure multiple trackable instances for the same pool (e.g., one pricing WETH, another pricing USDC).
+
+---
+
+### **Q2.4: What's the signature of a handler function? What must it receive?**
+
+**Answer:**
+
+**Position handler (balance delta):**
+
+```tsx
+async function handleLpTransfer(
+  log: UnifiedEvmLog,           // 1. The decoded event
+  emitFns: EmitFunctions,        // 2. Functions to emit data to engine
+  instance: InstanceFrom<typeof manifest.trackables.lp>,  // 3. Trackable instance
+  ...additionalContext           // 4. Any extra data (poolAddress, token addrs, etc.)
+): Promise<void>
+
+```
+
+**Action handler (swap):**
+
+```tsx
+async function handleSwap(
+  log: UnifiedEvmLog,
+  emitFns: EmitFunctions,
+  instance: InstanceFrom<typeof manifest.trackables.swap>,
+  tk0Addr: string,
+  tk1Addr: string
+): Promise<void>
+
+```
+
+**Key pattern:** Always pass the **trackable instance** through to the handler. This gives the handler access to:
+
+- `instance.params` (configuration)
+- `instance.assetSelectors` (optional filtering)
+- `instance.pricing` (pricing config)
+
+The handler then passes `instance` to `emitFns` so the engine knows how to process it.
+
+---
+
+## **Section 3: Emit Functions & Pricing Integration**
+
+### **Q3.1: When do you use `emitFns.action` vs `emitFns.position`? What's the rule?**
+
+**Answer:**
+
+| Emit function | When to use | Trackable `kind` | Effect |
+| --- | --- | --- | --- |
+| **`emitFns.action.*`** | One-time events (swaps, claims, votes) | `kind: 'action'` | Creates a timestamped event record |
+| **`emitFns.position.*`** | Ongoing balances (LP positions, holdings) | `kind: 'position'` | Maintains time-windowed balance state |
+
+**Rule:** Match the emit function to the trackable's `kind` field.
+
+**Common mistake:** Using `action` for liquidity positions — this loses time-weighted tracking.
+
+---
+
+### **Q3.2: What does `emitFns.position.balanceDelta()` do, and what parameters are required?**
+
+**Answer:**
+
+```tsx
+await emitFns.position.balanceDelta({
+  user: string,                  // Who owns the position
+  asset: string,                 // What asset (e.g., pool address for LP tokens)
+  amount: bigint,                // Change in balance (can be negative)
+  activity: Activity,            // 'hold', 'lp', 'stake', etc.
+  trackableInstance: instance,   // Links to pricing config
+  meta?: Record<string, any>     // Optional metadata
+});
+
+```
+
+**What it does:**
+
+1. Updates the user's balance for that asset in Redis
+2. Emits a **time window** from the last update to now
+3. If `trackableInstance.pricing` exists, registers the asset for pricing
+
+**Key insight:** The engine maintains state. You just emit deltas. Windows are created automatically.
+
+---
+
+### **Q3.3: In the swap handler, explain this filtering logic:**
+
+```tsx
+const swapLegAddress = instance.assetSelectors?.swapLegAddress;
+const shouldEmitFromSide = !swapLegAddress || swapLegAddress === fromTokenAddress;
+const shouldEmitToSide = !swapLegAddress || swapLegAddress === toTokenAddress;
+
+if (shouldEmitFromSide) {
+  await emitSwapSide(fromTokenAddress, fromAmount);
+}
+if (shouldEmitToSide) {
+  await emitSwapSide(toTokenAddress, toAmount);
+}
+
+```
+
+**Answer:**
+
+| assetSelector state | shouldEmitFromSide | shouldEmitToSide | Result |
+| --- | --- | --- | --- |
+| **None** (undefined) | ✅ | ✅ | Both sides emitted (unpriced/deduped later) |
+| **Matches fromToken** | ✅ | ❌ | From side only (priced if config present) |
+| **Matches toToken** | ❌ | ✅ | To side only (priced if config present) |
+| **Matches neither** | ❌ | ❌ | Nothing emitted |
+
+**Why this pattern?**
+
+- **Without `swapLegAddress`**: Emit both sides, let deduplication handle it downstream (unpriced mode)
+- **With `swapLegAddress`**: Only emit the selected asset (pricing mode)
+
+**The adapter implements the filter; the engine doesn't need to know about token0/token1.**
+
+---
+
+### **Q3.4: How does pricing get registered? What's the flow from `emitFns` to the pricing engine?**
+
+**Answer:**
+
+**Flow:**
+
+1. Handler calls `emitFns.action.swap()` or `emitFns.position.balanceDelta()`
+2. Handler passes `trackableInstance` containing optional `pricing` config
+3. Engine checks: `if (trackableInstance.pricing !== undefined)`
+4. If present, engine:
+    - Generates a `trackableInstanceId` (hash of params + assetSelectors)
+    - Generates a `pricingHandlerId` (hash of pricing config)
+    - Registers: `(trackableInstanceId, asset) → pricingHandlerId` in Redis
+5. Backfill phase: Engine fetches all registered `(instance, asset)` pairs and prices them
+6. Enrichment phase: Pipeline looks up cached prices by `pricingHandlerId`
+
+**Key rule:** Adapters don't call pricing directly. They just pass `trackableInstance` with pricing config. The engine handles scheduling.
+
+---
+
+### **Q3.5: What happens if a `token_based` trackable has NO pricing config?**
+
+**Answer:**
+
+**Without pricing config:**
+
+- Asset is NOT registered for pricing
+- No `pricingHandlerId` is attached to windows/actions
+- Enrichment pipeline sees no pricing → falls back to **scaled quantity**
+    - Fetches token decimals from metadata cache
+    - Returns: `quantity = rawAmount / (10 ** decimals)`
+    - No USD value calculation
+
+**Output fields:**
+
+- `quantityBasis: 'asset_amt'` (not `'monetary_value'`)
+- `quantity: '1234.56'` (scaled tokens, not USD)
+
+**Use case:** Tracking volume/balances without needing prices (e.g., internal analytics, test nets).
+
+---
+
+## **Section 4: Patterns & Best Practices**
+
+### **Q4.1: Why does the UniV2 adapter cache token addresses in Redis?**
+
+**Answer:**
+
+```tsx
+const token0Key = `univ2:${poolAddr}:token0`;
+let tk0Addr = await redis.get(token0Key);
+
+if (!tk0Addr) {
+  const poolContract = new univ2Abi.Contract(sqdRpcCtx, poolAddr);
+  tk0Addr = await poolContract.token0();
+  await redis.set(token0Key, tk0Addr);
+}
+
+```
+
+**Why cache?**
+
+- `token0()` / `token1()` are **on-chain reads** (RPC calls)
+- These values NEVER change for a pool (immutable)
+- Every swap/transfer event needs them for routing
+- Without caching: 2 RPC calls per event → slow, expensive
+- With caching: 2 RPC calls per pool total → 1000x faster
+
+**Pattern:** Cache immutable protocol state (pool tokens, decimals, factory addresses).
+
+---
+
+### **Q4.2: What's the `requiredPricer` field in a trackable definition, and when should you use it?**
+
+**Answer:**
+
+```tsx
+lp: {
+  kind: 'position',
+  quantityType: 'token_based',
+  params: { poolAddress: evmAddress(...) },
+  requiredPricer: 'univ2nav'  // ← Enforces this pricer
+}
+
+```
+
+**Purpose:** Some trackables ONLY make sense with a specific pricing strategy.
+
+**Examples:**
+
+- UniV2 LP tokens: Must use `univ2nav` (NAV calculation requires reserves + underlying token prices)
+- UniV3 LP NFTs: Must use `univ3lp` (position-specific tick math)
+
+**Enforcement:** Runtime validation fails if user provides a different pricer (or none when required).
+
+**When NOT to use:** Token swaps can be priced by coingecko, codex, pegged, etc. — no required pricer.
+
+---
+
+### **Q4.3: You see this in UniV2 swap handler. Why is the key generated this way?**
+
+```tsx
+await emitFns.action.swap({
+  key: md5Hash(`${log.txRef}${log.logIndex}`),
+  // ... other fields
+});
+
+```
+
+**Answer:**
+
+**Why this key?**
+
+- Swap emits TWO sides (fromToken and toToken)
+- Both sides have the SAME `txRef` + `logIndex` → same `key`
+- Downstream deduplication matches by `key`
+- Only ONE action survives (whichever matches asset selectors, or first if unpriced)
+
+**Without this:** You'd get double-counting of swap volume.
+
+**Pattern:** Use deterministic keys for multi-sided events that should dedupe.
+
+---
+
+### **Q4.4: What's wrong with this manifest definition?**
+
+```tsx
+trackables: {
+  claim: {
+    kind: 'action',
+    quantityType: 'count',  // ← Counting claims
+    params: {
+      rewardToken: evmAddress('The reward token address')
+    },
+    assetSelectors: {  // ❌ WRONG
+      rewardToken: evmAddress('The reward token to price')
+    }
+  }
+}
+
+```
+
+**Answer:**
+
+**Error:** `quantityType: 'count'` trackables **cannot have `assetSelectors`** (or pricing).
+
+**Why?**
+
+- `count` measures occurrences, not token amounts
+- There's no asset to price (quantity is just a number)
+- `assetSelectors` only make sense for `token_based`
+
+**Fix:** Remove `assetSelectors` and `pricing`:
+
+```tsx
+claim: {
+  kind: 'action',
+  quantityType: 'count',
+  params: {
+    rewardToken: evmAddress('The reward token address')
+  }
+  // No assetSelectors, no pricing
+}
+
+```
+
+If you need to track reward AMOUNTS, use `quantityType: 'token_based'` instead.
+
+---
+
+## **Section 5: Advanced Scenarios**
+
+### **Q5.1: A user configures TWO swap trackables for the same pool but different legs. How does the adapter handle this?**
+
+**Config:**
+
+```json
+{
+  "swap": [
+    {
+      "params": { "poolAddress": "0xABC..." },
+      "assetSelectors": { "swapLegAddress": "0xWETH" },
+      "pricing": { "priceFeed": { "kind": "coingecko", "id": "weth" } }
+    },
+    {
+      "params": { "poolAddress": "0xABC..." },
+      "assetSelectors": { "swapLegAddress": "0xUSDC" },
+      "pricing": { "priceFeed": { "kind": "pegged", "usdPegValue": 1 } }
+    }
+  ]
+}
+
+```
+
+**Answer:**
+
+**In `onLog`:**
+
+1. One Swap event arrives
+2. Filter matches BOTH instances (same `poolAddress`)
+3. Loop calls `handleSwap` TWICE (fan-out):
+    - First call: `instance.assetSelectors.swapLegAddress = 0xWETH` → emits WETH side only
+    - Second call: `instance.assetSelectors.swapLegAddress = 0xUSDC` → emits USDC side only
+
+**Result:** TWO action events from one log, each with different:
+
+- `asset` (WETH vs USDC)
+- `pricingHandlerId` (coingecko vs pegged)
+- `trackableInstanceId` (different due to different assetSelectors)
+
+**This is valid:** The user wants to track both legs of the same pool with different pricing strategies.
+
+---
+
+### **Q5.2: You're building a lending adapter (like Aave). Users can deposit/withdraw/borrow. Which trackables should you define?**
+
+**Answer:**
+
+```tsx
+trackables: {
+  deposit: {
+    kind: 'position',        // Balance changes over time
+    quantityType: 'token_based',
+    params: {
+      poolAddress: evmAddress('Aave pool contract'),
+      assetAddress: evmAddress('Underlying token being supplied')
+    }
+    // No assetSelectors needed (assetAddress in params is sufficient)
+  },
+
+  borrow: {
+    kind: 'position',        // Debt balance changes over time
+    quantityType: 'token_based',
+    params: {
+      poolAddress: evmAddress('Aave pool contract'),
+      assetAddress: evmAddress('Borrowed token')
+    }
+  },
+
+  // Optional: Track individual deposit/withdraw actions
+  depositAction: {
+    kind: 'action',
+    quantityType: 'token_based',
+    params: {
+      poolAddress: evmAddress('Aave pool contract'),
+      assetAddress: evmAddress('Deposited token')
+    }
+  }
+}
+
+```
+
+**Why `position` for deposits/borrows?**
+
+- Balances accrue interest over time
+- Need time-weighted tracking (not just point-in-time)
+- Engine emits windows automatically
+
+**Why separate `depositAction`?**
+
+- Some users want event-level analytics (e.g., "10 deposits today")
+- Actions capture the moment, positions track duration
+
+---
+
+### **Q5.3: Your protocol has an NFT staking system. Users stake NFTs and earn rewards. How do you model this?**
+
+**Answer:**
+
+**Challenge:** NFTs aren't fungible — each tokenId is unique.
+
+```tsx
+trackables: {
+  stakedNft: {
+    kind: 'position',
+    quantityType: 'token_based',  // Asset = "erc721:0xNFT:tokenId"
+    params: {
+      stakingContract: evmAddress('The staking contract')
+    }
+    // No pricing (NFTs rarely have liquid prices)
+  },
+
+  rewardClaim: {
+    kind: 'action',
+    quantityType: 'token_based',
+    params: {
+      stakingContract: evmAddress('The staking contract'),
+      rewardToken: evmAddress('The ERC20 reward token')
+    },
+    assetSelectors: {
+      rewardToken: evmAddress('The reward token to price')
+    }
+  }
+}
+
+```
+
+**In handler:**
+
+```tsx
+// On NFT stake event
+await emitFns.position.balanceDelta({
+  user: staker,
+  asset: `erc721:${nftContract}:${tokenId}`,  // ← Composite asset key
+  amount: 1n,  // NFT count
+  activity: 'stake',
+  trackableInstance: instance
+});
+
+// On reward claim
+await emitFns.action.action({
+  key: md5Hash(`${txRef}${logIndex}`),
+  user: claimer,
+  asset: rewardToken,
+  amount: claimedAmount,
+  activity: 'claim',
+  trackableInstance: instance
+});
+
+```
+
+**Key pattern:** Use composite asset keys for semi-fungible tokens (ERC721, ERC1155).
+
+---
+
+## **Section 6: Debugging & Validation**
+
+### **Q6.1: Your adapter is emitting events, but no prices appear in output. What are the 3 most common causes?**
+
+**Answer:**
+
+1. **`pricing` config not provided:**
+    - Check: Does the trackable instance in the config have a `pricing` field?
+    - If not: Events are emitted as scaled quantities (not priced)
+2. **`assetSelectors` mismatch:**
+    - For swaps: Is `swapLegAddress` actually one of the pool's tokens?
+    - If wrong: Filter blocks emission → no events → no pricing
+3. **`requiredPricer` violation:**
+    - Check: Does manifest specify `requiredPricer`?
+    - If user provides wrong pricer kind, runtime validation should fail
+    - If validation passes but pricing fails: Check pricer implementation logs
+
+**Debug steps:**
+
+```bash
+# 1. Check Redis for asset registration
+redis-cli KEYS "pricing:assets:*"
+redis-cli HGETALL "pricing:assets:<trackableInstanceId>"
+
+# 2. Check if pricing handler is registered
+redis-cli SMEMBERS "pricing:handlers:registry"
+
+# 3. Check price cache for asset
+redis-cli TS.GET "price:<asset>:<pricingHandlerId>"
+
+```
+
+---
+
+### **Q6.2: What validation happens at adapter load time vs runtime?**
+
+**Answer:**
+
+**Load time (when adapter module imports):**
+
+- Manifest structure validation (Zod schema):
+    - All trackables have valid `kind`, `quantityType`
+    - `assetSelectors` only present for `token_based`
+    - `requiredPricer` only present for `token_based`
+    - Field definitions are valid (`evmAddress`, `numberField`, etc.)
+
+**Runtime (when user provides config):**
+
+- Config matches manifest schema:
+    - Required `params` are present
+    - `assetSelectors` provided if trackable has pricing
+    - `requiredPricer` matches if specified
+    - No extra fields (strict validation)
+
+**User-friendly errors:**
+
+```
+❌ Error: Trackable 'swap' requires assetSelector 'swapLegAddress' when pricing is configured
+❌ Error: Trackable 'lp' requires pricer 'univ2nav', got 'coingecko'
+❌ Error: Unknown parameter 'poolAddr' (did you mean 'poolAddress'?)
+
+```
+
+---
+
+### **Q6.3: How can you test an adapter locally without deploying?**
+
+**Answer:**
+
+**Test structure:**
+
+```tsx
+// adapters/my-adapter/tests/test-case.json
+{
+  "config": {
+    "myTrackable": [
+      {
+        "params": { "contractAddress": "0x..." },
+        "pricing": { /* ... */ }
+      }
+    ]
+  },
+  "blocks": [/* mock block data */],
+  "expectedOutput": {
+    "actions": [/* ... */],
+    "windows": [/* ... */]
+  }
+}
+
+```
+
+**Run tests:**
+
+```bash
+pnpm test adapters/my-adapter
+
+```
+
+**What gets tested:**
+
+1. Manifest validation
+2. Config parsing
+3. Event decoding
+4. Emit function calls
+5. Output shape (before pricing)
+
+**Not tested locally:**
+
+- Actual RPC calls (use mocks)
+- Redis state (use in-memory mock)
+- Full pricing backfill (mocked price cache)
+
+**Integration test:** Deploy to testnet, run against real blocks, validate output CSV.
+
+---
+
+## **Section 7: Checklist for Adapter Completion**
+
+### **Q7.1: What's the minimal checklist before marking an adapter "ready for review"?**
+
+**Answer:**
+
+**Code complete:**
+
+- [ ]  Manifest defines all trackables with correct `kind` and `quantityType`
+- [ ]  Metadata filled (displayName, description, author, tags)
+- [ ]  `buildSqdProcessor` subscribes to all necessary events
+- [ ]  `onLog` routes events to handlers correctly
+- [ ]  Handlers emit appropriate `action` or `position` events
+- [ ]  `trackableInstance` passed through to all emit calls
+- [ ]  Asset selectors implemented (if applicable)
+- [ ]  Filters implemented (if applicable)
+
+**Testing:**
+
+- [ ]  At least one test case per trackable
+- [ ]  Edge cases covered (zero amounts, null addresses, etc.)
+- [ ]  Pricing config validated (if applicable)
+
+**Documentation:**
+
+- [ ]  README with example config
+- [ ]  Inline comments for non-obvious logic
+- [ ]  ABI files committed and referenced
+
+**Operational:**
+
+- [ ]  No `console.log` (use `logger` from utils)
+- [ ]  Error handling for RPC failures
+- [ ]  Caching strategy for immutable data (tokens, decimals)
+
+---
+
+### **Q7.2: You're ready to deploy. What's the production checklist?**
+
+**Answer:**
+
+**Pre-deploy:**
+
+- [ ]  Run against testnet (validate output)
+- [ ]  Backfill completed without errors
+- [ ]  Pricing handlers return non-zero values
+- [ ]  Output CSV spot-checked for correctness
+- [ ]  Performance acceptable (< 1000 blocks/min)
+
+**Deploy config:**
+
+- [ ]  Chain and RPC endpoint correct
+- [ ]  Block range set (start/end)
+- [ ]  Flush interval configured (default 24hr)
+- [ ]  Pricing range set (if not pricing historical data)
+- [ ]  Sink configured (file store, postgres, etc.)
+
+**Monitoring:**
+
+- [ ]  SQD processor health check
+- [ ]  Redis memory usage
+- [ ]  Price cache hit rate
+- [ ]  Error logs (failed RPC calls, missing prices)
+
+**Rollback plan:**
+
+- [ ]  Previous version tagged in git
+- [ ]  Redis snapshot before deploy
+- [ ]  Procedure documented to restart from block
+
+---
+
+## **Summary: Mental Model for Adapter Authors**
+
+**Your adapter is a translator:**
+
+- **Input:** Raw blockchain events (logs, transactions)
+- **Output:** Structured trackable events (actions, balance deltas)
+
+**The framework handles:**
+
+- Time-windowing positions
+- Pricing orchestration
+- Deduplication
+- Enrichment
+- Sink delivery
+
+**You handle:**
+
+- Defining trackables (manifest)
+- Subscribing to events (buildSqdProcessor)
+- Decoding events (handlers)
+- Emitting structured data (emitFns)
+- Applying filters (assetSelectors, custom logic)
+
+**Golden rule:** Keep complexity in the adapter (protocol-specific), keep generic logic in the engine.
+
+---
+
+---
+
+## **Section 4: Pricing Mental Model — One Strategy, Many Assets**
+
+### **Q4.1: What's the difference between a "pricing handler" and a "matched asset"?**
+
+**Answer:**
+
+**Pricing Handler:**
+
+- A **pricing strategy definition** (the "how")
+- Derived from `trackableInstance.pricing` config
+- Stored once in Redis as `pricing:handler:{handlerId}`
+- Contains the pricing logic (e.g., "use CoinGecko for WETH" or "calculate UniV2 NAV")
+
+**Matched Asset:**
+
+- A **specific asset that needs pricing** (the "what")
+- Discovered at runtime when events are emitted
+- Many assets can share the same pricing handler
+- Each asset is registered as `(trackableInstanceId, asset) → pricingHandlerId`
+
+**The Mental Model:**
+
+```
+Trackable Instance Config (user provides)
+  ↓ generates
+Pricing Handler ID (hash of pricing config)
+  ↓ applies to
+Matched Assets (discovered during indexing)
+  ↓ each gets priced using
+Handler invocation: resolve(handlerId, asset, timestamp)
+
+```
+
+**Example:**
+
+```tsx
+// User config (one trackable instance)
+{
+  "params": { "poolAddress": "0xABC" },
+  "assetSelectors": { "swapLegAddress": "0xWETH" },
+  "pricing": { "priceFeed": { "kind": "coingecko", "id": "weth" } }
+}
+
+// Results in:
+// - ONE pricing handler: "coingecko-weth-abc123"
+// - MANY matched assets: [0xWETH] (just one in this case)
+// - But for UniV3 LP: ONE handler, MANY NFTs
+
+```
+
+---
+
+### **Q4.2: Why does a UniV2 swap emit two assets but only define one pricing strategy?**
+
+**Answer:**
+
+**The code:**
+
+```tsx
+// In handleSwap
+if (shouldEmitFromSide) {
+  await emitSwapSide(fromTokenAddress, fromAmount);  // Asset 1
+}
+if (shouldEmitToSide) {
+  await emitSwapSide(toTokenAddress, toAmount);      // Asset 2
+}
+
+```
+
+**What happens:**
+
+**Without `assetSelectors` (unpriced mode):**
+
+- Both assets emitted: `[WETH, USDC]`
+- No pricing handler registered
+- Downstream deduplication keeps one based on `key`
+
+**With `assetSelectors.swapLegAddress = "0xWETH"` (priced mode):**
+
+- Only WETH side emitted (filter blocks USDC)
+- ONE pricing handler: hash of `{ priceFeed: { kind: "coingecko", id: "weth" } }`
+- ONE matched asset: `0xWETH`
+- Registration: `(trackableInstanceId, 0xWETH) → pricingHandlerId`
+
+**Key insight:** The trackable instance defines ONE pricing strategy, but the filter determines which assets it applies to. Without filters, you'd emit both sides with the SAME pricing strategy (which would be wrong — you can't price USDC with a WETH feed).
+
+---
+
+### **Q4.3: A user configures TWO swap instances for the same pool but different legs. What pricing handlers are created?**
+
+**Config:**
+
+```json
+{
+  "swap": [
+    {
+      "params": { "poolAddress": "0xPool" },
+      "assetSelectors": { "swapLegAddress": "0xWETH" },
+      "pricing": { "priceFeed": { "kind": "coingecko", "id": "weth" } }
+    },
+    {
+      "params": { "poolAddress": "0xPool" },
+      "assetSelectors": { "swapLegAddress": "0xUSDC" },
+      "pricing": { "priceFeed": { "kind": "pegged", "usdPegValue": 1 } }
+    }
+  ]
+}
+
+```
+
+**Answer:**
+
+**Two trackable instances:**
+
+1. Instance 1: `trackableInstanceId1 = hash(params + assetSelectors.WETH)`
+2. Instance 2: `trackableInstanceId2 = hash(params + assetSelectors.USDC)`
+
+**Two pricing handlers:**
+
+1. Handler 1: `handlerId1 = hash(coingecko config)`
+2. Handler 2: `handlerId2 = hash(pegged config)`
+
+**Two matched assets:**
+
+1. Asset 1: `0xWETH` → uses `handlerId1`
+2. Asset 2: `0xUSDC` → uses `handlerId2`
+
+**Redis structure:**
+
+```
+pricing:handler:handlerId1 → { "priceFeed": { "kind": "coingecko", "id": "weth" } }
+pricing:handler:handlerId2 → { "priceFeed": { "kind": "pegged", "usdPegValue": 1 } }
+
+pricing:assets:trackableInstanceId1 → { "0xWETH": "handlerId1" }
+pricing:assets:trackableInstanceId2 → { "0xUSDC": "handlerId2" }
+
+```
+
+**Why this works:**
+
+- Each trackable instance has a DIFFERENT `trackableInstanceId` (due to different `assetSelectors`)
+- Each instance defines its OWN pricing strategy
+- One Swap event triggers BOTH handlers (fan-out)
+- Two actions emitted, each with its own pricing
+
+---
+
+### **Q4.4: How does the "one handler, many assets" pattern work for UniV3 LP positions?**
+
+**Answer:**
+
+**Config (one trackable instance):**
+
+```json
+{
+  "params": { "poolAddress": "0xUNIV3_WETH_USDC" },
+  "pricing": {
+    "assetType": "erc721",
+    "priceFeed": {
+      "kind": "univ3lp",
+      "token0": { "priceFeed": { "kind": "coingecko", "id": "weth" } },
+      "token1": { "priceFeed": { "kind": "pegged", "usdPegValue": 1 } }
+    }
+  }
+}
+
+```
+
+**At runtime:**
+
+- User stakes NFT #42 → emit balanceDelta with `asset: "erc721:0xNFT:42"`
+- User stakes NFT #108 → emit balanceDelta with `asset: "erc721:0xNFT:108"`
+- User stakes NFT #299 → emit balanceDelta with `asset: "erc721:0xNFT:299"`
+
+**Pricing registration:**
+
+```tsx
+// In applyBalanceDelta (called for each NFT stake)
+const trackableInstanceId = generateTrackableInstanceId(ti);  // SAME for all NFTs
+const pricingHandlerId = generatePricingHandlerId(ti.pricing); // SAME for all NFTs
+
+// Register each NFT separately
+await registerAssetForPricing(trackableInstanceId, "erc721:0xNFT:42", ti.pricing);
+await registerAssetForPricing(trackableInstanceId, "erc721:0xNFT:108", ti.pricing);
+await registerAssetForPricing(trackableInstanceId, "erc721:0xNFT:299", ti.pricing);
+
+```
+
+**Redis structure:**
+
+```
+pricing:handler:handlerId → { "kind": "univ3lp", "token0": {...}, "token1": {...} }
+
+pricing:assets:trackableInstanceId → {
+  "erc721:0xNFT:42": "handlerId",
+  "erc721:0xNFT:108": "handlerId",
+  "erc721:0xNFT:299": "handlerId"
+}
+
+```
+
+**During backfill:**
+
+```tsx
+// For each asset in pricing:assets:trackableInstanceId
+for (const [asset, handlerId] of Object.entries(assetMap)) {
+  // Invoke handler with SPECIFIC asset
+  await resolve(handlerId, asset, timestamp);
+  // Handler logic:
+  // 1. Parse asset: "erc721:0xNFT:42" → nftId = 42
+  // 2. Look up pool for NFT #42
+  // 3. Get position liquidity for NFT #42
+  // 4. Calculate NAV using pool's token0/token1 prices
+}
+
+```
+
+**Key insight:**
+
+- ONE pricing strategy definition (how to price any position in this pool)
+- MANY assets (each NFT is a separate asset)
+- Handler is invoked ONCE per asset per timestamp
+- Handler receives the specific asset address to customize pricing
+
+---
+
+### **Q4.5: What's wrong with this mental model: "Each asset has its own pricing config"?**
+
+**Answer:**
+
+**❌ Wrong model:**
+
+```
+Asset 0xWETH → pricing config: { kind: "coingecko", id: "weth" }
+Asset 0xUSDC → pricing config: { kind: "pegged", value: 1 }
+
+```
+
+**✅ Correct model:**
+
+```
+Trackable Instance 1 → defines pricing strategy → applies to matched assets [0xWETH]
+Trackable Instance 2 → defines pricing strategy → applies to matched assets [0xUSDC]
+
+```
+
+**Why this matters:**
+
+1. **Configuration is declarative, not per-asset:**
+    - You don't configure pricing for "0xWETH" directly
+    - You configure a trackable instance with `assetSelectors` that matches WETH
+    - The pricing strategy comes from that trackable instance
+2. **Many-to-one relationship:**
+    - Many assets can share one pricing strategy
+    - UniV3 LP: 1000 NFTs, 1 pricing config
+3. **Asset discovery is dynamic:**
+    - You don't know all NFT IDs upfront
+    - But you DO know the pricing strategy (pool's token0/token1 config)
+    - Assets are registered as they're discovered
+4. **Pricing handler is reusable:**
+    - If two trackable instances have identical pricing configs
+    - They generate the SAME `pricingHandlerId`
+    - Handler stored once, referenced multiple times
+
+**Correct statement:** "Each **trackable instance** defines a pricing strategy that applies to all assets it matches."
+
+---
+
+### **Q4.6: In your adapter handler, when should you register an asset for pricing?**
+
+**Answer:**
+
+**You DON'T register directly.** The emit functions handle it automatically.
+
+**What you DO:**
+
+```tsx
+// In handler
+await emitFns.action.swap({
+  key: md5Hash(`${txRef}${logIndex}`),
+  user: swapper,
+  asset: tokenAddress,              // ← The matched asset
+  amount: swapAmount,
+  trackableInstance: instance,      // ← Contains pricing config
+  activity: 'swap',
+  meta: { /* ... */ }
+});
+
+```
+
+**What the engine does (in `applyAction`):**
+
+```tsx
+// Inside engine.ts applyAction()
+if (quantityType === 'token_based' && e.trackableInstance.pricing !== undefined) {
+  const trackableInstanceId = generateTrackableInstanceId(e.trackableInstance);
+  const pricingHandlerId = await registerAssetForPricing(
+    trackableInstanceId,
+    e.asset,              // ← The specific asset from your emit
+    e.trackableInstance.pricing
+  );
+}
+
+```
+
+**The flow:**
+
+1. Adapter emits event with `trackableInstance` + `asset`
+2. Engine checks if `trackableInstance.pricing` exists
+3. If yes, registers `(trackableInstanceId, asset) → pricingHandlerId`
+4. Backfill later prices all registered `(instance, asset)` pairs
+
+**Your responsibility:** Pass the correct `trackableInstance` and `asset`. The engine handles registration.
+
+---
+
+### **Q4.7: How do you debug pricing registration issues?**
+
+**Answer:**
+
+**Common issues:**
+
+1. **Asset registered but not priced:**
+
+    ```bash
+    # Check if asset was registered
+    redis-cli KEYS "pricing:assets:*"
+    redis-cli HGETALL "pricing:assets:<trackableInstanceId>"
+
+    # Should show: { "0xAsset": "handlerId123" }
+    # If missing → asset not emitted or pricing config missing
+
+    ```
+
+2. **Handler registered but lookup fails:**
+
+    ```bash
+    # Check if handler config stored
+    redis-cli GET "pricing:handler:<handlerId>"
+
+    # Should show: JSON pricing config
+    # If missing → handler registration failed
+
+    ```
+
+3. **Prices requested but not found:**
+
+    ```bash
+    # Check price cache
+    redis-cli --raw TS.GET "price:<asset>:<handlerId>"
+
+    # Should show: [timestamp, price]
+    # If missing → backfill didn't run or handler failed
+
+    ```
+
+
+**Debug checklist:**
+
+- [ ]  Trackable instance has `pricing` config
+- [ ]  Asset matches `assetSelectors` filter
+- [ ]  Emit function receives `trackableInstance` parameter
+- [ ]  Engine successfully hashes pricing config → `pricingHandlerId`
+- [ ]  Backfill executed for that timestamp
+- [ ]  Handler didn't throw error (check logs)
+- [ ]  Handler returned non-zero price
+
+**Pro tip:** Add logging in your handler:
+
+```tsx
+logger.debug(`Emitting swap: asset=${asset}, instance=${JSON.stringify(instance.params)}`);
+
+```
+
+Then check engine logs:
+
+```tsx
+logger.debug(`Registered asset ${asset} with handler ${pricingHandlerId}`);
+
+```
+
+---
+
+## **Where to Place This Section**
+
+**Recommended structure:**
+
+1. **Section 1:** Manifest Design & Trackables (conceptual)
+2. **Section 2:** Writing the Adapter (implementation basics)
+3. **Section 3:** Emit Functions & Pricing Integration (how to emit)
+4. **NEW Section 4:** Pricing Mental Model — One Strategy, Many Assets ← **INSERT HERE**
+5. **Section 5:** Patterns & Best Practices (was Section 4)
+6. **Section 6:** Advanced Scenarios (was Section 5)
+7. **Section 7:** Debugging & Validation (was Section 6)
+8. **Section 8:** Checklist for Adapter Completion (was Section 7)
+
+**Why this order works:**
+
+- Sections 1-3 give you the basics to write a simple adapter
+- **Section 4** deepens the pricing mental model (critical before advanced topics)
+- Section 5 onward builds on that understanding
+- By the time engineers reach "Advanced Scenarios," they have the pricing model internalized
+
+This placement ensures engineers understand the "one strategy, many assets" pattern before they encounter complex scenarios like multi-instance configs or UniV3 LP positions.
