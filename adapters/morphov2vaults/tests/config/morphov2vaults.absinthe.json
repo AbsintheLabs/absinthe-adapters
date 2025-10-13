@@ -35,7 +35,7 @@
             "vaultAddress": "0x90b482ca9769807569998b20e062e024b1a0a39d"
           },
           "pricing": {
-            "assetType": "erc20",
+            "assetType": "composite",
             "priceFeed": {
               "kind": "morphovaults",
               "underlyingAsset": {

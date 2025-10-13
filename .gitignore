@@ -21,7 +21,7 @@ testdeploy/
 **/abs_config.json
 
 **/src/model/generated
-**/src/abi/
+# **/src/abi/
 .eslintcache
 absinthe.log
 logs/

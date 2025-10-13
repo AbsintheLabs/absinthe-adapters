@@ -9,7 +9,7 @@ import { durationHumanToMs } from './duration.ts';
 
 // Basic types
 export const AssetKey = z.string().min(1); // xxx: EVM address or "chain:addr". is this correct?
-export const AssetType = z.enum(['erc20', 'spl', 'erc721']);
+export const AssetType = z.enum(['erc20', 'spl', 'erc721', 'composite']);
 
 // Chain architecture type
 export const ChainArch = z.enum(['evm', 'solana']);
@@ -97,6 +97,15 @@ export const CoreFeedSelector = z.discriminatedUnion('kind', [
   }),
   z.object({
     kind: z.literal('morphovaults'),
+    underlyingAsset: z.object({
+      pricing: z.object({
+        assetType: AssetType,
+        priceFeed: z.lazy(FeedSelectorRef),
+      }),
+    }),
+  }),
+  z.object({
+    kind: z.literal('morphomarkets'),
     underlyingAsset: z.object({
       pricing: z.object({
         assetType: AssetType,

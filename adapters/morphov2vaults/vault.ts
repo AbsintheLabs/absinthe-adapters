@@ -37,4 +37,6 @@ export async function handleVault(
       trackableInstance: instance,
     });
   }
+
+  await emitFns.position.reprice({ trackableInstance: instance });
 }
