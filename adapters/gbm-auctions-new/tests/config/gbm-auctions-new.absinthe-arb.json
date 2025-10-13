@@ -1,0 +1,67 @@
+{
+  "chainArch": "evm",
+  "flushInterval": "48h",
+  "redisUrl": "${env:REDIS_URL}",
+  "sinkConfig": {
+    "sinks": [
+      {
+        "sinkType": "csv",
+        "path": "gbm-auctions-new-arb.csv"
+      }
+    ]
+  },
+  "network": {
+    "chainId": 42161,
+    "gatewayUrl": "https://v2.archive.subsquid.io/network/arbitrum-mainnet",
+    "rpcUrl": "https://arbitrum-mainnet.infura.io/v3/e5b6ee7b35c3402a8fc12263c715a1f8",
+    "finality": 75
+  },
+  "range": {
+    "fromBlock": 370444915,
+    "toBlock": 0
+  },
+  "adapterConfig": {
+    "adapterId": "gbm-auctions-new",
+    "config": {
+      "bid": [
+        {
+          "params": {
+            "auctionContractAddress": "0x7cED531Bb384dE4e70C0A543dBC5707bDB67632a"
+          },
+          "assetSelectors": {
+            "bidTokenAddress": "0xaf88d065e77c8cc2239327c5edb3a432268e5831"
+          },
+          "pricing": {
+            "assetType": "erc20",
+            "priceFeed": {
+              "kind": "coingecko",
+              "id": "usd-coin"
+            }
+          }
+        },
+        {
+          "params": {
+            "auctionContractAddress": "0x7cED531Bb384dE4e70C0A543dBC5707bDB67632a"
+          },
+          "assetSelectors": {
+            "bidTokenAddress": "0x82af49447d8a07e3bd95bd0d56f35241523fbab1"
+          },
+          "pricing": {
+            "assetType": "erc20",
+            "priceFeed": {
+              "kind": "coingecko",
+              "id": "ethereum"
+            }
+          }
+        }
+      ],
+      "claim": [
+        {
+          "params": {
+            "auctionContractAddress": "0x7cED531Bb384dE4e70C0A543dBC5707bDB67632a"
+          }
+        }
+      ]
+    }
+  }
+}

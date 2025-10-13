@@ -95,6 +95,15 @@ export const CoreFeedSelector = z.discriminatedUnion('kind', [
     poolAddress: EvmAddress,
     underlyingTokenFeed: z.lazy(TokenSelectorRef),
   }),
+  z.object({
+    kind: z.literal('morphovaults'),
+    underlyingAsset: z.object({
+      pricing: z.object({
+        assetType: AssetType,
+        priceFeed: z.lazy(FeedSelectorRef),
+      }),
+    }),
+  }),
 ]);
 
 // Extensible feed selector that allows custom implementations

@@ -12,7 +12,9 @@ const BlockHeaderSchema = z.object({
 
 const TransactionForLogSchema = z.object({
   from: z.string().min(1, 'Transaction from address is required'),
-  to: z.string().min(1, 'Transaction to address is required').nullable(),
+  // Note: .optional() required to handle contract creation transactions (to === undefined)
+
+  to: z.string().optional(),
   gasUsed: z
     .union([z.bigint(), z.string()])
     .transform((val) => (typeof val === 'bigint' ? val.toString() : val)),
@@ -39,7 +41,9 @@ const LogSchema = z.object({
 const TransactionSchema = z.object({
   hash: z.string().min(1, 'Transaction hash is required'),
   from: z.string().min(1, 'Transaction from address is required'),
-  to: z.string().min(1, 'Transaction to address is required').nullable(),
+  // Note: .optional() required to handle contract creation transactions (to === undefined)
+
+  to: z.string().optional(),
   value: z
     .union([z.bigint(), z.string()])
     .transform((val) => (typeof val === 'bigint' ? val.toString() : val)),

@@ -380,7 +380,7 @@ export class Engine {
       value:
         quantityType === 'token_based' || quantityType === 'count'
           ? ((e as any).amount.toString?.() ?? (e as any).amount)
-          : null,
+          : '0', // Use '0' instead of null for 'none' type
       txRef: d.txRef,
       pricingHandlerId,
       ctx: d,

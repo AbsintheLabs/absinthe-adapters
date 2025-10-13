@@ -250,7 +250,7 @@ export const AdapterMetadataZ = z
       .max(16)
       .optional(),
     category: z
-      .enum(['trading', 'lending', 'staking', 'tokens', 'identity', 'marketplace'])
+      .enum(['trading', 'lending', 'staking', 'tokens', 'identity', 'marketplace', 'auctions'])
       .optional(),
     adapterIcon: z.httpUrl().optional(),
     status: z.enum(['stable', 'beta', 'alpha', 'deprecated']).optional(),
