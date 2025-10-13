@@ -1,0 +1,75 @@
+{
+  "chainArch": "evm",
+  "flushInterval": "48h",
+  "redisUrl": "${env:REDIS_URL}",
+  "sinkConfig": {
+    "sinks": [
+      {
+        "sinkType": "csv",
+        "path": "morpho-markets.csv"
+      }
+    ]
+  },
+  "network": {
+    "chainId": 1,
+    "gatewayUrl": "https://v2.archive.subsquid.io/network/ethereum-mainnet",
+    "rpcUrl": "https://mainnet.infura.io/v3/e5b6ee7b35c3402a8fc12263c715a1f8",
+    "finality": 75
+  },
+  "range": {
+    "fromBlock": 22487156
+  },
+  "adapterConfig": {
+    "adapterId": "morpho-markets",
+    "config": {
+      "morphoblue": [
+        {
+          "params": {
+            "morphoBlueAddress": "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb"
+          },
+          "assetSelectors": {
+            "marketId": "0xd0d22868a9460dd837f020a1ba300b81f26520602cc61f2b515cf6413b15ddac"
+          },
+          "pricing": {
+            "assetType": "composite",
+            "priceFeed": {
+              "kind": "morphomarkets",
+              "underlyingAsset": {
+                "pricing": {
+                  "assetType": "erc20",
+                  "priceFeed": {
+                    "kind": "coingecko",
+                    "id": "usd-coin"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "params": {
+            "morphoBlueAddress": "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb"
+          },
+          "assetSelectors": {
+            "marketId": "0xa458018cf1a6e77ebbcc40ba5776ac7990e523b7cc5d0c1e740a4bbc13190d8f"
+          },
+          "pricing": {
+            "assetType": "composite",
+            "priceFeed": {
+              "kind": "morphomarkets",
+              "underlyingAsset": {
+                "pricing": {
+                  "assetType": "erc20",
+                  "priceFeed": {
+                    "kind": "coingecko",
+                    "id": "usd-coin"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

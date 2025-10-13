@@ -27,6 +27,13 @@ export const erc721Handler: AssetTypeHandler = {
   normalizeAmount: (amount: Big, metadata) => amount,
 };
 
+export const compositeHandler: AssetTypeHandler = {
+  getMetadata: async (ctx: ResolveContext) => {
+    return { decimals: 0 };
+  },
+  normalizeAmount: (amount: Big, metadata) => amount,
+};
+
 // export const splHandler: AssetTypeHandler = {
 //     getMetadata: async (assetKey: string, ctx: ResolveContext) => {
 //         // todo: implement
@@ -38,5 +45,6 @@ export const erc721Handler: AssetTypeHandler = {
 export const metadataResolver = new Map<AssetType, AssetTypeHandler>([
   ['erc20', erc20Handler],
   ['erc721', erc721Handler],
+  ['composite', compositeHandler],
   // ['spl', splHandler],
 ]);

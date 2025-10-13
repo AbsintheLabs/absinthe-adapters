@@ -23,7 +23,7 @@ export default defineFeed(MORPHO_NAV_HANDLER, (resolve) => async ({ assetConfig,
 
     const marketData = JSON.parse(marketDataStr);
     const underlyingAssetAddress = marketData.asset.toLowerCase();
-    const underlyingDecimals = marketData.underlyingDecimals;
+    const underlyingDecimals = marketData.decimals;
 
     logger.debug(
       `Retrieved vault metadata from Redis for ${vaultAddress}: underlying=${underlyingAssetAddress}, decimals=${underlyingDecimals}`,
