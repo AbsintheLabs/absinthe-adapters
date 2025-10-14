@@ -469,7 +469,7 @@ export class Engine {
     // ONLY emit window if position is ACTIVE
     if (
       !isInactive &&
-      previousTxRef !== null &&
+      // previousTxRef !== null &&
       previousTsMs < d.tsMs &&
       (newAmount.gt(0) || previousAmount.gt(0))
     ) {
