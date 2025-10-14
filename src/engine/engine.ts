@@ -402,6 +402,7 @@ export class Engine {
   ) {
     // Skip balance deltas for null addresses (mints/burns should not be tracked as user balances)
     // This is a good default
+    // xxx: move this into the enrichment pipeline rather than the core engine
     if (e.user === EVM_NULL_ADDRESS) {
       return;
     }
