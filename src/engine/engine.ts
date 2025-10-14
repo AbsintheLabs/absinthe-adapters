@@ -467,12 +467,7 @@ export class Engine {
     }
 
     // ONLY emit window if position is ACTIVE
-    if (
-      !isInactive &&
-      // previousTxRef !== null &&
-      previousTsMs < d.tsMs &&
-      (newAmount.gt(0) || previousAmount.gt(0))
-    ) {
+    if (!isInactive && previousTsMs < d.tsMs && (newAmount.gt(0) || previousAmount.gt(0))) {
       if (previousTxRef === null) {
         logger.error(`previousTxRef is null for key: ${balanceKey}`);
         throw new Error(`previousTxRef is null for key: ${balanceKey}`);
