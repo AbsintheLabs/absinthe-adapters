@@ -46,7 +46,6 @@ export default defineAdapter({
       ...config.claim.map((claim) => claim.params.auctionContractAddress as string),
     ]);
 
-    // Combine all addresses
     const allAddrs = new Set([...bidAddrs, ...claimAddrs]);
 
     const bidTopic = gbmAbi.events.AuctionBid_Placed.topic;
