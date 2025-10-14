@@ -2,18 +2,12 @@ import { Enricher, EnrichmentContext } from '../core.ts';
 import { AssetInfo } from '../../types/events.ts';
 import { AssetType } from '../../config/schema.ts';
 
-type AssetInfoFields = {
-  assetInfo: AssetInfo;
-};
-
-export const enrichAssetMetadata = <T extends { asset: string }>(): Enricher<
-  T,
-  T & AssetInfoFields
-> => {
+export const enrichAssetMetadata = <T extends { asset: string }>(): Enricher<T, T & AssetInfo> => {
   return async (item, context) => {
     const { asset } = item;
 
     // Parse asset string to extract components
+    // BUG! WITHOUT A STABLE KEY, ASSET COULD BE UNDEFINED. WE NEED TO CREATE A STABLE KEY FOR THE ASSETS
     const assetParts = asset.split(':');
     const assetType = assetParts[0] as AssetType;
     const assetAddress = assetParts[1];
@@ -32,16 +26,14 @@ export const enrichAssetMetadata = <T extends { asset: string }>(): Enricher<
       decimals = Number(metadata.decimals);
     }
 
-    const assetInfo: AssetInfo = {
-      asset: assetAddress,
-      tokenId,
-      decimals,
-      assetType,
-    };
-
     return {
       ...item,
-      assetInfo,
+      // asset: assetAddress,
+      // FIXME: THIS NEEDS TO BE FIXED!!!!!!!!!!!
+      asset: assetType,
+      decimals,
+      assetType: 'erc20',
+      tokenId,
     };
   };
 };

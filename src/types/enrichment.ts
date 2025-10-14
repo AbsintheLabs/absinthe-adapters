@@ -130,7 +130,7 @@ export interface RawWindow {
   startTs: number;
   endTs: number;
   startHeight: number;
-  endHeight: number;
+  endHeight: number | null;
   startValue: string;
   endValue: string;
   startTxRef: string;
@@ -140,6 +140,7 @@ export interface RawWindow {
   trigger: WindowReason;
 
   // Pricing handler ID (for looking up price config)
+  quantityType: QuantityType;
   pricingHandlerId?: string;
 
   // Chain-specific contexts (opaque blobs)

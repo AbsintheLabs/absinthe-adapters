@@ -12,41 +12,36 @@ import { Engine } from '../engine/engine.ts';
 
 /**
  * Reason for emitting a balance delta or position window.
+ *
+ * - 'BALANCE_CHANGED': User's token balance changed due to a transaction.
+ *    This includes opening a new balance (first purchase), closing a balance
+ *    (selling all tokens), or any partial buy/sell that modified the quantity held.
+ * - 'POSITION_REVALUED': User's balance quantity unchanged, but position metrics
+ *    were recalculated. This occurs when underlying factors affecting position
+ *    valuation changed (e.g., price updates, pool state changes) without the
+ *    user performing a transaction.
+ * - 'POSITION_DEACTIVATED': Position marked as no longer active for tracking.
+ *    This occurs when a position moves out of range, user is blacklisted, or
+ *    other conditions cause the position to be excluded from ongoing tracking
+ *    despite the user still holding the underlying balance.
+ * - 'PERIOD_ELAPSED': Configured time duration for the position expired.
+ *    Emitted periodically for positions held without changes to capture
+ *    duration-based metrics. The flush period is user-configurable, and this
+ *    ensures long-held positions generate regular snapshots.
+ * - 'INDEXER_STOPPED': Indexer reached its configured end timestamp and stopped.
+ *    A final snapshot is emitted for any positions still held when indexing
+ *    terminates, regardless of whether they changed during the final period.
  */
-export type WindowReason =
-  /**
-   * BALANCE_CHANGED: User's token balance changed due to a transaction.
-   * This includes opening a new balance (first purchase), closing a balance
-   * (selling all tokens), or any partial buy/sell that modified the quantity held.
-   */
-  | 'BALANCE_CHANGED'
-  /**
-   * POSITION_REVALUED: User's balance quantity unchanged, but position metrics
-   * were recalculated. This occurs when underlying factors affecting position
-   * valuation changed (e.g., price updates, pool state changes) without the
-   * user performing a transaction.
-   */
-  | 'POSITION_REVALUED'
-  /**
-   * POSITION_DEACTIVATED: Position marked as no longer active for tracking.
-   * This occurs when a position moves out of range, user is blacklisted, or
-   * other conditions cause the position to be excluded from ongoing tracking
-   * despite the user still holding the underlying balance.
-   */
-  | 'POSITION_DEACTIVATED'
-  /**
-   * PERIOD_ELAPSED: Configured time duration for the position expired.
-   * Emitted periodically for positions held without changes to capture
-   * duration-based metrics. The flush period is user-configurable, and this
-   * ensures long-held positions generate regular snapshots.
-   */
-  | 'PERIOD_ELAPSED'
-  /**
-   * INDEXER_STOPPED: Indexer reached its configured end timestamp and stopped.
-   * A final snapshot is emitted for any positions still held when indexing
-   * terminates, regardless of whether they changed during the final period.
-   */
-  | 'INDEXER_STOPPED';
+export const WINDOW_REASONS = [
+  'BALANCE_CHANGED', // see above
+  'POSITION_REVALUED', // see above
+  'POSITION_DEACTIVATED', // see above
+  'PERIOD_ELAPSED', // see above
+  'INDEXER_STOPPED', // see above
+] as const;
+
+// Derive the type from the array
+export type WindowReason = (typeof WINDOW_REASONS)[number];
 
 export type EmitFunctions = ReturnType<Engine['createEmitFunctions']>;
 

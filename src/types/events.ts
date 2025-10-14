@@ -4,6 +4,7 @@ import { AssetType, ChainArch } from '../config/schema.ts';
 import { QuantityBasis } from '../enrichers/pricing/quantity-basis.ts';
 import { Activity } from './core.ts';
 import { QuantityType, QuantityTypeSchema } from './manifest.ts';
+import { WINDOW_REASONS } from './adapter.ts';
 
 export interface AssetInfo {
   asset: string; // EVM or Solana address
@@ -20,6 +21,76 @@ export interface RunnerMeta {
   apiKeyHash?: string;
 }
 
+export const CommonFieldsSchema = z.object({
+  runner_commitSha: z.string().optional(),
+  runner_apiKeyHash: z.string().optional(),
+  runner_configHash: z.string(),
+  runner_runnerId: z.string(),
+
+  // Added by addAdapterProtocolMeta
+  adapter_version: z.string(),
+  protocol_name: z.string(), // Currently commented out
+
+  // Added by addChainMetadata
+  chainId: z.string(),
+  chainShortName: z.string(),
+  chainArch: ChainArch,
+
+  // Added by addQuantityBasis
+  quantityBasis: z.enum(['none', 'count', 'monetary_value', 'asset_amount']),
+  quantityType: QuantityTypeSchema,
+
+  // Added by calculateQuantity
+  quantity: z.number(),
+  activity: z.string(), // Activity is a union with string fallback
+});
+
+export const AssetFieldsSchema = z.object({
+  asset: z.string(),
+  tokenId: z.string().optional(),
+  decimals: z.number(),
+  assetType: AssetType,
+});
+
+export const AssetFieldsSchemaOptional = AssetFieldsSchema.partial();
+
+export const EnrichedWindowSchema = z
+  .object({
+    user: z.string(),
+    // asset: z.string(),
+
+    // window fields
+    windowUtcStartTsMs: z.number(),
+    // even if there is no end block, we still need to have an end ts
+    windowUtcEndTsMs: z.number(),
+    windowDurationMs: z.number(),
+    startHeight: z.number(),
+    // when exhausted, there is no end height
+    endHeight: z.number().nullable(),
+    startTxRef: z.string(),
+    // when exhausted, there is no end tx ref
+    endTxRef: z.string().nullable(),
+
+    trigger: z.enum(WINDOW_REASONS),
+
+    // fixme: make this DRY rather than hardcoding the name of this here
+    eventType: z.literal('time_weighted_balance'),
+
+    // raw position
+    rawBefore: z.string(),
+    rawAfter: z.string(),
+    rawDelta: z.string(),
+
+    // startTs: z.number(),
+    // endTs: z.number(),
+    startValue: z.string(),
+    endValue: z.string(),
+  })
+  .extend(CommonFieldsSchema.shape)
+  .extend(AssetFieldsSchema.shape) // required bc window is always a token_based
+  .strip();
+
+export type EnrichedWindow = z.infer<typeof EnrichedWindowSchema>;
 /**
  * Zod schema for the final enriched action shape.
  * Single source of truth - both runtime validation and TypeScript type.
@@ -33,10 +104,6 @@ export const EnrichedActionSchema = z
     // Original RawAction fields
     key: z.string(),
     user: z.string(),
-    quantityType: QuantityTypeSchema,
-    asset: z.string().optional(),
-    activity: z.string(), // Activity is a union with string fallback
-    // meta is excluded - transformed to metadataJson by addProtocolMetadata
     ts: z.number(),
     height: z.number(),
     value: z.string(),
@@ -44,34 +111,14 @@ export const EnrichedActionSchema = z
     pricingHandlerId: z.string().optional(),
     ctx: z.record(z.string(), z.any()).optional(),
 
-    // Added by addRunnerMeta
-    // runner_version: z.string(), // Currently commented out
-    runner_commitSha: z.string().optional(),
-    runner_apiKeyHash: z.string().optional(),
-    runner_configHash: z.string(),
-    runner_runnerId: z.string(),
-
-    // Added by addChainMetadata
-    chainId: z.string(),
-    chainShortName: z.string(),
-    chainArch: ChainArch,
-
     // Added by addActionEventType
     eventType: z.literal('action'),
 
     // Added by addProtocolMetadata
     metadataJson: z.string().optional(),
-
-    // Added by addAdapterProtocolMeta
-    adapter_version: z.string(),
-    // protocol_name: z.string(), // Currently commented out
-
-    // Added by addQuantityBasis
-    quantityBasis: z.enum(['none', 'count', 'monetary_value', 'asset_amount']),
-
-    // Added by calculateQuantity
-    quantity: z.number(),
   })
+  .extend(CommonFieldsSchema.shape)
+  .extend(AssetFieldsSchemaOptional.shape) // optional bc action can be non token-based
   .strip(); // Automatically remove extra fields
 
 /**
@@ -79,6 +126,8 @@ export const EnrichedActionSchema = z
  * Inferred directly from the Zod schema - single source of truth.
  */
 export type EnrichedAction = z.infer<typeof EnrichedActionSchema>;
+
+// FIXME: EVERYTHING BELOW THIS POINT IS DEPRECATED AND SHOULD BE REMOVED
 
 // Common base interface for all events
 export interface BaseEvent {

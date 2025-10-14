@@ -467,7 +467,7 @@ export class Engine {
     }
 
     // ONLY emit window if position is ACTIVE
-    if (!isInactive && newAmount.gt(0) && previousTsMs < d.tsMs) {
+    if (!isInactive && newAmount.gt(0) && previousAmount.gt(0) && previousTsMs < d.tsMs) {
       if (previousTxRef === null) {
         logger.error(`previousTxRef is null for key: ${balanceKey}`);
         throw new Error(`previousTxRef is null for key: ${balanceKey}`);
@@ -486,6 +486,7 @@ export class Engine {
         startTxRef: previousTxRef,
         endTxRef: d.txRef,
         trigger: reason,
+        quantityType: ti.quantityType,
         pricingHandlerId,
         startContext: lastUpdateCtx,
         endContext: d,
@@ -562,6 +563,7 @@ export class Engine {
           startTxRef: prevTxRef,
           endTxRef: d.txRef,
           trigger: 'POSITION_DEACTIVATED',
+          quantityType: 'token_based',
           startContext: lastUpdateCtx,
           endContext: d,
         };
@@ -809,6 +811,7 @@ export class Engine {
             startTxRef: prevTxRef,
             endTxRef: null,
             trigger: 'INDEXER_STOPPED',
+            quantityType: 'token_based',
           };
           this.windows.push(window);
           writePromises.push(
@@ -835,6 +838,7 @@ export class Engine {
             startTxRef: prevTxRef,
             endTxRef: null,
             trigger: 'PERIOD_ELAPSED',
+            quantityType: 'token_based',
           };
           this.windows.push(window);
           // Advance cursor to the start of the current window (we didn't emit the live window)

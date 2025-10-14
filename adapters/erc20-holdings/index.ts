@@ -1,27 +1,11 @@
-// Registry imports
-import { Manifest, evmAddress } from '../../src/types/manifest.ts';
 import { metadata } from './metadata.ts';
+import { manifest } from './manifest.ts';
 
 // Protocol ABI imports
 import * as erc20Abi from './abi-types/erc20.ts';
 
 // Handler imports
 import { defineAdapter } from '../_shared/index.ts';
-
-export const manifest = {
-  name: 'erc20-holdings',
-  version: '0.0.1',
-  chainArch: 'evm',
-  trackables: {
-    token: {
-      kind: 'position',
-      quantityType: 'token_based',
-      params: {
-        contractAddress: evmAddress('The contract address to track'),
-      },
-    },
-  },
-} as const satisfies Manifest;
 
 export default defineAdapter({
   manifest,
@@ -45,6 +29,7 @@ export default defineAdapter({
 
         await emitFns.position.balanceDelta({
           user: from,
+          // asset: `erc20:${assetAddress}`,
           asset: assetAddress,
           amount: -value,
           activity: 'hold',
@@ -52,6 +37,7 @@ export default defineAdapter({
         });
         await emitFns.position.balanceDelta({
           user: to,
+          // asset: `erc20:${assetAddress}`,
           asset: assetAddress,
           amount: value,
           activity: 'hold',

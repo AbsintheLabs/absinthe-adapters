@@ -1,6 +1,6 @@
 {
   "chainArch": "evm",
-  "flushInterval": "24h",
+  "flushInterval": "1h",
   "redisUrl": "${env:REDIS_URL}",
   "sinkConfig": {
     "sinks": [
