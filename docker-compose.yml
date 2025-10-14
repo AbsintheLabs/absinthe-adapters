@@ -1,33 +1,47 @@
-version: '3.8'
+# docker-compose.yml
+version: "3.8"
 
 services:
-  postgres:
-    image: postgres:17
-    container_name: postgres
-    environment:
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: squid
+  redis:
+    image: redis:latest
+    container_name: absinthe-redis
     ports:
-      - '5432:5432'
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./logs/postgres:/var/log/postgresql
+      - "6379:6379"
     networks:
       - app-network
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U postgres']
-  redis:
-    image: redis:latest
-    container_name: redis
-    ports:
-      - '6379:6379'
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  absinthe-adapters:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: absinthe-adapters
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      - REDIS_URL=redis://redis:6379
+      # Config path from .env
+      - CONFIG_PATH=adapters/morphov1vaults/tests/config/morphov1vaults.absinthe.json
+      # Pass through any other env vars
+      - LOG_LEVEL=debug
+      - COINGECKO_API_KEY=CG-m1UbfSdGRpxEmpXrABtua63w
+    volumes:
+      # Output directories
+      - ./_runs:/app/_runs
+      - ./_sqdstate:/app/_sqdstate
+      - ./logs:/app/logs
+      # Mount adapters as read-only for config access
+      - ./adapters:/app/adapters:ro
     networks:
       - app-network
+    restart: unless-stopped
 
 networks:
   app-network:
     driver: bridge
-
-volumes:
-  postgres_data:
-    driver: local
