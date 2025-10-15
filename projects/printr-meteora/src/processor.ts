@@ -1,6 +1,6 @@
 import { DataSourceBuilder } from '@subsquid/solana-stream';
 import { validateEnv } from './utils/validateEnv';
-import * as printrAbi from './abi/diRTqkRxqg9fvQXemGosY8hg91Q7DpFqGXLJwG3bEDA';
+import * as printrAbi from './abi/T8HsGYv7sMk3kTnyaRqZrbRPuntYzdh12evXBkprint';
 const env = validateEnv();
 const { printrMeteoraProtocol } = env;
 
@@ -40,7 +40,7 @@ export const processor = new DataSourceBuilder()
     // select instructions, that:
     where: {
       programId: [printrAbi.programId], // where executed by Whirlpool program
-      d8: [printrAbi.instructions.swap.d8, printrAbi.instructions.createPrintrDbcFromCompact.d8],
+      d8: [printrAbi.instructions.swap.d8, printrAbi.instructions.printTelecoin.d8],
 
       //note: not including closePosition as it wouldn't work.
       // Why =>  because we already have the respective positions for the specific pool stored, and when there would be a closePosition for lets say a position that doesn't exists, we wouldn't do anything.

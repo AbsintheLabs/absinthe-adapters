@@ -11,7 +11,7 @@ import {
   MessageType,
   Currency,
 } from '@absinthe/common';
-import * as printrAbi from './abi/diRTqkRxqg9fvQXemGosY8hg91Q7DpFqGXLJwG3bEDA';
+import * as printrAbi from './abi/T8HsGYv7sMk3kTnyaRqZrbRPuntYzdh12evXBkprint';
 import { processor } from './processor';
 import { createHash } from 'crypto';
 import { TypeormDatabase } from '@subsquid/typeorm-store';
@@ -207,9 +207,8 @@ export class PrintrMeteoraProcessor {
           }
         }
 
-        case printrAbi.instructions.createPrintrDbcFromCompact.d8: {
-          const decodedCreateInstruction =
-            printrAbi.instructions.createPrintrDbcFromCompact.decode(ins);
+        case printrAbi.instructions.printTelecoin.d8: {
+          const decodedCreateInstruction = printrAbi.instructions.printTelecoin.decode(ins);
           const inner = ins.inner || [];
 
           for (const innerIns of inner) {
@@ -254,57 +253,6 @@ export class PrintrMeteoraProcessor {
     }
   }
 
-  // private decodeLog(log: any, block: any): any | null {
-  //   try {
-  //     const slot = block.header.number;
-  //     const tx = log.getTransaction().signatures[0];
-  //     const tokenBalances = log.getTransaction().tokenBalances;
-
-  //     const baseData = {
-  //       slot,
-  //       txHash: tx,
-  //       logIndex: null, // todo: find equivalent in solana
-  //       blockHash: '', // todo: find equivalent in solana
-  //       timestamp: block.header.timestamp,
-  //       tokenBalances,
-  //     };
-
-  //     logger.info(`🔄 [DecodeLog] Decoded log:`, {
-  //       log,
-  //     });
-
-  //     try {
-  //       let event = printrAbi.events.CreatePrintrDbcEvent.decode({
-  //         msg: '0x' + Buffer.from(log.message, 'base64').toString('hex'),
-  //       });
-
-  //       logger.info(`🔄 [DecodeLog] Decoded CreatePrintrDbcEvent:`, {
-  //         event,
-  //       });
-
-  //       return {
-  //         ...baseData,
-  //         type: 'CreatePrintrDbc',
-  //         event,
-  //       };
-  //     } catch (e1) {
-  //       logger.warn(`⚠️ [DecodeLog] Failed to decode log:`, {
-  //         error: e1 as Error,
-  //         programId: log.programId,
-  //         kind: log.kind,
-  //       });
-  //       return null;
-  //     }
-  //   } catch (error) {
-  //     logger.warn(`⚠️ [DecodeLog] Failed to decode log:`, {
-  //       error: error as Error,
-  //       programId: log.programId,
-  //       kind: log.kind,
-  //     });
-  //     return null;
-  //   }
-  // }
-
   private async processBlockInstructions(
     blockInstructions: PrintrInstructionData[],
     protocolStates: Map<string, ProtocolStateOrca>,
@@ -326,16 +274,6 @@ export class PrintrMeteoraProcessor {
     }
   }
 
-  // private async processBlockEvents(
-  //   blockEvents: any[],
-  //   protocolStates: Map<string, ProtocolStateOrca>,
-  // ): Promise<void> {
-  //   const createPrintrDbcEvents = blockEvents.filter((data) => data.type === 'CreatePrintrDbc');
-  //   if (createPrintrDbcEvents.length > 0) {
-  //     await this.processCreatePrintrDbcEvents(createPrintrDbcEvents, protocolStates);
-  //   }
-  // }
-
   private async processCreatePrintrDbcEvents(
     events: any[],
     protocolStates: Map<string, ProtocolStateOrca>,
@@ -352,7 +290,7 @@ export class PrintrMeteoraProcessor {
         logIndex: eventData.logIndex,
         blockNumber: eventData.slot,
         blockHash: eventData.blockHash,
-        userId: eventData.event.creatorOnSolana,
+        userId: eventData.event.dev_on_solana,
         currency: Currency.USD,
         valueUsd: 0,
         gasUsed: 0, //todo: fix
