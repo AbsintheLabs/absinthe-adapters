@@ -10,7 +10,7 @@ import {
   Transaction,
 } from '@absinthe/common';
 import { event } from '../abi/abi.support';
-import { CreatePrintrDbcEvent as CreatePrintrDbcEvent_ } from '../abi/diRTqkRxqg9fvQXemGosY8hg91Q7DpFqGXLJwG3bEDA/types';
+import { PrintTelecoinEvent as CreatePrintrDbcEvent_ } from '../abi/T8HsGYv7sMk3kTnyaRqZrbRPuntYzdh12evXBkprint/types';
 
 import {
   Codec,
