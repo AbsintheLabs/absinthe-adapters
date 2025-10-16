@@ -2,164 +2,23 @@
 import * as z from 'zod';
 import { isValidChainId } from './chains.ts';
 import { durationHumanToMs } from './duration.ts';
+import { AssetType, FeedSchema } from '../types/asset.ts';
 
-// ------------------------------------------------------------
-// PRICING TYPES SCHEMAS
-// ------------------------------------------------------------
+/**
+ * @deprecated ChainArchSchema is deprecated and will be removed in a future release.
+ */
+export const ChainArchSchema = z.enum(['evm', 'solana']);
+/**
+ * @deprecated ChainArch is deprecated and will be removed in a future release.
+ */
+export type ChainArch = z.infer<typeof ChainArchSchema>;
 
-// Basic types
-export const AssetKey = z.string().min(1); // xxx: EVM address or "chain:addr". is this correct?
-export const AssetType = z.enum(['erc20', 'spl', 'erc721', 'composite']);
-
-// Chain architecture type
-export const ChainArch = z.enum(['evm', 'solana']);
-export type ChainArch = z.infer<typeof ChainArch>;
-
-// Label expression for asset matching (Kubernetes-style selectors)
-export const LabelExpr = z.discriminatedUnion('op', [
-  z.object({
-    op: z.literal('In'),
-    key: z.string(),
-    values: z.array(z.string()),
-  }),
-  z.object({
-    op: z.literal('NotIn'),
-    key: z.string(),
-    values: z.array(z.string()),
-  }),
-  z.object({
-    op: z.literal('Exists'),
-    key: z.string(),
-  }),
-  z.object({
-    op: z.literal('DoesNotExist'),
-    key: z.string(),
-  }),
-  z.object({
-    op: z.literal('AnyIn'),
-    keys: z.array(z.string()),
-    values: z.array(z.string()),
-  }),
-]);
-
-// Asset match criteria
-export const AssetMatch = z.object({
-  key: z.string().optional(), // glob pattern for assetKey matching
-  matchLabels: z.record(z.string(), z.string()).optional(), // exact label matches (AND)
-  matchExpressions: z.array(LabelExpr).optional(), // advanced selectors (AND)
-});
-
-// EVM address validation and transformation
-export const EvmAddress = z
-  .string()
-  .regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid EVM address')
-  .transform((s) => s.toLowerCase());
-
-// Forward declarations for circular references
-const TokenSelectorRef = (): z.ZodType<any> => TokenSelector;
-const FeedSelectorRef = (): z.ZodType<any> => FeedSelector;
-const CoreFeedSelectorRef = (): z.ZodType<any> => CoreFeedSelector;
-
-// Core feed selectors (provided by the library)
-// FIXME: these should be selexxxcted at runtime based on the ones that are actually registered by the adapter
-// XXX: too many magic strings, this should be auto done based on the default and adapter-specific price feeds
-export const CoreFeedSelector = z.discriminatedUnion('kind', [
-  z.object({
-    kind: z.literal('coingecko'),
-    id: z.string(),
-  }),
-  z.object({
-    kind: z.literal('pegged'),
-    usdPegValue: z.number().positive(),
-  }),
-  z.object({
-    kind: z.literal('univ2nav'),
-    token0: z.lazy(TokenSelectorRef),
-    token1: z.lazy(TokenSelectorRef),
-  }),
-  z.object({
-    kind: z.literal('ichinav'),
-    token0: z.lazy(TokenSelectorRef),
-    token1: z.lazy(TokenSelectorRef),
-  }),
-  z.object({
-    kind: z.literal('univ3lp'),
-    nonfungiblepositionmanager: EvmAddress,
-    tokenSelector: z.enum(['token0', 'token1']),
-    token: z.lazy(TokenSelectorRef),
-  }),
-  z.object({
-    kind: z.literal('aavev3vardebt'),
-    debtTokenAddress: EvmAddress,
-    underlyingTokenAddress: EvmAddress,
-    poolAddress: EvmAddress,
-    underlyingTokenFeed: z.lazy(TokenSelectorRef),
-  }),
-  z.object({
-    kind: z.literal('morphovaults'),
-    underlyingAsset: z.object({
-      pricing: z.object({
-        assetType: AssetType,
-        priceFeed: z.lazy(FeedSelectorRef),
-      }),
-    }),
-  }),
-  z.object({
-    kind: z.literal('morphomarkets'),
-    underlyingAsset: z.object({
-      pricing: z.object({
-        assetType: AssetType,
-        priceFeed: z.lazy(FeedSelectorRef),
-      }),
-    }),
-  }),
-]);
-
-// Extensible feed selector that allows custom implementations
-export const FeedSelector = z.lazy(CoreFeedSelectorRef);
-// export const FeedSelector = z.union([
-//   z.lazy(CoreFeedSelectorRef),
-//   z
-//     .object({
-//       // XXX: we should only allow feeds that are either default OR registered by the adapter
-//       kind: z
-//         .string()
-//         .refine(
-//           (s: string) =>
-//             s !== 'coingecko' &&
-//             s !== 'pegged' &&
-//             s !== 'univ2nav' &&
-//             s !== 'ichinav' &&
-//             s !== 'aavev3vardebt' &&
-//             s !== 'univ3lp',
-//           {
-//             message: 'Use core feed types for built-in kinds',
-//           },
-//         ),
-//     })
-//     .loose(),
-// ]);
-
-// Token selector for feeds
-export const TokenSelector = z.object({
-  assetType: AssetType,
-  priceFeed: z.lazy(FeedSelectorRef),
-});
-
-// Asset configuration
-export const AssetConfig = z.object({
-  assetType: AssetType,
-  priceFeed: FeedSelector,
-});
-
-// Asset feed rule with priority-based matching
-export const AssetFeedRule = z.object({
-  match: AssetMatch,
-  config: AssetConfig,
-});
-
-// Collection of rules for asset feed matching
-export const AssetFeedConfig = z.array(AssetFeedRule);
+// // Asset configuration
+// export const AssetConfig = z.object({
+//   assetType: AssetType,
+//   // we won't know priceFeed at compile time, since it's provided at runtime
+//   priceFeed: z.unknown(),
+// });
 
 // Individual sink configuration schemas
 const CsvSinkSchema = z.object({
@@ -220,7 +79,7 @@ const Common = z.object({
     sinkType: 'csv',
     path: 'windows.csv',
   }),
-  assetFeedConfig: AssetFeedConfig.optional().default([]),
+  // assetFeedConfig: FeedSchema.optional().default([]),
   adapterConfig: z.object({
     adapterId: z.string(), // "uniswap-v3", "compound-v2", etc.
     config: z.unknown(), // Will be validated against the adapter's manifest
@@ -237,7 +96,8 @@ const Common = z.object({
 
 // EVM-only
 const EvmCfg = z.object({
-  chainArch: ChainArch.extract(['evm']),
+  // fixme: come back later and see if we shouldn't be providing literals
+  chainArch: z.literal('evm'),
   network: z.object({
     chainId: z.number().int().positive().refine(isValidChainId, { message: 'Invalid chain ID' }),
     gatewayUrl: z.httpUrl(),
@@ -254,7 +114,8 @@ const EvmCfg = z.object({
 // Solana-only
 // fixme: later come back and see if it's legit. Right now, we're NOT going to use this until we get EVM in place
 const SolanaCfg = z.object({
-  chainArch: ChainArch.extract(['solana']),
+  // fixme: come back later and see if we shouldn't be providing literals
+  chainArch: z.literal('solana'),
   network: z.object({
     gatewayUrl: z.httpUrl(), // Subsquid Network or Firehose source
     rpcUrl: z.httpUrl(),
@@ -310,20 +171,6 @@ export const AppConfig = EvmCfg.merge(Common);
 // .extend(AssetFeedConfig);
 export type AppConfig = z.infer<typeof AppConfig>;
 
-// ------------------------------------------------------------
-// TYPE EXPORTS FOR PRICING SCHEMAS
-// ------------------------------------------------------------
-
-export type AssetKey = z.infer<typeof AssetKey>;
-export type AssetType = z.infer<typeof AssetType>;
-export type LabelExpr = z.infer<typeof LabelExpr>;
-export type AssetMatch = z.infer<typeof AssetMatch>;
-export type EvmAddress = z.infer<typeof EvmAddress>;
-export type CoreFeedSelector = z.infer<typeof CoreFeedSelector>;
-export type FeedSelector = z.infer<typeof FeedSelector>;
-export type TokenSelector = z.infer<typeof TokenSelector>;
-export type AssetConfig = z.infer<typeof AssetConfig>;
-export type AssetFeedRule = z.infer<typeof AssetFeedRule>;
-export type AssetFeedConfig = z.infer<typeof AssetFeedConfig>;
+// export type AssetConfig = z.infer<typeof AssetConfig>;
 export type SinkConfig = z.infer<typeof SinkConfigSchema>;
 export type PricingRange = z.infer<typeof PricingRange>;

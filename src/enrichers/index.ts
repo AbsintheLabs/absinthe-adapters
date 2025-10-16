@@ -7,7 +7,7 @@
 
 // Pricing enrichers
 export { enrichActionsWithPrice } from './pricing/actions.ts';
-export { enrichWindowsWithPrice } from './pricing/windows.ts';
+// NOTE: enrichWindowsWithPrice was removed - windows are now enriched in the pipeline
 
 // Utility functions
 export { getPrevSample, getSamplesIn, twaFromSamples } from './utils/timeseries.ts';

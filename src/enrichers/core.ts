@@ -95,16 +95,6 @@ export function enforceOutput<T>(): Enricher<T, T> {
 }
 
 /**
- * Validates that a pipeline's inferred output type matches the expected type.
- * This provides compile-time type checking without runtime cost.
- *
- * Usage: validatePipeline<Input, Output>(pipeline)
- */
-export function validatePipeline<In, Out>(pipe: Pipe<In, Out>): Pipe<In, Out> {
-  return pipe;
-}
-
-/**
  * Validates data against a Zod schema and automatically strips extra fields.
  * This enforces exact shape matching at runtime with full type validation.
  *
@@ -122,7 +112,6 @@ export function validatePipeline<In, Out>(pipe: Pipe<In, Out>): Pipe<In, Out> {
 export function validateAndPickShape<T>(schema: z.ZodType<T>): Enricher<T, T> {
   return (item) => {
     // .parse() validates and throws on error
-    // .strip() removes extra fields automatically (if schema uses .strip())
     return schema.parse(item);
   };
 }

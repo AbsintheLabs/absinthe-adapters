@@ -41,14 +41,14 @@ export interface EngineDeps {
 }
 
 async function main() {
+  // Parse CLI arguments (skip first two: node and script path)
+  const { configPath, flags } = parseCliArgs(process.argv.slice(2));
+
   // dynamically load and register all adapters
   await loadAllAdapters();
 
   // dynamically load and register all pricing handlers
   await loadAllFeeds();
-
-  // Parse CLI arguments (skip first two: node and script path)
-  const { configPath, flags } = parseCliArgs(process.argv.slice(2));
 
   // Check for reset flag
   const reset = hasFlag(flags, '--reset-state', '-r');

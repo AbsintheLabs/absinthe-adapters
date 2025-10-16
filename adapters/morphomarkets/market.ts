@@ -91,7 +91,7 @@ async function handleSupply(
 
   await emitFns.position.balanceDelta({
     user: onBehalf.toLowerCase(),
-    asset: `${marketId.toLowerCase()}-supply`,
+    asset: { type: 'custom', prefix: 'morpho', key: `${marketId.toLowerCase()}-supply` },
     amount: BigInt(shares),
     activity: 'hold',
     trackableInstance: instance,
@@ -144,7 +144,7 @@ async function handleWithdraw(
   await emitFns.position.balanceDelta({
     activity: 'hold',
     user: onBehalf.toLowerCase(),
-    asset: `${marketId.toLowerCase()}-supply`,
+    asset: { type: 'custom', prefix: 'morpho', key: `${marketId.toLowerCase()}-supply` },
     amount: -BigInt(shares),
     trackableInstance: instance,
     meta: {
@@ -200,7 +200,7 @@ async function handleBorrow(
   await emitFns.position.balanceDelta({
     activity: 'hold',
     user: onBehalf.toLowerCase(),
-    asset: `${marketId.toLowerCase()}-borrow`,
+    asset: { type: 'custom', prefix: 'morpho', key: `${marketId.toLowerCase()}-borrow` },
     amount: BigInt(shares),
     trackableInstance: instance,
     meta: {
@@ -254,7 +254,7 @@ async function handleRepay(
   await emitFns.position.balanceDelta({
     activity: 'hold',
     user: onBehalf.toLowerCase(),
-    asset: `${marketId.toLowerCase()}-borrow`,
+    asset: { type: 'custom', prefix: 'morpho', key: `${marketId.toLowerCase()}-borrow` },
     amount: -BigInt(shares),
     trackableInstance: instance,
     meta: {

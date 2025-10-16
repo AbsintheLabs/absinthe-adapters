@@ -14,7 +14,7 @@ import {
   RedisEoaDetector,
 } from '../cache/index.ts';
 import { PricingEngine } from './pricing-engine.ts';
-import { AppConfig, AssetConfig } from '../config/schema.ts';
+import { AppConfig } from '../config/schema.ts';
 import { WindowReason } from '../types/adapter.ts';
 import { ActionEventBase, PositionUpdate, Swap } from '../types/core.ts';
 import { createStateDatabase } from './state.ts';
@@ -38,8 +38,14 @@ import { ensureTransactionDataForLogs as addTransactionDataForSqdLogs } from './
 import { InstanceFrom, TrackableDef } from '../types/manifest.ts';
 import { UnifiedBase } from '../types/unified-chain-events.ts';
 import { actionPipeline } from '../enrichers/pipelines/action-pipeline.ts';
-import { generatePricingHandlerId } from '../utils/pricing-handler-id.ts';
 import { md5HashCanonical } from '../utils/stable-hash.ts';
+import {
+  Asset,
+  Feed,
+  getAssetFromKey,
+  getAssetKeyFromAsset as getKeyFromAsset,
+} from '../types/asset.ts';
+import { buildPricingKey } from '../utils/pricing-keys.ts';
 
 dotenv.config();
 
@@ -162,7 +168,15 @@ export class Engine {
               transaction,
               getRuntime().chainId,
             );
-            // await this.ingestEvmTransaction(unifiedTx);
+            await this.adapter.onTransaction?.({
+              emitFns: this.createEmitFunctions(unifiedTx),
+              transaction: unifiedTx,
+              sqdRpcCtx: {
+                _chain: ctx._chain,
+                block: { height: block.header.height },
+              },
+              redis: this.redis,
+            });
           }
         }
       }
@@ -302,25 +316,19 @@ export class Engine {
    * This allows multiple assets to share the same pricing strategy.
    */
   private async registerAssetForPricing(
-    trackableInstanceId: string,
-    asset: string,
-    pricingConfig: AssetConfig,
-  ): Promise<string> {
-    const pricingHandlerId = generatePricingHandlerId(pricingConfig);
+    // trackableInstanceId: string,
+    asset: Asset,
+    feedConfig: Feed,
+  ): Promise<void> {
+    // the unique tuple that we use to lookup config is: (assetkey, feedconfig)
+    const assetKey = getKeyFromAsset(asset);
+    const feedHash = md5HashCanonical(feedConfig, 8);
+    const priceKey = buildPricingKey(assetKey, feedHash);
 
-    // Store the pricing config (if not already stored)
-    const handlerKey = `pricing:handler:${pricingHandlerId}`;
-    await this.redis.setnx(handlerKey, JSON.stringify(pricingConfig));
-    await this.redis.sadd('pricing:handlers:registry', pricingHandlerId);
-
-    // Register the (trackableInstance, asset) → handler mapping
-    const registryKey = `pricing:assets:${trackableInstanceId}`;
-    await this.redis.hset(registryKey, asset, pricingHandlerId);
-
-    // Add trackable instance to registry set for efficient lookup (avoids keys() scan)
-    await this.redis.sadd('pricing:trackables:registry', trackableInstanceId);
-
-    return pricingHandlerId;
+    await this.redis.setnx(priceKey, JSON.stringify(feedConfig));
+    // Also add to the asset registry set for fast lookup
+    const assetRegistrySet = 'pricing:assets:registry';
+    await this.redis.sadd(assetRegistrySet, priceKey);
   }
 
   private async applyAction<T extends UnifiedBase>(e: ActionEvent, d: T): Promise<void> {
@@ -361,11 +369,13 @@ export class Engine {
       const trackableInstanceId = this.generateTrackableInstanceId(e.trackableInstance);
 
       // Register this specific asset for this trackable instance
-      pricingHandlerId = await this.registerAssetForPricing(
-        trackableInstanceId,
-        asset,
-        e.trackableInstance.pricing,
-      );
+      const priceFeed = e.trackableInstance.pricing;
+      await this.registerAssetForPricing(asset, priceFeed);
+
+      // Generate pricing handler ID for this config
+      const assetKey = getKeyFromAsset(asset);
+      const feedHash = md5HashCanonical(priceFeed, 8);
+      pricingHandlerId = `${assetKey}:${feedHash}`;
     }
 
     // Construct RawAction object using explicit quantityType
@@ -377,6 +387,7 @@ export class Engine {
       meta: e.meta,
       ts: d.tsMs,
       height: d.height,
+      // fixme: this is hacky
       value:
         quantityType === 'token_based' || quantityType === 'count'
           ? ((e as any).amount.toString?.() ?? (e as any).amount)
@@ -387,6 +398,7 @@ export class Engine {
     };
 
     if (quantityType === 'token_based') {
+      // fixme: this is hacky
       rawAction.asset = (e as any).asset;
     }
 
@@ -402,11 +414,14 @@ export class Engine {
   ) {
     // Skip balance deltas for null addresses (mints/burns should not be tracked as user balances)
     // This is a good default
+    // xxx: move this into the enrichment pipeline rather than the core engine
     if (e.user === EVM_NULL_ADDRESS) {
       return;
     }
 
-    const balanceKey = `bal:${e.asset}:${e.user}`;
+    // Convert Asset object to string key for Redis
+    const assetKey = getKeyFromAsset(e.asset);
+    const balanceKey = `bal:${assetKey}:${e.user}`;
 
     // Check if position is inactive
     const isInactive = (await this.redis.sismember(Engine.INACTIVE_SET_KEY, balanceKey)) === 1;
@@ -459,11 +474,12 @@ export class Engine {
     let pricingHandlerId: string | undefined;
     if (ti.pricing !== undefined) {
       const trackableInstanceId = this.generateTrackableInstanceId(ti);
-      pricingHandlerId = await this.registerAssetForPricing(
-        trackableInstanceId,
-        e.asset,
-        ti.pricing,
-      );
+      const priceFeed = ti.pricing;
+      await this.registerAssetForPricing(e.asset, priceFeed);
+
+      // Generate pricing handler ID for this config
+      const feedHash = md5HashCanonical(priceFeed, 8);
+      pricingHandlerId = `${assetKey}:${feedHash}`;
     }
 
     // ONLY emit window if position is ACTIVE
@@ -486,6 +502,7 @@ export class Engine {
         startTxRef: previousTxRef,
         endTxRef: d.txRef,
         trigger: reason,
+        quantityType: ti.quantityType,
         pricingHandlerId,
         startContext: lastUpdateCtx,
         endContext: d,
@@ -501,7 +518,9 @@ export class Engine {
     const user = e.user;
     const asset = e.asset;
 
-    const balanceKey = `bal:${asset}:${user}`;
+    // Convert Asset object to string key for Redis
+    const assetKey = getKeyFromAsset(asset);
+    const balanceKey = `bal:${assetKey}:${user}`;
 
     // Check current inactive status
     const isInactive = (await this.redis.sismember(Engine.INACTIVE_SET_KEY, balanceKey)) === 1;
@@ -562,6 +581,7 @@ export class Engine {
           startTxRef: prevTxRef,
           endTxRef: d.txRef,
           trigger: 'POSITION_DEACTIVATED',
+          quantityType: 'token_based',
           startContext: lastUpdateCtx,
           endContext: d,
         };
@@ -593,7 +613,9 @@ export class Engine {
   }
 
   private async applyMeasureDelta<T extends UnifiedBase>(e: MeasureDelta, d: T): Promise<void> {
-    const measureKey = `meas:${e.asset}:${e.metric}`;
+    // Convert Asset object to string key for Redis
+    const assetKey = getKeyFromAsset(e.asset);
+    const measureKey = `meas:${assetKey}:${e.metric}`;
 
     // Load current state
     const [amountStr] = await this.redis.hmget(measureKey, Engine.MEASURE_FIELDS.AMOUNT);
@@ -621,7 +643,7 @@ export class Engine {
     }
 
     // Track asset-metric combinations for backfilling
-    await this.redis.hsetnx('meas:tracked', `${e.asset}:${e.metric}`, d.height.toString());
+    await this.redis.hsetnx('meas:tracked', `${assetKey}:${e.metric}`, d.height.toString());
   }
 
   private async applyReprice<T extends UnifiedBase>(e: Reprice, d: T): Promise<void> {
@@ -665,14 +687,14 @@ export class Engine {
     }
 
     // Reprice each asset registered for this trackable instance
-    for (const [asset, pricingHandlerId] of Object.entries(assetToPricingHandler)) {
-      logger.debug(`applyReprice for asset ${asset}: handler ${pricingHandlerId}, ts ${ts}`);
+    for (const [assetKey, pricingHandlerId] of Object.entries(assetToPricingHandler)) {
+      logger.debug(`applyReprice for asset ${assetKey}: handler ${pricingHandlerId}, ts ${ts}`);
 
       try {
         await pricePricingHandler(
           // pricingHandlerId,
           e.trackableInstance.pricing,
-          asset, // Pass the specific asset
+          getAssetFromKey(assetKey), // Pass the specific asset as Asset object
           ts,
           d,
           {
@@ -687,7 +709,10 @@ export class Engine {
           true, // bypass cache for instant repricing
         );
       } catch (error) {
-        logger.error(`Failed to reprice asset ${asset} with handler ${pricingHandlerId}:`, error);
+        logger.error(
+          `Failed to reprice asset ${assetKey} with handler ${pricingHandlerId}:`,
+          error,
+        );
       }
     }
   }
@@ -764,7 +789,7 @@ export class Engine {
       }
 
       const key = balanceKeys[i];
-      // Parse the Redis key format: 'bal:{asset}:{user}'
+      // Parse the Redis key format: 'bal:{assetKey}:{user}'
       // The asset can contain colons (e.g., 'erc721:0x...:tokenId'), so we need to extract it properly
       const parts = key.split(':');
       if (parts[0] !== 'bal') {
@@ -775,10 +800,13 @@ export class Engine {
       // The user is always the last part
       const user = parts[parts.length - 1];
 
-      // The asset is everything between 'bal:' and ':{user}'
+      // The asset key is everything between 'bal:' and ':{user}'
       // Find the user part and extract everything before it
       const userIndex = key.lastIndexOf(`:${user}`);
-      const asset = key.substring(4, userIndex); // Skip 'bal:' prefix
+      const assetKey = key.substring(4, userIndex); // Skip 'bal:' prefix
+
+      // Reconstruct Asset object from string key
+      const asset = getAssetFromKey(assetKey);
 
       const lastUpdatedTsMs = Number(updatedTsMsStr || 0);
       const lastUpdatedHeight = Number(updatedHeightStr || height);
@@ -809,6 +837,7 @@ export class Engine {
             startTxRef: prevTxRef,
             endTxRef: null,
             trigger: 'INDEXER_STOPPED',
+            quantityType: 'token_based',
           };
           this.windows.push(window);
           writePromises.push(
@@ -835,6 +864,7 @@ export class Engine {
             startTxRef: prevTxRef,
             endTxRef: null,
             trigger: 'PERIOD_ELAPSED',
+            quantityType: 'token_based',
           };
           this.windows.push(window);
           // Advance cursor to the start of the current window (we didn't emit the live window)
@@ -861,13 +891,6 @@ export class Engine {
     return {
       action: {
         action: async (e: ActionEvent) => {
-          // data cleaning
-          if (this.indexerMode === 'evm') {
-            e.user = e.user.toLowerCase();
-            if ('asset' in e && e.asset) {
-              e.asset = e.asset.toLowerCase();
-            }
-          }
           await this.applyAction(e, d);
         },
         swap: async (e: Swap) => {
@@ -876,29 +899,15 @@ export class Engine {
       },
       position: {
         balanceDelta: async (e: BalanceDelta, reason: WindowReason = 'BALANCE_CHANGED') => {
-          // data cleaning
-          if (this.indexerMode === 'evm') {
-            e.user = e.user.toLowerCase();
-            e.asset = e.asset.toLowerCase();
-          }
           await this.applyBalanceDelta(e, d, e.trackableInstance, reason);
         },
         positionUpdate: (e: PositionUpdate) =>
           this.applyBalanceDelta({ ...e, amount: 0n }, d, e.trackableInstance, 'POSITION_REVALUED'),
         reprice: (e: Reprice) => this.applyReprice(e, d),
         positionStatusChange: async (e: PositionStatusChange) => {
-          // data cleaning
-          if (this.indexerMode === 'evm') {
-            e.user = e.user.toLowerCase();
-            e.asset = e.asset.toLowerCase();
-          }
           await this.applyPositionStatusChange(e, d);
         },
         measureDelta: async (e: MeasureDelta) => {
-          // data cleaning
-          if (this.indexerMode === 'evm') {
-            e.asset = e.asset.toLowerCase();
-          }
           await this.applyMeasureDelta(e, d);
         },
       },

@@ -1,0 +1,95 @@
+{
+  "chainArch": "evm",
+  "indexerId": "univ3-hemi-swaps",
+  "flushInterval": "48h",
+  "redisUrl": "redis://localhost:6379",
+  "sinkConfig": {
+    "sinks": [
+      {
+        "sinkType": "csv",
+        "path": "univ3-swaps.csv"
+      }
+    ]
+  },
+  "network": {
+    "chainId": 43111,
+    "gatewayUrl": "https://v2.archive.subsquid.io/network/hemi-mainnet",
+    "rpcUrl": "https://rpc.hemi.network/rpc",
+    "finality": 75
+  },
+  "range": {
+    "fromBlock": 1200000,
+    "toBlock": 1600000
+  },
+  "adapterConfig": {
+    "adapterId": "uniswap-v3",
+    "config": {
+      "swap": [
+        {
+          "params": {
+            "factoryAddress": "0xCdBCd51a5E8728E0AF4895ce5771b7d17fF71959",
+            "nonFungiblePositionManagerAddress": "0xe43ca1dee3f0fc1e2df73a0745674545f11a59f5"
+          },
+          "assetSelectors": {
+            "swapLegAddress": "0x4200000000000000000000000000000000000006"
+          },
+          "pricing": {
+            "assetType": "erc20",
+            "priceFeed": {
+              "kind": "pegged",
+              "usdPegValue": 4000
+            }
+          }
+        },
+        {
+          "params": {
+            "factoryAddress": "0xCdBCd51a5E8728E0AF4895ce5771b7d17fF71959",
+            "nonFungiblePositionManagerAddress": "0xe43ca1dee3f0fc1e2df73a0745674545f11a59f5"
+          },
+          "assetSelectors": {
+            "swapLegAddress": "0xad11a8beb98bbf61dbb1aa0f6d6f2ecd87b35afa"
+          },
+          "pricing": {
+            "assetType": "erc20",
+            "priceFeed": {
+              "kind": "pegged",
+              "usdPegValue": 1
+            }
+          }
+        },
+        {
+          "params": {
+            "factoryAddress": "0xCdBCd51a5E8728E0AF4895ce5771b7d17fF71959",
+            "nonFungiblePositionManagerAddress": "0xe43ca1dee3f0fc1e2df73a0745674545f11a59f5"
+          },
+          "assetSelectors": {
+            "swapLegAddress": "0x7a06c4aef988e7925575c50261297a946ad204a8"
+          },
+          "pricing": {
+            "assetType": "erc20",
+            "priceFeed": {
+              "kind": "pegged",
+              "usdPegValue": 1
+            }
+          }
+        },
+        {
+          "params": {
+            "factoryAddress": "0xCdBCd51a5E8728E0AF4895ce5771b7d17fF71959",
+            "nonFungiblePositionManagerAddress": "0xe43ca1dee3f0fc1e2df73a0745674545f11a59f5"
+          },
+          "assetSelectors": {
+            "swapLegAddress": "0x03c7054bcb39f7b2e5b2c7acb37583e32d70cfa3"
+          },
+          "pricing": {
+            "assetType": "erc20",
+            "priceFeed": {
+              "kind": "pegged",
+              "usdPegValue": 111651
+            }
+          }
+        }
+      ]
+    }
+  }
+}

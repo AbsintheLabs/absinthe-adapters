@@ -5,128 +5,129 @@ import { Redis } from 'ioredis';
 import { Chain } from '@subsquid/evm-processor/lib/interfaces/chain.ts';
 import { Block, ProcessorContext } from '../eprocessorBuilder.ts';
 import { AssetMetadata } from './core.ts';
-import {
-  LabelExpr,
-  AssetFeedConfig,
-  AssetKey,
-  AssetConfig,
-  TokenSelector,
-} from '../config/schema.ts';
+// import {
+//   LabelExpr,
+//   AssetFeedConfig,
+//   AssetKey,
+//   AssetConfig,
+//   TokenSelector,
+// } from '../config/schema.ts';
+import { Asset, AssetOfType } from './asset.ts';
 
 // ----------------------------------------------------------
 // MATCHING UTILITIES
 // ----------------------------------------------------------
 
-/**
- * Convert a glob pattern to a RegExp for asset key matching
- */
-export function globToRegex(glob: string): RegExp {
-  // Split by | for OR logic, then process each part as a glob
-  const alternatives = glob.split('|').map((part) =>
-    part
-      .split('*')
-      .map((s) => s.replace(/[.*+?^${}()[\]\\]/g, '\\$&'))
-      .join('.*'),
-  );
+// /**
+//  * Convert a glob pattern to a RegExp for asset key matching
+//  */
+// export function globToRegex(glob: string): RegExp {
+//   // Split by | for OR logic, then process each part as a glob
+//   const alternatives = glob.split('|').map((part) =>
+//     part
+//       .split('*')
+//       .map((s) => s.replace(/[.*+?^${}()[\]\\]/g, '\\$&'))
+//       .join('.*'),
+//   );
 
-  return new RegExp('^(' + alternatives.join('|') + ')$');
-}
+//   return new RegExp('^(' + alternatives.join('|') + ')$');
+// }
 
-/**
- * Check if labels match the given criteria (Kubernetes-style selectors)
- */
-export function labelsMatch(
-  have: Record<string, string>,
-  eq?: Record<string, string>,
-  exprs?: LabelExpr[],
-): boolean {
-  // Check exact label matches (AND)
-  if (eq && !Object.entries(eq).every(([k, v]) => have[k] === v)) {
-    return false;
-  }
+// /**
+//  * Check if labels match the given criteria (Kubernetes-style selectors)
+//  */
+// export function labelsMatch(
+//   have: Record<string, string>,
+//   eq?: Record<string, string>,
+//   exprs?: LabelExpr[],
+// ): boolean {
+//   // Check exact label matches (AND)
+//   if (eq && !Object.entries(eq).every(([k, v]) => have[k] === v)) {
+//     return false;
+//   }
 
-  // Check expressions (AND)
-  if (!exprs) return true;
+//   // Check expressions (AND)
+//   if (!exprs) return true;
 
-  for (const e of exprs) {
-    switch (e.op) {
-      case 'Exists':
-      case 'DoesNotExist':
-        const val = have[e.key];
-        if (e.op === 'Exists' && val === undefined) return false;
-        if (e.op === 'DoesNotExist' && val !== undefined) return false;
-        break;
-      case 'In':
-      case 'NotIn':
-        const inVal = have[e.key];
-        if (e.op === 'In' && (!inVal || !e.values.includes(inVal))) return false;
-        if (e.op === 'NotIn' && inVal && e.values.includes(inVal)) return false;
-        break;
-      case 'AnyIn':
-        // Check if ANY of the keys has a value that's in the values array (OR logic)
-        const anyMatch = e.keys.some((key) => {
-          const keyVal = have[key];
-          return keyVal && e.values.includes(keyVal);
-        });
-        if (!anyMatch) return false;
-        break;
-    }
-  }
-  return true;
-}
+//   for (const e of exprs) {
+//     switch (e.op) {
+//       case 'Exists':
+//       case 'DoesNotExist':
+//         const val = have[e.key];
+//         if (e.op === 'Exists' && val === undefined) return false;
+//         if (e.op === 'DoesNotExist' && val !== undefined) return false;
+//         break;
+//       case 'In':
+//       case 'NotIn':
+//         const inVal = have[e.key];
+//         if (e.op === 'In' && (!inVal || !e.values.includes(inVal))) return false;
+//         if (e.op === 'NotIn' && inVal && e.values.includes(inVal)) return false;
+//         break;
+//       case 'AnyIn':
+//         // Check if ANY of the keys has a value that's in the values array (OR logic)
+//         const anyMatch = e.keys.some((key) => {
+//           const keyVal = have[key];
+//           return keyVal && e.values.includes(keyVal);
+//         });
+//         if (!anyMatch) return false;
+//         break;
+//     }
+//   }
+//   return true;
+// }
 
-/**
- * Find the first matching rule for an asset key and its labels
- */
-export function findConfig(
-  rules: AssetFeedConfig,
-  assetKey: string,
-  getLabels: (k: string) => Record<string, string> | undefined,
-): AssetConfig | undefined {
-  const labels = getLabels(assetKey) || {};
+// /**
+//  * Find the first matching rule for an asset key and its labels
+//  */
+// export function findConfig(
+//   rules: AssetFeedConfig,
+//   assetKey: string,
+//   getLabels: (k: string) => Record<string, string> | undefined,
+// ): AssetConfig | undefined {
+//   const labels = getLabels(assetKey) || {};
 
-  for (const rule of rules) {
-    const { match } = rule;
+//   for (const rule of rules) {
+//     const { match } = rule;
 
-    // Check key glob match
-    if (match.key) {
-      const regex = globToRegex(match.key.toLowerCase());
-      if (regex.test(assetKey.toLowerCase())) {
-        return rule.config;
-      }
-    }
+//     // Check key glob match
+//     if (match.key) {
+//       const regex = globToRegex(match.key.toLowerCase());
+//       if (regex.test(assetKey.toLowerCase())) {
+//         return rule.config;
+//       }
+//     }
 
-    // Check label selectors
-    if (match.matchLabels || match.matchExpressions) {
-      if (labelsMatch(labels, match.matchLabels, match.matchExpressions)) {
-        return rule.config;
-      }
-    }
-  }
+//     // Check label selectors
+//     if (match.matchLabels || match.matchExpressions) {
+//       if (labelsMatch(labels, match.matchLabels, match.matchExpressions)) {
+//         return rule.config;
+//       }
+//     }
+//   }
 
-  return undefined;
-}
+//   return undefined;
+// }
 
-// --- Feed "how to get a price?" ---
-// Core feed selectors provided by the library
-export type CoreFeedSelector =
-  | { kind: 'coingecko'; id: string }
-  | { kind: 'pegged'; usdPegValue: number }
-  | { kind: 'univ2nav'; token0: TokenSelector; token1: TokenSelector }
-  | { kind: 'ichinav'; token0: TokenSelector; token1: TokenSelector }
-  | {
-      kind: 'univ3lp';
-      nonfungiblepositionmanager: string;
-      tokenSelector: 'token0' | 'token1';
-      token: TokenSelector;
-    }
-  | {
-      kind: 'aavev3vardebt';
-      debtTokenAddress: string;
-      underlyingTokenAddress: string;
-      poolAddress: string;
-      underlyingTokenFeed: TokenSelector;
-    };
+// // --- Feed "how to get a price?" ---
+// // Core feed selectors provided by the library
+// export type CoreFeedSelector =
+//   | { kind: 'coingecko'; id: string }
+//   | { kind: 'pegged'; usdPegValue: number }
+//   | { kind: 'univ2nav'; token0: TokenSelector; token1: TokenSelector }
+//   | { kind: 'ichinav'; token0: TokenSelector; token1: TokenSelector }
+//   | {
+//       kind: 'univ3lp';
+//       nonfungiblepositionmanager: string;
+//       tokenSelector: 'token0' | 'token1';
+//       token: TokenSelector;
+//     }
+//   | {
+//       kind: 'aavev3vardebt';
+//       debtTokenAddress: string;
+//       underlyingTokenAddress: string;
+//       poolAddress: string;
+//       underlyingTokenFeed: TokenSelector;
+//     };
 
 // | { kind: 'univ3lp'; nonfungiblepositionmanager: string; tokens: { address: string, tokenSelector: TokenSelector }[] };
 // ...
@@ -188,9 +189,7 @@ export interface ResolveContext {
   handlerMetadataCache: HandlerMetadataCache;
   // redis client for direct access to labels and other data
   redis: Redis;
-  // the asset we are pricing
-  asset: AssetKey;
-  // the timestamp of the asset
+  // the timestamp of the price we are pricing
   atMs: number;
   // the closest block to the timestamp
   block: Block;
@@ -215,11 +214,11 @@ export interface ResolveContext {
 // HANDLER INTERFACES
 // ------------------------------------------------------------
 
-export interface AssetTypeHandler {
-  getMetadata(ctx: ResolveContext): Promise<AssetMetadata | null>;
+export interface AssetTypeHandler<T extends Asset['type']> {
+  getMetadata(asset: AssetOfType<T>, ctx: ResolveContext): Promise<AssetMetadata>;
   normalizeAmount?(amount: Big, metadata: AssetMetadata): Big;
 }
 
-export interface PriceFeedable {
-  priceUSD(asset: AssetKey, atMs: number): Promise<number>;
-}
+// export interface PriceFeedable {
+//   priceUSD(asset: AssetKey, atMs: number): Promise<number>;
+// }

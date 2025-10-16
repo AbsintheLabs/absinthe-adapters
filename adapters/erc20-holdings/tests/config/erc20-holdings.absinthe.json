@@ -1,6 +1,6 @@
 {
   "chainArch": "evm",
-  "flushInterval": "24h",
+  "flushInterval": "1h",
   "redisUrl": "${env:REDIS_URL}",
   "sinkConfig": {
     "sinks": [
@@ -29,11 +29,8 @@
             "contractAddress": "0xAA40c0c7644e0b2B224509571e10ad20d9C4ef28"
           },
           "pricing": {
-            "assetType": "erc20",
-            "priceFeed": {
-              "kind": "pegged",
-              "usdPegValue": 121613.2
-            }
+            "kind": "pegged",
+            "usdPegValue": 121613.2
           }
         }
       ]

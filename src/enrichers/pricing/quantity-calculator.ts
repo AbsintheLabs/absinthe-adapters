@@ -1,19 +1,23 @@
 /**
- * @fileoverview Enricher for calculating the final quantity value for an action.
+ * @fileoverview Enrichers for calculating the final quantity value for actions and windows.
  *
- * This enricher uses a composition pattern:
+ * This uses a composition pattern:
  * 1. Base quantity calculators compute the raw quantity based on quantityType
  * 2. Basis modifiers apply transformations based on quantityBasis (e.g., pricing)
+ *
+ * Actions: spot value at a moment in time
+ * Windows: time-weighted average value over a period
  */
 
 import Big from 'big.js';
 import { Enricher, EnrichmentContext } from '../core.ts';
 import { QuantityType } from '../../types/manifest.ts';
 import { QuantityBasis } from './quantity-basis.ts';
-import { getPrevSample } from '../utils/timeseries.ts';
+import { getPrevSample, getSamplesIn, twaFromSamples } from '../utils/timeseries.ts';
 import { logger } from '../../utils/logger.ts';
+import { Asset, getAssetKeyFromAsset } from '../../types/asset.ts';
 
-type QuantityField = {
+export type QuantityField = {
   quantity: number;
 };
 
@@ -24,7 +28,7 @@ type QuantityInput = {
   quantityType: QuantityType;
   quantityBasis: QuantityBasis;
   value: string;
-  asset?: string;
+  asset?: Asset;
   ts: number;
   user: string;
 };
@@ -51,13 +55,13 @@ const baseCalculators: Record<QuantityType, BaseQuantityCalculator> = {
 type BasisModifier = (
   quantity: Big,
   ctx: EnrichmentContext,
-  asset: string | undefined,
+  asset: Asset | undefined,
   ts: number,
   user: string,
 ) => Promise<Big>;
 
 /**
- * Basis modifiers by quantityBasis
+ * Basis modifiers by quantityBasis (for spot/action calculations)
  */
 const basisModifiers: Record<QuantityBasis, BasisModifier> = {
   monetary_value: async (quantity, ctx, asset, ts, user) => {
@@ -66,17 +70,72 @@ const basisModifiers: Record<QuantityBasis, BasisModifier> = {
       return new Big(0);
     }
 
-    const priceKey = `price:${asset}`;
+    const assetKey = getAssetKeyFromAsset(asset);
+    const priceKey = `price:${assetKey}`;
     const priceSample = await getPrevSample(ctx.redis, priceKey, ts);
 
     if (!priceSample) {
       logger.debug(
-        `No price data found for asset ${asset} at ts ${ts}, user: ${user}, defaulting to 0`,
+        `No price data found for asset ${assetKey} at ts ${ts}, user: ${user}, defaulting to 0`,
       );
       return new Big(0);
     }
 
     return quantity.times(priceSample.value);
+  },
+  asset_amount: async (quantity) => quantity,
+  count: async (quantity) => quantity,
+  none: async (quantity) => quantity,
+};
+
+/**
+ * TWAP-based basis modifier function type (for windows)
+ */
+type TWAPBasisModifier = (
+  quantity: Big,
+  ctx: EnrichmentContext,
+  asset: Asset | undefined,
+  startTs: number,
+  endTs: number,
+  user: string,
+) => Promise<Big>;
+
+/**
+ * TWAP basis modifiers by quantityBasis (for window calculations)
+ */
+const twapBasisModifiers: Record<QuantityBasis, TWAPBasisModifier> = {
+  monetary_value: async (quantity, ctx, asset, startTs, endTs, user) => {
+    if (!asset) {
+      logger.error(`monetary_value basis requires asset, user: ${user}, defaulting to 0`);
+      return new Big(0);
+    }
+
+    const assetKey = getAssetKeyFromAsset(asset);
+    const priceKey = `price:${assetKey}`;
+
+    // Get price sample before window start for boundary value
+    const prevSample = await getPrevSample(ctx.redis, priceKey, startTs - 1);
+
+    // Get all price samples within the window
+    const windowSamples = await getSamplesIn(ctx.redis, priceKey, startTs, endTs);
+    if (windowSamples.length === 0) {
+      logger.warn(
+        `No price data for TWAP calculation: asset ${asset}, window [${startTs}, ${endTs}], user: ${user}`,
+      );
+    }
+
+    // Compute TWAP of prices over the window
+    const { avg: twapPrice, coveredMs } = twaFromSamples(startTs, endTs, prevSample, windowSamples);
+
+    if (twapPrice === null || coveredMs === 0) {
+      logger.error(
+        `No price data for TWAP calculation: asset ${asset}, window [${startTs}, ${endTs}], user: ${user}, defaulting to 0`,
+      );
+      return new Big(0);
+    }
+
+    // Multiply position size by TWAP price
+    return quantity.times(twapPrice);
   },
   asset_amount: async (quantity) => quantity,
   count: async (quantity) => quantity,
@@ -90,13 +149,23 @@ const basisModifiers: Record<QuantityBasis, BasisModifier> = {
  * 1. Calculate base quantity from value and decimals based on quantityType
  * 2. Apply basis modifier (e.g., pricing) based on quantityBasis
  */
-export const calculateQuantity = <T extends object>(): Enricher<T, T & QuantityField> => {
+export const calculateActionQuantity = <
+  T extends {
+    quantityType: QuantityType;
+    quantityBasis: QuantityBasis;
+    value: string;
+    asset?: Asset;
+    ts: number;
+    user: string;
+  },
+>(): Enricher<T, T & QuantityField> => {
   return async (item, ctx) => {
     // Type-safe field access - these fields are guaranteed by RawAction + addQuantityBasis in the pipeline
-    const { quantityType, quantityBasis, value, asset, ts, user } = item as QuantityInput;
+    const { quantityType, quantityBasis, value, asset, ts, user } = item;
 
     // Step 1: Get asset metadata (decimals) if needed
-    const metadata = asset ? await ctx.metadataCache?.get(asset) : undefined;
+    const assetKey = asset ? getAssetKeyFromAsset(asset) : undefined;
+    const metadata = assetKey ? await ctx.metadataCache?.get(assetKey) : undefined;
     const decimals = metadata?.decimals ?? 0;
 
     // Step 2: Calculate base quantity
@@ -104,6 +173,73 @@ export const calculateQuantity = <T extends object>(): Enricher<T, T & QuantityF
 
     // Step 3: Apply basis modifier
     const finalQuantity = await basisModifiers[quantityBasis](baseQuantity, ctx, asset, ts, user);
+
+    return {
+      ...item,
+      quantity: finalQuantity.toNumber(),
+    };
+  };
+};
+
+/**
+ * Enricher that calculates the final quantity value for a window/position.
+ *
+ * Uses time-weighted average pricing over the window period.
+ * Position size is approximated as the average of start and end values.
+ *
+ * Uses composition:
+ * 1. Calculate average position size from rawBefore and rawAfter
+ * 2. Apply TWAP basis modifier (e.g., time-weighted average pricing)
+ */
+export const calculatePositionQuantity = <
+  T extends {
+    quantityType: QuantityType;
+    quantityBasis: QuantityBasis;
+    rawBefore: string;
+    rawAfter: string;
+    asset: Asset;
+    windowUtcStartTsMs: number;
+    windowUtcEndTsMs: number;
+    decimals: number;
+    user: string;
+  },
+>(): Enricher<T, T & QuantityField> => {
+  return async (item, ctx) => {
+    if (!item.asset) {
+      logger.warn('asset not found: ', JSON.stringify(item, null, 2));
+    }
+    const {
+      quantityType,
+      quantityBasis,
+      rawBefore,
+      rawAfter,
+      asset,
+      windowUtcStartTsMs,
+      windowUtcEndTsMs,
+      decimals,
+      user,
+    } = item;
+
+    // Step 1: Calculate average position size over the window
+    // Simple approximation: (start + end) / 2
+    // const startAmount = new Big(rawBefore);
+    // const endAmount = new Big(rawAfter);
+    // const avgRawAmount = startAmount.plus(endAmount).div(2);
+
+    // Step 2: Convert to human-readable units based on quantityType
+    logger.debug('starting Base Quantity calculation');
+    logger.debug(`rawBefore: ${rawBefore}, decimals: ${decimals}`);
+    const baseQuantity = baseCalculators[quantityType](rawBefore, decimals);
+
+    // Step 3: Apply TWAP basis modifier
+    const finalQuantity = await twapBasisModifiers[quantityBasis](
+      baseQuantity,
+      ctx,
+      asset,
+      windowUtcStartTsMs,
+      windowUtcEndTsMs,
+      user,
+    );
 
     return {
       ...item,

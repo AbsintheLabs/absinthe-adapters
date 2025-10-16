@@ -8,7 +8,6 @@ export type {
   PriceCacheTS,
   ResolveContext,
   AssetTypeHandler,
-  PriceFeedable,
 } from './types/pricing.ts';
 
 export type { AssetMetadata } from './types/core.ts';
@@ -19,4 +18,4 @@ export { RedisTSCache } from './cache/price.ts';
 
 // Re-export engine components
 export { PricingEngine, HandlerRegistry } from './engine/pricing-engine.ts';
-export { metadataResolver, erc20Handler } from './engine/asset-handlers.ts';
+export { erc20Handler } from './engine/asset-handlers.ts';

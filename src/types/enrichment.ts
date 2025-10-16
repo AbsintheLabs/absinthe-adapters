@@ -17,6 +17,7 @@ import { WindowReason } from './adapter.ts';
 import { QuantityType } from './manifest.ts';
 import type { EoaDetector } from '../cache/index.ts';
 import type { AppConfig } from '../config/schema.ts';
+import { Asset } from './asset.ts';
 
 /*
 each enricher is stateless and operates on a single item at a time so it's very easy to reason about and test.
@@ -122,7 +123,8 @@ export interface AssetRegistration {
 export interface RawWindow {
   // Adapter primitives (universal)
   user: string;
-  asset: string;
+  // asset: string;
+  asset: Asset;
   activity: Activity;
   meta?: Record<string, any>;
 
@@ -130,7 +132,7 @@ export interface RawWindow {
   startTs: number;
   endTs: number;
   startHeight: number;
-  endHeight: number;
+  endHeight: number | null;
   startValue: string;
   endValue: string;
   startTxRef: string;
@@ -140,6 +142,7 @@ export interface RawWindow {
   trigger: WindowReason;
 
   // Pricing handler ID (for looking up price config)
+  quantityType: QuantityType;
   pricingHandlerId?: string;
 
   // Chain-specific contexts (opaque blobs)
@@ -152,7 +155,8 @@ export interface RawAction {
   key: string;
   user: string;
   quantityType: QuantityType;
-  asset?: string;
+  // asset?: string;
+  asset?: Asset;
   activity: Activity;
   meta?: Record<string, any>;
 

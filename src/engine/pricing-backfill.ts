@@ -1,10 +1,12 @@
 // Pricing backfill utilities for batch processing
 import { Redis } from 'ioredis';
 import { logger } from '../utils/logger.ts';
-import { AppConfig, AssetConfig } from '../config/schema.ts';
+import { AppConfig } from '../config/schema.ts';
 import { ResolveContext } from '../types/pricing.ts';
 import { PricingEngine } from './pricing-engine.ts';
 import { RedisTSCache, RedisMetadataCache, RedisHandlerMetadataCache } from '../cache/index.ts';
+import { Asset, Feed, getAssetFromKey } from '../types/asset.ts';
+import { extractAssetKeyFromPricingKey } from '../utils/pricing-keys.ts';
 
 export interface PricingBackfillDeps {
   redis: Redis;
@@ -19,9 +21,9 @@ export interface PricingBackfillDeps {
 /**
  * Backfill price data for a batch of blocks
  */
-// fixme: prevent blocks from being passed in here as a whole, this makes it less scalable and ties us with sqd objects
+// xxx: prevent blocks from being passed in here as a whole, this makes it less scalable and ties us with sqd objects
 export async function backfillPriceDataForBatch(
-  blocks: any[],
+  blocks: any[], // xxx: better to not pass blocks but instead the heights and timestamps to decouple us from sqd objects
   deps: PricingBackfillDeps,
 ): Promise<void> {
   logger.debug(`💰 Backfilling price data for batch of ${blocks.length} blocks`);
@@ -41,48 +43,35 @@ export async function backfillPriceDataForBatch(
     blocksOfWindowStarts.push(lastBlock);
   }
 
-  // 2) Get all registered trackable instances from registry set (O(N) vs O(keyspace) scan)
-  const trackableInstanceIds = await deps.redis.smembers('pricing:trackables:registry');
-  logger.debug(
-    `💰 Found ${trackableInstanceIds.length} trackable instances with registered assets`,
-  );
+  // 2) Get all registered assets and their pricing definitions from the registry set
+  const assetKeys = await deps.redis.smembers('pricing:assets:registry');
+  logger.debug(`💰 Found ${assetKeys.length} assets with registered pricing definitions`);
 
   // 3) Collect all (trackableInstance, asset, handler) tuples
-  type AssetHandler = { asset: string; handlerId: string; config: AssetConfig };
-  const allAssetHandlers: AssetHandler[] = [];
+  type AssetsWithFeedConfig = { asset: Asset; feedConfig: Feed };
+  const assetsWithFeedConfig: AssetsWithFeedConfig[] = [];
 
-  for (const trackableInstanceId of trackableInstanceIds) {
-    const registryKey = `pricing:assets:${trackableInstanceId}`;
-    const assetToPricingHandler = await deps.redis.hgetall(registryKey);
-
-    for (const [asset, pricingHandlerId] of Object.entries(assetToPricingHandler)) {
-      // Load the pricing config for this handler
-      const handlerKey = `pricing:handler:${pricingHandlerId}`;
-      const configJson = await deps.redis.get(handlerKey);
-
-      if (!configJson) {
-        logger.warn(`💰 No config JSON found for handler ${pricingHandlerId}`);
-        continue;
-      }
-
-      try {
-        const config = JSON.parse(configJson) as AssetConfig;
-        allAssetHandlers.push({ asset, handlerId: pricingHandlerId, config });
-      } catch (error) {
-        logger.error(`Failed to parse pricing config for handler ${pricingHandlerId}:`, error);
-      }
+  for (const pricingKey of assetKeys) {
+    const feedConfigJson = await deps.redis.get(pricingKey);
+    if (!feedConfigJson) {
+      throw new Error(`No feed config JSON found for pricing key ${pricingKey}`);
     }
+
+    const feedConfig = JSON.parse(feedConfigJson) as Feed;
+    const assetKey = extractAssetKeyFromPricingKey(pricingKey);
+    const asset = getAssetFromKey(assetKey);
+    assetsWithFeedConfig.push({ asset, feedConfig });
   }
 
-  logger.debug(`💰 Collected ${allAssetHandlers.length} asset-handler pairs to backfill`);
+  logger.debug(`💰 Collected ${assetsWithFeedConfig.length} assets with feed config to backfill`);
 
   // 4) build tasks (one task per asset per window)
   type Task = {
     block: any;
     ts: number;
-    asset: string;
-    handlerId: string;
-    config: AssetConfig;
+    asset: Asset;
+    // handlerId: string;
+    feedConfig: Feed;
   };
   const tasks: Task[] = [];
 
@@ -109,13 +98,12 @@ export async function backfillPriceDataForBatch(
     }
 
     // Price each (asset, handler) pair once per window
-    for (const assetHandler of allAssetHandlers) {
+    for (const assetWithFeedConfig of assetsWithFeedConfig) {
       tasks.push({
         block,
         ts,
-        asset: assetHandler.asset,
-        handlerId: assetHandler.handlerId,
-        config: assetHandler.config,
+        asset: assetWithFeedConfig.asset,
+        feedConfig: assetWithFeedConfig.feedConfig,
       });
     }
   }
@@ -132,10 +120,10 @@ export async function backfillPriceDataForBatch(
       const i = idx++;
       const t = tasks[i];
       try {
-        await pricePricingHandler(t.config, t.asset, t.ts, t.block, deps, false);
+        await pricePricingHandler(t.feedConfig, t.asset, t.ts, t.block, deps, false);
       } catch (err) {
         logger.error(
-          `priceAsset failed for asset ${t.asset} with handler ${t.handlerId} @ ${t.ts}`,
+          `priceAsset failed for asset ${t.asset} with feed config ${JSON.stringify(t.feedConfig)} @ ${t.ts}`,
           err,
         );
       }
@@ -151,16 +139,14 @@ export async function backfillPriceDataForBatch(
  */
 export async function pricePricingHandler(
   // handlerId: string,
-  config: AssetConfig,
-  asset: string,
+  feedConfig: Feed,
+  asset: Asset,
   atMs: number,
   // fixme: prevent block from being passed in here as a whole, this makes it less scalable and ties us with sqd objects
   block: any,
   deps: PricingBackfillDeps,
   bypassTopLevelCache: boolean = false,
 ): Promise<number> {
-  const validatedAssetConfig = config;
-
   const ctx: ResolveContext = {
     priceCache: deps.priceCache,
     metadataCache: deps.metadataCache,
@@ -168,7 +154,6 @@ export async function pricePricingHandler(
     redis: deps.redis,
     atMs,
     block,
-    asset, // Use the specific asset being priced
     sqdCtx: deps.sqdCtx,
     bucketMs: deps.appCfg.flushInterval,
     sqdRpcCtx: {
@@ -184,5 +169,5 @@ export async function pricePricingHandler(
     logger.debug('ctx when bypassing top level cache: ', ctx);
   }
 
-  return await deps.pricingEngine.priceAsset(validatedAssetConfig, ctx);
+  return await deps.pricingEngine.priceAsset(asset, feedConfig, ctx);
 }

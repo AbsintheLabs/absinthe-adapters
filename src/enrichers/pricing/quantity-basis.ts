@@ -33,14 +33,13 @@ type QuantityBasisField = {
  * - count → 'count'
  * - none → 'none'
  */
-export const addQuantityBasis = <T extends object>(): Enricher<T, T & QuantityBasisField> => {
+export const addQuantityBasis = <
+  T extends { quantityType: QuantityType; pricingHandlerId?: string },
+>(): Enricher<T, T & QuantityBasisField> => {
   return (item) => {
     // Type-safe field access - these fields are guaranteed by RawAction in the pipeline
-    // const quantityType = item.quantityType;
-    // const pricingHandlerId = item.pricingHandlerId;
-    // XXX: fixme: this needs to be fixed
-    const quantityType = (item as { quantityType: QuantityType }).quantityType;
-    const pricingHandlerId = (item as { pricingHandlerId?: string }).pricingHandlerId;
+    const quantityType = item.quantityType;
+    const pricingHandlerId = item.pricingHandlerId;
 
     let quantityBasis: QuantityBasis;
 

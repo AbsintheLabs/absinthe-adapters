@@ -10,6 +10,9 @@ import { handleSwap } from './swap.ts';
 import { handleLpTransfer } from './lp.ts';
 import { defineAdapter } from '../_shared/index.ts';
 
+// Feed handlers
+import { univ2navFeed } from './feeds/nav.ts';
+
 export const manifest = {
   name: 'uniswap-v2',
   version: '0.0.1',
@@ -34,7 +37,7 @@ export const manifest = {
         // No assetSelectors needed - params alone are sufficient
         poolAddress: evmAddress('The pool address to track'),
       },
-      requiredPricer: 'univ2nav',
+      requiredPricer: univ2navFeed,
     },
   },
 } as const satisfies Manifest;

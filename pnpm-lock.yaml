@@ -35,9 +35,6 @@ importers:
       '@subsquid/typeorm-store':
         specifier: ^1.5.1
         version: 1.5.1(@subsquid/big-decimal@1.0.0)(typeorm@0.3.24(ioredis@5.7.0)(pg@8.16.0)(redis@5.5.6)(reflect-metadata@0.2.2)(ts-node@10.9.2(@types/node@20.17.30)(typescript@5.9.3)))
-      axios:
-        specifier: ^1.11.0
-        version: 1.11.0
       big.js:
         specifier: ^7.0.1
         version: 7.0.1
@@ -47,6 +44,9 @@ importers:
       ioredis:
         specifier: ^5.7.0
         version: 5.7.0
+      ky:
+        specifier: ^1.12.0
+        version: 1.12.0
       redis:
         specifier: ^5.5.6
         version: 5.5.6
@@ -2545,6 +2545,10 @@ packages:
 
   kuler@2.0.0:
     resolution: {integrity: sha512-Xq9nH7KlWZmXAtodXDDRE7vs6DU1gTU8zYDHDiWLSip45Egwq3plLHzPn27NgvzL2r1LMPC1vdqh98sQxtqj4A==}
+
+  ky@1.12.0:
+    resolution: {integrity: sha512-YRLmSUHCwOJRBMArtqMRLOmO7fewn3yOoui6aB8ERkRVXupa0UiaQaKbIXteMt4jUElhbdqTMsLFHs8APxxUoQ==}
+    engines: {node: '>=18'}
 
   levn@0.4.1:
     resolution: {integrity: sha512-+bT2uH4E5LGE7h/n3evcS/sQlJXCpIp6ym8OWJ5eV6+67Dsql/LaaT7qJBAt2rzfoa/5QBGBhxDix1dMt2kQKQ==}
@@ -5980,6 +5984,8 @@ snapshots:
       json-buffer: 3.0.1
 
   kuler@2.0.0: {}
+
+  ky@1.12.0: {}
 
   levn@0.4.1:
     dependencies:

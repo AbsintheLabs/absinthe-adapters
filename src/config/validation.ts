@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { Manifest, TrackableDef, FieldDef, ConfigFromManifest } from '../types/manifest.ts';
-import { AssetConfig } from './schema.ts';
+import { FeedSchema, Feed } from '../types/asset.ts';
+import { globalFeedRegistry } from '../feeds/registry.ts';
+// import { AssetConfig } from './schema.ts';
 
 /**
  * Validates runtime config against an adapter's manifest.
@@ -68,6 +70,72 @@ export function validateConfigAgainstManifest<M extends Manifest>(
   }
 
   return validatedConfig as ConfigFromManifest<M>;
+}
+
+/**
+ * Recursively validates a feed config against its handler's schema
+ *
+ * @param feedConfig - The feed configuration object to validate
+ * @param path - The path to this config (for error messages)
+ * @returns Validated feed config
+ * @throws {Error} if validation fails with descriptive error messages
+ */
+function validateFeedConfig(feedConfig: unknown, path: string = 'pricing'): Feed {
+  // First validate that it's an object with a 'kind' field
+  if (typeof feedConfig !== 'object' || feedConfig === null) {
+    throw new Error(`${path} must be an object, got ${typeof feedConfig}`);
+  }
+
+  const config = feedConfig as Record<string, unknown>;
+
+  if (!config.kind || typeof config.kind !== 'string') {
+    throw new Error(`${path}.kind is required and must be a string`);
+  }
+
+  const kind = config.kind;
+
+  // Look up the feed handler by kind
+  const handler = globalFeedRegistry.getAll().get(kind);
+
+  if (!handler) {
+    const availableHandlers = Array.from(globalFeedRegistry.getAll().keys()).join(', ');
+    throw new Error(
+      `${path}: Unknown feed handler '${kind}'. Available handlers: ${availableHandlers}`,
+    );
+  }
+
+  // Validate the entire config against the handler's schema
+  try {
+    const validated = handler.configSchema.parse(config) as Record<string, any>;
+
+    // Recursively validate nested feed configs
+    // We need to check if any fields in the validated config are themselves feed configs
+    const result: Record<string, any> = {
+      kind, // Preserve the 'kind' field (handler schemas don't include it)
+      ...validated,
+    };
+    for (const [key, value] of Object.entries(validated)) {
+      if (key === 'kind') continue; // Skip the kind field itself
+
+      // Check if this field looks like a feed config (has a 'kind' property)
+      if (value && typeof value === 'object' && 'kind' in value) {
+        result[key] = validateFeedConfig(value, `${path}.${key}`);
+      }
+    }
+
+    return result as Feed;
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      const issues = error.issues
+        .map((issue) => {
+          const fieldPath = issue.path.length > 0 ? `.${issue.path.join('.')}` : '';
+          return `${path}${fieldPath}: ${issue.message}`;
+        })
+        .join('; ');
+      throw new Error(`Feed config validation failed: ${issues}`);
+    }
+    throw error;
+  }
 }
 
 /**
@@ -150,18 +218,15 @@ function validateInstance(
 
   // 4. Validate pricing config (if provided)
   if (instance.pricing !== undefined) {
-    // Validate pricing against AssetConfig schema
+    // Validate pricing against feed handler schema (recursively)
     try {
-      validated.pricing = AssetConfig.parse(instance.pricing);
+      validated.pricing = validateFeedConfig(
+        instance.pricing,
+        `Instance ${instanceIdx} of trackable '${trackableId}': pricing`,
+      );
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        const issues = error.issues.map((issue) => issue.message).join(', ');
-        throw new Error(
-          `Instance ${instanceIdx} of trackable '${trackableId}': pricing validation failed: ${issues}`,
-        );
-      }
       throw new Error(
-        `Instance ${instanceIdx} of trackable '${trackableId}': pricing validation failed: ${error instanceof Error ? error.message : String(error)}`,
+        `Instance ${instanceIdx} of trackable '${trackableId}': ${error instanceof Error ? error.message : String(error)}`,
       );
     }
 

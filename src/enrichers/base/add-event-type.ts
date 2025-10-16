@@ -23,7 +23,7 @@ export const addActionEventType = <T extends object>(): Enricher<T, T & ActionEv
   return (item) => {
     return {
       ...item,
-      eventType: 'action' as const,
+      eventType: 'action',
     };
   };
 };

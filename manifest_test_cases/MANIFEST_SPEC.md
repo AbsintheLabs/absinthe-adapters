@@ -1129,10 +1129,10 @@ logic for each:
   if quantityType = none -> then 1
 
 - `quantity`
-  if quantityType = token_based, then resolve the number of decimals for the asset
-  tokenQuantity = quantity / (10 \*_ decimals)
-  then, if quantityBasis = monetary_value, fetch the twap price for the asset
-  monetary_value = quantity _ assetPriceUsd
+  if quantityType = token*based, then resolve the number of decimals for the asset
+  tokenQuantity = quantity / (10 \** decimals)
+  then, if quantityBasis = monetary*value, fetch the twap price for the asset
+  monetary_value = quantity * assetPriceUsd
   if quantityBasis = asset_amt
   asset_amt = tokenQuantity
 
@@ -1189,3 +1189,236 @@ At the end, we have to confirm that the data shape after processing fits the end
 This way we have full end to end type safety, and if we change the final shape, the pipeline will fail to compile (fail fast which is good!)
 
 The current architecture doesn't seem to be working, can you please help me create a better set of primitives to do this? We are very overdue on the project, and it needs to be done well and explainable to the team.
+
+---
+
+Let's set some requirements:
+
+1. The adapter code needs to register the price feed handlers
+   1. Question: should they be registered in the defineAdapter function, or is it enough to just call `defineFeed` anywhere where they export it?
+      Answer: do it in the defineAdapter function so the code is self-documenting and very clear.
+
+2. When registering a price feed handler, what does the developer need to provide?
+
+- name (via the key in the priceHandler array)
+- define which assetType the handler works for (erc20, erc721, spl, custom with prefix?). This will also give the type of assetConfig that will be passed to the handler so we can easily get the address, tokenid, etc from this typed object
+  - the feed handler then will invoke the asset key method so we get an already properly created object from the key
+  - if we're dealing with custom, then the price handler will be responsible for getting the proper object from the key (rather than those objects being provided).
+
+3. what happens when exported?
+
+- in the defineAdapter hook, we will also register the handler in the price feed registry (we essentially call defineFeed on the handler)
+
+4. how do we ensure that the right asset is passed to the price feed handler?
+
+- rather than the developer doing it, we should do it automatically based on the assetType that they provide
+- this gets harder if it's a custom one since they would need to provide the `prefix` if it's custom
+
+Need to make the new handler and the old handlers compatibile. Need to define type definition that works for both and migrate. We shouldn't have 2 defintions of handlers as this is error prone + confusing.
+
+---
+
+Scope for moving pricing handlers into adapters AND stable asset keys for engine:
+
+Adapter says: (2 new features)
+
+- I am registering these handlers
+- Some of my trackables might require a handler that's defined in the core framework OR that I registered in the adapter myself
+
+Questions for adapter feed registration:
+
+- Where is config defined?: config is defined as part of the adapter feed definition (this tells us what the adapter needs)
+- When is the config validated?: config is validated at runtime when we pass in the runtime config. it matches against the zod schema of that particular price feed config
+- What about recursive pricing configs?: This should probably be done by zod. Need to figure out how we can do this with intput/output asset types so that it's clear what types we can select and we can fail at runtime for incorrect configurations. For example, univ3lp that then defines a config for univ2nav will fail because this makes no sense. Recursive configs should be done by zod. <-- THIS DESPERATELY NEEDS MORE THOUGHT SO WE DON'T BLOW UP THE SCOPE OUT OF PROPORTION. NEEDS MORE EXAMPLES.
+  - This recursive step is closely tied to the `resolve` implementation and signature.
+
+Register Adapter:
+
+- registers the price feed handlers
+  - handlers are auto-prefixed by the adapter name
+  - if there ever is a collision, we error everything and prevent the adapter from running
+  - Does manifest.trackables[].requiredPricer reference a handler that exists?: This needs to be derisked. not clear how this can happen .
+
+Adapter Emit Fns:
+
+- anywhere where there is an `asset` field now takes in an AssetType (type, address, etc). This is what allows us to have a stable key across the engine.
+  - framework calls getAssetKey and passes it to the emit functions (inside that factory that maps emit functions)
+  - redis stores the full key (erc20:0x123, erc721:0x123:999, etc)
+
+Price Feed Handler:
+
+- I take in the following types (ex: 'erc20' or 'spl'). KEY INSIGHT: this changes the type of assetConfig that I recieve
+
+Should the price handlers define what they take in and what dependencies they should take? This will allow us to flag incorrect pricing configs at runtime (and help us compose these price handlers the right way)
+
+For example:
+
+- erc20 can be priced via univ3pool. that pool needs a price feed for the asset (since we just get an exchange rate). This is also an erc20 asset. So univ3pool prices and erc20 and outputs an erc20 asset.
+
+Metadata Resolver:
+
+- Based on the asset type, we pick the right metadata resolver. This is already done in the core framework, so we don't have to do anything here. Custom key handlers DO NOT return a metadata object (or 0 decimals)
+
+Price handlers can say:
+What do the types give us?
+
+calling an univ3lp handler on a regular nft (that's not an lp nft) will fail anyway at runtime
+coingecko doesn't need to price an erc20 since it takes in a coingecko id (not even the address) so it's a moot point
+
+It only helps us for the configuration so that we know:
+
+univ3 : requires a univ3lp pricer
+the univ3lp pricer can define any erc20 pricer (including coingecko) so then the config screen will only display the erc20 pricers (it won't display)
+
+Rather than mentioning a required pricer, we only really care for a trackable to use a price handler that is provided by the adapter itself. We would never add a price handler through the adapter if we weren't going to use it (otherwise, we'd write it as part of the core framework)
+
+Instead of this, we can provide the requiredPricer not with a string but with the actual implementation of the price handler. Then we can register the price handler in the manifest rather than a separate field altogether (which makes more sense anyway)
+
+For now, let's not worry about the input/output types of price handlers. We can do that later if necessary. You can select any of the core framework price handlers if needed in that case (we would never expose the adapter price handlers to the configurator anyway)
+
+Instead, we can add a manifest to the core price handlers so that we can get typings (in the same way that we have for the manifest to know what types of assets its good for, etc). This doesn't need to be part of the type system, it can just be done as part of the manifest for the price handlers themselves (since its at config-time only information)
+
+Pricers define what type of asset key they operate on so they have better type safety and we don't need to separate the asset keys in the handlers themselves (this is a framework responsibility)
+
+When the handler recurses, it should pass in the AssetType object rather than the raw string.
+--> The big change here would be that we get an assetType object instead of a string so we can properly make sense.
+
+The handlers would still need to define if it takes in a certain asset (ex: pegged / coingecko take in any since it doesn't depend on the asset type). But univ3lp nav would take in a erc721 asset (although we don't care if it's the right nft, that's a runtime error). univ2nav would take in a erc20 asset.
+
+The framework checks if the assetType matches what the handler expects. if it doesn't, we error at runtime.
+
+NOTE: at runtime, if top-level feed doesn't match the requiredPricer name, we error.
+
+## Feed handlers
+
+A feed handler definition defines a few things about each price feed handler:
+
+- the name
+- the config schema that it takes (that we can provide at runtime)
+- narrow to an asset type it can price OR if it can price any asset type (coingecko doesn't care about the asset type) -> this is mainly for runtime protection although I would argue it's not really necessary. so we should just skip this.
+- manifest -> helps us define the config screen by saying what it works with etc
+- handler itself -> the function that actually prices the asset and can call other handlers downstream
+
+One you define the feed handler, it gets registered.
+
+When you call price asset, it needs to know which pricer to call. The pricing handler is passed through the trackableInstance.
+
+---
+
+#
+
+## End to end flow of the pricing system
+
+Right now this is terribly confusing, we're in the middle of a migration and it's not clear at all how the pricing stuff is supposed to work.
+
+We have successfully moved the pricing handler into the adapters to keep things a bit simpler. Now, we have to figure out how the framework works for this.
+
+Pricing happens on a schedule, not based on an event for holding data.
+
+However, when we do `applyAction` we actually only need to price that asset at that time (or within some bound).
+
+So if nothing happens, we actually don't need to keep getting the price for that asset. Let's put a pin in this, this is a pretty important difference (that we both have to support pricing on a schedule AND pricing on demand depending on what we're actually tracking).
+
+So this is what happens (just when we price on a schedule):
+
+### Price Feed Registration
+
+At startup, all the pricing handlers are registered in the pricing engine.
+When we invoke "registerAdapter" we also look at the pricing handlers that are defined in the manifest and register them in the pricing engine. This is important so that we load in all the pricing handler code into the registry.
+
+This will check that the price
+
+### Runtime Config Validation
+
+We need to ensure that the provided price feed object:
+
+1. Matches the required price feed handler at the top if the price handler defines a price feed handler (this can also be config time only check, although better at runtime as well)
+2. Nested price feeds are all valid and properly defined
+
+### Engine Code
+
+in `applyBalanceDelta`, just save AssetKey And FeedConfig (this is "registering" the asset)
+(we will probably need to change pricing-backfill)
+
+### Pricing-Backfill
+
+Get all assets, parse the FeedConfig, and then call PriceAsset for that pair.
+
+### Resolving (new)
+
+The responsibility of the resolver is:
+
+- take a nested feed config, call each of the parts recursively, and return a final number.
+- it also takes in a timeMs / blockHeight.
+
+Feed configs:
+
+```ts
+{
+  feed: {
+    "kind": "univ2nav",
+    "token0": {
+      "kind": "pegged",
+      "usdPegValue": 115764.58
+    },
+    "token1": {
+      "kind": "coingecko",
+      "id": "pepe"
+    }
+  }
+}
+```
+
+or something like:
+
+```ts
+{
+  feed: {
+    kind: "coingecko",
+    id: "usd-coin"
+  }
+}
+```
+
+Order of operations:
+
+1. Change engine.ts to save `pricing:(toString(Asset), JSON.stringify(FeedConfig))` in applyBalanceDelta + applyAction
+2. Change pricing-backfill to fetch all the keys. For each key, we invoke priceAsset with the Asset and FeedConfig at that ts/blockheight
+3. Pricing engine in `priceAsset`:
+   1. gets handler that was imported/registered
+   2. confirms that handler type matches the assetType (in the key)
+   3. calls the handler (recurses through the feed config)
+
+<!-- ### Asset Registration
+When we do `applyBalanceDelta`, we need to register the asset (that we need to start pricing it periodically).
+We save the following things (need to confirm if we even need all of these things):
+  - trackable instance id (how was this discovered?)
+  - asset (full string key?)
+  - pricing config (type: 'erc20', handlerConfig: { type: 'coingecko', id: 'pepe' }) -->
+
+<!-- ### Pricing
+During the backfill price data for batch, we need to:
+1. fetch all the trackable instances
+2. for each trackable instance, fetch all the assets that it has registered
+3. once we have a pairing of: (asset, trackableInstanceId), we can invoke the pricing handler for that pair -->
+
+#### Resolving
+
+Once we decide to price it, we need to figure out a way to actually resolve the handlerConfig.
+
+1. The handlerConfig can be nested, so it needs to recurse through the nested config to get the price.
+2. We need to make sure we're passing in the right asset type to that handler. (can't pass erc20 to a univ3lp handler)
+
+Open question about scheduling vs within hour time:
+
+- If a trackable instance if an 'action' based one, and we already have a price within the hour, it can just skip it. This is more of an optimization than a different flow? We still price on a schedule (every hour?)
+
+---
+
+Additional context:
+The way pricing works:
+
+- pricing happens on a schedule. We have a multitude of assets (that are found at runtime)
+- each of those assets is matched to a feed known at the beginning that determins HOW to price it (this is deterministic and fixed at the beginning by the config)
+
+As we discover new assets, we need to register them with the trackable instance/pricing config that is responsible for that event so we know how to find that new asset that we found at runtime.

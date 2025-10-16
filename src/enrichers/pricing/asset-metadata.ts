@@ -1,47 +1,32 @@
-import { Enricher, EnrichmentContext } from '../core.ts';
-import { AssetInfo } from '../../types/events.ts';
-import { AssetType } from '../../config/schema.ts';
+import { Enricher } from '../core.ts';
+import { Asset, getAssetKeyFromAsset } from '../../types/asset.ts';
+import { logger } from '../../utils/logger.ts';
 
-type AssetInfoFields = {
-  assetInfo: AssetInfo;
-};
+interface EnrichedAssetMetadata {
+  decimals: number;
+  assetType: string;
+  assetKey: string;
+}
 
-export const enrichAssetMetadata = <T extends { asset: string }>(): Enricher<
+export const enrichAssetMetadata = <T extends { asset: Asset }>(): Enricher<
   T,
-  T & AssetInfoFields
+  T & EnrichedAssetMetadata
 > => {
   return async (item, context) => {
-    const { asset } = item;
-
-    // Parse asset string to extract components
-    const assetParts = asset.split(':');
-    const assetType = assetParts[0] as AssetType;
-    const assetAddress = assetParts[1];
-
-    let tokenId: string | undefined;
-    let decimals = 0;
-
-    // Extract tokenId for NFTs
-    if (assetType === 'erc721' && assetParts.length >= 3) {
-      tokenId = assetParts[2];
-    }
+    const assetKey = getAssetKeyFromAsset(item.asset);
 
     // Get metadata from cache
-    const metadata = await context.metadataCache.get(asset);
-    if (metadata?.decimals != null) {
-      decimals = Number(metadata.decimals);
+    const metadata = await context.metadataCache.get(assetKey);
+    if (!metadata) {
+      logger.error(`Asset metadata not found for asset ${assetKey}`);
+      throw new Error(`Asset metadata not found for asset ${assetKey}`);
     }
-
-    const assetInfo: AssetInfo = {
-      asset: assetAddress,
-      tokenId,
-      decimals,
-      assetType,
-    };
 
     return {
       ...item,
-      assetInfo,
+      assetKey: assetKey,
+      decimals: metadata.decimals,
+      assetType: item.asset.type,
     };
   };
 };
