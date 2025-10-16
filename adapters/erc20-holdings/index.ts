@@ -29,7 +29,6 @@ export default defineAdapter({
 
         await emitFns.position.balanceDelta({
           user: from,
-          // asset: `erc20:${assetAddress}`,
           asset: { type: 'erc20', address: assetAddress },
           amount: -value,
           activity: 'hold',
@@ -37,7 +36,6 @@ export default defineAdapter({
         });
         await emitFns.position.balanceDelta({
           user: to,
-          // asset: `erc20:${assetAddress}`,
           asset: { type: 'erc20', address: assetAddress },
           amount: value,
           activity: 'hold',

@@ -17,10 +17,16 @@ export class HandlerRegistry {
       return;
     }
     logger.debug(`HandlerRegistry: Registering handler for ${handler.name}`);
+    logger.debug(`HandlerRegistry: Handler: ${JSON.stringify(handler)}`);
     this.handlers.set(handler.name, handler);
   }
 
   get(name: string): FeedHandler<any> | undefined {
+    // defensive programming
+    if (!name) {
+      throw new Error('Handler name is undefined');
+    }
+
     const handler = this.handlers.get(name);
     if (!handler) {
       logger.debug(

@@ -1,4 +1,5 @@
 import { defineFeedHandler } from '../types/asset.ts';
+import { defineFeed } from './define.ts';
 import ky from 'ky';
 import { logger } from '../utils/logger.ts';
 import { z } from 'zod';

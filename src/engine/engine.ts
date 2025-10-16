@@ -45,6 +45,7 @@ import {
   getAssetFromKey,
   getAssetKeyFromAsset as getKeyFromAsset,
 } from '../types/asset.ts';
+import { buildPricingKey } from '../utils/pricing-keys.ts';
 
 dotenv.config();
 
@@ -314,7 +315,7 @@ export class Engine {
     // the unique tuple that we use to lookup config is: (assetkey, feedconfig)
     const assetKey = getKeyFromAsset(asset);
     const feedHash = md5HashCanonical(feedConfig, 8);
-    const priceKey = `pricing:${assetKey}:${feedHash}`;
+    const priceKey = buildPricingKey(assetKey, feedHash);
 
     await this.redis.setnx(priceKey, JSON.stringify(feedConfig));
     // Also add to the asset registry set for fast lookup
@@ -360,7 +361,7 @@ export class Engine {
       const trackableInstanceId = this.generateTrackableInstanceId(e.trackableInstance);
 
       // Register this specific asset for this trackable instance
-      const priceFeed = (e.trackableInstance.pricing as any).priceFeed as Feed;
+      const priceFeed = e.trackableInstance.pricing;
       await this.registerAssetForPricing(asset, priceFeed);
 
       // Generate pricing handler ID for this config
@@ -378,6 +379,7 @@ export class Engine {
       meta: e.meta,
       ts: d.tsMs,
       height: d.height,
+      // fixme: this is hacky
       value:
         quantityType === 'token_based' || quantityType === 'count'
           ? ((e as any).amount.toString?.() ?? (e as any).amount)
@@ -388,6 +390,7 @@ export class Engine {
     };
 
     if (quantityType === 'token_based') {
+      // fixme: this is hacky
       rawAction.asset = (e as any).asset;
     }
 
@@ -463,7 +466,7 @@ export class Engine {
     let pricingHandlerId: string | undefined;
     if (ti.pricing !== undefined) {
       const trackableInstanceId = this.generateTrackableInstanceId(ti);
-      const priceFeed = (ti.pricing as any).priceFeed as Feed;
+      const priceFeed = ti.pricing;
       await this.registerAssetForPricing(e.asset, priceFeed);
 
       // Generate pricing handler ID for this config

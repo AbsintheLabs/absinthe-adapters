@@ -13,6 +13,9 @@ function stableSort(obj: any): any {
 }
 
 export function md5HashCanonical(value: unknown, len?: number): string {
+  if (value === undefined || value === null) {
+    throw new Error('value is undefined or null in md5HashCanonical');
+  }
   const canon = stableSort(value);
   const json = JSON.stringify(canon);
   const md5 = crypto.createHash('md5').update(json).digest('hex');

@@ -4,6 +4,7 @@
 import { ResolveContext } from './pricing.ts';
 import { z } from 'zod';
 import { AssetMetadata } from './index.ts';
+import { globalFeedRegistry } from '../feeds/registry.ts';
 
 // =============================================================================
 // ASSET TYPE SYSTEM
@@ -78,12 +79,11 @@ export function getAssetFromKey(assetKey: string): Asset {
 // FEED HANDLER INTERFACE
 // =============================================================================
 
-export const FeedSchema = z
-  .object({
-    kind: z.string(),
-    // config: z.unknown(),
-  })
-  .loose();
+export const FeedSchema = z.object({
+  kind: z.string(),
+  // config: z.unknown(),
+});
+// .loose();
 
 export type Feed = z.infer<typeof FeedSchema> & Record<string, unknown>;
 
@@ -193,5 +193,6 @@ export function defineFeedHandler<
   // todo: we still have to implement manifest later
   manifest?: unknown;
 }): FeedHandler<T, z.infer<TSchema>> {
+  globalFeedRegistry.register(config);
   return config;
 }

@@ -6,6 +6,7 @@ import { ResolveContext } from '../types/pricing.ts';
 import { PricingEngine } from './pricing-engine.ts';
 import { RedisTSCache, RedisMetadataCache, RedisHandlerMetadataCache } from '../cache/index.ts';
 import { Asset, Feed, getAssetFromKey } from '../types/asset.ts';
+import { extractAssetKeyFromPricingKey } from '../utils/pricing-keys.ts';
 
 export interface PricingBackfillDeps {
   redis: Redis;
@@ -50,13 +51,14 @@ export async function backfillPriceDataForBatch(
   type AssetsWithFeedConfig = { asset: Asset; feedConfig: Feed };
   const assetsWithFeedConfig: AssetsWithFeedConfig[] = [];
 
-  for (const assetKey of assetKeys) {
-    const feedConfigJson = await deps.redis.get(assetKey);
+  for (const pricingKey of assetKeys) {
+    const feedConfigJson = await deps.redis.get(pricingKey);
     if (!feedConfigJson) {
-      throw new Error(`No feed config JSON found for asset ${assetKey}`);
+      throw new Error(`No feed config JSON found for pricing key ${pricingKey}`);
     }
 
     const feedConfig = JSON.parse(feedConfigJson) as Feed;
+    const assetKey = extractAssetKeyFromPricingKey(pricingKey);
     const asset = getAssetFromKey(assetKey);
     assetsWithFeedConfig.push({ asset, feedConfig });
   }
