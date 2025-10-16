@@ -3,8 +3,9 @@ import path from 'node:path';
 import { format, CsvFormatterStream } from '@fast-csv/format';
 import { Sink } from './sink-factory.ts';
 import { uniqueFilePath } from '../utils/run-paths.ts';
+import { logger } from '../utils/logger.ts';
 
-type CsvStreams = { out: fs.WriteStream; stream: CsvFormatterStream<any, any> };
+type CsvStreams = { out: fs.WriteStream; stream: CsvFormatterStream<any, any>; path: string };
 
 export class CsvDualSink implements Sink {
   private baseLabel: string; // purely cosmetic in file names
@@ -45,6 +46,15 @@ export class CsvDualSink implements Sink {
 
   async close(): Promise<void> {
     await Promise.all([this.closeOne(this.windows), this.closeOne(this.actions)]);
+
+    // Log the file paths that were written
+    const writtenPaths: string[] = [];
+    if (this.windows) writtenPaths.push(this.windows.path);
+    if (this.actions) writtenPaths.push(this.actions.path);
+
+    if (writtenPaths.length > 0) {
+      logger.info(`CSV files written to:\n  ${writtenPaths.join('\n  ')}`);
+    }
   }
 
   // ---------- internals ----------
@@ -72,7 +82,7 @@ export class CsvDualSink implements Sink {
     const out = fs.createWriteStream(p, { flags: exists ? 'a' : 'w' });
     const stream = format({ headers: true, writeHeaders: !exists });
     stream.pipe(out);
-    return { out, stream };
+    return { out, stream, path: p };
   }
 
   private async closeOne(s?: CsvStreams): Promise<void> {
