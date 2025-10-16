@@ -35,18 +35,10 @@
             "vaultAddress": "0xdcd35020c5bb97016358578131f012baa9f53cf3"
           },
           "pricing": {
-            "assetType": "composite",
-            "priceFeed": {
-              "kind": "morphovaults",
-              "underlyingAsset": {
-                "pricing": {
-                  "assetType": "erc20",
-                  "priceFeed": {
-                    "kind": "coingecko",
-                    "id": "usd-coin"
-                  }
-                }
-              }
+            "kind": "morphov1vaults",
+            "underlyingAsset": {
+              "kind": "coingecko",
+              "id": "usd-coin"
             }
           }
         }

@@ -9,6 +9,7 @@ import * as moprhov2VaultsAbi from './abi/morphov2vaults.ts';
 import { handleVault } from './vault.ts';
 import { handleCreateMetaMorphoFactory } from './createMetaMorpho.ts';
 import { AdapterDef, defineAdapter } from '../_shared/index.ts';
+import { morphov2vaultsFeed } from './feeds/morphov2vaults.ts';
 
 export const manifest: Manifest = {
   name: 'morpho-vaultsv2',
@@ -21,7 +22,7 @@ export const manifest: Manifest = {
       params: {
         vaultAddress: evmAddress('The vault contract address to track'),
       },
-      requiredPricer: 'morphovaults',
+      requiredPricer: morphov2vaultsFeed,
     },
     createMetaMorphoFactory: {
       kind: 'action',

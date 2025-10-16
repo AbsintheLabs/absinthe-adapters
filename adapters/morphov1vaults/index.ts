@@ -10,6 +10,9 @@ import { handleVault } from './vault.ts';
 import { handleCreateMetaMorphoFactory } from './createMetaMorpho.ts';
 import { AdapterDef, defineAdapter } from '../_shared/index.ts';
 
+// Feed handlers
+import { morphov1vaultsFeed } from './feeds/morphov1vaults.ts';
+
 export const manifest: Manifest = {
   name: 'morpho-vaultsv1',
   version: '0.0.1',
@@ -21,7 +24,7 @@ export const manifest: Manifest = {
       params: {
         vaultAddress: evmAddress('The vault contract address to track'),
       },
-      requiredPricer: 'morphovaults',
+      requiredPricer: morphov1vaultsFeed,
     },
     createMetaMorphoFactory: {
       kind: 'action',

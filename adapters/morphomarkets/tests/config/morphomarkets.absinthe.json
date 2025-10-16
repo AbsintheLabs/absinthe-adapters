@@ -31,18 +31,10 @@
             "marketId": "0xd0d22868a9460dd837f020a1ba300b81f26520602cc61f2b515cf6413b15ddac"
           },
           "pricing": {
-            "assetType": "composite",
-            "priceFeed": {
-              "kind": "morphomarkets",
-              "underlyingAsset": {
-                "pricing": {
-                  "assetType": "erc20",
-                  "priceFeed": {
-                    "kind": "coingecko",
-                    "id": "usd-coin"
-                  }
-                }
-              }
+            "kind": "morphomarkets",
+            "underlyingAsset": {
+              "kind": "coingecko",
+              "id": "usd-coin"
             }
           }
         },
@@ -54,18 +46,10 @@
             "marketId": "0xa458018cf1a6e77ebbcc40ba5776ac7990e523b7cc5d0c1e740a4bbc13190d8f"
           },
           "pricing": {
-            "assetType": "composite",
-            "priceFeed": {
-              "kind": "morphomarkets",
-              "underlyingAsset": {
-                "pricing": {
-                  "assetType": "erc20",
-                  "priceFeed": {
-                    "kind": "coingecko",
-                    "id": "usd-coin"
-                  }
-                }
-              }
+            "kind": "morphomarkets",
+            "underlyingAsset": {
+              "kind": "coingecko",
+              "id": "usd-coin"
             }
           }
         }
