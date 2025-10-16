@@ -47,6 +47,7 @@ export async function handleMarket(
   } else {
     console.log('UNKNOWN EVENT TYPE:', log.topic0);
   }
+  await emitFns.position.reprice({ trackableInstance: instance });
 }
 
 async function handleSupply(
@@ -65,8 +66,6 @@ async function handleSupply(
     topics: log.topics,
     data: log.data,
   });
-
-  console.log('onBehalf', onBehalf, log.height, 'supply');
 
   // Filter by configured market
   if (marketId.toLowerCase() !== configuredMarketId) {

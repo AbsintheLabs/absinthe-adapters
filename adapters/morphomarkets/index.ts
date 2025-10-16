@@ -7,6 +7,7 @@ import * as moprhov1MarketsAbi from './abi/morphov1.ts';
 import { handleMarket } from './market.ts';
 import { handleCreateMetaMorphoFactory } from './createMarket.ts';
 import { AdapterDef, defineAdapter } from '../_shared/index.ts';
+import { morphomarketsFeed } from './feeds/morphomarkets.ts';
 
 //todo: we can work on to modify the context as well.
 export const manifest: Manifest = {
@@ -23,7 +24,7 @@ export const manifest: Manifest = {
       assetSelectors: {
         marketId: stringField('The market id to track'),
       },
-      requiredPricer: 'morphomarkets',
+      requiredPricer: morphomarketsFeed,
     },
   },
 };
