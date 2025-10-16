@@ -11,7 +11,6 @@ import { EnrichedWindowSchema } from '../../types/events.ts';
 import { excludeContractAccounts } from '../filters/exclude-contracts.ts';
 import { addQuantityBasis } from '../pricing/quantity-basis.ts';
 import { calculatePositionQuantity } from '../pricing/quantity-calculator.ts';
-import { dropWindowExtraFields } from '../base/drop-window-extra-fields.ts';
 /**
  * Window enrichment pipeline.
  *
@@ -36,8 +35,6 @@ export const windowsPipeline = () =>
     .pipe(enrichAssetMetadata())
     .pipe(addQuantityBasis())
     .pipe(calculatePositionQuantity())
-    // drop extra fields
-    .pipe(dropWindowExtraFields())
 
     // validate and pick shape
     .pipe(validateAndPickShape(EnrichedWindowSchema));

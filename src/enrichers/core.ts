@@ -109,9 +109,10 @@ export function enforceOutput<T>(): Enricher<T, T> {
  * @param schema - Zod schema to validate against
  * @returns Enricher that validates and strips extra fields
  */
-export function validateAndPickShape<T>(schema: z.ZodType<T>): Enricher<T, T> {
+export function validateAndPickShape<T>(
+  schema: z.ZodType<T>,
+): <Input extends T>(item: Input, ctx: EnrichmentContext) => T {
   return (item) => {
-    // .parse() validates and throws on error
     return schema.parse(item);
   };
 }

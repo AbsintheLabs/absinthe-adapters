@@ -3,8 +3,8 @@ import { Enricher } from '../core.ts';
 import { getRuntime } from '../../runtime/context.ts';
 
 type AdapterProtocolFields = {
-  adapter_version: string;
   protocol_name: string;
+  adapter_version: string;
 };
 
 export const addAdapterProtocolMeta = <T extends object>(): Enricher<

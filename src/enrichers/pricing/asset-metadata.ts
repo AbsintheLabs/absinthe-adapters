@@ -1,10 +1,10 @@
 import { Enricher } from '../core.ts';
-import { Asset, getAssetKeyFromAsset } from '../../types/asset.ts';
+import { Asset, AssetType, getAssetKeyFromAsset } from '../../types/asset.ts';
 import { logger } from '../../utils/logger.ts';
 
 interface EnrichedAssetMetadata {
   decimals: number;
-  assetType: string;
+  assetType: AssetType;
   assetKey: string;
 }
 
