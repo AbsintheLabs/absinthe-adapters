@@ -1,15 +1,12 @@
 {
   "chainArch": "evm",
-  "flushInterval": "24h",
+  "flushInterval": "1h",
   "redisUrl": "${env:REDIS_URL}",
   "sinkConfig": {
     "sinks": [
       {
-        "sinkType": "stdout"
-      },
-      {
         "sinkType": "csv",
-        "path": "onlymeid.csv"
+        "path": "verifications.csv"
       }
     ]
   },
@@ -20,44 +17,19 @@
     "finality": 75
   },
   "range": {
-    "fromBlock": 1451314,
-    "toBlock": 2481775
-  },
-  "pricingRange": {
-    "type": "block",
-    "fromBlock": 30000000
+    "fromBlock": 2770730,
+    "toBlock": 2870730
   },
   "adapterConfig": {
-    "adapterId": "uniswap-v2",
-    "params": {
-      "poolAddress": "0x0621bae969de9c153835680f158f481424c0720a",
-      "trackSwaps": true
-    }
-  },
-  "assetFeedConfig": [
-    {
-      "match": {
-        "key": "0xAA40c0c7644e0b2B224509571e10ad20d9C4ef28"
-      },
-      "config": {
-        "assetType": "erc20",
-        "priceFeed": {
-          "kind": "pegged",
-          "usdPegValue": 115764.58
+    "adapterId": "onlymeid",
+    "config": {
+      "verify": [
+        {
+          "params": {
+            "onlyMeIdAddress": "0x70468F06CF32B776130E2Da4C0D7DD08983282EC"
+          }
         }
-      }
-    },
-    {
-      "match": {
-        "key": "0xad11a8BEb98bbf61dbb1aa0F6d6F2ECD87b35afA"
-      },
-      "config": {
-        "assetType": "erc20",
-        "priceFeed": {
-          "kind": "pegged",
-          "usdPegValue": 1
-        }
-      }
+      ]
     }
-  ]
+  }
 }

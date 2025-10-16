@@ -168,7 +168,15 @@ export class Engine {
               transaction,
               getRuntime().chainId,
             );
-            // await this.ingestEvmTransaction(unifiedTx);
+            await this.adapter.onTransaction?.({
+              emitFns: this.createEmitFunctions(unifiedTx),
+              transaction: unifiedTx,
+              sqdRpcCtx: {
+                _chain: ctx._chain,
+                block: { height: block.header.height },
+              },
+              redis: this.redis,
+            });
           }
         }
       }
