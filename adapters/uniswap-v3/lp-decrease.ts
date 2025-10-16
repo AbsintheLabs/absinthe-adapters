@@ -35,7 +35,11 @@ export async function handleDecreaseLiquidity(
   // Emit position update (signals that the position changed, triggering repricing)
   await emitFns.position.positionUpdate({
     user: owner,
-    asset: assetKey,
+    asset: {
+      type: 'erc721',
+      address: nonFungiblePositionManagerAddress,
+      tokenId: tokenId.toString(),
+    },
     activity: 'lp',
     trackableInstance: instance,
     meta: {

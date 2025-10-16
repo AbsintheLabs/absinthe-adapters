@@ -1,28 +1,27 @@
 // Global registry for pricing handlers to self-register
-import { HandlerFactory } from './interface.ts';
-import { CoreFeedSelector } from '../config/schema.ts';
+import { FeedHandler } from '../types/asset.ts';
 import { logger } from '../utils/logger.ts';
 
 class GlobalFeedRegistry {
-  private feeds = new Map<string, HandlerFactory<any>>();
+  private feeds = new Map<string, FeedHandler<any>>();
 
   /**
    * Register a pricing handler for auto-discovery
    * This is called by each feed module on import
    */
-  register<T extends CoreFeedSelector['kind']>(kind: T, factory: HandlerFactory<T>) {
-    if (this.feeds.has(kind)) {
-      logger.debug(`[feed-registry] Handler ${kind} already registered, skipping`);
+  register(handler: FeedHandler<any>) {
+    if (this.feeds.has(handler.name)) {
+      logger.debug(`[feed-registry] Handler ${handler.name} already registered, skipping`);
       return;
     }
-    logger.debug(`[feed-registry] Registering handler: ${kind}`);
-    this.feeds.set(kind, factory);
+    logger.debug(`[feed-registry] Registering handler: ${handler.name}`);
+    this.feeds.set(handler.name, handler);
   }
 
   /**
    * Get all registered feeds for the pricing engine
    */
-  getAll(): Map<string, HandlerFactory<any>> {
+  getAll(): Map<string, FeedHandler<any>> {
     return new Map(this.feeds);
   }
 

@@ -9,7 +9,7 @@ export type {
   PriceCacheTS,
   ResolveContext,
   AssetTypeHandler,
-  PriceFeedable,
+  // PriceFeedable, // deprecated
 } from './pricing.ts';
 
 // Adapter types

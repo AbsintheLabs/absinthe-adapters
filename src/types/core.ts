@@ -2,6 +2,7 @@
 
 import Big from 'big.js';
 import { InstanceFrom, TrackableDef } from './manifest.ts';
+import { Asset } from './asset.ts';
 
 // Normalized Context
 // export interface NormalizedEventContext {
@@ -22,7 +23,8 @@ export type MetadataValue = number | string;
 
 export type BalanceDelta = {
   user: string;
-  asset: string;
+  // asset: string;
+  asset: Asset;
   amount: Numberish;
   activity: Activity;
   trackableInstance: InstanceFrom<TrackableDef>;
@@ -35,14 +37,16 @@ export type PositionUpdate = Omit<BalanceDelta, 'amount'>;
 
 export type PositionStatusChange = {
   user: string;
-  asset: string;
+  // asset: string;
+  asset: Asset;
   active: boolean;
   // optional metadata for additional context
   meta?: Record<string, MetadataValue>;
 };
 
 export type MeasureDelta = {
-  asset: string; // e.g., "erc721:<PM>:<tokenId>"
+  // asset: string; // e.g., "erc721:<PM>:<tokenId>"
+  asset: Asset;
   metric: string; // "liquidity" | "debt" | "shares" | ...
   delta: Numberish; // bigint or decimal string
   // optional for direct attribution; can be resolved later
@@ -95,7 +99,8 @@ export type ActionEventBase = {
 };
 
 export type ActionTokenBased = ActionEventBase & {
-  asset: string;
+  // asset: string;
+  asset: Asset;
   amount: Numberish;
 };
 
@@ -143,6 +148,7 @@ export type IndexerMode = 'evm' | 'solana';
 // ASSET METADATA
 // ------------------------------------------------------------
 
+// move this to the asset.ts file
 export interface AssetMetadata {
   decimals: number;
   symbol?: string;

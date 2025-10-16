@@ -14,6 +14,9 @@ import { handleIncreaseLiquidity } from './lp-increase.ts';
 import { handleDecreaseLiquidity } from './lp-decrease.ts';
 import { defineAdapter } from '../_shared/index.ts';
 
+// Feed handlers
+import { univ3lpFeed } from './feeds/lp.ts';
+
 export const manifest = {
   name: 'uniswap-v3',
   version: '0.0.1',
@@ -44,7 +47,7 @@ export const manifest = {
       },
       // Note: No assetSelectors needed - the NFT tokenId uniquely identifies the position
       // The pricing strategy (requiredPricer: 'univ3lp') will handle the pool's token0/token1 internally
-      requiredPricer: 'univ3lp',
+      requiredPricer: univ3lpFeed,
     },
   },
 } as const satisfies Manifest;

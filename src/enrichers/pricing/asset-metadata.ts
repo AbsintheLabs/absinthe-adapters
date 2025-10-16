@@ -1,39 +1,32 @@
-import { Enricher, EnrichmentContext } from '../core.ts';
-import { AssetInfo } from '../../types/events.ts';
-import { AssetType } from '../../config/schema.ts';
+import { Enricher } from '../core.ts';
+import { Asset, getAssetKeyFromAsset } from '../../types/asset.ts';
+import { logger } from '../../utils/logger.ts';
 
-export const enrichAssetMetadata = <T extends { asset: string }>(): Enricher<T, T & AssetInfo> => {
+interface EnrichedAssetMetadata {
+  decimals: number;
+  assetType: string;
+  assetKey: string;
+}
+
+export const enrichAssetMetadata = <T extends { asset: Asset }>(): Enricher<
+  T,
+  T & EnrichedAssetMetadata
+> => {
   return async (item, context) => {
-    const { asset } = item;
-
-    // Parse asset string to extract components
-    // BUG! WITHOUT A STABLE KEY, ASSET COULD BE UNDEFINED. WE NEED TO CREATE A STABLE KEY FOR THE ASSETS
-    const assetParts = asset.split(':');
-    const assetType = assetParts[0] as AssetType;
-    const assetAddress = assetParts[1];
-
-    let tokenId: string | undefined;
-    let decimals = 0;
-
-    // Extract tokenId for NFTs
-    if (assetType === 'erc721' && assetParts.length >= 3) {
-      tokenId = assetParts[2];
-    }
+    const assetKey = getAssetKeyFromAsset(item.asset);
 
     // Get metadata from cache
-    const metadata = await context.metadataCache.get(asset);
-    if (metadata?.decimals != null) {
-      decimals = Number(metadata.decimals);
+    const metadata = await context.metadataCache.get(assetKey);
+    if (!metadata) {
+      logger.error(`Asset metadata not found for asset ${assetKey}`);
+      throw new Error(`Asset metadata not found for asset ${assetKey}`);
     }
 
     return {
       ...item,
-      // asset: assetAddress,
-      // FIXME: THIS NEEDS TO BE FIXED!!!!!!!!!!!
-      asset: assetType,
-      decimals,
-      assetType: 'erc20',
-      tokenId,
+      assetKey: assetKey,
+      decimals: metadata.decimals,
+      assetType: item.asset.type,
     };
   };
 };

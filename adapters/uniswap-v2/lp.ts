@@ -20,7 +20,7 @@ export async function handleLpTransfer(
   // Emit balance deltas for LP token transfers
   await emitFns.position.balanceDelta({
     user: decoded.from.toLowerCase(),
-    asset: poolAddress,
+    asset: { type: 'erc20', address: poolAddress },
     amount: -decoded.value,
     activity: 'hold',
     trackableInstance: instance,
@@ -28,7 +28,7 @@ export async function handleLpTransfer(
 
   await emitFns.position.balanceDelta({
     user: decoded.to.toLowerCase(),
-    asset: poolAddress,
+    asset: { type: 'erc20', address: poolAddress },
     amount: decoded.value,
     activity: 'hold',
     trackableInstance: instance,

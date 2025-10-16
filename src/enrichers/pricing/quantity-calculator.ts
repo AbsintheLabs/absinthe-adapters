@@ -15,6 +15,7 @@ import { QuantityType } from '../../types/manifest.ts';
 import { QuantityBasis } from './quantity-basis.ts';
 import { getPrevSample, getSamplesIn, twaFromSamples } from '../utils/timeseries.ts';
 import { logger } from '../../utils/logger.ts';
+import { Asset, getAssetKeyFromAsset } from '../../types/asset.ts';
 
 export type QuantityField = {
   quantity: number;
@@ -27,7 +28,7 @@ type QuantityInput = {
   quantityType: QuantityType;
   quantityBasis: QuantityBasis;
   value: string;
-  asset?: string;
+  asset?: Asset;
   ts: number;
   user: string;
 };
@@ -54,7 +55,7 @@ const baseCalculators: Record<QuantityType, BaseQuantityCalculator> = {
 type BasisModifier = (
   quantity: Big,
   ctx: EnrichmentContext,
-  asset: string | undefined,
+  asset: Asset | undefined,
   ts: number,
   user: string,
 ) => Promise<Big>;
@@ -69,12 +70,13 @@ const basisModifiers: Record<QuantityBasis, BasisModifier> = {
       return new Big(0);
     }
 
-    const priceKey = `price:${asset}`;
+    const assetKey = getAssetKeyFromAsset(asset);
+    const priceKey = `price:${assetKey}`;
     const priceSample = await getPrevSample(ctx.redis, priceKey, ts);
 
     if (!priceSample) {
       logger.debug(
-        `No price data found for asset ${asset} at ts ${ts}, user: ${user}, defaulting to 0`,
+        `No price data found for asset ${assetKey} at ts ${ts}, user: ${user}, defaulting to 0`,
       );
       return new Big(0);
     }
@@ -92,7 +94,7 @@ const basisModifiers: Record<QuantityBasis, BasisModifier> = {
 type TWAPBasisModifier = (
   quantity: Big,
   ctx: EnrichmentContext,
-  asset: string | undefined,
+  asset: Asset | undefined,
   startTs: number,
   endTs: number,
   user: string,
@@ -108,7 +110,8 @@ const twapBasisModifiers: Record<QuantityBasis, TWAPBasisModifier> = {
       return new Big(0);
     }
 
-    const priceKey = `price:${asset}`;
+    const assetKey = getAssetKeyFromAsset(asset);
+    const priceKey = `price:${assetKey}`;
 
     // Get price sample before window start for boundary value
     const prevSample = await getPrevSample(ctx.redis, priceKey, startTs - 1);
@@ -151,7 +154,7 @@ export const calculateActionQuantity = <
     quantityType: QuantityType;
     quantityBasis: QuantityBasis;
     value: string;
-    asset?: string;
+    asset?: Asset;
     ts: number;
     user: string;
   },
@@ -161,7 +164,8 @@ export const calculateActionQuantity = <
     const { quantityType, quantityBasis, value, asset, ts, user } = item;
 
     // Step 1: Get asset metadata (decimals) if needed
-    const metadata = asset ? await ctx.metadataCache?.get(asset) : undefined;
+    const assetKey = asset ? getAssetKeyFromAsset(asset) : undefined;
+    const metadata = assetKey ? await ctx.metadataCache?.get(assetKey) : undefined;
     const decimals = metadata?.decimals ?? 0;
 
     // Step 2: Calculate base quantity
@@ -193,7 +197,7 @@ export const calculatePositionQuantity = <
     quantityBasis: QuantityBasis;
     rawBefore: string;
     rawAfter: string;
-    asset: string;
+    asset: Asset;
     windowUtcStartTsMs: number;
     windowUtcEndTsMs: number;
     decimals: number;

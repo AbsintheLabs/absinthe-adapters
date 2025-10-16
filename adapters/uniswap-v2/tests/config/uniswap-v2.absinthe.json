@@ -71,8 +71,20 @@
             "assetType": "erc20",
             "priceFeed": {
               "kind": "univ2nav",
-              "token0": "0xAA40c0c7644e0b2B224509571e10ad20d9C4ef28",
-              "token1": "0xad11a8BEb98bbf61dbb1aa0F6d6F2ECD87b35afA"
+              "token0": {
+                "assetType": "erc20",
+                "priceFeed": {
+                  "kind": "pegged",
+                  "usdPegValue": 115764.58
+                }
+              },
+              "token1": {
+                "assetType": "erc20",
+                "priceFeed": {
+                  "kind": "pegged",
+                  "usdPegValue": 1
+                }
+              }
             }
           }
         }

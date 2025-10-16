@@ -21,7 +21,7 @@ export async function handleVault(
   if (from.toLowerCase() !== '0x0000000000000000000000000000000000000000') {
     await emitFns.position.balanceDelta({
       user: from.toLowerCase(),
-      asset: vaultAddress,
+      asset: { type: 'custom', prefix: 'morpho', key: vaultAddress },
       amount: -BigInt(value),
       activity: 'hold',
       trackableInstance: instance,
@@ -31,7 +31,7 @@ export async function handleVault(
   if (to.toLowerCase() !== '0x0000000000000000000000000000000000000000') {
     await emitFns.position.balanceDelta({
       user: to.toLowerCase(),
-      asset: vaultAddress,
+      asset: { type: 'custom', prefix: 'morpho', key: vaultAddress },
       amount: BigInt(value),
       activity: 'hold',
       trackableInstance: instance,

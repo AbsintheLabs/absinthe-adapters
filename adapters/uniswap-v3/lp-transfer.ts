@@ -74,7 +74,11 @@ export async function handleLpTransfer(
   // Emit "from" balance decrease
   await emitFns.position.balanceDelta({
     user: from.toLowerCase(),
-    asset: assetKey,
+    asset: {
+      type: 'erc721',
+      address: nonFungiblePositionManagerAddress,
+      tokenId: tokenId.toString(),
+    },
     amount: -1n,
     activity: 'lp',
     trackableInstance: instance,
@@ -104,7 +108,11 @@ export async function handleLpTransfer(
   // Emit "to" balance increase
   await emitFns.position.balanceDelta({
     user: to.toLowerCase(),
-    asset: assetKey,
+    asset: {
+      type: 'erc721',
+      address: nonFungiblePositionManagerAddress,
+      tokenId: tokenId.toString(),
+    },
     amount: 1n,
     activity: 'lp',
     trackableInstance: instance,

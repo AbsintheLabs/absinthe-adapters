@@ -1,17 +1,18 @@
 // Asset information interface
 import { z } from 'zod';
-import { AssetType, ChainArch } from '../config/schema.ts';
+import { ChainArch, ChainArchSchema } from '../config/schema.ts';
 import { QuantityBasis } from '../enrichers/pricing/quantity-basis.ts';
 import { Activity } from './core.ts';
 import { QuantityType, QuantityTypeSchema } from './manifest.ts';
 import { WINDOW_REASONS } from './adapter.ts';
+import { AssetEnum } from './asset.ts';
 
-export interface AssetInfo {
-  asset: string; // EVM or Solana address
-  tokenId?: string; // OPTIONAL for NFTs
-  decimals: number;
-  assetType: AssetType; // Use the defined AssetType from schema
-}
+// export interface AssetInfo {
+//   asset: string; // EVM or Solana address
+//   tokenId?: string; // OPTIONAL for NFTs
+//   decimals: number;
+//   assetType: AssetType; // Use the defined AssetType from schema
+// }
 
 export interface RunnerMeta {
   version: string; // schema version
@@ -34,7 +35,7 @@ export const CommonFieldsSchema = z.object({
   // Added by addChainMetadata
   chainId: z.string(),
   chainShortName: z.string(),
-  chainArch: ChainArch,
+  chainArch: ChainArchSchema,
 
   // Added by addQuantityBasis
   quantityBasis: z.enum(['none', 'count', 'monetary_value', 'asset_amount']),
@@ -46,10 +47,11 @@ export const CommonFieldsSchema = z.object({
 });
 
 export const AssetFieldsSchema = z.object({
-  asset: z.string(),
-  tokenId: z.string().optional(),
+  assetKey: z.string(),
+  // tokenId: z.string().optional(),
   decimals: z.number(),
-  assetType: AssetType,
+  // FIXME: this needs a bit of a better solution
+  assetType: AssetEnum,
 });
 
 export const AssetFieldsSchemaOptional = AssetFieldsSchema.partial();
@@ -87,8 +89,7 @@ export const EnrichedWindowSchema = z
     endValue: z.string(),
   })
   .extend(CommonFieldsSchema.shape)
-  .extend(AssetFieldsSchema.shape) // required bc window is always a token_based
-  .strip();
+  .extend(AssetFieldsSchema.shape); // required bc window is always a token_based
 
 export type EnrichedWindow = z.infer<typeof EnrichedWindowSchema>;
 /**
@@ -133,7 +134,7 @@ export type EnrichedAction = z.infer<typeof EnrichedActionSchema>;
 export interface BaseEvent {
   // attribution
   user: string; // EVM address
-  asset: AssetInfo;
+  // asset: AssetInfo;
 
   // chain
   chainId: string; // Use string for JSON serialization compatibility

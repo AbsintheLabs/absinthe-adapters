@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { Manifest, TrackableDef, FieldDef, ConfigFromManifest } from '../types/manifest.ts';
-import { AssetConfig } from './schema.ts';
+import { FeedSchema } from '../types/asset.ts';
+// import { AssetConfig } from './schema.ts';
 
 /**
  * Validates runtime config against an adapter's manifest.
@@ -152,7 +153,7 @@ function validateInstance(
   if (instance.pricing !== undefined) {
     // Validate pricing against AssetConfig schema
     try {
-      validated.pricing = AssetConfig.parse(instance.pricing);
+      validated.pricing = FeedSchema.parse(instance.pricing);
     } catch (error) {
       if (error instanceof z.ZodError) {
         const issues = error.issues.map((issue) => issue.message).join(', ');

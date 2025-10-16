@@ -51,7 +51,7 @@ export async function handleSwap(
       key: md5Hash(`${log.txRef}${log.logIndex}`),
       activity: 'swap',
       user,
-      asset,
+      asset: { type: 'erc20', address: asset },
       amount: amount,
       trackableInstance: instance,
       meta: swapMeta,

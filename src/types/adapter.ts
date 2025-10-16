@@ -1,6 +1,6 @@
 // Adapter interface and related types
-import { AssetFeedConfig } from '../config/schema.ts';
-import { HandlerFactory } from '../feeds/interface.ts';
+// import { AssetFeedConfig } from '../config/schema.ts';
+import { FeedHandler } from './asset.ts';
 import { Block, Log, BaseProcessor } from '../eprocessorBuilder.ts';
 import { Redis } from 'ioredis';
 import { Manifest } from './manifest.ts';
@@ -108,9 +108,7 @@ export type Handlers = Record<string, Handler>;
 // ------------------------------------------------------------
 
 // Custom feed handler registry for adapters
-export interface CustomFeedHandlers {
-  [feedKind: string]: HandlerFactory<any>;
-}
+export type CustomFeedHandlers = Record<string, FeedHandler<any>>;
 
 // Projector interface for custom event processing
 export interface Projector {
@@ -134,23 +132,23 @@ export interface SqdRpcCtx {
   };
 }
 
-export type MountCtx = {
-  // App configuration (already validated by Zod)
-  appCfg: any;
+// export type VountCtx = {
+//   // App configuration (already validated by Zod)
+//   appCfg: any;
 
-  // Subsquid processor instance to extend with .addLog/.addTransaction handlers
-  processor: any;
+//   // Subsquid processor instance to extend with .addLog/.addTransaction handlers
+//   processor: any;
 
-  // Shared infra
-  redis: Redis;
-  rpc: unknown;
+//   // Shared infra
+//   redis: Redis;
+//   rpc: unknown;
 
-  // Engine emit API (same functions you use today)
-  emit: EmitFunctions;
+//   // Engine emit API (same functions you use today)
+//   emit: EmitFunctions;
 
-  // Until feeds live in config, Engine can pass them through here
-  assetFeeds: AssetFeedConfig;
-};
+//   // Until feeds live in config, Engine can pass them through here
+//   assetFeeds: AssetFeedConfig;
+// };
 
 // export type Adapter = AdapterV2 | AdapterLegacy | TypedAdapter;
 export type Adapter = TypedAdapter;
