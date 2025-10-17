@@ -137,7 +137,7 @@ type PositionTrackableDef = {
   assetSelectors?: Record<string, AssetSelectorDef>; // Optional: Additional asset identification if needed
   filters?: Record<string, FieldDef>; // Optional general filters
   // XXX: remove the string option here, just keeping it to keep compile errors at bay while we test
-  requiredPricer?: FeedHandler<any> | string; // pricing scheme required for this trackable
+  requiredPricer?: FeedHandler<any>; // pricing scheme required for this trackable
 };
 
 // Action trackables with token_based can have asset selectors and pricing
@@ -147,7 +147,7 @@ type ActionTokenBasedDef = {
   params: Record<string, FieldDef>;
   assetSelectors?: Record<string, AssetSelectorDef>; // Optional: Additional asset identification if needed
   filters?: Record<string, FieldDef>; // Optional general filters
-  requiredPricer?: FeedHandler<any> | string; // pricing scheme required for this trackable
+  requiredPricer?: FeedHandler<any>; // pricing scheme required for this trackable
 };
 
 // Action trackables with count or none cannot have asset selectors or pricing
