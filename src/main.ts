@@ -30,6 +30,7 @@ import { clearStateDir, clearRedisNamespace, deriveStateDirFromHash } from './ut
 import { getChainShortName } from './utils/chain-utils.ts';
 import { parseCliArgs, hasFlag } from './utils/cli-args.ts';
 import { loadAllFeeds } from './feeds/loader.ts';
+import { GIT_COMMIT_SHA_LONG } from './utils/git.ts';
 
 // todo: move this somewhere else with typing definitions
 export interface EngineDeps {
@@ -61,8 +62,7 @@ async function main() {
   const hostname = os.hostname();
   const apiKey = process.env.ABSINTHE_API_KEY;
   const apiKeyHash = apiKey ? md5HashCanonical(apiKey, 8) : null;
-  const longCommitSha = process.env.COMMIT_SHA;
-  const commitSha = longCommitSha ? longCommitSha.slice(0, 8) : null;
+  const commitSha = GIT_COMMIT_SHA_LONG ? GIT_COMMIT_SHA_LONG.slice(0, 8) : null;
 
   setRuntime({
     version: ABSINTHE_VERSION,

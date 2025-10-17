@@ -2,19 +2,18 @@
 import { Enricher } from '../core.ts';
 
 type ActionEventTypeField = {
-  eventType: 'action';
+  topic_type: 'action';
 };
 
 type TWBEventTypeField = {
-  eventType: 'time_weighted_balance';
+  topic_type: 'position';
 };
 
 export const addTWBEventType = <T extends object>(): Enricher<T, T & TWBEventTypeField> => {
   return (item) => {
     return {
       ...item,
-      // Hardcoded per spec
-      eventType: 'time_weighted_balance',
+      topic_type: 'position',
     };
   };
 };
@@ -23,7 +22,7 @@ export const addActionEventType = <T extends object>(): Enricher<T, T & ActionEv
   return (item) => {
     return {
       ...item,
-      eventType: 'action',
+      topic_type: 'action',
     };
   };
 };

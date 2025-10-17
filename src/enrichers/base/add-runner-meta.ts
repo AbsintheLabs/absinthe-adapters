@@ -3,10 +3,10 @@ import { Enricher } from '../core.ts';
 import { getRuntime } from '../../runtime/context.ts';
 
 type RunnerFields = {
-  runner_commitSha?: string;
-  runner_apiKeyHash?: string;
-  runner_configHash: string;
-  runner_runnerId: string;
+  runner_commit_sha: string | null;
+  runner_api_key_hash: string | null;
+  runner_config_hash: string;
+  runner_runner_id: string;
 };
 
 export const addRunnerMeta = <T extends object>(): Enricher<T, T & RunnerFields> => {
@@ -14,10 +14,10 @@ export const addRunnerMeta = <T extends object>(): Enricher<T, T & RunnerFields>
     const { commitSha, apiKeyHash, configHash, machineHostname } = getRuntime();
     return {
       ...item,
-      ...(commitSha && { runner_commitSha: commitSha }),
-      ...(apiKeyHash && { runner_apiKeyHash: apiKeyHash }),
-      runner_configHash: configHash,
-      runner_runnerId: machineHostname,
+      runner_commit_sha: commitSha ?? null,
+      runner_api_key_hash: apiKeyHash ?? null,
+      runner_config_hash: configHash,
+      runner_runner_id: machineHostname,
     };
   };
 };

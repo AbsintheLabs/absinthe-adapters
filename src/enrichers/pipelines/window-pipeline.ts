@@ -1,17 +1,18 @@
-import { addAdapterProtocolMeta } from '../base/add-adapter-protocol.ts';
+import { addAdapterProtocolInfo } from '../base/add-adapter-protocol.ts';
 import { addWindowing } from '../base/add-windowing.ts';
 import { addRunnerMeta } from '../base/add-runner-meta.ts';
 import { addProtocolMetadata } from '../base/add-protocol-metadata.ts';
 import { addTWBEventType } from '../base/add-event-type.ts';
 import { addChainMetadata } from '../base/add-chain-metadata.ts';
-import { enrichAssetMetadata } from '../pricing/asset-metadata.ts';
+import { addRawWindowFields } from '../base/add-raw-window-fields.ts';
+import { addBaseEventIdForWindow } from '../base/add-base-event-id.ts';
+import { enrichAssetMetadataForTokenBased } from '../pricing/asset-metadata.ts';
 import { Pipe, requireShape, validateAndPickShape } from '../core.ts';
 import { RawWindow } from '../../types/enrichment.ts';
 import { EnrichedWindowSchema } from '../../types/events.ts';
 import { excludeContractAccounts } from '../filters/exclude-contracts.ts';
-import { addQuantityBasis } from '../pricing/quantity-basis.ts';
+import { addDenomination } from '../pricing/quantity-basis.ts';
 import { calculatePositionQuantity } from '../pricing/quantity-calculator.ts';
-import { dropWindowExtraFields } from '../base/drop-window-extra-fields.ts';
 /**
  * Window enrichment pipeline.
  *
@@ -19,9 +20,8 @@ import { dropWindowExtraFields } from '../base/drop-window-extra-fields.ts';
  */
 export const windowsPipeline = () =>
   Pipe.start(requireShape<RawWindow>())
-    // todo: runtime validate the schema before we start the pipeline
-    // .pipe(validateAndPickShape(RawWindowSchema))
-
+    // field mapping (convert camelCase to snake_case)
+    .pipe(addRawWindowFields())
     // filters
     .pipe(excludeContractAccounts())
     // metadata (runner, chain, event type, adapter protocol)
@@ -29,15 +29,14 @@ export const windowsPipeline = () =>
     .pipe(addChainMetadata())
     .pipe(addTWBEventType())
     .pipe(addProtocolMetadata())
-    .pipe(addAdapterProtocolMeta())
+    .pipe(addAdapterProtocolInfo())
     // windowing (start/end/before/after/delta)
     .pipe(addWindowing())
+    // backwards compatibility: base_eventId
+    .pipe(addBaseEventIdForWindow())
     // pricing
-    .pipe(enrichAssetMetadata())
-    .pipe(addQuantityBasis())
+    .pipe(enrichAssetMetadataForTokenBased())
+    .pipe(addDenomination())
     .pipe(calculatePositionQuantity())
-    // drop extra fields
-    .pipe(dropWindowExtraFields())
-
     // validate and pick shape
     .pipe(validateAndPickShape(EnrichedWindowSchema));

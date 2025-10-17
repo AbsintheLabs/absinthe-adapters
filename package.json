@@ -34,6 +34,7 @@
     "@subsquid/solana-typegen": "^0.6.1",
     "@subsquid/typeorm-store": "^1.5.1",
     "big.js": "^7.0.1",
+    "bottleneck": "^2.19.5",
     "dotenv": "^16.5.0",
     "ioredis": "^5.7.0",
     "ky": "^1.12.0",

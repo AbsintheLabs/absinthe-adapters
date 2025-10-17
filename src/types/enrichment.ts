@@ -14,7 +14,7 @@ type TimeWindowTrigger =
 import { MetadataCache, PriceCacheTS, HandlerMetadataCache } from './pricing.ts';
 import { Activity } from './core.ts';
 import { WindowReason } from './adapter.ts';
-import { QuantityType } from './manifest.ts';
+import { MeasurementType } from './manifest.ts';
 import type { EoaDetector } from '../cache/index.ts';
 import type { AppConfig } from '../config/schema.ts';
 import { Asset } from './asset.ts';
@@ -142,8 +142,9 @@ export interface RawWindow {
   trigger: WindowReason;
 
   // Pricing handler ID (for looking up price config)
-  quantityType: QuantityType;
+  measurementType: 'token_based';
   pricingHandlerId?: string;
+  trackableInstanceId: string;
 
   // Chain-specific contexts (opaque blobs)
   // Only present for event-triggered windows, not periodic flushes
@@ -154,7 +155,7 @@ export interface RawWindow {
 export interface RawAction {
   key: string;
   user: string;
-  quantityType: QuantityType;
+  quantityType: MeasurementType;
   // asset?: string;
   asset?: Asset;
   activity: Activity;
@@ -167,6 +168,7 @@ export interface RawAction {
 
   // Pricing handler ID (for looking up price config)
   pricingHandlerId?: string;
+  trackableInstanceId: string;
 
   ctx?: Record<string, any>; // From Redis JSON
 }

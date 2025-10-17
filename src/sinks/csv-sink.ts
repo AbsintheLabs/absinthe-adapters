@@ -1,6 +1,7 @@
 import fs from 'fs';
 import { format } from '@fast-csv/format';
 import { Sink } from './sink-factory.ts';
+import { logger } from '../utils/logger.ts';
 
 export class CsvSink implements Sink {
   private stream = format({ headers: true });
@@ -67,5 +68,7 @@ export class CsvSink implements Sink {
       this.out.once('finish', () => resolve());
       this.stream.end();
     });
+
+    logger.info(`CSV file written to:\n  ${this.path}`);
   }
 }

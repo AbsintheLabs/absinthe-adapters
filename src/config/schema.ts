@@ -33,10 +33,14 @@ const StdoutSinkSchema = z.object({
 
 const AbsintheSinkSchema = z.object({
   sinkType: z.literal('absinthe'),
-  url: z.string().url('Invalid URL for absinthe sink'),
+  url: z
+    .string()
+    .url('Invalid URL for absinthe sink')
+    .optional()
+    .default('https://adapters.absinthe.network'),
   apiKey: z.string().optional(),
-  rateLimit: z.number().int().positive().optional(),
-  batchSize: z.number().int().positive().optional(),
+  rateLimit: z.number().int().positive().optional().default(10),
+  batchSize: z.number().int().positive().optional().default(1000),
 });
 
 // Single sink configuration (backwards compatibility)
