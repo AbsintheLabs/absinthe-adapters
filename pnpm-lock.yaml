@@ -38,6 +38,9 @@ importers:
       big.js:
         specifier: ^7.0.1
         version: 7.0.1
+      bottleneck:
+        specifier: ^2.19.5
+        version: 2.19.5
       dotenv:
         specifier: ^16.5.0
         version: 16.5.0
