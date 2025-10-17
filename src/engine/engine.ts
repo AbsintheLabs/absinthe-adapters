@@ -502,7 +502,8 @@ export class Engine {
         startTxRef: previousTxRef,
         endTxRef: d.txRef,
         trigger: reason,
-        quantityType: ti.quantityType,
+        // quantityType: ti.quantityType, // fixme: this should be properly type checked in zod
+        quantityType: 'token_based',
         pricingHandlerId,
         startContext: lastUpdateCtx,
         endContext: d,
