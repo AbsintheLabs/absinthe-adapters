@@ -290,7 +290,7 @@ export class PrintrMeteoraProcessor {
         logIndex: eventData.logIndex,
         blockNumber: eventData.slot,
         blockHash: eventData.blockHash,
-        userId: eventData.event.dev_on_solana,
+        userId: eventData.event.devOnSolana,
         currency: Currency.USD,
         valueUsd: 0,
         gasUsed: 0, //todo: fix
@@ -349,6 +349,8 @@ export class PrintrMeteoraProcessor {
         this.env,
         this.chainConfig,
       );
+
+      console.log('transactions', JSON.stringify(transactions, null, 2));
 
       await this.apiClient.send(transactions);
     }
