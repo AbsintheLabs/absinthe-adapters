@@ -3,6 +3,7 @@ import { SinkConfig } from '../config/schema.ts';
 import { CsvDualSink } from './csv-dual-sink.ts';
 import { StdoutSink } from './stdout-sink.ts';
 import { CompositeSink } from './composite-sink.ts';
+import { AbsintheSink } from './absinthe-sink.ts';
 import { deriveRunDir } from '../utils/run-paths.ts';
 import { getRuntime } from '../runtime/context.ts';
 
@@ -26,6 +27,7 @@ export class SinkFactory {
     }
   }
 
+  // fixme: remove all the (cfg as any) casts for better type safety
   private static createSingleSink(cfg: Extract<SinkConfig, { sinkType: string }>): Sink {
     switch (cfg.sinkType) {
       case 'csv': {
@@ -40,7 +42,12 @@ export class SinkFactory {
       case 'stdout':
         return new StdoutSink();
       case 'absinthe':
-        throw new Error('Absinthe sink not implemented yet');
+        return new AbsintheSink({
+          url: (cfg as any).url,
+          apiKey: (cfg as any).apiKey,
+          rateLimit: (cfg as any).rateLimit,
+          batchSize: (cfg as any).batchSize,
+        });
       default:
         throw new Error(`Unknown sink kind: ${(cfg as any).sinkType}`);
     }
