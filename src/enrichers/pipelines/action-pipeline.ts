@@ -3,7 +3,8 @@ import { addRunnerMeta } from '../base/add-runner-meta.ts';
 import { addProtocolMetadata } from '../base/add-protocol-metadata.ts';
 import { addActionEventType } from '../base/add-event-type.ts';
 import { addChainMetadata } from '../base/add-chain-metadata.ts';
-import { enrichAssetMetadata } from '../pricing/asset-metadata.ts';
+import { addRawActionFields } from '../base/add-raw-action-fields.ts';
+import { enrichAssetMetadataConditional } from '../pricing/asset-metadata.ts';
 import { addQuantityBasis } from '../pricing/quantity-basis.ts';
 import { calculateActionQuantity } from '../pricing/quantity-calculator.ts';
 import { excludeContractAccounts } from '../filters/exclude-contracts.ts';
@@ -30,13 +31,20 @@ import { EnrichedActionSchema } from '../../types/events.ts';
  */
 export const actionPipeline = () =>
   Pipe.start(requireShape<RawAction>())
+    // field mapping (convert camelCase to snake_case)
+    .pipe(addRawActionFields())
+    // filters
     .pipe(excludeContractAccounts())
     .pipe(dedupeActions())
+    // metadata (runner, chain, event type, protocol, adapter protocol)
     .pipe(addRunnerMeta())
     .pipe(addChainMetadata())
     .pipe(addActionEventType())
     .pipe(addProtocolMetadata())
     .pipe(addAdapterProtocolMeta())
+    // pricing (asset metadata, quantity basis, calculate quantity)
+    .pipe(enrichAssetMetadataConditional())
     .pipe(addQuantityBasis())
     .pipe(calculateActionQuantity())
+    // validate and pick shape
     .pipe(validateAndPickShape(EnrichedActionSchema));

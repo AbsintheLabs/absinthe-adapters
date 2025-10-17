@@ -16,30 +16,30 @@ import { AssetEnum } from './asset.ts';
 
 export interface RunnerMeta {
   version: string; // schema version
-  commitSha?: string; // commit hash of the runner
-  configHash?: string; // hash of the runner config
-  runnerId: string;
-  apiKeyHash?: string;
+  commit_sha?: string; // commit hash of the runner
+  config_hash?: string; // hash of the runner config
+  runner_id: string;
+  api_key_hash?: string;
 }
 
 export const CommonFieldsSchema = z.object({
-  runner_commitSha: z.string().optional(),
-  runner_apiKeyHash: z.string().optional(),
-  runner_configHash: z.string(),
-  runner_runnerId: z.string(),
+  runner_commit_sha: z.string().optional(),
+  runner_api_key_hash: z.string().optional(),
+  runner_config_hash: z.string(),
+  runner_runner_id: z.string(),
 
   // Added by addAdapterProtocolMeta
   adapter_version: z.string(),
   protocol_name: z.string(), // Currently commented out
 
   // Added by addChainMetadata
-  chainId: z.string(),
-  chainShortName: z.string(),
-  chainArch: ChainArchSchema,
+  chain_id: z.string(),
+  chain_short_name: z.string(),
+  chain_arch: ChainArchSchema,
 
   // Added by addQuantityBasis
-  quantityBasis: z.enum(['none', 'count', 'monetary_value', 'asset_amount']),
-  quantityType: QuantityTypeSchema,
+  quantity_basis: z.enum(['none', 'count', 'monetary_value', 'asset_amount']),
+  quantity_type: QuantityTypeSchema,
 
   // Added by calculateQuantity
   quantity: z.number(),
@@ -47,11 +47,11 @@ export const CommonFieldsSchema = z.object({
 });
 
 export const AssetFieldsSchema = z.object({
-  assetKey: z.string(),
+  asset_key: z.string(),
   // tokenId: z.string().optional(),
   decimals: z.number(),
   // FIXME: this needs a bit of a better solution
-  assetType: AssetEnum,
+  asset_type: AssetEnum,
 });
 
 export const AssetFieldsSchemaOptional = AssetFieldsSchema.partial();
@@ -62,31 +62,31 @@ export const EnrichedWindowSchema = z
     // asset: z.string(),
 
     // window fields
-    windowUtcStartTsMs: z.number(),
+    window_utc_start_ts_ms: z.number(),
     // even if there is no end block, we still need to have an end ts
-    windowUtcEndTsMs: z.number(),
-    windowDurationMs: z.number(),
-    startHeight: z.number(),
+    window_utc_end_ts_ms: z.number(),
+    window_duration_ms: z.number(),
+    start_height: z.number(),
     // when exhausted, there is no end height
-    endHeight: z.number().nullable(),
-    startTxRef: z.string(),
+    end_height: z.number().nullable(),
+    start_tx_ref: z.string(),
     // when exhausted, there is no end tx ref
-    endTxRef: z.string().nullable(),
+    end_tx_ref: z.string().nullable(),
 
     trigger: z.enum(WINDOW_REASONS),
 
     // fixme: make this DRY rather than hardcoding the name of this here
-    eventType: z.literal('time_weighted_balance'),
+    event_type: z.literal('time_weighted_balance'),
 
     // raw position
-    rawBefore: z.string(),
-    rawAfter: z.string(),
-    rawDelta: z.string(),
+    raw_before: z.string(),
+    raw_after: z.string(),
+    raw_delta: z.string(),
 
     // startTs: z.number(),
     // endTs: z.number(),
-    startValue: z.string(),
-    endValue: z.string(),
+    start_value: z.string(),
+    end_value: z.string(),
   })
   .extend(CommonFieldsSchema.shape)
   .extend(AssetFieldsSchema.shape); // required bc window is always a token_based
@@ -108,15 +108,15 @@ export const EnrichedActionSchema = z
     ts: z.number(),
     height: z.number(),
     value: z.string(),
-    txRef: z.string(),
-    pricingHandlerId: z.string().optional(),
+    tx_ref: z.string(),
+    pricing_handler_id: z.string().optional(),
     ctx: z.record(z.string(), z.any()).optional(),
 
     // Added by addActionEventType
-    eventType: z.literal('action'),
+    event_type: z.literal('action'),
 
     // Added by addProtocolMetadata
-    metadataJson: z.string().optional(),
+    metadata_json: z.string().optional(),
   })
   .extend(CommonFieldsSchema.shape)
   .extend(AssetFieldsSchemaOptional.shape) // optional bc action can be non token-based

@@ -15,7 +15,7 @@ import type { MetadataValue } from '../../types/core.ts';
  */
 type ProtocolMetadataFields = {
   /** Canonical JSON representation of metadata for exact comparison */
-  metadataJson: string;
+  metadata_json: string;
 };
 
 /**
@@ -55,7 +55,7 @@ export const addProtocolMetadata = <T extends object>(): Enricher<
 
     return {
       ...item,
-      metadataJson: JSON.stringify(sorted),
+      metadata_json: JSON.stringify(sorted),
     };
   };
 };

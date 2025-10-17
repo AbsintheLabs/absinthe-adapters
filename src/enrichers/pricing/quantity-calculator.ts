@@ -26,7 +26,7 @@ export type QuantityField = {
  */
 type QuantityInput = {
   quantityType: QuantityType;
-  quantityBasis: QuantityBasis;
+  quantity_basis: QuantityBasis;
   value: string;
   asset?: Asset;
   ts: number;
@@ -152,27 +152,27 @@ const twapBasisModifiers: Record<QuantityBasis, TWAPBasisModifier> = {
 export const calculateActionQuantity = <
   T extends {
     quantityType: QuantityType;
-    quantityBasis: QuantityBasis;
+    quantity_basis: QuantityBasis;
     value: string;
     asset?: Asset;
+    decimals?: number;
     ts: number;
     user: string;
   },
 >(): Enricher<T, T & QuantityField> => {
   return async (item, ctx) => {
     // Type-safe field access - these fields are guaranteed by RawAction + addQuantityBasis in the pipeline
-    const { quantityType, quantityBasis, value, asset, ts, user } = item;
+    const { quantityType, quantity_basis, value, asset, ts, user } = item;
 
-    // Step 1: Get asset metadata (decimals) if needed
-    const assetKey = asset ? getAssetKeyFromAsset(asset) : undefined;
-    const metadata = assetKey ? await ctx.metadataCache?.get(assetKey) : undefined;
-    const decimals = metadata?.decimals ?? 0;
+    // Get decimals from item or default to 0 (for count/none quantityTypes)
+    // decimals is only populated for token_based actions
+    const decimals = item.decimals ?? 0;
 
     // Step 2: Calculate base quantity
     const baseQuantity = baseCalculators[quantityType](value, decimals);
 
     // Step 3: Apply basis modifier
-    const finalQuantity = await basisModifiers[quantityBasis](baseQuantity, ctx, asset, ts, user);
+    const finalQuantity = await basisModifiers[quantity_basis](baseQuantity, ctx, asset, ts, user);
 
     return {
       ...item,
@@ -194,12 +194,12 @@ export const calculateActionQuantity = <
 export const calculatePositionQuantity = <
   T extends {
     quantityType: QuantityType;
-    quantityBasis: QuantityBasis;
-    rawBefore: string;
-    rawAfter: string;
+    quantity_basis: QuantityBasis;
+    raw_before: string;
+    raw_after: string;
     asset: Asset;
-    windowUtcStartTsMs: number;
-    windowUtcEndTsMs: number;
+    window_utc_start_ts_ms: number;
+    window_utc_end_ts_ms: number;
     decimals: number;
     user: string;
   },
@@ -210,34 +210,34 @@ export const calculatePositionQuantity = <
     }
     const {
       quantityType,
-      quantityBasis,
-      rawBefore,
-      rawAfter,
+      quantity_basis,
+      raw_before,
+      raw_after,
       asset,
-      windowUtcStartTsMs,
-      windowUtcEndTsMs,
+      window_utc_start_ts_ms,
+      window_utc_end_ts_ms,
       decimals,
       user,
     } = item;
 
     // Step 1: Calculate average position size over the window
     // Simple approximation: (start + end) / 2
-    // const startAmount = new Big(rawBefore);
-    // const endAmount = new Big(rawAfter);
+    // const startAmount = new Big(raw_before);
+    // const endAmount = new Big(raw_after);
     // const avgRawAmount = startAmount.plus(endAmount).div(2);
 
     // Step 2: Convert to human-readable units based on quantityType
     logger.debug('starting Base Quantity calculation');
-    logger.debug(`rawBefore: ${rawBefore}, decimals: ${decimals}`);
-    const baseQuantity = baseCalculators[quantityType](rawBefore, decimals);
+    logger.debug(`raw_before: ${raw_before}, decimals: ${decimals}`);
+    const baseQuantity = baseCalculators[quantityType](raw_before, decimals);
 
     // Step 3: Apply TWAP basis modifier
-    const finalQuantity = await twapBasisModifiers[quantityBasis](
+    const finalQuantity = await twapBasisModifiers[quantity_basis](
       baseQuantity,
       ctx,
       asset,
-      windowUtcStartTsMs,
-      windowUtcEndTsMs,
+      window_utc_start_ts_ms,
+      window_utc_end_ts_ms,
       user,
     );
 

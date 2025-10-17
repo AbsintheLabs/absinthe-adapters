@@ -142,7 +142,7 @@ export interface RawWindow {
   trigger: WindowReason;
 
   // Pricing handler ID (for looking up price config)
-  quantityType: QuantityType;
+  quantityType: 'token_based';
   pricingHandlerId?: string;
 
   // Chain-specific contexts (opaque blobs)

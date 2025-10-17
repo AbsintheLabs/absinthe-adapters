@@ -21,7 +21,7 @@ export type QuantityBasis =
   | 'asset_amount';
 
 type QuantityBasisField = {
-  quantityBasis: QuantityBasis;
+  quantity_basis: QuantityBasis;
 };
 
 /**
@@ -41,21 +41,21 @@ export const addQuantityBasis = <
     const quantityType = item.quantityType;
     const pricingHandlerId = item.pricingHandlerId;
 
-    let quantityBasis: QuantityBasis;
+    let quantity_basis: QuantityBasis;
 
     if (quantityType === 'token_based') {
-      quantityBasis = pricingHandlerId ? 'monetary_value' : 'asset_amount';
+      quantity_basis = pricingHandlerId ? 'monetary_value' : 'asset_amount';
     } else if (quantityType === 'count') {
-      quantityBasis = 'count';
+      quantity_basis = 'count';
     } else if (quantityType === 'none') {
-      quantityBasis = 'none';
+      quantity_basis = 'none';
     } else {
       throw new Error(`Invalid quantity type: ${quantityType}`);
     }
 
     return {
       ...item,
-      quantityBasis,
+      quantity_basis,
     };
   };
 };
