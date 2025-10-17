@@ -7,7 +7,7 @@ type AdapterProtocolFields = {
   adapter_version: string;
 };
 
-export const addAdapterProtocolMeta = <T extends object>(): Enricher<
+export const addAdapterProtocolInfo = <T extends object>(): Enricher<
   T,
   T & AdapterProtocolFields
 > => {

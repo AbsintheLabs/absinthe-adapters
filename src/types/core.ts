@@ -19,7 +19,45 @@ import { Asset } from './asset.ts';
 
 type Numberish = string | bigint;
 
-export type MetadataValue = number | string;
+/**
+ * Metadata value type for protocol-specific metadata.
+ *
+ * Can be:
+ * - A simple string or number (auto-typed as "string" or "number")
+ * - A typed object with explicit type annotation for better type safety
+ *
+ * @example
+ * ```typescript
+ * // Simple usage (auto-typed)
+ * meta: {
+ *   poolName: "WETH-USDC",  // auto: string
+ *   blockNumber: 12345      // auto: number
+ * }
+ *
+ * // Explicit typing for precision
+ * meta: {
+ *   liquidity: { value: "123456789012345678", type: "bigint" },
+ *   poolAddress: { value: "0xabc...", type: "evm_address" },
+ *   isActive: { value: "true", type: "boolean" }
+ * }
+ * ```
+ */
+export type MetadataValue =
+  | number
+  | string
+  | {
+      value: string;
+      type: 'string' | 'bigint' | 'number' | 'evm_address' | 'sol_address' | 'boolean';
+    };
+
+/**
+ * Normalized metadata value for Avro output.
+ * All values are string-encoded with explicit type information.
+ */
+export type NormalizedMetadataValue = {
+  value: string;
+  type: 'string' | 'bigint' | 'number' | 'address' | 'boolean';
+};
 
 export type BalanceDelta = {
   user: string;

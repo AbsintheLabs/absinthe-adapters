@@ -1,13 +1,14 @@
 // enrichers/base/add-raw-action-fields.ts
 import { Enricher } from '../core.ts';
 import { RawAction } from '../../types/enrichment.ts';
-import { QuantityType } from '../../types/manifest.ts';
+import { MeasurementType } from '../../types/manifest.ts';
 import { Activity } from '../../types/core.ts';
 
 type RawActionSnakeCaseFields = {
   tx_ref: string;
-  pricing_handler_id?: string;
-  quantity_type: QuantityType;
+  ts_ms: number;
+  pricing_handler_id: string | null;
+  measurement_type: MeasurementType;
   activity: Activity;
 };
 
@@ -24,8 +25,9 @@ export const addRawActionFields = <T extends RawAction>(): Enricher<
     return {
       ...item,
       tx_ref: item.txRef,
-      pricing_handler_id: item.pricingHandlerId,
-      quantity_type: item.quantityType,
+      ts_ms: item.ts,
+      pricing_handler_id: item.pricingHandlerId ?? null,
+      measurement_type: item.quantityType,
       activity: item.activity,
     };
   };

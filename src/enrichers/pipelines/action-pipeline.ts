@@ -1,11 +1,13 @@
-import { addAdapterProtocolMeta } from '../base/add-adapter-protocol.ts';
+import { addAdapterProtocolInfo } from '../base/add-adapter-protocol.ts';
 import { addRunnerMeta } from '../base/add-runner-meta.ts';
 import { addProtocolMetadata } from '../base/add-protocol-metadata.ts';
 import { addActionEventType } from '../base/add-event-type.ts';
 import { addChainMetadata } from '../base/add-chain-metadata.ts';
 import { addRawActionFields } from '../base/add-raw-action-fields.ts';
+import { addBaseEventIdForAction } from '../base/add-base-event-id.ts';
+import { stringifyCtx } from '../base/stringify-ctx.ts';
 import { enrichAssetMetadataConditional } from '../pricing/asset-metadata.ts';
-import { addQuantityBasis } from '../pricing/quantity-basis.ts';
+import { addDenomination } from '../pricing/quantity-basis.ts';
 import { calculateActionQuantity } from '../pricing/quantity-calculator.ts';
 import { excludeContractAccounts } from '../filters/exclude-contracts.ts';
 
@@ -41,10 +43,14 @@ export const actionPipeline = () =>
     .pipe(addChainMetadata())
     .pipe(addActionEventType())
     .pipe(addProtocolMetadata())
-    .pipe(addAdapterProtocolMeta())
+    .pipe(addAdapterProtocolInfo())
+    // backwards compatibility: base_eventId (must run before stringifyCtx to read ctx.logIndex)
+    .pipe(addBaseEventIdForAction())
+    // stringify ctx for database compatibility (after base_eventId which needs to read ctx)
+    .pipe(stringifyCtx())
     // pricing (asset metadata, quantity basis, calculate quantity)
     .pipe(enrichAssetMetadataConditional())
-    .pipe(addQuantityBasis())
+    .pipe(addDenomination())
     .pipe(calculateActionQuantity())
     // validate and pick shape
     .pipe(validateAndPickShape(EnrichedActionSchema));

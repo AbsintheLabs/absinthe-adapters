@@ -1,7 +1,7 @@
 import { Enricher } from '../core.ts';
 import { Asset, AssetType, getAssetKeyFromAsset } from '../../types/asset.ts';
 import { logger } from '../../utils/logger.ts';
-import { QuantityType } from '../../types/manifest.ts';
+import { MeasurementType } from '../../types/manifest.ts';
 
 /**
  * Asset metadata fields that are always present (for token_based items).
@@ -16,9 +16,9 @@ interface EnrichedAssetMetadata {
  * Asset metadata fields that may or may not be present (for conditional enrichment).
  */
 interface EnrichedAssetMetadataOptional {
-  decimals?: number;
-  asset_type?: AssetType;
-  asset_key?: string;
+  decimals: number | null;
+  asset_type: AssetType | null;
+  asset_key: string | null;
 }
 
 /**
@@ -28,7 +28,7 @@ interface EnrichedAssetMetadataOptional {
  * Use for windows pipeline (always token_based).
  */
 export const enrichAssetMetadataForTokenBased = <
-  T extends { asset: Asset; quantityType: 'token_based' },
+  T extends { asset: Asset; measurement_type: 'token_based' },
 >(): Enricher<T, T & EnrichedAssetMetadata> => {
   return async (item, context) => {
     const assetKey = getAssetKeyFromAsset(item.asset);
@@ -58,16 +58,16 @@ export const enrichAssetMetadataForTokenBased = <
  * Use for actions pipeline (may be token_based, count, or none).
  */
 export const enrichAssetMetadataConditional = <
-  T extends { asset?: Asset; quantityType: QuantityType },
+  T extends { asset?: Asset; measurement_type: MeasurementType },
 >(): Enricher<T, T & EnrichedAssetMetadataOptional> => {
   return async (item, context) => {
     // Non-token based: explicitly set fields to undefined
-    if (item.quantityType !== 'token_based' || !item.asset) {
+    if (item.measurement_type !== 'token_based' || !item.asset) {
       return {
         ...item,
-        asset_key: undefined,
-        decimals: undefined,
-        asset_type: undefined,
+        asset_key: null,
+        decimals: null,
+        asset_type: null,
       };
     }
 

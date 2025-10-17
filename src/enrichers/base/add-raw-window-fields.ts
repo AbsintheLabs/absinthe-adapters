@@ -1,12 +1,15 @@
 // enrichers/base/add-raw-window-fields.ts
 import { Enricher } from '../core.ts';
 import { RawWindow } from '../../types/enrichment.ts';
-import { QuantityType } from '../../types/manifest.ts';
+import { MeasurementType } from '../../types/manifest.ts';
 import { Activity } from '../../types/core.ts';
+import { WindowReason } from '../../types/adapter.ts';
 
 type RawWindowSnakeCaseFields = {
-  quantity_type: QuantityType;
+  measurement_type: MeasurementType;
   activity: Activity;
+  emit_cause: WindowReason;
+  pricing_handler_id: string | null;
 };
 
 /**
@@ -21,8 +24,10 @@ export const addRawWindowFields = <T extends RawWindow>(): Enricher<
   return (item) => {
     return {
       ...item,
-      quantity_type: item.quantityType,
+      measurement_type: item.measurementType,
       activity: item.activity,
+      emit_cause: item.trigger,
+      pricing_handler_id: item.pricingHandlerId ?? null,
     };
   };
 };

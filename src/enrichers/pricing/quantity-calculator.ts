@@ -11,8 +11,7 @@
 
 import Big from 'big.js';
 import { Enricher, EnrichmentContext } from '../core.ts';
-import { QuantityType } from '../../types/manifest.ts';
-import { QuantityBasis } from './quantity-basis.ts';
+import { Denomination, MeasurementType } from '../../types/manifest.ts';
 import { getPrevSample, getSamplesIn, twaFromSamples } from '../utils/timeseries.ts';
 import { logger } from '../../utils/logger.ts';
 import { Asset, getAssetKeyFromAsset } from '../../types/asset.ts';
@@ -25,11 +24,11 @@ export type QuantityField = {
  * Input fields required for quantity calculation
  */
 type QuantityInput = {
-  quantityType: QuantityType;
-  quantity_basis: QuantityBasis;
+  measurement_type: MeasurementType;
+  denomination: Denomination;
   value: string;
   asset?: Asset;
-  ts: number;
+  ts_ms: number;
   user: string;
 };
 
@@ -42,7 +41,7 @@ type BaseQuantityCalculator = (value: string, decimals: number) => Big;
 /**
  * Base quantity calculators by quantityType
  */
-const baseCalculators: Record<QuantityType, BaseQuantityCalculator> = {
+const baseCalculators: Record<MeasurementType, BaseQuantityCalculator> = {
   token_based: (value, decimals) => new Big(value).div(new Big(10).pow(decimals)),
   count: (value) => new Big(value),
   none: () => new Big(1),
@@ -61,12 +60,12 @@ type BasisModifier = (
 ) => Promise<Big>;
 
 /**
- * Basis modifiers by quantityBasis (for spot/action calculations)
+ * Basis modifiers by denomination (for spot/action calculations)
  */
-const basisModifiers: Record<QuantityBasis, BasisModifier> = {
-  monetary_value: async (quantity, ctx, asset, ts, user) => {
+const basisModifiers: Record<Denomination, BasisModifier> = {
+  usd: async (quantity, ctx, asset, ts, user) => {
     if (!asset) {
-      logger.warn(`monetary_value basis requires asset, user: ${user}, defaulting to 0`);
+      logger.warn(`usd denomination requires asset, user: ${user}, defaulting to 0`);
       return new Big(0);
     }
 
@@ -83,8 +82,7 @@ const basisModifiers: Record<QuantityBasis, BasisModifier> = {
 
     return quantity.times(priceSample.value);
   },
-  asset_amount: async (quantity) => quantity,
-  count: async (quantity) => quantity,
+  scaled_token: async (quantity) => quantity,
   none: async (quantity) => quantity,
 };
 
@@ -101,12 +99,12 @@ type TWAPBasisModifier = (
 ) => Promise<Big>;
 
 /**
- * TWAP basis modifiers by quantityBasis (for window calculations)
+ * TWAP basis modifiers by denomination (for window calculations)
  */
-const twapBasisModifiers: Record<QuantityBasis, TWAPBasisModifier> = {
-  monetary_value: async (quantity, ctx, asset, startTs, endTs, user) => {
+const twapBasisModifiers: Record<Denomination, TWAPBasisModifier> = {
+  usd: async (quantity, ctx, asset, startTs, endTs, user) => {
     if (!asset) {
-      logger.error(`monetary_value basis requires asset, user: ${user}, defaulting to 0`);
+      logger.error(`usd denomination requires asset, user: ${user}, defaulting to 0`);
       return new Big(0);
     }
 
@@ -137,8 +135,7 @@ const twapBasisModifiers: Record<QuantityBasis, TWAPBasisModifier> = {
     // Multiply position size by TWAP price
     return quantity.times(twapPrice);
   },
-  asset_amount: async (quantity) => quantity,
-  count: async (quantity) => quantity,
+  scaled_token: async (quantity) => quantity,
   none: async (quantity) => quantity,
 };
 
@@ -146,33 +143,33 @@ const twapBasisModifiers: Record<QuantityBasis, TWAPBasisModifier> = {
  * Enricher that calculates the final quantity value for an action.
  *
  * Uses composition:
- * 1. Calculate base quantity from value and decimals based on quantityType
- * 2. Apply basis modifier (e.g., pricing) based on quantityBasis
+ * 1. Calculate base quantity from value and decimals based on measurement_type
+ * 2. Apply basis modifier (e.g., pricing) based on denomination
  */
 export const calculateActionQuantity = <
   T extends {
-    quantityType: QuantityType;
-    quantity_basis: QuantityBasis;
+    measurement_type: MeasurementType;
+    denomination: Denomination;
     value: string;
     asset?: Asset;
     decimals?: number;
-    ts: number;
+    ts_ms: number;
     user: string;
   },
 >(): Enricher<T, T & QuantityField> => {
   return async (item, ctx) => {
-    // Type-safe field access - these fields are guaranteed by RawAction + addQuantityBasis in the pipeline
-    const { quantityType, quantity_basis, value, asset, ts, user } = item;
+    // Type-safe field access - these fields are guaranteed by RawAction + addDenomination in the pipeline
+    const { measurement_type, denomination, value, asset, ts_ms, user } = item;
 
-    // Get decimals from item or default to 0 (for count/none quantityTypes)
+    // Get decimals from item or default to 0 (for count/none measurementTypes)
     // decimals is only populated for token_based actions
     const decimals = item.decimals ?? 0;
 
     // Step 2: Calculate base quantity
-    const baseQuantity = baseCalculators[quantityType](value, decimals);
+    const baseQuantity = baseCalculators[measurement_type](value, decimals);
 
     // Step 3: Apply basis modifier
-    const finalQuantity = await basisModifiers[quantity_basis](baseQuantity, ctx, asset, ts, user);
+    const finalQuantity = await basisModifiers[denomination](baseQuantity, ctx, asset, ts_ms, user);
 
     return {
       ...item,
@@ -190,11 +187,13 @@ export const calculateActionQuantity = <
  * Uses composition:
  * 1. Calculate average position size from rawBefore and rawAfter
  * 2. Apply TWAP basis modifier (e.g., time-weighted average pricing)
+ *
+ * Windows are always token_based, so measurement_type is constrained accordingly.
  */
 export const calculatePositionQuantity = <
   T extends {
-    quantityType: QuantityType;
-    quantity_basis: QuantityBasis;
+    measurement_type: 'token_based';
+    denomination: Denomination;
     raw_before: string;
     raw_after: string;
     asset: Asset;
@@ -209,8 +208,8 @@ export const calculatePositionQuantity = <
       logger.warn('asset not found: ', JSON.stringify(item, null, 2));
     }
     const {
-      quantityType,
-      quantity_basis,
+      measurement_type: quantityType,
+      denomination,
       raw_before,
       raw_after,
       asset,
@@ -232,7 +231,7 @@ export const calculatePositionQuantity = <
     const baseQuantity = baseCalculators[quantityType](raw_before, decimals);
 
     // Step 3: Apply TWAP basis modifier
-    const finalQuantity = await twapBasisModifiers[quantity_basis](
+    const finalQuantity = await twapBasisModifiers[denomination](
       baseQuantity,
       ctx,
       asset,

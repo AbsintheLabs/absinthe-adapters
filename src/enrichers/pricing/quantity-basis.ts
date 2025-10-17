@@ -1,61 +1,45 @@
 /**
- * @fileoverview Enricher for determining the quantity basis of an action.
+ * @fileoverview Enricher for determining the denomination of an action.
  *
- * Quantity basis represents how we interpret the action's quantity:
- * - 'monetary_value': USD value (requires pricing)
- * - 'asset_amt': Token amount in human-readable units
- * - 'count': Simple numeric count
+ * Denomination represents how we interpret the action's quantity:
+ * - 'usd': USD value (requires pricing)
+ * - 'scaled_token': Token amount in human-readable units
  * - 'none': No quantity (defaults to 1)
  */
 
 import { Enricher } from '../core.ts';
-import { QuantityType } from '../../types/manifest.ts';
-import { RawAction } from '../../types/enrichment.ts';
+import { Denomination, MeasurementType } from '../../types/manifest.ts';
 
 /**
- * Possible values for quantity basis
- */
-export type QuantityBasis =
-  | Exclude<QuantityType, 'token_based'>
-  | 'monetary_value'
-  | 'asset_amount';
-
-type QuantityBasisField = {
-  quantity_basis: QuantityBasis;
-};
-
-/**
- * Enricher that determines the quantity basis for an action.
+ * Enricher that determines the denomination for an action or window.
  *
  * Logic:
- * - token_based + pricing configured → 'monetary_value'
- * - token_based + no pricing → 'asset_amount'
- * - count → 'count'
+ * - token_based + pricing configured → 'usd'
+ * - token_based + no pricing → 'scaled_token'
+ * - count → 'none'
  * - none → 'none'
  */
-export const addQuantityBasis = <
-  T extends { quantityType: QuantityType; pricingHandlerId?: string },
->(): Enricher<T, T & QuantityBasisField> => {
+export const addDenomination = <
+  T extends { measurement_type: MeasurementType; pricing_handler_id: string | null },
+>(): Enricher<T, T & { denomination: Denomination }> => {
   return (item) => {
-    // Type-safe field access - these fields are guaranteed by RawAction in the pipeline
-    const quantityType = item.quantityType;
-    const pricingHandlerId = item.pricingHandlerId;
+    // Type-safe field access - these fields are guaranteed by the pipeline
+    const measurementType = item.measurement_type;
+    const pricingHandlerId = item.pricing_handler_id ?? null;
 
-    let quantity_basis: QuantityBasis;
+    let denomination: Denomination;
 
-    if (quantityType === 'token_based') {
-      quantity_basis = pricingHandlerId ? 'monetary_value' : 'asset_amount';
-    } else if (quantityType === 'count') {
-      quantity_basis = 'count';
-    } else if (quantityType === 'none') {
-      quantity_basis = 'none';
+    if (measurementType === 'token_based') {
+      denomination = pricingHandlerId ? 'usd' : 'scaled_token';
+    } else if (measurementType === 'count' || measurementType === 'none') {
+      denomination = 'none';
     } else {
-      throw new Error(`Invalid quantity type: ${quantityType}`);
+      throw new Error(`Invalid measurement type: ${measurementType}`);
     }
 
     return {
       ...item,
-      quantity_basis,
+      denomination,
     };
   };
 };

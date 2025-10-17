@@ -7,11 +7,13 @@ import { Asset, Feed, FeedHandler } from './asset.ts';
 // Simple version type using template literal
 export type Version = `${number}.${number}.${number}`;
 
-export const QuantityTypeSchema = z.enum(['token_based', 'count', 'none']);
+export const MeasurementTypeSchema = z.enum(['token_based', 'count', 'none']);
+export const DenominationSchema = z.enum(['usd', /*'raw_token',*/ 'scaled_token', 'none']); // 'raw_token' is deprecated
 export const TrackableKindSchema = z.enum(['action', 'position']);
 
-export type QuantityType = z.infer<typeof QuantityTypeSchema>;
+export type MeasurementType = z.infer<typeof MeasurementTypeSchema>;
 export type TrackableKind = z.infer<typeof TrackableKindSchema>;
+export type Denomination = z.infer<typeof DenominationSchema>;
 
 // 1) Generic FieldDef for TypeScript (separate from Zod)
 export type FieldDef<T extends z.ZodTypeAny = z.ZodTypeAny> = {
@@ -172,7 +174,7 @@ export type Manifest = {
 const Trackable = z
   .object({
     kind: TrackableKindSchema,
-    quantityType: QuantityTypeSchema,
+    quantityType: MeasurementTypeSchema,
     params: z.record(z.string(), Field), // required parameters that define tracking context
     assetSelectors: z.record(z.string(), Field).optional(), // identifies which asset to track/price
     filters: z.record(z.string(), Field).optional(), // optional general filters

@@ -358,6 +358,7 @@ export class Engine {
 
     // Track asset for pricing for token_based actions with pricing configured
     let pricingHandlerId: string | undefined;
+    let trackableInstanceId: string | undefined;
     if (
       quantityType === 'token_based' &&
       'asset' in e &&
@@ -366,7 +367,7 @@ export class Engine {
       const asset = e.asset;
 
       // Generate a stable trackable instance ID
-      const trackableInstanceId = this.generateTrackableInstanceId(e.trackableInstance);
+      trackableInstanceId = this.generateTrackableInstanceId(e.trackableInstance);
 
       // Register this specific asset for this trackable instance
       const priceFeed = e.trackableInstance.pricing;
@@ -376,6 +377,11 @@ export class Engine {
       const assetKey = getKeyFromAsset(asset);
       const feedHash = md5HashCanonical(priceFeed, 8);
       pricingHandlerId = `${assetKey}:${feedHash}`;
+    }
+
+    // Always generate trackableInstanceId for backwards compatibility with base_eventId
+    if (!trackableInstanceId) {
+      trackableInstanceId = this.generateTrackableInstanceId(e.trackableInstance);
     }
 
     // Construct RawAction object using explicit quantityType
@@ -394,6 +400,7 @@ export class Engine {
           : '0', // Use '0' instead of null for 'none' type
       txRef: d.txRef,
       pricingHandlerId,
+      trackableInstanceId,
       ctx: d,
     };
 
@@ -470,10 +477,12 @@ export class Engine {
       await this.redis.srem(Engine.BAL_SET_KEY, balanceKey);
     }
 
+    // Always generate trackableInstanceId first (required for all windows)
+    const trackableInstanceId = this.generateTrackableInstanceId(ti);
+
     // Track the asset in Redis if this trackable is priceable
     let pricingHandlerId: string | undefined;
     if (ti.pricing !== undefined) {
-      const trackableInstanceId = this.generateTrackableInstanceId(ti);
       const priceFeed = ti.pricing;
       await this.registerAssetForPricing(e.asset, priceFeed);
 
@@ -488,6 +497,7 @@ export class Engine {
         logger.error(`previousTxRef is null for key: ${balanceKey}`);
         throw new Error(`previousTxRef is null for key: ${balanceKey}`);
       }
+
       const window: RawWindow = {
         user: e.user,
         asset: e.asset,
@@ -503,8 +513,9 @@ export class Engine {
         endTxRef: d.txRef,
         trigger: reason,
         // quantityType: ti.quantityType, // fixme: this should be properly type checked in zod
-        quantityType: 'token_based',
+        measurementType: 'token_based',
         pricingHandlerId,
+        trackableInstanceId,
         startContext: lastUpdateCtx,
         endContext: d,
       };
@@ -568,6 +579,11 @@ export class Engine {
           throw new Error(`prevTxRef is null for key: ${balanceKey}`);
         }
 
+        // Note: We don't have trackableInstance here, so we can't generate trackableInstanceId
+        // This is a limitation of positionStatusChange - it doesn't carry trackable info
+        // For now, we use a placeholder that should be handled by enrichment
+        const trackableInstanceId = 'unknown';
+
         const window: RawWindow = {
           user,
           asset,
@@ -582,7 +598,8 @@ export class Engine {
           startTxRef: prevTxRef,
           endTxRef: d.txRef,
           trigger: 'POSITION_DEACTIVATED',
-          quantityType: 'token_based',
+          measurementType: 'token_based',
+          trackableInstanceId,
           startContext: lastUpdateCtx,
           endContext: d,
         };
@@ -824,6 +841,10 @@ export class Engine {
         // Case 1: final block — emit once from lastUpdatedTsMs to final block timestamp
         const finalTsMs = nowMs; // the block timestamp of the final block
         if (lastUpdatedTsMs < finalTsMs) {
+          // Note: In flushPeriodic, we don't have trackableInstance context
+          // Use 'periodic-flush' as placeholder for periodic windows
+          const trackableInstanceId = 'periodic-flush';
+
           const window: RawWindow = {
             user,
             asset,
@@ -838,7 +859,8 @@ export class Engine {
             startTxRef: prevTxRef,
             endTxRef: null,
             trigger: 'INDEXER_STOPPED',
-            quantityType: 'token_based',
+            measurementType: 'token_based',
+            trackableInstanceId,
           };
           this.windows.push(window);
           writePromises.push(
@@ -851,6 +873,10 @@ export class Engine {
       } else {
         // Case 2: live mode — emit once from lastUpdatedTsMs to currentWindowStart if lastUpdatedTsMs is NOT in the current window
         if (lastUpdatedTsMs < currentWindowStart) {
+          // Note: In flushPeriodic, we don't have trackableInstance context
+          // Use 'periodic-flush' as placeholder for periodic windows
+          const trackableInstanceId = 'periodic-flush';
+
           const window: RawWindow = {
             user,
             asset,
@@ -865,7 +891,8 @@ export class Engine {
             startTxRef: prevTxRef,
             endTxRef: null,
             trigger: 'PERIOD_ELAPSED',
-            quantityType: 'token_based',
+            measurementType: 'token_based',
+            trackableInstanceId,
           };
           this.windows.push(window);
           // Advance cursor to the start of the current window (we didn't emit the live window)
