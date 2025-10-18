@@ -65,6 +65,7 @@ export class Engine {
     ACTIVITY: 'activity',
     META: 'meta',
     TRACKABLE_INSTANCE_ID: 'trackableInstanceId',
+    PRICING_HANDLER_ID: 'pricingHandlerId',
   } as const;
   private static readonly MEASURE_FIELDS = {
     AMOUNT: 'amount',
@@ -325,6 +326,30 @@ export class Engine {
   }
 
   /**
+   * Compute the pricing handler ID for an asset within a trackable instance.
+   * Returns null if the trackable instance has no pricing configured.
+   *
+   * The pricing handler ID uniquely identifies the combination of:
+   * - A specific asset (e.g., USDC on chain X)
+   * - A specific pricing configuration (e.g., Coingecko feed with params)
+   *
+   * This allows different assets within the same trackable to have different pricing handlers,
+   * while ensuring consistency: if pricing is configured, ALL assets get a pricingHandlerId.
+   */
+  private computePricingHandlerId(
+    asset: Asset,
+    trackableInstance: InstanceFrom<TrackableDef>,
+  ): string | null {
+    if (trackableInstance.pricing === undefined) {
+      return null;
+    }
+
+    const assetKey = getKeyFromAsset(asset);
+    const feedHash = md5HashCanonical(trackableInstance.pricing, 8);
+    return `${assetKey}:${feedHash}`;
+  }
+
+  /**
    * Register an asset for pricing under a specific trackable instance.
    * This allows multiple assets to share the same pricing strategy.
    */
@@ -363,10 +388,8 @@ export class Engine {
       const priceFeed = e.trackableInstance.pricing;
       await this.registerAssetForPricing(asset, priceFeed);
 
-      // Generate pricing handler ID for this config
-      const assetKey = getKeyFromAsset(asset);
-      const feedHash = md5HashCanonical(priceFeed, 8);
-      pricingHandlerId = `${assetKey}:${feedHash}`;
+      // Compute pricing handler ID using the centralized helper
+      pricingHandlerId = this.computePricingHandlerId(asset, e.trackableInstance) ?? undefined;
     }
 
     // Construct RawAction object using explicit quantityType
@@ -451,6 +474,16 @@ export class Engine {
       throw new Error(`trackableInstanceId is missing for key: ${balanceKey}`);
     }
 
+    // Track the asset in Redis if this trackable is priceable
+    let pricingHandlerId: string | null = null;
+    if (ti.pricing !== undefined) {
+      const priceFeed = ti.pricing;
+      await this.registerAssetForPricing(e.asset, priceFeed);
+
+      // Compute pricing handler ID using the centralized helper
+      pricingHandlerId = this.computePricingHandlerId(e.asset, ti);
+    }
+
     // ALWAYS update the balance state (even if inactive)
     await this.redis.hset(balanceKey, {
       [Engine.BALANCE_FIELDS.AMOUNT]: newAmount.toString(),
@@ -461,6 +494,7 @@ export class Engine {
       [Engine.BALANCE_FIELDS.ACTIVITY]: e.activity,
       [Engine.BALANCE_FIELDS.META]: JSON.stringify(e.meta || {}),
       [Engine.BALANCE_FIELDS.TRACKABLE_INSTANCE_ID]: trackableInstanceId,
+      [Engine.BALANCE_FIELDS.PRICING_HANDLER_ID]: pricingHandlerId ?? '',
     });
 
     // Update balances greater than 0 set
@@ -468,17 +502,6 @@ export class Engine {
       await this.redis.sadd(Engine.BAL_SET_KEY, balanceKey);
     } else {
       await this.redis.srem(Engine.BAL_SET_KEY, balanceKey);
-    }
-
-    // Track the asset in Redis if this trackable is priceable
-    let pricingHandlerId: string | undefined;
-    if (ti.pricing !== undefined) {
-      const priceFeed = ti.pricing;
-      await this.registerAssetForPricing(e.asset, priceFeed);
-
-      // Generate pricing handler ID for this config
-      const feedHash = md5HashCanonical(priceFeed, 8);
-      pricingHandlerId = `${assetKey}:${feedHash}`;
     }
 
     // ONLY emit window if position is ACTIVE
@@ -504,7 +527,7 @@ export class Engine {
         trigger: reason,
         // quantityType: ti.quantityType, // fixme: this should be properly type checked in zod
         measurementType: 'token_based',
-        pricingHandlerId: pricingHandlerId ?? null,
+        pricingHandlerId,
         trackableInstanceId,
         startContext: lastUpdateCtx,
         endContext: d,
@@ -548,6 +571,7 @@ export class Engine {
         lastUpdateTxRefStr,
         lastUpdateCtxStr,
         trackableInstanceIdStr,
+        pricingHandlerIdStr,
       ] = await this.redis.hmget(
         balanceKey,
         Engine.BALANCE_FIELDS.AMOUNT,
@@ -556,6 +580,7 @@ export class Engine {
         Engine.BALANCE_FIELDS.TX_REF,
         Engine.BALANCE_FIELDS.CTX,
         Engine.BALANCE_FIELDS.TRACKABLE_INSTANCE_ID,
+        Engine.BALANCE_FIELDS.PRICING_HANDLER_ID,
       );
 
       const amount = new Big(amountStr || '0');
@@ -570,6 +595,10 @@ export class Engine {
         throw new Error(`trackableInstanceId is required but missing for key: ${balanceKey}`);
       }
       const trackableInstanceId = trackableInstanceIdStr;
+
+      // Retrieve pricingHandlerId from Redis (empty string means no pricing)
+      const pricingHandlerId =
+        pricingHandlerIdStr && pricingHandlerIdStr !== '' ? pricingHandlerIdStr : null;
 
       // Emit closing window if there's a positive balance and time has elapsed
       if (amount.gt(0) && lastUpdateTsMs < d.tsMs) {
@@ -593,7 +622,7 @@ export class Engine {
           endTxRef: d.txRef,
           trigger: 'POSITION_DEACTIVATED',
           measurementType: 'token_based',
-          pricingHandlerId: null, //FIXME: we should have a pricing handler here too
+          pricingHandlerId,
           trackableInstanceId,
           startContext: lastUpdateCtx,
           endContext: d,
@@ -787,6 +816,7 @@ export class Engine {
           Engine.BALANCE_FIELDS.ACTIVITY,
           Engine.BALANCE_FIELDS.META,
           Engine.BALANCE_FIELDS.TRACKABLE_INSTANCE_ID,
+          Engine.BALANCE_FIELDS.PRICING_HANDLER_ID,
         ),
       ),
     );
@@ -806,7 +836,8 @@ export class Engine {
         activityStr,
         metaStr,
         trackableInstanceIdStr,
-      ] = vals as [string, string, string, string, string, string, string, string];
+        pricingHandlerIdStr,
+      ] = vals as [string, string, string, string, string, string, string, string, string];
 
       const amt = new Big(amountStr || '0');
       if (amt.lte(0)) {
@@ -849,6 +880,10 @@ export class Engine {
       }
       const trackableInstanceId = trackableInstanceIdStr;
 
+      // Retrieve pricingHandlerId from Redis (empty string means no pricing)
+      const pricingHandlerId =
+        pricingHandlerIdStr && pricingHandlerIdStr !== '' ? pricingHandlerIdStr : null;
+
       if (prevTxRef === null) {
         logger.error(`prevTxRef is null for key in flushPeriodic: ${key}`);
         throw new Error(`prevTxRef is null for key in flushPeriodic: ${key}`);
@@ -874,7 +909,7 @@ export class Engine {
             trigger: 'INDEXER_STOPPED',
             measurementType: 'token_based',
             trackableInstanceId,
-            pricingHandlerId: null, //FIXME: we should have a pricing handler here too
+            pricingHandlerId,
             startContext: ctxStr ? JSON.parse(ctxStr) : null,
             endContext: null,
           };
@@ -905,7 +940,7 @@ export class Engine {
             trigger: 'PERIOD_ELAPSED',
             measurementType: 'token_based',
             trackableInstanceId,
-            pricingHandlerId: null, //FIXME: we should have a pricing handler here too
+            pricingHandlerId,
             startContext: ctxStr ? JSON.parse(ctxStr) : null,
             endContext: null,
           };
