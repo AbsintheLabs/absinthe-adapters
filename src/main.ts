@@ -62,7 +62,13 @@ async function main() {
   const hostname = os.hostname();
   const apiKey = process.env.ABSINTHE_API_KEY;
   const apiKeyHash = apiKey ? md5HashCanonical(apiKey, 8) : null;
-  const commitSha = GIT_COMMIT_SHA_LONG ? GIT_COMMIT_SHA_LONG.slice(0, 8) : null;
+  const commitSha = GIT_COMMIT_SHA_LONG?.slice(0, 8) ?? null;
+
+  if (!commitSha) {
+    throw new Error(
+      'Commit SHA is not set. Please ensure the build is properly tagged or are running a local build.',
+    );
+  }
 
   setRuntime({
     version: ABSINTHE_VERSION,

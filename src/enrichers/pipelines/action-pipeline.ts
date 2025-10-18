@@ -14,7 +14,7 @@ import { excludeContractAccounts } from '../filters/exclude-contracts.ts';
 import { Pipe, requireShape, validateAndPickShape } from '../core.ts';
 import { RawAction } from '../../types/enrichment.ts';
 import { dedupeActions } from '../utils/dedupe-actions.ts';
-import { EnrichedActionSchema } from '../../types/events.ts';
+import { EnrichedAction, EnrichedActionSchema } from '../../types/events.ts';
 
 /**
  * Action enrichment pipeline.
@@ -52,5 +52,6 @@ export const actionPipeline = () =>
     .pipe(enrichAssetMetadataConditional())
     .pipe(addDenomination())
     .pipe(calculateActionQuantity())
-    // validate and pick shape
+    // assert, validate, and pick shape
+    // DO NOT REMOVE THESE 2 STEPS! THEY ARE ESSENTIAL FOR TYPE SAFETY!
     .pipe(validateAndPickShape(EnrichedActionSchema));

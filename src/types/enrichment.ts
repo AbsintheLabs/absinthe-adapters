@@ -126,7 +126,7 @@ export interface RawWindow {
   // asset: string;
   asset: Asset;
   activity: Activity;
-  meta?: Record<string, any>;
+  meta: Record<string, any> | null;
 
   // Window timing (universal)
   startTs: number;
@@ -148,18 +148,17 @@ export interface RawWindow {
 
   // Chain-specific contexts (opaque blobs)
   // Only present for event-triggered windows, not periodic flushes
-  startContext?: Record<string, any>; // From Redis JSON
-  endContext?: Record<string, any>; // From current unified event
+  startContext: Record<string, any> | null; // From Redis JSON
+  endContext: Record<string, any> | null; // From current unified event
 }
 
 export interface RawAction {
   key: string;
   user: string;
-  quantityType: MeasurementType;
-  // asset?: string;
+  measurementType: MeasurementType;
   asset?: Asset;
   activity: Activity;
-  meta?: Record<string, any>;
+  meta: Record<string, any> | null;
 
   ts: number;
   height: number;

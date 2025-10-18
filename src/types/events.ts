@@ -34,7 +34,7 @@ export const CommonFieldsSchema = z.object({
   // Added by calculateQuantity
   quantity: z.number(),
   activity: z.string(), // Activity is a union with string fallback
-  trackable_instance_id: z.string().default('unknown-need-to-fix'),
+  trackable_instance_id: z.string(),
 
   // Added by addBaseEventId (backwards compatibility)
   base_eventId: z.string(),
@@ -86,6 +86,10 @@ export const EnrichedWindowSchema = z
 
     // Added by addProtocolMetadata
     metadata_json: z.string().nullable(),
+
+    // Context fields (stringified JSON, always present but nullable)
+    start_ctx_json: z.string().nullable(),
+    end_ctx_json: z.string().nullable(),
   })
   .extend(CommonFieldsSchema.shape)
   .extend(AssetFieldsSchema.shape); // required bc window is always a token_based
@@ -105,7 +109,6 @@ export const EnrichedActionSchema = z
     user: z.string(),
     ts_ms: z.number(),
     height: z.number(),
-    // value: z.string(),
     tx_ref: z.string(),
     pricing_handler_id: z.string().nullable(),
     ctx_json: z.string().nullable(), // JSON stringified object

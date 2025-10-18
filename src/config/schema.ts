@@ -71,6 +71,7 @@ const PricingRange = z.discriminatedUnion('type', [
 ]);
 
 const Common = z.object({
+  fullEventContext: z.boolean().optional().default(false),
   flushInterval: durationHumanToMs().describe(
     'Human duration: "1h", "90m", "1:30:00" NOT supported (only single-unit), "3600s", "1000ms". Min 1h.',
   ),

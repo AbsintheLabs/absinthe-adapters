@@ -1,6 +1,6 @@
 // LP (Liquidity Position) handler for Uniswap V2
 import Big from 'big.js';
-import { UnifiedEvmLog } from '../../src/types/unified-chain-events.ts';
+import { UnifiedEvmLog } from '../_shared/index.ts';
 import { EmitFunctions } from '../../src/types/adapter.ts';
 import * as gbmAbi from './abi/main.ts';
 import type { InstanceFrom } from '../../src/types/manifest.ts';

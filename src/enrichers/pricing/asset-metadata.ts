@@ -2,6 +2,8 @@ import { Enricher } from '../core.ts';
 import { Asset, AssetType, getAssetKeyFromAsset } from '../../types/asset.ts';
 import { logger } from '../../utils/logger.ts';
 import { MeasurementType } from '../../types/manifest.ts';
+import { AssetMetadata } from '../../eprice.ts';
+import { RawWindow } from '../../types/enrichment.ts';
 
 /**
  * Asset metadata fields that are always present (for token_based items).
@@ -34,7 +36,7 @@ export const enrichAssetMetadataForTokenBased = <
     const assetKey = getAssetKeyFromAsset(item.asset);
 
     // Get metadata from cache
-    const metadata = await context.metadataCache.get(assetKey);
+    const metadata = (await context.metadataCache.get(assetKey)) as AssetMetadata | null;
     if (!metadata) {
       logger.error(`Asset metadata not found for asset ${assetKey}`);
       throw new Error(`Asset metadata not found for asset ${assetKey}`);

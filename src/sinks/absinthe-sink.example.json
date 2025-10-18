@@ -1,0 +1,31 @@
+{
+  "$schema": "../config/absconfig.json",
+  "chainArch": "evm",
+  "flushInterval": "48h",
+  "redisUrl": "${env:REDIS_URL}",
+  "sinkConfig": {
+    "sinkType": "absinthe"
+  },
+  "network": {
+    "chainId": 1,
+    "gatewayUrl": "https://v2.archive.subsquid.io/network/ethereum-mainnet",
+    "rpcUrl": "https://eth.llamarpc.com",
+    "finality": 75
+  },
+  "range": {
+    "fromBlock": 18000000,
+    "toBlock": 19000000
+  },
+  "adapterConfig": {
+    "adapterId": "your-adapter-id",
+    "config": {}
+  },
+  "comment": "Minimal config - uses defaults: url=https://adapters.absinthe.network, apiKey=$ABSINTHE_API_KEY, rateLimit=10, batchSize=1000",
+  "sinkConfigExplicit": {
+    "sinkType": "absinthe",
+    "url": "https://custom.api.example.com",
+    "apiKey": "${env:CUSTOM_API_KEY}",
+    "rateLimit": 20,
+    "batchSize": 500
+  }
+}

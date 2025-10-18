@@ -1,7 +1,7 @@
 // Verify handler for OnlyMeID
-import type { UnifiedEvmTransaction } from '../../src/types/unified-chain-events.ts';
-import type { EmitFunctions } from '../../src/types/adapter.ts';
-import type { InstanceFrom } from '../../src/types/manifest.ts';
+import type { UnifiedEvmTransaction } from '../_shared/index.ts';
+import type { EmitFunctions } from '../_shared/index.ts';
+import type { InstanceFrom } from '../_shared/index.ts';
 import type { manifest } from './manifest.ts';
 import { md5Hash } from '../_shared/index.ts';
 

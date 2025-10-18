@@ -1,15 +1,15 @@
 // enrichers/base/add-raw-window-fields.ts
 import { Enricher } from '../core.ts';
 import { RawWindow } from '../../types/enrichment.ts';
-import { MeasurementType } from '../../types/manifest.ts';
 import { Activity } from '../../types/core.ts';
 import { WindowReason } from '../../types/adapter.ts';
 
 type RawWindowSnakeCaseFields = {
-  measurement_type: MeasurementType;
+  measurement_type: 'token_based';
   activity: Activity;
   emit_cause: WindowReason;
   pricing_handler_id: string | null;
+  trackable_instance_id: string;
 };
 
 /**
@@ -28,6 +28,7 @@ export const addRawWindowFields = <T extends RawWindow>(): Enricher<
       activity: item.activity,
       emit_cause: item.trigger,
       pricing_handler_id: item.pricingHandlerId ?? null,
+      trackable_instance_id: item.trackableInstanceId,
     };
   };
 };

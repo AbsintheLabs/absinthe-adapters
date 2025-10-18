@@ -6,6 +6,7 @@ import { addTWBEventType } from '../base/add-event-type.ts';
 import { addChainMetadata } from '../base/add-chain-metadata.ts';
 import { addRawWindowFields } from '../base/add-raw-window-fields.ts';
 import { addBaseEventIdForWindow } from '../base/add-base-event-id.ts';
+import { stringifyWindowCtx } from '../base/stringify-window-ctx.ts';
 import { enrichAssetMetadataForTokenBased } from '../pricing/asset-metadata.ts';
 import { Pipe, requireShape, validateAndPickShape } from '../core.ts';
 import { RawWindow } from '../../types/enrichment.ts';
@@ -34,6 +35,8 @@ export const windowsPipeline = () =>
     .pipe(addWindowing())
     // backwards compatibility: base_eventId
     .pipe(addBaseEventIdForWindow())
+    // stringify context for database compatibility
+    .pipe(stringifyWindowCtx())
     // pricing
     .pipe(enrichAssetMetadataForTokenBased())
     .pipe(addDenomination())

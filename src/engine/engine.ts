@@ -3,7 +3,6 @@
 import { Database } from '@subsquid/file-store';
 import Big from 'big.js';
 import { Redis } from 'ioredis';
-import dotenv from 'dotenv';
 import { logger } from '../utils/logger.ts';
 import { EVM_NULL_ADDRESS } from '../utils/constants.ts';
 import { Sink } from '../sinks/index.ts';
@@ -16,7 +15,7 @@ import {
 import { PricingEngine } from './pricing-engine.ts';
 import { AppConfig } from '../config/schema.ts';
 import { WindowReason } from '../types/adapter.ts';
-import { ActionEventBase, PositionUpdate, Swap } from '../types/core.ts';
+import { PositionUpdate, Swap } from '../types/core.ts';
 import { createStateDatabase } from './state.ts';
 import { backfillPriceDataForBatch, pricePricingHandler } from './pricing-backfill.ts';
 import {
@@ -27,12 +26,17 @@ import {
   Reprice,
   ActionEvent,
 } from '../types/core.ts';
-import { EnrichmentContext, RawAction, RawBalanceWindow, RawWindow } from '../types/enrichment.ts';
+import { EnrichmentContext, RawAction, RawWindow } from '../types/enrichment.ts';
 import { ProcessorContext } from '../eprocessorBuilder.ts';
 import { EngineDeps } from '../main.ts';
 import { BuiltAdapter } from '../adapter-core.ts';
 import { windowsPipeline } from '../enrichers/pipelines/window-pipeline.ts';
-import { transformSqdLogToUnified, transformSqdTransactionToUnified } from '../transforms/evm.ts';
+import {
+  filterEvmLog,
+  filterEvmTransaction,
+  transformSqdLogToUnified,
+  transformSqdTransactionToUnified,
+} from '../transforms/evm.ts';
 import { getRuntime } from '../runtime/context.ts';
 import { ensureTransactionDataForLogs as addTransactionDataForSqdLogs } from './processor-utils.ts';
 import { InstanceFrom, TrackableDef } from '../types/manifest.ts';
@@ -47,8 +51,6 @@ import {
 } from '../types/asset.ts';
 import { buildPricingKey } from '../utils/pricing-keys.ts';
 
-dotenv.config();
-
 export class Engine {
   // consts
   private static readonly BAL_SET_KEY = 'balances:gt0';
@@ -62,6 +64,7 @@ export class Engine {
     CTX: 'ctx',
     ACTIVITY: 'activity',
     META: 'meta',
+    TRACKABLE_INSTANCE_ID: 'trackableInstanceId',
   } as const;
   private static readonly MEASURE_FIELDS = {
     AMOUNT: 'amount',
@@ -149,8 +152,12 @@ export class Engine {
       for (const block of ctx.blocks) {
         for (const log of block.logs) {
           const unifiedLog = transformSqdLogToUnified(block, log, getRuntime().chainId);
+          // don't filter if we set fullEventContext to true
+          const filteredLog = this.appCfg.fullEventContext ? unifiedLog : filterEvmLog(unifiedLog);
           await this.adapter.onLog?.({
-            emitFns: this.createEmitFunctions(unifiedLog),
+            // the filtered log gets passed to the engine!
+            emitFns: this.createEmitFunctions(filteredLog),
+            // the full log gets passed to the adapter!
             log: unifiedLog,
             sqdRpcCtx: {
               _chain: ctx._chain,
@@ -168,8 +175,14 @@ export class Engine {
               transaction,
               getRuntime().chainId,
             );
+            // don't filter if we set fullEventContext to true
+            const filteredTx = this.appCfg.fullEventContext
+              ? unifiedTx
+              : filterEvmTransaction(unifiedTx);
             await this.adapter.onTransaction?.({
-              emitFns: this.createEmitFunctions(unifiedTx),
+              // the filtered transaction gets passed to the engine!
+              emitFns: this.createEmitFunctions(filteredTx),
+              // the full transaction gets passed to the adapter!
               transaction: unifiedTx,
               sqdRpcCtx: {
                 _chain: ctx._chain,
@@ -334,40 +347,17 @@ export class Engine {
   private async applyAction<T extends UnifiedBase>(e: ActionEvent, d: T): Promise<void> {
     const quantityType = e.trackableInstance.quantityType;
 
-    // const hasAmountField = 'amount' in e && e.amount !== undefined && e.amount !== null;
-    // const hasAssetField =
-    //   'asset' in e && (e as any).asset !== undefined && (e as any).asset !== null;
-
-    // Validate structure based on quantity type
-    // if (quantityType === 'token_based') {
-    //   if (!hasAmountField || !hasAssetField) {
-    //     throw new Error('token_based action must include both amount and asset');
-    //   }
-    // } else if (quantityType === 'count') {
-    //   if (!hasAmountField) {
-    //     throw new Error('count action must include amount');
-    //   }
-    //   if (hasAssetField) {
-    //     throw new Error('count action must not include asset');
-    //   }
-    // } else if (quantityType === 'none') {
-    //   if (hasAmountField || hasAssetField) {
-    //     throw new Error('none action must not include amount or asset');
-    //   }
-    // }
+    // Always generate trackableInstanceId first (required for all actions)
+    const trackableInstanceId = this.generateTrackableInstanceId(e.trackableInstance);
 
     // Track asset for pricing for token_based actions with pricing configured
     let pricingHandlerId: string | undefined;
-    let trackableInstanceId: string | undefined;
     if (
       quantityType === 'token_based' &&
       'asset' in e &&
       e.trackableInstance.pricing !== undefined
     ) {
       const asset = e.asset;
-
-      // Generate a stable trackable instance ID
-      trackableInstanceId = this.generateTrackableInstanceId(e.trackableInstance);
 
       // Register this specific asset for this trackable instance
       const priceFeed = e.trackableInstance.pricing;
@@ -379,18 +369,13 @@ export class Engine {
       pricingHandlerId = `${assetKey}:${feedHash}`;
     }
 
-    // Always generate trackableInstanceId for backwards compatibility with base_eventId
-    if (!trackableInstanceId) {
-      trackableInstanceId = this.generateTrackableInstanceId(e.trackableInstance);
-    }
-
     // Construct RawAction object using explicit quantityType
     const rawAction: RawAction = {
       key: e.key,
       user: e.user,
-      quantityType,
+      measurementType: quantityType,
       activity: e.activity,
-      meta: e.meta,
+      meta: e.meta ?? null,
       ts: d.tsMs,
       height: d.height,
       // fixme: this is hacky
@@ -459,6 +444,13 @@ export class Engine {
     const amt = new Big(e.amount.toString());
     const newAmount = previousAmount.plus(amt);
 
+    // Always generate trackableInstanceId first (required for all windows)
+    const trackableInstanceId = this.generateTrackableInstanceId(ti);
+    if (!trackableInstanceId) {
+      logger.error(`trackableInstance: ${JSON.stringify(ti)}`);
+      throw new Error(`trackableInstanceId is missing for key: ${balanceKey}`);
+    }
+
     // ALWAYS update the balance state (even if inactive)
     await this.redis.hset(balanceKey, {
       [Engine.BALANCE_FIELDS.AMOUNT]: newAmount.toString(),
@@ -468,6 +460,7 @@ export class Engine {
       [Engine.BALANCE_FIELDS.CTX]: JSON.stringify(d),
       [Engine.BALANCE_FIELDS.ACTIVITY]: e.activity,
       [Engine.BALANCE_FIELDS.META]: JSON.stringify(e.meta || {}),
+      [Engine.BALANCE_FIELDS.TRACKABLE_INSTANCE_ID]: trackableInstanceId,
     });
 
     // Update balances greater than 0 set
@@ -476,9 +469,6 @@ export class Engine {
     } else {
       await this.redis.srem(Engine.BAL_SET_KEY, balanceKey);
     }
-
-    // Always generate trackableInstanceId first (required for all windows)
-    const trackableInstanceId = this.generateTrackableInstanceId(ti);
 
     // Track the asset in Redis if this trackable is priceable
     let pricingHandlerId: string | undefined;
@@ -502,7 +492,7 @@ export class Engine {
         user: e.user,
         asset: e.asset,
         activity: e.activity,
-        meta: e.meta,
+        meta: e.meta ?? null,
         startTs: previousTsMs,
         endTs: d.tsMs,
         startHeight: previousHeight,
@@ -557,6 +547,7 @@ export class Engine {
         lastUpdateHeightStr,
         lastUpdateTxRefStr,
         lastUpdateCtxStr,
+        trackableInstanceIdStr,
       ] = await this.redis.hmget(
         balanceKey,
         Engine.BALANCE_FIELDS.AMOUNT,
@@ -564,6 +555,7 @@ export class Engine {
         Engine.BALANCE_FIELDS.UPDATED_HEIGHT,
         Engine.BALANCE_FIELDS.TX_REF,
         Engine.BALANCE_FIELDS.CTX,
+        Engine.BALANCE_FIELDS.TRACKABLE_INSTANCE_ID,
       );
 
       const amount = new Big(amountStr || '0');
@@ -572,6 +564,13 @@ export class Engine {
       const prevTxRef = lastUpdateTxRefStr || null;
       const lastUpdateCtx = lastUpdateCtxStr ? JSON.parse(lastUpdateCtxStr) : {};
 
+      // trackableInstanceId is required - fail fast if missing
+      if (!trackableInstanceIdStr) {
+        logger.error(`trackableInstanceId is missing for key: ${balanceKey}`);
+        throw new Error(`trackableInstanceId is required but missing for key: ${balanceKey}`);
+      }
+      const trackableInstanceId = trackableInstanceIdStr;
+
       // Emit closing window if there's a positive balance and time has elapsed
       if (amount.gt(0) && lastUpdateTsMs < d.tsMs) {
         if (prevTxRef === null) {
@@ -579,16 +578,11 @@ export class Engine {
           throw new Error(`prevTxRef is null for key: ${balanceKey}`);
         }
 
-        // Note: We don't have trackableInstance here, so we can't generate trackableInstanceId
-        // This is a limitation of positionStatusChange - it doesn't carry trackable info
-        // For now, we use a placeholder that should be handled by enrichment
-        const trackableInstanceId = 'unknown';
-
         const window: RawWindow = {
           user,
           asset,
           activity: 'hold',
-          meta: e.meta || {},
+          meta: e.meta ?? null,
           startTs: lastUpdateTsMs,
           endTs: d.tsMs,
           startHeight: lastUpdateHeight,
@@ -694,6 +688,10 @@ export class Engine {
 
     // Get trackable instance ID and all registered assets for this trackable
     const trackableInstanceId = this.generateTrackableInstanceId(e.trackableInstance);
+    if (!trackableInstanceId) {
+      logger.error(`trackableInstance: ${JSON.stringify(e.trackableInstance)}`);
+      throw new Error(`trackableInstanceId is missing for reprice`);
+    }
     const registryKey = `pricing:assets:${trackableInstanceId}`;
     const assetToPricingHandler = await this.redis.hgetall(registryKey);
 
@@ -787,6 +785,7 @@ export class Engine {
           Engine.BALANCE_FIELDS.CTX,
           Engine.BALANCE_FIELDS.ACTIVITY,
           Engine.BALANCE_FIELDS.META,
+          Engine.BALANCE_FIELDS.TRACKABLE_INSTANCE_ID,
         ),
       ),
     );
@@ -797,8 +796,16 @@ export class Engine {
     // Process each balance key asynchronously
     const processPromises = rows.map(async (vals, i) => {
       if (!vals) return;
-      const [amountStr, updatedTsMsStr, updatedHeightStr, txRefStr, ctxStr, activityStr, metaStr] =
-        vals as [string, string, string, string, string, string, string];
+      const [
+        amountStr,
+        updatedTsMsStr,
+        updatedHeightStr,
+        txRefStr,
+        ctxStr,
+        activityStr,
+        metaStr,
+        trackableInstanceIdStr,
+      ] = vals as [string, string, string, string, string, string, string, string];
 
       const amt = new Big(amountStr || '0');
       if (amt.lte(0)) {
@@ -832,6 +839,15 @@ export class Engine {
       const activity = activityStr || 'hold';
       const meta = metaStr ? JSON.parse(metaStr) : {};
 
+      // trackableInstanceId is required - fail fast if missing
+      if (!trackableInstanceIdStr) {
+        logger.error(`trackableInstanceId is missing for key in flushPeriodic: ${key}`);
+        throw new Error(
+          `trackableInstanceId is required but missing for key in flushPeriodic: ${key}`,
+        );
+      }
+      const trackableInstanceId = trackableInstanceIdStr;
+
       if (prevTxRef === null) {
         logger.error(`prevTxRef is null for key in flushPeriodic: ${key}`);
         throw new Error(`prevTxRef is null for key in flushPeriodic: ${key}`);
@@ -841,10 +857,6 @@ export class Engine {
         // Case 1: final block — emit once from lastUpdatedTsMs to final block timestamp
         const finalTsMs = nowMs; // the block timestamp of the final block
         if (lastUpdatedTsMs < finalTsMs) {
-          // Note: In flushPeriodic, we don't have trackableInstance context
-          // Use 'periodic-flush' as placeholder for periodic windows
-          const trackableInstanceId = 'periodic-flush';
-
           const window: RawWindow = {
             user,
             asset,
@@ -861,6 +873,8 @@ export class Engine {
             trigger: 'INDEXER_STOPPED',
             measurementType: 'token_based',
             trackableInstanceId,
+            startContext: ctxStr ? JSON.parse(ctxStr) : null,
+            endContext: null,
           };
           this.windows.push(window);
           writePromises.push(
@@ -873,10 +887,6 @@ export class Engine {
       } else {
         // Case 2: live mode — emit once from lastUpdatedTsMs to currentWindowStart if lastUpdatedTsMs is NOT in the current window
         if (lastUpdatedTsMs < currentWindowStart) {
-          // Note: In flushPeriodic, we don't have trackableInstance context
-          // Use 'periodic-flush' as placeholder for periodic windows
-          const trackableInstanceId = 'periodic-flush';
-
           const window: RawWindow = {
             user,
             asset,
@@ -893,6 +903,8 @@ export class Engine {
             trigger: 'PERIOD_ELAPSED',
             measurementType: 'token_based',
             trackableInstanceId,
+            startContext: ctxStr ? JSON.parse(ctxStr) : null,
+            endContext: null,
           };
           this.windows.push(window);
           // Advance cursor to the start of the current window (we didn't emit the live window)

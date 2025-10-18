@@ -7,6 +7,9 @@
       {
         "sinkType": "csv",
         "path": "morpho-markets.csv"
+      },
+      {
+        "sinkType": "stdout"
       }
     ]
   },
@@ -33,8 +36,8 @@
           "pricing": {
             "kind": "morphomarkets",
             "underlyingAsset": {
-              "kind": "coingecko",
-              "id": "usd-coin"
+              "kind": "pegged",
+              "usdPegValue": 1
             }
           }
         },
@@ -48,8 +51,8 @@
           "pricing": {
             "kind": "morphomarkets",
             "underlyingAsset": {
-              "kind": "coingecko",
-              "id": "usd-coin"
+              "kind": "pegged",
+              "usdPegValue": 1
             }
           }
         }

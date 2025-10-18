@@ -1,10 +1,10 @@
 // LP Transfer handler for Uniswap V3 (NFT position transfers)
-import { UnifiedEvmLog } from '../../src/types/unified-chain-events.ts';
-import { EmitFunctions, SqdRpcCtx } from '../../src/types/adapter.ts';
+import { UnifiedEvmLog } from '../_shared/index.ts';
+import { EmitFunctions, SqdRpcCtx } from '../_shared/index.ts';
 import { Redis } from 'ioredis';
 import * as univ3positionsAbi from './abi-types/univ3nonfungiblepositionmanager.ts';
 import * as univ3factoryAbi from './abi-types/univ3factory.ts';
-import type { InstanceFrom } from '../../src/types/manifest.ts';
+import type { InstanceFrom } from '../_shared/index.ts';
 import type { manifest } from './index.ts';
 
 const EVM_NULL_ADDRESS = '0x0000000000000000000000000000000000000000';
