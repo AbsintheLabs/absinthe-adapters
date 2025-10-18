@@ -105,6 +105,27 @@ function validateFeedConfig(feedConfig: unknown, path: string = 'pricing'): Feed
     );
   }
 
+  // Validate required environment variables for this handler
+  if (handler.manifest?.requiredEnvVars) {
+    for (const [envVarName, zodSchema] of Object.entries(handler.manifest.requiredEnvVars)) {
+      const envValue = process.env[envVarName];
+
+      if (envValue === undefined) {
+        throw new Error(
+          `${path}: Feed handler "${kind}" requires environment variable "${envVarName}" to be set, but it is not defined. Please set this variable in your environment.`,
+        );
+      }
+
+      // Validate the value against the Zod schema
+      const validation = zodSchema.safeParse(envValue);
+      if (!validation.success) {
+        throw new Error(
+          `${path}: Feed handler "${kind}" requires environment variable "${envVarName}" but the value is invalid: ${validation.error.issues.map((i) => i.message).join(', ')}`,
+        );
+      }
+    }
+  }
+
   // Validate the entire config against the handler's schema
   try {
     const validated = handler.configSchema.parse(config) as Record<string, any>;

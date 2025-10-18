@@ -504,7 +504,7 @@ export class Engine {
         trigger: reason,
         // quantityType: ti.quantityType, // fixme: this should be properly type checked in zod
         measurementType: 'token_based',
-        pricingHandlerId,
+        pricingHandlerId: pricingHandlerId ?? null,
         trackableInstanceId,
         startContext: lastUpdateCtx,
         endContext: d,
@@ -593,6 +593,7 @@ export class Engine {
           endTxRef: d.txRef,
           trigger: 'POSITION_DEACTIVATED',
           measurementType: 'token_based',
+          pricingHandlerId: null, //FIXME: we should have a pricing handler here too
           trackableInstanceId,
           startContext: lastUpdateCtx,
           endContext: d,
@@ -873,6 +874,7 @@ export class Engine {
             trigger: 'INDEXER_STOPPED',
             measurementType: 'token_based',
             trackableInstanceId,
+            pricingHandlerId: null, //FIXME: we should have a pricing handler here too
             startContext: ctxStr ? JSON.parse(ctxStr) : null,
             endContext: null,
           };
@@ -903,6 +905,7 @@ export class Engine {
             trigger: 'PERIOD_ELAPSED',
             measurementType: 'token_based',
             trackableInstanceId,
+            pricingHandlerId: null, //FIXME: we should have a pricing handler here too
             startContext: ctxStr ? JSON.parse(ctxStr) : null,
             endContext: null,
           };

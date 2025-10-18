@@ -135,6 +135,11 @@ export interface FeedHandler<T extends Asset['type'] | 'any' = 'any', TConfig = 
 
   /** Handler implementation */
   handler: FeedHandlerFn<T, TConfig>;
+
+  /** Optional manifest with env var requirements */
+  manifest?: {
+    requiredEnvVars?: Record<string, z.ZodType<any>>;
+  };
 }
 
 export type FeedHandlerFn<T extends Asset['type'] | 'any' = 'any', TConfig = unknown> = (
@@ -191,7 +196,9 @@ export function defineFeedHandler<
   handler: FeedHandlerFn<T, z.infer<TSchema>>;
 
   // todo: we still have to implement manifest later
-  manifest?: unknown;
+  manifest?: {
+    requiredEnvVars?: Record<string, z.ZodType<any>>;
+  };
 }): FeedHandler<T, z.infer<TSchema>> {
   globalFeedRegistry.register(config);
   return config;

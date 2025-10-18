@@ -143,7 +143,7 @@ export interface RawWindow {
 
   // Pricing handler ID (for looking up price config)
   measurementType: 'token_based';
-  pricingHandlerId?: string;
+  pricingHandlerId: string | null;
   trackableInstanceId: string;
 
   // Chain-specific contexts (opaque blobs)

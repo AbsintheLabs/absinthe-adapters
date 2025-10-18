@@ -21,7 +21,6 @@ import { Engine } from './engine/engine.ts';
 import { loadAllAdapters } from './adapters/loader.ts';
 
 import { BaseProcessor } from './eprocessorBuilder.ts';
-import { md5Hash } from './utils/helper.ts';
 import { md5HashCanonical } from './utils/stable-hash.ts';
 import { setRuntime } from './runtime/context.ts';
 import { ABSINTHE_VERSION } from './version.ts';
