@@ -1,6 +1,7 @@
 import { Block, Log, Transaction } from '../eprocessorBuilder.ts';
 import { logger } from '../utils/logger.ts';
 import * as z from 'zod';
+import { formatZodError } from '../utils/zod-error.ts';
 
 // =============================================================================
 // UNIFIED EVM TYPES (defined once in Zod)
@@ -162,16 +163,6 @@ const TransactionSchema = z.object({
     .transform((val) => (typeof val === 'bigint' ? val.toString() : val)),
   status: z.number().optional(),
 });
-
-function formatZodError(error: z.ZodError, context: Record<string, unknown>): string {
-  const prettyError = z.prettifyError(error);
-  const contextStr = JSON.stringify(
-    context,
-    (key, value) => (typeof value === 'bigint' ? value.toString() : value),
-    2,
-  );
-  return `${prettyError}\n\nContext: ${contextStr}`;
-}
 
 export function transformSqdLogToUnified(block: Block, log: Log, chainId: number): UnifiedEvmLog {
   if (!log.transaction) {

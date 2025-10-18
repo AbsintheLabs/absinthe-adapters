@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { Manifest, TrackableDef, FieldDef, ConfigFromManifest } from '../types/manifest.ts';
 import { FeedSchema, Feed } from '../types/asset.ts';
 import { globalFeedRegistry } from '../feeds/registry.ts';
+import { formatZodError } from '../utils/zod-error.ts';
 // import { AssetConfig } from './schema.ts';
 
 /**
@@ -126,13 +127,7 @@ function validateFeedConfig(feedConfig: unknown, path: string = 'pricing'): Feed
     return result as Feed;
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const issues = error.issues
-        .map((issue) => {
-          const fieldPath = issue.path.length > 0 ? `.${issue.path.join('.')}` : '';
-          return `${path}${fieldPath}: ${issue.message}`;
-        })
-        .join('; ');
-      throw new Error(`Feed config validation failed: ${issues}`);
+      throw new Error(`Feed config validation failed at ${path}:\n${formatZodError(error)}`);
     }
     throw error;
   }
@@ -287,9 +282,8 @@ function validateFields(
       validated[fieldName] = fieldDef.schema.parse(value);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        const issues = error.issues.map((issue) => issue.message).join(', ');
         throw new Error(
-          `Instance ${instanceIdx} of trackable '${trackableId}': validation failed for ${fieldType}.${fieldName}: ${issues}`,
+          `Instance ${instanceIdx} of trackable '${trackableId}': validation failed for ${fieldType}.${fieldName}:\n${formatZodError(error, { value })}`,
         );
       }
       throw new Error(

@@ -13,6 +13,7 @@ import { z } from 'zod';
 
 import type { EoaDetector } from '../cache/index.ts';
 import type { AppConfig } from '../config/schema.ts';
+import { formatZodError } from '../utils/zod-error.ts';
 
 export type EnrichmentContext = {
   priceCache?: any;
@@ -121,6 +122,14 @@ export function validateAndPickShape<T>(
   schema: z.ZodType<T>,
 ): <Input extends T>(item: Input, ctx: EnrichmentContext) => T {
   return (item) => {
-    return schema.parse(item);
+    try {
+      return schema.parse(item);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        // Import formatZodError dynamically to avoid circular deps
+        throw new Error(`Schema validation failed:\n${formatZodError(error, { item })}`);
+      }
+      throw error;
+    }
   };
 }
