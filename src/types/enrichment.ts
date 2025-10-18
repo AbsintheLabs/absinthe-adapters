@@ -18,6 +18,7 @@ import { MeasurementType } from './manifest.ts';
 import type { EoaDetector } from '../cache/index.ts';
 import type { AppConfig } from '../config/schema.ts';
 import { Asset } from './asset.ts';
+import { EnrichmentContext } from '../enrichers/core.ts';
 
 /*
 each enricher is stateless and operates on a single item at a time so it's very easy to reason about and test.
@@ -245,19 +246,6 @@ export interface RawMeasureWindow {
 //   from?: string;
 //   to?: string;
 // }
-
-// ------------------------------------------------------------
-// ENRICHMENT CONTEXT
-// ------------------------------------------------------------
-
-export interface EnrichmentContext {
-  priceCache: PriceCacheTS;
-  metadataCache: MetadataCache;
-  handlerMetadataCache: HandlerMetadataCache;
-  redis: Redis;
-  eoaDetector?: EoaDetector;
-  appCfg?: AppConfig;
-}
 
 // ------------------------------------------------------------
 // ENRICHER FUNCTION TYPES

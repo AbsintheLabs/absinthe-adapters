@@ -13,6 +13,7 @@ import { AssetMetadata } from './core.ts';
 //   TokenSelector,
 // } from '../config/schema.ts';
 import { Asset, AssetOfType } from './asset.ts';
+import { SqdRpcCtx } from './adapter.ts';
 
 // ----------------------------------------------------------
 // MATCHING UTILITIES
@@ -215,7 +216,7 @@ export interface ResolveContext {
 // ------------------------------------------------------------
 
 export interface AssetTypeHandler<T extends Asset['type']> {
-  getMetadata(asset: AssetOfType<T>, ctx: ResolveContext): Promise<AssetMetadata>;
+  getMetadata(asset: AssetOfType<T>, ctx: SqdRpcCtx): Promise<AssetMetadata>;
   normalizeAmount?(amount: Big, metadata: AssetMetadata): Big;
 }
 

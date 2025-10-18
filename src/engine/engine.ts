@@ -14,7 +14,7 @@ import {
 } from '../cache/index.ts';
 import { PricingEngine } from './pricing-engine.ts';
 import { AppConfig } from '../config/schema.ts';
-import { WindowReason } from '../types/adapter.ts';
+import { SqdRpcCtx, WindowReason } from '../types/adapter.ts';
 import { PositionUpdate, Swap } from '../types/core.ts';
 import { createStateDatabase } from './state.ts';
 import { backfillPriceDataForBatch, pricePricingHandler } from './pricing-backfill.ts';
@@ -26,7 +26,7 @@ import {
   Reprice,
   ActionEvent,
 } from '../types/core.ts';
-import { EnrichmentContext, RawAction, RawWindow } from '../types/enrichment.ts';
+import { RawAction, RawWindow } from '../types/enrichment.ts';
 import { ProcessorContext } from '../eprocessorBuilder.ts';
 import { EngineDeps } from '../main.ts';
 import { BuiltAdapter } from '../adapter-core.ts';
@@ -50,6 +50,7 @@ import {
   getAssetKeyFromAsset as getKeyFromAsset,
 } from '../types/asset.ts';
 import { buildPricingKey } from '../utils/pricing-keys.ts';
+import { EnrichmentContext } from '../enrichers/core.ts';
 
 export class Engine {
   // consts
@@ -205,6 +206,10 @@ export class Engine {
       });
       // we only need to get the timestamp at the end of the batch, rather than every single block
       const lastBlock = ctx.blocks[ctx.blocks.length - 1];
+      const lastSqdRpcCtx: SqdRpcCtx = {
+        _chain: ctx._chain,
+        block: { height: lastBlock.header.height },
+      };
       await this.flushPeriodic(lastBlock.header.timestamp, lastBlock.header.height);
       await backfillPriceDataForBatch(ctx.blocks, {
         redis: this.redis,
@@ -215,8 +220,8 @@ export class Engine {
         pricingEngine: this.pricingEngine,
         sqdCtx: this.ctx,
       });
-      await this.enrichWindows();
-      await this.enrichEvents();
+      await this.enrichWindows(lastSqdRpcCtx);
+      await this.enrichEvents(lastSqdRpcCtx);
       await this.sendDataToSink();
       await this.sqdBatchEnd(ctx);
       await this.terminateIfNeeded(ctx);
@@ -249,7 +254,7 @@ export class Engine {
   }
 
   // private async enrichEvents(ctx: any): Promise<PricedEvent[]>
-  private async enrichEvents(): Promise<void> {
+  private async enrichEvents(sqdRpcCtx: SqdRpcCtx): Promise<void> {
     if (this.events.length === 0) return;
 
     const enrichCtx: EnrichmentContext = {
@@ -259,6 +264,7 @@ export class Engine {
       redis: this.redis,
       eoaDetector: this.eoaDetector,
       appCfg: this.appCfg,
+      sqdRpcCtx,
     };
 
     const pipeline = actionPipeline();
@@ -267,7 +273,7 @@ export class Engine {
   }
 
   // private async enrichWindows(ctx: any): Promise<PricedBalanceWindow[]> {
-  private async enrichWindows(): Promise<void> {
+  private async enrichWindows(sqdRpcCtx: SqdRpcCtx): Promise<void> {
     if (this.windows.length === 0) {
       logger.debug('⚠️ NO WINDOWS TO ENRICH');
       return;
@@ -280,6 +286,7 @@ export class Engine {
       redis: this.redis,
       eoaDetector: this.eoaDetector,
       appCfg: this.appCfg,
+      sqdRpcCtx,
     };
 
     logger.debug(`about to enrich windows: ${this.windows.length}`);

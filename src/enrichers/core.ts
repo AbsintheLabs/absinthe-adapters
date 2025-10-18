@@ -14,14 +14,18 @@ import { z } from 'zod';
 import type { EoaDetector } from '../cache/index.ts';
 import type { AppConfig } from '../config/schema.ts';
 import { formatZodError } from '../utils/zod-error.ts';
+import { SqdRpcCtx } from '../types/adapter.ts';
+import { HandlerMetadataCache, MetadataCache, PriceCacheTS } from '../types/pricing.ts';
+import type { Redis } from 'ioredis';
 
 export type EnrichmentContext = {
-  priceCache?: any;
-  metadataCache?: any;
-  handlerMetadataCache?: any;
-  redis?: any;
+  priceCache: PriceCacheTS;
+  metadataCache: MetadataCache;
+  handlerMetadataCache: HandlerMetadataCache;
+  redis: Redis;
   eoaDetector?: EoaDetector;
-  appCfg?: AppConfig;
+  appCfg: AppConfig;
+  sqdRpcCtx: SqdRpcCtx;
 };
 
 export type Enricher<I, O> = (item: I, ctx: EnrichmentContext) => O | Promise<O>;
