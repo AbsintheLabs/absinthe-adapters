@@ -1,33 +1,41 @@
 version: '3.8'
 
 services:
-  postgres:
-    image: postgres:17
-    container_name: postgres
-    environment:
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: squid
-    ports:
-      - '5432:5432'
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./logs/postgres:/var/log/postgresql
-    networks:
-      - app-network
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U postgres']
   redis:
-    image: redis:latest
-    container_name: redis
+    image: redis/redis-stack:latest
+    container_name: yada-redis
     ports:
       - '6379:6379'
     networks:
-      - app-network
+      - yada-network
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  yada:
+    build:
+      context: .
+      dockerfile: src/Dockerfile
+    container_name: yada
+    depends_on:
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    volumes:
+      # Output directories
+      - ./_runs:/app/_runs
+      - ./_sqdstate:/app/_sqdstate
+      - ./logs:/app/logs
+      # Mount adapters as read-only for config access
+      - ./adapters:/app/adapters:ro
+    networks:
+      - yada-network
+    restart: unless-stopped
 
 networks:
-  app-network:
+  yada-network:
     driver: bridge
-
-volumes:
-  postgres_data:
-    driver: local

@@ -8,6 +8,7 @@
   "scripts": {
     "build": "tsc",
     "build:watch": "tsc -w",
+    "build:docker": "docker build --rm --build-arg GIT_COMMIT_SHA_LONG=$(git rev-parse HEAD) -f src/Dockerfile -t yada:latest .",
     "pretest": "pnpm build",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -22,7 +23,7 @@
     "lint-staged": "lint-staged",
     "migration": "pnpm build && pnpm migration:clean && pnpm migration:generate && pnpm migration:apply"
   },
-  "packageManager": "pnpm@10.16.0",
+  "packageManager": "pnpm@10.18.3+sha512.bbd16e6d7286fd7e01f6b3c0b3c932cda2965c06a908328f74663f10a9aea51f1129eea615134bf992831b009eabe167ecb7008b597f40ff9bc75946aadfb08d",
   "dependencies": {
     "@fast-csv/format": "^5.0.5",
     "@subsquid/borsh": "^0.3.0",
