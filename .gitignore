@@ -31,3 +31,4 @@ out*.txt
 *.log
 _sqdstate/
 _runs/
+_schemas/
