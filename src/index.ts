@@ -18,8 +18,6 @@ export type {
   AssetTypeHandler,
 } from './types/pricing.ts';
 
-export type { Adapter } from './types/adapter.ts';
-
 // Cache implementations
 export { RedisTSCache, RedisMetadataCache } from './cache/index.ts';
 

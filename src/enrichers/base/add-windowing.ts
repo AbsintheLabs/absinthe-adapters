@@ -1,4 +1,4 @@
-import { RawWindow } from '../../types/enrichment.ts';
+import { RawPosition } from '../../types/enrichment.ts';
 import { Enricher } from '../core.ts';
 import Big from 'big.js';
 
@@ -17,7 +17,7 @@ export interface WindowDurationFields {
   end_value: string;
 }
 
-export const addWindowing = <T extends RawWindow>(): Enricher<T, T & WindowDurationFields> => {
+export const addWindowing = <T extends RawPosition>(): Enricher<T, T & WindowDurationFields> => {
   return (item) => {
     return {
       ...item,

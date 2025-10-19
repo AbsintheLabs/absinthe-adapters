@@ -90,7 +90,7 @@ export const addBaseEventIdForAction = <T extends ActionFields>(): Enricher<
  * Enricher for adding base_eventId to windows.
  * Hashes chainId, user, startTs, endTs, apiKeyHash (optional), and trackableInstanceId.
  */
-export const addBaseEventIdForWindow = <T extends WindowFields>(): Enricher<
+export const addBaseEventIdForPosition = <T extends WindowFields>(): Enricher<
   T,
   T & BaseEventIdField
 > => {

@@ -2,7 +2,7 @@
 import { z } from 'zod';
 import { ChainArchSchema } from '../config/schema.ts';
 import { DenominationSchema, MeasurementTypeSchema } from './manifest.ts';
-import { WINDOW_REASONS } from './adapter.ts';
+import { POSITION_REASONS } from './adapter.ts';
 import { AssetEnum } from './asset.ts';
 
 export interface RunnerMeta {
@@ -54,7 +54,7 @@ export const AssetFieldsSchemaOptional = z.object({
   asset_type: AssetEnum.nullable(),
 });
 
-export const EnrichedWindowSchema = z
+export const EnrichedPositionSchema = z
   .object({
     user: z.string(),
     // asset: z.string(),
@@ -71,9 +71,9 @@ export const EnrichedWindowSchema = z
     // when exhausted, there is no end tx ref
     end_tx_ref: z.string().nullable(),
 
-    emit_cause: z.enum(WINDOW_REASONS),
+    emit_cause: z.enum(POSITION_REASONS),
 
-    // fixme: make this DRY rather than hardcoding the name of this here
+    // todo: make this DRY rather than hardcoding the name of this here
     topic_type: z.literal('position'),
 
     // raw position
@@ -94,7 +94,7 @@ export const EnrichedWindowSchema = z
   .extend(CommonFieldsSchema.shape)
   .extend(AssetFieldsSchema.shape); // required bc window is always a token_based
 
-export type EnrichedWindow = z.infer<typeof EnrichedWindowSchema>;
+export type EnrichedPosition = z.infer<typeof EnrichedPositionSchema>;
 /**
  * Zod schema for the final enriched action shape.
  * Single source of truth - both runtime validation and TypeScript type.
@@ -114,6 +114,7 @@ export const EnrichedActionSchema = z
     ctx_json: z.string().nullable(), // JSON stringified object
 
     // Added by addActionEventType
+    // todo: make this DRY rather than hardcoding the name of this here
     topic_type: z.literal('action'),
 
     // Added by addProtocolMetadata

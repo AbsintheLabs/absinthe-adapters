@@ -82,7 +82,7 @@ const Common = z.object({
   }),
   sinkConfig: SinkConfigSchema.default({
     sinkType: 'csv',
-    path: 'windows.csv',
+    path: 'positions.csv',
   }),
   // assetFeedConfig: FeedSchema.optional().default([]),
   adapterConfig: z.object({

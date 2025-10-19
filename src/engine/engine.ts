@@ -14,7 +14,7 @@ import {
 } from '../cache/index.ts';
 import { PricingEngine } from './pricing-engine.ts';
 import { AppConfig } from '../config/schema.ts';
-import { SqdRpcCtx, WindowReason } from '../types/adapter.ts';
+import { SqdRpcCtx, PositionReason } from '../types/adapter.ts';
 import { PositionUpdate, Swap } from '../types/core.ts';
 import { createStateDatabase } from './state.ts';
 import { backfillPriceDataForBatch, pricePricingHandler } from './pricing-backfill.ts';
@@ -26,11 +26,11 @@ import {
   Reprice,
   ActionEvent,
 } from '../types/core.ts';
-import { RawAction, RawWindow } from '../types/enrichment.ts';
+import { RawAction, RawPosition } from '../types/enrichment.ts';
 import { ProcessorContext } from '../eprocessorBuilder.ts';
 import { EngineDeps } from '../main.ts';
 import { BuiltAdapter } from '../adapter-core.ts';
-import { windowsPipeline } from '../enrichers/pipelines/window-pipeline.ts';
+import { positionsPipeline } from '../enrichers/pipelines/window-pipeline.ts';
 import {
   filterEvmLog,
   filterEvmTransaction,
@@ -79,13 +79,13 @@ export class Engine {
   private adapter: BuiltAdapter;
 
   private redis: Redis;
-  private windows: RawWindow[] = [];
+  private positions: RawPosition[] = [];
   private events: RawAction[] = [];
 
   // Enriched data ready to be sent to sink
   // XXX: we'll need to fix these typing issues later
   private enrichedEvents: any[] = [];
-  private enrichedWindows: any[] = [];
+  private enrichedPositions: any[] = [];
 
   private sink: Sink;
   private indexerMode: IndexerMode;
@@ -220,7 +220,7 @@ export class Engine {
         pricingEngine: this.pricingEngine,
         sqdCtx: this.ctx,
       });
-      await this.enrichWindows(lastSqdRpcCtx);
+      await this.enrichPositions(lastSqdRpcCtx);
       await this.enrichEvents(lastSqdRpcCtx);
       await this.sendDataToSink();
       await this.sqdBatchEnd(ctx);
@@ -272,10 +272,9 @@ export class Engine {
     this.enrichedEvents = enrichedEvents;
   }
 
-  // private async enrichWindows(ctx: any): Promise<PricedBalanceWindow[]> {
-  private async enrichWindows(sqdRpcCtx: SqdRpcCtx): Promise<void> {
-    if (this.windows.length === 0) {
-      logger.debug('⚠️ NO WINDOWS TO ENRICH');
+  private async enrichPositions(sqdRpcCtx: SqdRpcCtx): Promise<void> {
+    if (this.positions.length === 0) {
+      logger.debug('⚠️ NO POSITIONS TO ENRICH');
       return;
     }
 
@@ -289,16 +288,16 @@ export class Engine {
       sqdRpcCtx,
     };
 
-    logger.debug(`about to enrich windows: ${this.windows.length}`);
-    const pipeline = windowsPipeline();
-    const enrichedWindows = await pipeline.runBatch(this.windows, enrichCtx);
-    this.enrichedWindows = enrichedWindows;
+    logger.debug(`about to enrich positions: ${this.positions.length}`);
+    const pipeline = positionsPipeline();
+    const enrichedPositions = await pipeline.runBatch(this.positions, enrichCtx);
+    this.enrichedPositions = enrichedPositions;
   }
 
   async sendDataToSink() {
     // Send enriched data to sink with loose coupling
-    if (this.enrichedWindows.length > 0) {
-      await this.sink.write(this.enrichedWindows);
+    if (this.enrichedPositions.length > 0) {
+      await this.sink.write(this.enrichedPositions);
     }
     if (this.enrichedEvents.length > 0) {
       await this.sink.write(this.enrichedEvents);
@@ -307,12 +306,12 @@ export class Engine {
 
   private async sqdBatchEnd(ctx: any) {
     // clear windows at the end of the batch
-    this.windows.length = 0;
+    this.positions.length = 0;
     // clear events at the end of the batch
     this.events.length = 0;
     // clear enriched data at the end of the batch
     this.enrichedEvents.length = 0;
-    this.enrichedWindows.length = 0;
+    this.enrichedPositions.length = 0;
     // Force flush to update the processor status for file-based processors.
     ctx.store.setForceFlush(true);
   }
@@ -432,7 +431,7 @@ export class Engine {
     d: T,
     ti: InstanceFrom<TrackableDef>,
     // The default behavior is a change in balance.
-    reason: WindowReason,
+    reason: PositionReason,
   ) {
     // Skip balance deltas for null addresses (mints/burns should not be tracked as user balances)
     // This is a good default
@@ -518,7 +517,7 @@ export class Engine {
         throw new Error(`previousTxRef is null for key: ${balanceKey}`);
       }
 
-      const window: RawWindow = {
+      const position: RawPosition = {
         user: e.user,
         asset: e.asset,
         activity: e.activity,
@@ -539,7 +538,7 @@ export class Engine {
         startContext: lastUpdateCtx,
         endContext: d,
       };
-      this.windows.push(window);
+      this.positions.push(position);
     }
   }
 
@@ -614,7 +613,7 @@ export class Engine {
           throw new Error(`prevTxRef is null for key: ${balanceKey}`);
         }
 
-        const window: RawWindow = {
+        const position: RawPosition = {
           user,
           asset,
           activity: 'hold',
@@ -634,7 +633,7 @@ export class Engine {
           startContext: lastUpdateCtx,
           endContext: d,
         };
-        this.windows.push(window);
+        this.positions.push(position);
       }
 
       // Mark as inactive
@@ -900,7 +899,7 @@ export class Engine {
         // Case 1: final block — emit once from lastUpdatedTsMs to final block timestamp
         const finalTsMs = nowMs; // the block timestamp of the final block
         if (lastUpdatedTsMs < finalTsMs) {
-          const window: RawWindow = {
+          const position: RawPosition = {
             user,
             asset,
             activity,
@@ -920,7 +919,7 @@ export class Engine {
             startContext: ctxStr ? JSON.parse(ctxStr) : null,
             endContext: null,
           };
-          this.windows.push(window);
+          this.positions.push(position);
           writePromises.push(
             this.redis.hset(key, {
               [Engine.BALANCE_FIELDS.UPDATED_TS_MS]: String(finalTsMs),
@@ -931,7 +930,7 @@ export class Engine {
       } else {
         // Case 2: live mode — emit once from lastUpdatedTsMs to currentWindowStart if lastUpdatedTsMs is NOT in the current window
         if (lastUpdatedTsMs < currentWindowStart) {
-          const window: RawWindow = {
+          const position: RawPosition = {
             user,
             asset,
             activity,
@@ -951,7 +950,7 @@ export class Engine {
             startContext: ctxStr ? JSON.parse(ctxStr) : null,
             endContext: null,
           };
-          this.windows.push(window);
+          this.positions.push(position);
           // Advance cursor to the start of the current window (we didn't emit the live window)
           writePromises.push(
             this.redis.hset(key, {
@@ -983,7 +982,7 @@ export class Engine {
         },
       },
       position: {
-        balanceDelta: async (e: BalanceDelta, reason: WindowReason = 'BALANCE_CHANGED') => {
+        balanceDelta: async (e: BalanceDelta, reason: PositionReason = 'BALANCE_CHANGED') => {
           await this.applyBalanceDelta(e, d, e.trackableInstance, reason);
         },
         positionUpdate: (e: PositionUpdate) =>

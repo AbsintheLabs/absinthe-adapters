@@ -32,7 +32,7 @@ import { Engine } from '../engine/engine.ts';
  *    A final snapshot is emitted for any positions still held when indexing
  *    terminates, regardless of whether they changed during the final period.
  */
-export const WINDOW_REASONS = [
+export const POSITION_REASONS = [
   'BALANCE_CHANGED', // see above
   'POSITION_REVALUED', // see above
   'POSITION_DEACTIVATED', // see above
@@ -41,7 +41,7 @@ export const WINDOW_REASONS = [
 ] as const;
 
 // Derive the type from the array
-export type WindowReason = (typeof WINDOW_REASONS)[number];
+export type PositionReason = (typeof POSITION_REASONS)[number];
 
 export type EmitFunctions = ReturnType<Engine['createEmitFunctions']>;
 
@@ -78,31 +78,6 @@ export type Handler = ActionHandler | PositionHandler;
 // Registry of handlers keyed by trackable ID
 export type Handlers = Record<string, Handler>;
 
-// Trackable instance type (placeholder for now)
-// export interface TrackableInstance {
-//   id: string;
-//   itemId: string;
-//   kind: string;
-//   quantityType: string;
-//   params: Record<string, any>;
-// }
-
-// Utility function to validate handler compatibility with manifest
-// export function validateHandlers(manifest: Manifest, handlers: Handlers): void {
-//   for (const trackable of Object.values(manifest.trackables)) {
-//     const handler = handlers[trackable];
-//     if (!handler) {
-//       throw new Error(`Missing handler for trackable '${trackable.id}'`);
-//     }
-
-//     // Validate that handler type matches trackable kind
-//     // For now, we just ensure handlers exist. More sophisticated type checking
-//     // can be added later when we have more specific handler signatures
-//     // xxx: i think we need to do this here, and make sure that required filters are set, if pricing is provided
-//     // xxx: as well as attach additional fields based on the results of the validation (like `shouldPrice` etc)
-//   }
-// }
-
 // ------------------------------------------------------------
 // ADAPTER INTERFACE
 // ------------------------------------------------------------
@@ -131,27 +106,6 @@ export interface SqdRpcCtx {
     height: number;
   };
 }
-
-// export type VountCtx = {
-//   // App configuration (already validated by Zod)
-//   appCfg: any;
-
-//   // Subsquid processor instance to extend with .addLog/.addTransaction handlers
-//   processor: any;
-
-//   // Shared infra
-//   redis: Redis;
-//   rpc: unknown;
-
-//   // Engine emit API (same functions you use today)
-//   emit: EmitFunctions;
-
-//   // Until feeds live in config, Engine can pass them through here
-//   assetFeeds: AssetFeedConfig;
-// };
-
-// export type Adapter = AdapterV2 | AdapterLegacy | TypedAdapter;
-export type Adapter = TypedAdapter;
 
 // Typed adapter interface with manifest and strongly-typed handlers
 export interface TypedAdapter {
