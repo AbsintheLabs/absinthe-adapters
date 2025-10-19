@@ -7,3 +7,5 @@ export const PROTOCOL_FAMILY_VALUES = [
   'compound-v3',
   'balancer-v2',
 ] as const;
+
+export const ABSINTHE_VERSION = '1.0.0';

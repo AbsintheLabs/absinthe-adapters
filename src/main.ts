@@ -23,7 +23,7 @@ import { loadAllAdapters } from './adapters/loader.ts';
 import { BaseProcessor } from './eprocessorBuilder.ts';
 import { md5HashCanonical } from './utils/stable-hash.ts';
 import { setRuntime } from './runtime/context.ts';
-import { ABSINTHE_VERSION } from './version.ts';
+import { ABSINTHE_VERSION } from './constants.ts';
 import os from 'os';
 import { clearStateDir, clearRedisNamespace, deriveStateDirFromHash } from './utils/state-reset.ts';
 import { getChainShortName } from './utils/chain-utils.ts';
