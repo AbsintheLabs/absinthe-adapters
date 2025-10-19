@@ -16,7 +16,7 @@ export const coingeckoFeed = defineFeedHandler({
   acceptsAssetType: 'any',
   manifest: {
     requiredEnvVars: {
-      COINGECKO_API_KEY: z.string().startsWith('cg_').min(1).describe('CoinGecko API key'),
+      COINGECKO_API_KEY: z.string().startsWith('CG-').min(1).describe('CoinGecko API key'),
     },
   },
   configSchema: z.object({
