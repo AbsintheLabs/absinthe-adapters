@@ -23,6 +23,7 @@ import * as printr2Abi from './abi/printr2';
 import * as poolAbi from './abi/pool';
 import { LIQUIDITY_FEE_BSC, CHAIN_BASE_TOKENS, LIQUIDITY_FEE } from './utils/consts';
 import { loadTokensFromDb, loadPoolsFromDb, saveTokensToDb, savePoolsToDb } from './utils/database';
+import * as pool2Abi from './abi/pool2';
 export class PrintrProcessor {
   private readonly bondingCurveProtocol: ValidatedTxnTrackingProtocolConfig;
   private readonly schemaName: string;
@@ -31,7 +32,6 @@ export class PrintrProcessor {
   private readonly chainConfig: Chain;
   private tokenState: Map<string, TokenInfo>;
   private poolState: Map<string, PoolInfo>;
-  private stateLoaded: boolean;
 
   constructor(
     bondingCurveProtocol: ValidatedTxnTrackingProtocolConfig,
@@ -46,7 +46,6 @@ export class PrintrProcessor {
     this.chainConfig = chainConfig;
     this.tokenState = new Map();
     this.poolState = new Map();
-    this.stateLoaded = false;
 
     // Add this after loading from DB, or in the constructor for testing
   }
@@ -76,14 +75,16 @@ export class PrintrProcessor {
   }
 
   private async processBatch(ctx: any): Promise<void> {
-    if (!this.stateLoaded) {
-      this.tokenState = await loadTokensFromDb(ctx);
-      this.poolState = await loadPoolsFromDb(ctx);
-      this.stateLoaded = true;
-    }
+    logger.info('Loading tokens and pools from database...');
+    this.tokenState = await loadTokensFromDb(ctx);
+    this.poolState = await loadPoolsFromDb(ctx);
+
+    logger.info('Loaded tokens:', this.tokenState.size);
+    logger.info('Loaded pools:', this.poolState.size);
+    logger.info('Pool addresses:', Array.from(this.poolState.keys()));
 
     const protocolStates = await this.initializeProtocolStates(ctx);
-
+    logger.info('Protocol states [PoolState]', { poolState: this.poolState });
     for (const block of ctx.blocks) {
       await this.processBlock({ ctx, block }, protocolStates);
     }
@@ -119,9 +120,14 @@ export class PrintrProcessor {
     contractAddress: string,
     protocolState: ProtocolState,
   ): Promise<void> {
+    const poolAddresses = Array.from(this.poolState.keys());
     const relevantLogs = block.logs.filter((log: any) => {
       const logAddress = log.address.toLowerCase();
-      return logAddress === contractAddress || this.poolState.has(logAddress);
+
+      return (
+        logAddress === contractAddress ||
+        poolAddresses.some((key) => key.toLowerCase() === logAddress)
+      );
     });
     for (const log of relevantLogs) {
       await this.processLog(ctx, block, log, protocolState);
@@ -145,9 +151,29 @@ export class PrintrProcessor {
       await this.processGraduatedPoolCreatedEvent(ctx, block, log, protocolState);
     }
 
-    if (log.topics[0] === poolAbi.events.Swap.topic) {
-      if (this.poolState.has(log.address.toLowerCase())) {
+    if (log.topics[0] === pool2Abi.events.Swap.topic) {
+      logger.info('Swap event [ProcessLog]', {
+        logAddress: log.address.toLowerCase(),
+        poolState: this.poolState,
+      });
+      const poolAddresses = Array.from(this.poolState.keys());
+      if (poolAddresses.some((key) => key.toLowerCase() === log.address.toLowerCase())) {
         await this.processSwapEvent(ctx, block, log, protocolState);
+      } else {
+        logger.warn('Pool not found:', log.address);
+      }
+    }
+
+    if (log.topics[0] === poolAbi.events.Swap.topic) {
+      logger.info('Swap event [ProcessLog]', {
+        logAddress: log.address.toLowerCase(),
+        poolState: this.poolState,
+      });
+      const poolAddresses = Array.from(this.poolState.keys());
+      if (poolAddresses.some((key) => key.toLowerCase() === log.address.toLowerCase())) {
+        await this.processSwapEvent(ctx, block, log, protocolState);
+      } else {
+        logger.warn('Pool not found:', log.address);
       }
     }
   }
@@ -158,7 +184,16 @@ export class PrintrProcessor {
     log: any,
     protocolState: ProtocolState,
   ): Promise<void> {
-    const { sender, amount0, amount1 } = poolAbi.events.Swap.decode(log);
+    let swapData: any;
+    if (log.topics[0] === poolAbi.events.Swap.topic) {
+      swapData = poolAbi.events.Swap.decode(log);
+    } else if (log.topics[0] === pool2Abi.events.Swap.topic) {
+      swapData = pool2Abi.events.Swap.decode(log);
+    } else {
+      logger.warn('Unknown Swap event signature:', log.topics[0]);
+      return;
+    }
+    const { sender, amount0, amount1 } = swapData;
     const { gasPrice, gasUsed, hash } = log.transaction;
     logger.info('Gas used [Swap]', { blockNumber: block.header.height });
     const gasUsedInEth = Number(gasUsed) / 10 ** 18;
@@ -549,6 +584,7 @@ export class PrintrProcessor {
     };
 
     this.poolState.set(poolAddress.toLowerCase(), poolInfo);
+    console.log('Pool info [GraduatedPoolCreated]', { poolInfo });
     return;
   }
 
