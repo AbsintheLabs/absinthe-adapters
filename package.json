@@ -5,10 +5,24 @@
   "main": "dist/main.js",
   "types": "dist/main.d.ts",
   "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/main.d.ts",
+      "default": "./dist/main.js"
+    },
+    "./schemas": {
+      "types": "./dist/src/schemas/index.d.ts",
+      "default": "./dist/src/schemas/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
     "build:watch": "tsc -w",
     "build:docker": "docker build --rm --build-arg GIT_COMMIT_SHA_LONG=$(git rev-parse HEAD) -f src/Dockerfile -t yada:latest .",
+    "prepare": "pnpm build",
     "pretest": "pnpm build",
     "test": "vitest run",
     "test:watch": "vitest",

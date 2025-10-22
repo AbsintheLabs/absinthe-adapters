@@ -1,3 +1,43 @@
+# Absinthe Adapters
+
+This repository contains blockchain adapters for the Absinthe network and exports Zod schemas for cross-repository use.
+
+## 📦 Using Schemas in Other Repos
+
+This package exports `ActionSchema` and `PositionSchema` (Zod schemas) that can be imported by other repositories.
+
+**Quick Start:**
+
+```bash
+# Add to package.json
+{
+  "dependencies": {
+    "@absinthe/adapters": "github:your-org/absinthe-adapters#main"
+  }
+}
+
+# Install
+pnpm install
+
+# Use in code
+import { ActionSchema, PositionSchema } from '@absinthe/adapters/schemas';
+const validAction = ActionSchema.parse(data);
+```
+
+**📚 Documentation:**
+
+- [Full Schema Docs](./SCHEMA_EXPORTS.md) - Quick reference
+- [Detailed Usage](./src/schemas/README.md) - Complete guide
+- [Examples](./src/schemas/EXAMPLE_USAGE.md) - Code examples
+
+**🧪 Validate Exports:**
+
+```bash
+node validate-schemas.js
+```
+
+---
+
 ## Getting Started
 
 1. Create new directory in adapters (copy `_template`)
