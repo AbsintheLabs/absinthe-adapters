@@ -5,8 +5,8 @@
   "type": "module",
   "exports": {
     "./schemas": {
-      "types": "./dist/src/schemas/index.d.ts",
-      "default": "./dist/src/schemas/index.js"
+      "types": "./packages/schemas/dist/index.d.ts/",
+      "default": "./packages/schemas/dist/index.js"
     }
   },
   "files": [
