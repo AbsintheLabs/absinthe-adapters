@@ -16,7 +16,7 @@
     "build": "tsc",
     "build:watch": "tsc -w",
     "build:docker": "docker build --rm --build-arg GIT_COMMIT_SHA_LONG=$(git rev-parse HEAD) -f src/Dockerfile -t yada:latest .",
-    "prepare": "pnpm build",
+    "prepare": "pnpm --filter @absinthe/schemas build",
     "pretest": "pnpm build",
     "test": "vitest run",
     "test:watch": "vitest",
