@@ -1,9 +1,17 @@
 // Asset information interface
 import { z } from 'zod';
-import { ChainArchSchema } from '../config/schema.ts';
-import { DenominationSchema, MeasurementTypeSchema } from './manifest.ts';
-import { POSITION_REASONS } from './adapter.ts';
-import { AssetEnum } from './asset.ts';
+
+// FIXME: need to make sure these are imported in the rest of the codebase
+export const MeasurementTypeSchema = z.enum(['token_based', 'count', 'none']);
+export const DenominationSchema = z.enum(['usd', /*'raw_token',*/ 'scaled_token', 'none']); // 'raw_token' is deprecated
+export const POSITION_REASONS = [
+  'BALANCE_CHANGED', // see above
+  'POSITION_REVALUED', // see above
+  'POSITION_DEACTIVATED', // see above
+  'PERIOD_ELAPSED', // see above
+  'INDEXER_STOPPED', // see above
+] as const;
+export const AssetEnum = z.enum(['erc20', 'erc721', 'spl', 'custom']);
 
 export const CommonFieldsSchema = z.object({
   runner_commit_sha: z.string(),
@@ -18,7 +26,7 @@ export const CommonFieldsSchema = z.object({
   // Added by addChainMetadata
   chain_id: z.string(),
   chain_short_name: z.string(),
-  chain_arch: ChainArchSchema,
+  chain_arch: z.enum(['evm', 'solana']),
 
   measurement_type: MeasurementTypeSchema,
   denomination: DenominationSchema,

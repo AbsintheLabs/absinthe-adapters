@@ -2,8 +2,6 @@
   "name": "@absinthe/adapters",
   "version": "0.0.1",
   "private": true,
-  "main": "dist/main.js",
-  "types": "dist/main.d.ts",
   "type": "module",
   "exports": {
     "./schemas": {
