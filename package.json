@@ -6,10 +6,6 @@
   "types": "dist/main.d.ts",
   "type": "module",
   "exports": {
-    ".": {
-      "types": "./dist/main.d.ts",
-      "default": "./dist/main.js"
-    },
     "./schemas": {
       "types": "./dist/src/schemas/index.d.ts",
       "default": "./dist/src/schemas/index.js"
