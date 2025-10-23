@@ -1,5 +1,5 @@
 // Bid handler for GBM Auctions Legacy
-import { UnifiedEvmLog } from '../../src/types/unified-chain-events.ts';
+import { UnifiedEvmLog } from '../_shared/index.ts';
 import { EmitFunctions, SqdRpcCtx } from '../../src/types/adapter.ts';
 import * as factoryAbi from './abi/morphofactoryv2.ts';
 import { md5Hash } from '../_shared/index.ts';

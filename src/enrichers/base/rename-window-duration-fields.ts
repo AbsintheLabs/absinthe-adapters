@@ -1,4 +1,4 @@
-import { RawWindow } from '../../types/enrichment.ts';
+import { RawPosition } from '../../types/enrichment.ts';
 import { Enricher } from '../core.ts';
 
 interface WindowDurationFields {
@@ -9,7 +9,7 @@ interface WindowDurationFields {
   endHeight?: number;
 }
 
-export const renameWindowDurationFields = <T extends RawWindow>(): Enricher<
+export const renameWindowDurationFields = <T extends RawPosition>(): Enricher<
   T,
   T & WindowDurationFields
 > => {

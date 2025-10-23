@@ -8,4 +8,4 @@ export * from '../../src/utils/constants.ts';
 export * from '../../src/types/manifest.ts';
 export * from '../../src/types/absinthe-meta-constants.ts';
 export * from '../../src/types/adapter.ts';
-export * from '../../src/types/unified-chain-events.ts';
+export { UnifiedEvmLog, UnifiedEvmTransaction } from '../../src/transforms/evm.ts';

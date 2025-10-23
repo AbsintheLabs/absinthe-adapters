@@ -7,6 +7,9 @@
       {
         "sinkType": "csv",
         "path": "univ2.csv"
+      },
+      {
+        "sinkType": "stdout"
       }
     ]
   },
@@ -32,11 +35,8 @@
             "swapLegAddress": "0xAA40c0c7644e0b2B224509571e10ad20d9C4ef28"
           },
           "pricing": {
-            "assetType": "erc20",
-            "priceFeed": {
-              "kind": "pegged",
-              "usdPegValue": 115764.58
-            }
+            "kind": "pegged",
+            "usdPegValue": 115764.58
           }
         },
         {
@@ -47,11 +47,8 @@
             "swapLegAddress": "0xad11a8BEb98bbf61dbb1aa0F6d6F2ECD87b35afA"
           },
           "pricing": {
-            "assetType": "erc20",
-            "priceFeed": {
-              "kind": "pegged",
-              "usdPegValue": 1
-            }
+            "kind": "pegged",
+            "usdPegValue": 1
           }
         }
       ]

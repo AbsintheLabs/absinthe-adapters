@@ -2,7 +2,7 @@
 import { FeedHandler, Asset, getAssetKeyFromAsset, Feed } from '../types/asset.ts';
 import { ResolveContext } from '../types/pricing.ts';
 import { AssetMetadata } from '../types/core.ts';
-import { getAssetMetadata } from './asset-handlers.ts';
+import { resolveAssetMetadata } from '../enrichers/pricing/asset-metadata.ts';
 import { logger } from '../utils/logger.ts';
 
 // Feed auto-discovery
@@ -88,32 +88,11 @@ export class PricingEngine {
   ): Promise<{ price: number; metadata: AssetMetadata }> {
     const assetKey = getAssetKeyFromAsset(asset);
 
-    // Step 1: Metadata resolution
+    // Step 1: Metadata resolution (using shared helper)
     logger.debug(`PricingEngine: Starting metadata resolution for ${assetKey}`);
-    let metadata = await ctx.metadataCache.get(assetKey);
-    if (!metadata) {
-      logger.debug(`PricingEngine: Metadata not cached for ${assetKey}, resolving...`);
+    const metadata = await resolveAssetMetadata(asset, assetKey, ctx);
 
-      try {
-        metadata = await getAssetMetadata(asset, ctx);
-        logger.debug(`PricingEngine: Metadata resolved for ${assetKey}:`, metadata);
-      } catch (error) {
-        logger.error(`PricingEngine: Failed to resolve metadata for ${assetKey}:`, error);
-        throw error;
-      }
-
-      if (!metadata) {
-        logger.error(`PricingEngine: No metadata found for ${assetKey}`);
-        throw new Error(`No metadata found for ${assetKey}`);
-      }
-
-      await ctx.metadataCache.set(assetKey, metadata);
-      logger.debug(`PricingEngine: Cached metadata for ${assetKey}`);
-    } else {
-      logger.debug(`PricingEngine: Using cached metadata for ${assetKey}:`, metadata);
-    }
-
-    // Step 2: Price resolution (check cache first)
+    // Step 2: Check price cache first
     if (!ctx.bypassTopLevelCache) {
       logger.debug(`PricingEngine: Checking cache for price of ${assetKey} at ${ctx.atMs}`);
       const cached = await ctx.priceCache.get(assetKey, ctx.atMs, ctx.bucketMs);
@@ -128,7 +107,7 @@ export class PricingEngine {
       logger.debug('PricingEngine: Bypassing cache for price resolution (reprice)');
     }
 
-    // Step 3: Call handler to compute price
+    // Step 3: Compute price using handler
     let result: number;
     try {
       logger.debug(`PricingEngine: Looking up handler for ${feedConfig.kind}`);

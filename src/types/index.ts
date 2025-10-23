@@ -11,6 +11,3 @@ export type {
   AssetTypeHandler,
   // PriceFeedable, // deprecated
 } from './pricing.ts';
-
-// Adapter types
-export type { Adapter } from './adapter.ts';

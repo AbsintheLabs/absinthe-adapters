@@ -88,10 +88,9 @@ function normalizeMetadataValue(value: MetadataValue): NormalizedMetadataValue {
  * // Result includes metadata_json with Avro-formatted data
  * ```
  */
-export const addProtocolMetadata = <T extends { meta?: Record<string, MetadataValue> }>(): Enricher<
-  T,
-  T & ProtocolMetadataFields
-> => {
+export const addProtocolMetadata = <
+  T extends { meta: Record<string, MetadataValue> | null },
+>(): Enricher<T, T & ProtocolMetadataFields> => {
   return (item) => {
     // no-op when meta is absent or empty
     const meta = item.meta;

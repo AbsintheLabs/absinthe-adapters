@@ -4,7 +4,7 @@ export type Runtime = {
   // machine
   machineHostname: string;
   version: string;
-  commitSha?: string | null;
+  commitSha: string;
   apiKeyHash?: string | null;
   configHash: string;
 

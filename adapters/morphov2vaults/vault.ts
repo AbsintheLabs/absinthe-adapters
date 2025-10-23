@@ -1,4 +1,4 @@
-import { UnifiedEvmLog } from '../../src/types/unified-chain-events.ts';
+import { UnifiedEvmLog } from '../_shared/index.ts';
 import { EmitFunctions, SqdRpcCtx } from '../../src/types/adapter.ts';
 import type { InstanceFrom } from '../../src/types/manifest.ts';
 import type { manifest } from './index.ts';

@@ -1,14 +1,24 @@
 {
-  "name": "@absinthe/adapters",
+  "name": "@absinthelabs/adapters",
   "version": "0.0.1",
-  "private": true,
-  "main": "dist/main.js",
-  "types": "dist/main.d.ts",
+  "private": false,
   "type": "module",
+  "exports": {
+    "./schemas": {
+      "types": "./dist/src/schemas/index.d.ts",
+      "default": "./dist/src/schemas/index.js"
+    }
+  },
+  "files": [
+    "dist/src/schemas"
+  ],
   "scripts": {
     "build": "tsc",
     "build:watch": "tsc -w",
+    "build:docker": "docker build --rm --build-arg GIT_COMMIT_SHA_LONG=$(git rev-parse HEAD) -f src/Dockerfile -t yada:latest .",
+    "prepare": "pnpm --filter @absinthe/schemas build",
     "pretest": "pnpm build",
+    "prepublishOnly": "pnpm build",
     "test": "vitest run",
     "test:watch": "vitest",
     "prestart": "pnpm build",
@@ -20,9 +30,10 @@
     "migration:generate": "squid-typeorm-migration-generate",
     "migration:apply": "squid-typeorm-migration apply",
     "lint-staged": "lint-staged",
-    "migration": "pnpm build && pnpm migration:clean && pnpm migration:generate && pnpm migration:apply"
+    "migration": "pnpm build && pnpm migration:clean && pnpm migration:generate && pnpm migration:apply",
+    "export-schemas": "pnpm build && node dist/src/scripts/export-adapter-metadata.js"
   },
-  "packageManager": "pnpm@10.16.0",
+  "packageManager": "pnpm@10.19.0+sha512.c9fc7236e92adf5c8af42fd5bf1612df99c2ceb62f27047032f4720b33f8eacdde311865e91c411f2774f618d82f320808ecb51718bfa82c060c4ba7c76a32b8",
   "dependencies": {
     "@fast-csv/format": "^5.0.5",
     "@subsquid/borsh": "^0.3.0",

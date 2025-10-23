@@ -4,7 +4,7 @@ import { addProtocolMetadata } from '../base/add-protocol-metadata.ts';
 import { addActionEventType } from '../base/add-event-type.ts';
 import { addChainMetadata } from '../base/add-chain-metadata.ts';
 import { addRawActionFields } from '../base/add-raw-action-fields.ts';
-import { addBaseEventIdForAction } from '../base/add-base-event-id.ts';
+import { addEventIdForAction } from '../base/add-base-event-id.ts';
 import { stringifyCtx } from '../base/stringify-ctx.ts';
 import { enrichAssetMetadataConditional } from '../pricing/asset-metadata.ts';
 import { addDenomination } from '../pricing/quantity-basis.ts';
@@ -45,12 +45,13 @@ export const actionPipeline = () =>
     .pipe(addProtocolMetadata())
     .pipe(addAdapterProtocolInfo())
     // backwards compatibility: base_eventId (must run before stringifyCtx to read ctx.logIndex)
-    .pipe(addBaseEventIdForAction())
+    .pipe(addEventIdForAction())
     // stringify ctx for database compatibility (after base_eventId which needs to read ctx)
     .pipe(stringifyCtx())
     // pricing (asset metadata, quantity basis, calculate quantity)
     .pipe(enrichAssetMetadataConditional())
     .pipe(addDenomination())
     .pipe(calculateActionQuantity())
-    // validate and pick shape
+    // assert, validate, and pick shape
+    // DO NOT REMOVE THESE 2 STEPS! THEY ARE ESSENTIAL FOR TYPE SAFETY!
     .pipe(validateAndPickShape(EnrichedActionSchema));

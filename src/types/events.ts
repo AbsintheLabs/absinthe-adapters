@@ -1,17 +1,21 @@
 // Asset information interface
 import { z } from 'zod';
-import { ChainArchSchema } from '../config/schema.ts';
-import { DenominationSchema, MeasurementTypeSchema } from './manifest.ts';
-import { WINDOW_REASONS } from './adapter.ts';
-import { AssetEnum } from './asset.ts';
+// import { ChainArchSchema } from '../config/schema.ts';
+// // import { DenominationSchema, MeasurementTypeSchema } from './manifest.ts';
+// // import { POSITION_REASONS } from './adapter.ts';
+// // import { AssetEnum } from './asset.ts';
 
-export interface RunnerMeta {
-  version: string; // schema version
-  commit_sha?: string; // commit hash of the runner
-  config_hash?: string; // hash of the runner config
-  runner_id: string;
-  api_key_hash?: string;
-}
+export const ChainArchSchema = z.enum(['evm', 'solana']);
+export const MeasurementTypeSchema = z.enum(['token_based', 'count', 'none']);
+export const DenominationSchema = z.enum(['usd', /*'raw_token',*/ 'scaled_token', 'none']); // 'raw_token' is deprecated
+export const POSITION_REASONS = [
+  'BALANCE_CHANGED',
+  'POSITION_REVALUED',
+  'POSITION_DEACTIVATED',
+  'PERIOD_ELAPSED',
+  'INDEXER_STOPPED',
+] as const;
+export const AssetEnum = z.enum(['erc20', 'erc721', 'spl', 'custom']);
 
 export const CommonFieldsSchema = z.object({
   runner_commit_sha: z.string(),
@@ -34,10 +38,10 @@ export const CommonFieldsSchema = z.object({
   // Added by calculateQuantity
   quantity: z.number(),
   activity: z.string(), // Activity is a union with string fallback
-  trackable_instance_id: z.string().default('unknown-need-to-fix'),
+  trackable_instance_id: z.string(),
 
   // Added by addBaseEventId (backwards compatibility)
-  base_eventId: z.string(),
+  event_id: z.string(),
 });
 
 export const AssetFieldsSchema = z.object({
@@ -54,7 +58,7 @@ export const AssetFieldsSchemaOptional = z.object({
   asset_type: AssetEnum.nullable(),
 });
 
-export const EnrichedWindowSchema = z
+export const EnrichedPositionSchema = z
   .object({
     user: z.string(),
     // asset: z.string(),
@@ -71,9 +75,9 @@ export const EnrichedWindowSchema = z
     // when exhausted, there is no end tx ref
     end_tx_ref: z.string().nullable(),
 
-    emit_cause: z.enum(WINDOW_REASONS),
+    emit_cause: z.enum(POSITION_REASONS),
 
-    // fixme: make this DRY rather than hardcoding the name of this here
+    // todo: make this DRY rather than hardcoding the name of this here
     topic_type: z.literal('position'),
 
     // raw position
@@ -86,11 +90,15 @@ export const EnrichedWindowSchema = z
 
     // Added by addProtocolMetadata
     metadata_json: z.string().nullable(),
+
+    // Context fields (stringified JSON, always present but nullable)
+    start_ctx_json: z.string().nullable(),
+    end_ctx_json: z.string().nullable(),
   })
   .extend(CommonFieldsSchema.shape)
   .extend(AssetFieldsSchema.shape); // required bc window is always a token_based
 
-export type EnrichedWindow = z.infer<typeof EnrichedWindowSchema>;
+export type EnrichedPosition = z.infer<typeof EnrichedPositionSchema>;
 /**
  * Zod schema for the final enriched action shape.
  * Single source of truth - both runtime validation and TypeScript type.
@@ -105,12 +113,12 @@ export const EnrichedActionSchema = z
     user: z.string(),
     ts_ms: z.number(),
     height: z.number(),
-    // value: z.string(),
     tx_ref: z.string(),
     pricing_handler_id: z.string().nullable(),
     ctx_json: z.string().nullable(), // JSON stringified object
 
     // Added by addActionEventType
+    // todo: make this DRY rather than hardcoding the name of this here
     topic_type: z.literal('action'),
 
     // Added by addProtocolMetadata

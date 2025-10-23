@@ -1,8 +1,8 @@
 // Swap handler for Uniswap V3
-import { UnifiedEvmLog } from '../../src/types/unified-chain-events.ts';
-import { EmitFunctions } from '../../src/types/adapter.ts';
+import { UnifiedEvmLog } from '../_shared/index.ts';
+import { EmitFunctions } from '../_shared/index.ts';
 import { md5Hash } from '../_shared/index.ts';
-import type { InstanceFrom } from '../../src/types/manifest.ts';
+import type { InstanceFrom } from '../_shared/index.ts';
 import type { manifest } from './index.ts';
 
 /*

@@ -5,8 +5,7 @@ import { z } from 'zod';
 import { Redis } from 'ioredis';
 import { EmitFunctions, SqdRpcCtx, CustomFeedHandlers } from './types/adapter.ts';
 import { BaseProcessor } from './eprocessorBuilder.ts';
-import { UnifiedEvmLog, UnifiedEvmTransaction } from './types/unified-chain-events.ts';
-import { Manifest, ConfigFromManifest, AdapterMetadata } from './types/manifest.ts';
+import { UnifiedEvmLog, UnifiedEvmTransaction } from './transforms/evm.ts';
 
 // =============================================================================
 // CORE ENGINE TYPES

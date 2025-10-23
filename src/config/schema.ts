@@ -21,17 +21,17 @@ export type ChainArch = z.infer<typeof ChainArchSchema>;
 // });
 
 // Individual sink configuration schemas
-const CsvSinkSchema = z.object({
+export const CsvSinkSchema = z.object({
   sinkType: z.literal('csv'),
   path: z.string().min(1, 'CSV path cannot be empty'),
 });
 
-const StdoutSinkSchema = z.object({
+export const StdoutSinkSchema = z.object({
   sinkType: z.literal('stdout'),
   json: z.boolean().optional().default(false),
 });
 
-const AbsintheSinkSchema = z.object({
+export const AbsintheSinkSchema = z.object({
   sinkType: z.literal('absinthe'),
   url: z
     .string()
@@ -44,14 +44,14 @@ const AbsintheSinkSchema = z.object({
 });
 
 // Single sink configuration (backwards compatibility)
-const SingleSinkSchema = z.discriminatedUnion('sinkType', [
+export const SingleSinkSchema = z.discriminatedUnion('sinkType', [
   CsvSinkSchema,
   StdoutSinkSchema,
   AbsintheSinkSchema,
 ]);
 
 // Multiple sinks configuration
-const MultipleSinksSchema = z.object({
+export const MultipleSinksSchema = z.object({
   sinks: z.array(SingleSinkSchema).min(1, 'At least one sink must be configured'),
 });
 
@@ -71,6 +71,7 @@ const PricingRange = z.discriminatedUnion('type', [
 ]);
 
 const Common = z.object({
+  fullEventContext: z.boolean().optional().default(false),
   flushInterval: durationHumanToMs().describe(
     'Human duration: "1h", "90m", "1:30:00" NOT supported (only single-unit), "3600s", "1000ms". Min 1h.',
   ),
@@ -81,7 +82,7 @@ const Common = z.object({
   }),
   sinkConfig: SinkConfigSchema.default({
     sinkType: 'csv',
-    path: 'windows.csv',
+    path: 'positions.csv',
   }),
   // assetFeedConfig: FeedSchema.optional().default([]),
   adapterConfig: z.object({
@@ -174,6 +175,13 @@ const SolanaCfg = z.object({
 export const AppConfig = EvmCfg.merge(Common);
 // .extend(AssetFeedConfig);
 export type AppConfig = z.infer<typeof AppConfig>;
+
+// Export sink config types for type-safe usage in sink factory
+export type CsvSinkConfig = z.infer<typeof CsvSinkSchema>;
+export type StdoutSinkConfig = z.infer<typeof StdoutSinkSchema>;
+export type AbsintheSinkConfig = z.infer<typeof AbsintheSinkSchema>;
+export type SingleSinkConfig = z.infer<typeof SingleSinkSchema>;
+export type MultipleSinksConfig = z.infer<typeof MultipleSinksSchema>;
 
 // export type AssetConfig = z.infer<typeof AssetConfig>;
 export type SinkConfig = z.infer<typeof SinkConfigSchema>;

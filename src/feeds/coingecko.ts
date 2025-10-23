@@ -14,6 +14,11 @@ import { z } from 'zod';
 export const coingeckoFeed = defineFeedHandler({
   name: 'coingecko',
   acceptsAssetType: 'any',
+  manifest: {
+    requiredEnvVars: {
+      COINGECKO_API_KEY: z.string().startsWith('CG-').min(1).describe('CoinGecko API key'),
+    },
+  },
   configSchema: z.object({
     id: z.string().describe('CoinGecko coin ID (e.g., "ethereum", "solana")'),
   }),
@@ -26,7 +31,6 @@ export const coingeckoFeed = defineFeedHandler({
         .toString()
         .padStart(2, '0')}-${d.getFullYear()}`;
 
-      // TODO: This should come from the config / env object once we get to this
       const apiKey = process.env.COINGECKO_API_KEY;
 
       const url = `https://pro-api.coingecko.com/api/v3/coins/${coingeckoId}/history`;

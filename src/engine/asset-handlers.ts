@@ -5,12 +5,13 @@ import { ResolveContext } from '../types/pricing.ts';
 import * as erc20Abi from '../abi/erc20.ts';
 import { Asset, AssetOfType } from '../types/asset.ts';
 import { AssetMetadata } from '../types/index.ts';
+import { SqdRpcCtx } from '../types/adapter.ts';
 
 // Handlers
 export const erc20Handler: AssetTypeHandler<'erc20'> = {
-  getMetadata: async (asset: AssetOfType<'erc20'>, ctx: ResolveContext) => {
+  getMetadata: async (asset: AssetOfType<'erc20'>, ctx: SqdRpcCtx) => {
     const erc20Contract = new erc20Abi.Contract(
-      { _chain: ctx.sqdCtx._chain, block: { height: ctx.block.header.height } },
+      { _chain: ctx._chain, block: { height: ctx.block.height } },
       asset.address,
     );
     const decimals = await erc20Contract.decimals();
@@ -44,7 +45,7 @@ export const splHandler: AssetTypeHandler<'spl'> = {
 /**
  * Type-safe metadata fetcher
  */
-export async function getAssetMetadata(asset: Asset, ctx: ResolveContext): Promise<AssetMetadata> {
+export async function getAssetMetadata(asset: Asset, ctx: SqdRpcCtx): Promise<AssetMetadata> {
   switch (asset.type) {
     case 'erc20':
       return await erc20Handler.getMetadata(asset, ctx);

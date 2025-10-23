@@ -1,9 +1,11 @@
 // config/load.ts
 import { readFileSync, existsSync } from 'fs';
 import { join, isAbsolute } from 'path';
+import { z } from 'zod';
 import { AppConfig } from './schema.ts';
 import { interpolateStrict } from './secret-interpolate.ts';
 import { EnvSecretSource } from './secret-source.ts';
+import { formatZodError } from '../utils/zod-error.ts';
 
 /**
  * Interpolate ${env:VAR_NAME} tokens inside an arbitrary JSON-like object.
@@ -13,7 +15,16 @@ import { EnvSecretSource } from './secret-source.ts';
 async function resolveAndValidate(raw: unknown) {
   const interpolated = await interpolateStrict(raw, { env: new EnvSecretSource() });
   // Zod validation after secrets are in place
-  return AppConfig.parse(interpolated);
+  try {
+    return AppConfig.parse(interpolated);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      throw new Error(`Failed to validate config:\n${formatZodError(error)}`);
+    }
+    throw new Error(
+      `Failed to validate config: ${error instanceof Error ? error.message : 'Unknown error'}`,
+    );
+  }
 }
 
 // todo: change order so it pulls from env url first, then file
@@ -22,15 +33,9 @@ export async function loadConfig(filename?: string) {
   if (filename) {
     const explicitConfigPath = isAbsolute(filename) ? filename : join(process.cwd(), filename);
     if (existsSync(explicitConfigPath)) {
-      try {
-        const configContent = readFileSync(explicitConfigPath, 'utf-8');
-        const configData = JSON.parse(configContent);
-        return await resolveAndValidate(configData);
-      } catch (error) {
-        throw new Error(
-          `Failed to load ${filename}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        );
-      }
+      const configContent = readFileSync(explicitConfigPath, 'utf-8');
+      const configData = JSON.parse(configContent);
+      return await resolveAndValidate(configData);
     }
     // If explicit filename provided but doesn't exist, continue to fallback options
   }

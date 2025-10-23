@@ -1,10 +1,10 @@
 // Swap handler for Uniswap V2
 import Big from 'big.js';
-import { UnifiedEvmLog } from '../../src/types/unified-chain-events.ts';
-import { EmitFunctions } from '../../src/types/adapter.ts';
+import { UnifiedEvmLog } from '../_shared/index.ts';
+import { EmitFunctions } from '../_shared/index.ts';
 import * as univ2Abi from './abi/uniswap-v2.ts';
 import { md5Hash } from '../_shared/index.ts';
-import type { InstanceFrom } from '../../src/types/manifest.ts';
+import type { InstanceFrom } from '../_shared/index.ts';
 import type { manifest } from './index.ts';
 
 /*

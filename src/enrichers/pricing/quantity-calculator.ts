@@ -54,7 +54,7 @@ const baseCalculators: Record<MeasurementType, BaseQuantityCalculator> = {
 type BasisModifier = (
   quantity: Big,
   ctx: EnrichmentContext,
-  asset: Asset | undefined,
+  asset: Asset | null,
   ts: number,
   user: string,
 ) => Promise<Big>;
@@ -151,8 +151,8 @@ export const calculateActionQuantity = <
     measurement_type: MeasurementType;
     denomination: Denomination;
     value: string;
-    asset?: Asset;
-    decimals?: number;
+    asset: Asset | null;
+    decimals: number | null;
     ts_ms: number;
     user: string;
   },

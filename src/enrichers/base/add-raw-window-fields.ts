@@ -1,15 +1,15 @@
 // enrichers/base/add-raw-window-fields.ts
 import { Enricher } from '../core.ts';
-import { RawWindow } from '../../types/enrichment.ts';
-import { MeasurementType } from '../../types/manifest.ts';
+import { RawPosition } from '../../types/enrichment.ts';
 import { Activity } from '../../types/core.ts';
-import { WindowReason } from '../../types/adapter.ts';
+import { PositionReason } from '../../types/adapter.ts';
 
-type RawWindowSnakeCaseFields = {
-  measurement_type: MeasurementType;
+type RawPositionSnakeCaseFields = {
+  measurement_type: 'token_based';
   activity: Activity;
-  emit_cause: WindowReason;
+  emit_cause: PositionReason;
   pricing_handler_id: string | null;
+  trackable_instance_id: string;
 };
 
 /**
@@ -17,9 +17,9 @@ type RawWindowSnakeCaseFields = {
  * This enricher ensures that fields from the engine (camelCase) are converted
  * to the snake_case format expected by the final schema.
  */
-export const addRawWindowFields = <T extends RawWindow>(): Enricher<
+export const addRawPositionFields = <T extends RawPosition>(): Enricher<
   T,
-  T & RawWindowSnakeCaseFields
+  T & RawPositionSnakeCaseFields
 > => {
   return (item) => {
     return {
@@ -28,6 +28,7 @@ export const addRawWindowFields = <T extends RawWindow>(): Enricher<
       activity: item.activity,
       emit_cause: item.trigger,
       pricing_handler_id: item.pricingHandlerId ?? null,
+      trackable_instance_id: item.trackableInstanceId,
     };
   };
 };

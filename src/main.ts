@@ -21,10 +21,9 @@ import { Engine } from './engine/engine.ts';
 import { loadAllAdapters } from './adapters/loader.ts';
 
 import { BaseProcessor } from './eprocessorBuilder.ts';
-import { md5Hash } from './utils/helper.ts';
 import { md5HashCanonical } from './utils/stable-hash.ts';
 import { setRuntime } from './runtime/context.ts';
-import { ABSINTHE_VERSION } from './version.ts';
+import { ABSINTHE_VERSION } from './constants.ts';
 import os from 'os';
 import { clearStateDir, clearRedisNamespace, deriveStateDirFromHash } from './utils/state-reset.ts';
 import { getChainShortName } from './utils/chain-utils.ts';
@@ -62,7 +61,13 @@ async function main() {
   const hostname = os.hostname();
   const apiKey = process.env.ABSINTHE_API_KEY;
   const apiKeyHash = apiKey ? md5HashCanonical(apiKey, 8) : null;
-  const commitSha = GIT_COMMIT_SHA_LONG ? GIT_COMMIT_SHA_LONG.slice(0, 8) : null;
+  const commitSha = GIT_COMMIT_SHA_LONG?.slice(0, 8) ?? null;
+
+  if (!commitSha) {
+    throw new Error(
+      'Commit SHA is not set. Please ensure the build is properly tagged or are running a local build.',
+    );
+  }
 
   setRuntime({
     version: ABSINTHE_VERSION,

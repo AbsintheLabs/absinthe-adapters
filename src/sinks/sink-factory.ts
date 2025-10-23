@@ -1,5 +1,11 @@
 import path from 'node:path';
-import { SinkConfig } from '../config/schema.ts';
+import {
+  SinkConfig,
+  SingleSinkConfig,
+  CsvSinkConfig,
+  StdoutSinkConfig,
+  AbsintheSinkConfig,
+} from '../config/schema.ts';
 import { CsvDualSink } from './csv-dual-sink.ts';
 import { StdoutSink } from './stdout-sink.ts';
 import { CompositeSink } from './composite-sink.ts';
@@ -27,11 +33,12 @@ export class SinkFactory {
     }
   }
 
-  // fixme: remove all the (cfg as any) casts for better type safety
-  private static createSingleSink(cfg: Extract<SinkConfig, { sinkType: string }>): Sink {
+  private static createSingleSink(cfg: SingleSinkConfig): Sink {
     switch (cfg.sinkType) {
       case 'csv': {
-        const cfgPath = (cfg as any).path ?? 'absinthe';
+        // Type narrowing: cfg is now CsvSinkConfig
+        const csvCfg = cfg;
+        const cfgPath = csvCfg.path ?? 'absinthe';
         const { configHash } = getRuntime(); // already set in main()
         // Use directory of cfg.path as base; put per-run outputs under _runs/<hash>/<timestamp>-pid/
         const dir = path.dirname(cfgPath) === '.' ? process.cwd() : path.dirname(cfgPath);
@@ -39,17 +46,26 @@ export class SinkFactory {
         const baseName = path.parse(cfgPath).base; // keep name influence
         return new CsvDualSink(baseName, runDir);
       }
-      case 'stdout':
+      case 'stdout': {
+        // Type narrowing: cfg is now StdoutSinkConfig
+        // Currently StdoutSink doesn't use any config, but this ensures type safety
         return new StdoutSink();
-      case 'absinthe':
+      }
+      case 'absinthe': {
+        // Type narrowing: cfg is now AbsintheSinkConfig
+        const absintheCfg = cfg;
         return new AbsintheSink({
-          url: (cfg as any).url,
-          apiKey: (cfg as any).apiKey,
-          rateLimit: (cfg as any).rateLimit,
-          batchSize: (cfg as any).batchSize,
+          url: absintheCfg.url,
+          apiKey: absintheCfg.apiKey,
+          rateLimit: absintheCfg.rateLimit,
+          batchSize: absintheCfg.batchSize,
         });
-      default:
-        throw new Error(`Unknown sink kind: ${(cfg as any).sinkType}`);
+      }
+      default: {
+        // Exhaustiveness check: TypeScript will error if we miss a case
+        const _exhaustive: never = cfg;
+        throw new Error(`Unknown sink kind: ${(_exhaustive as SingleSinkConfig).sinkType}`);
+      }
     }
   }
 }

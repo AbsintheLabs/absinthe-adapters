@@ -1,9 +1,115 @@
 import { Block, Log, Transaction } from '../eprocessorBuilder.ts';
-import { UnifiedEvmLog, UnifiedEvmTransaction } from '../types/unified-chain-events.ts';
 import { logger } from '../utils/logger.ts';
 import * as z from 'zod';
+import { formatZodError } from '../utils/zod-error.ts';
 
-// Zod schemas for validating SQD data structures
+// =============================================================================
+// UNIFIED EVM TYPES (defined once in Zod)
+// =============================================================================
+
+/**
+ * UnifiedEvmLog schema - validates and transforms SQD log data to our unified format.
+ * All fields are JSON-serializable (no BigInt, Date, etc).
+ */
+export const UnifiedEvmLogSchema = z.object({
+  // UnifiedBase fields
+  tsMs: z.number(),
+  height: z.number(),
+  txRef: z.string(),
+
+  // Event identification
+  address: z.string(),
+  topic0: z.string(),
+  topics: z.array(z.string()),
+  data: z.string(),
+
+  // Position in block
+  logIndex: z.number(),
+
+  // Chain context
+  chainId: z.number(),
+
+  // Transaction context
+  transactionFrom: z.string(),
+  transactionTo: z.string().nullable(),
+  gasUsed: z.string(),
+  effectiveGasPrice: z.string(),
+});
+
+/**
+ * UnifiedEvmTransaction schema - validates and transforms SQD transaction data to our unified format.
+ * All fields are JSON-serializable (no BigInt, Date, etc).
+ */
+export const UnifiedEvmTransactionSchema = z.object({
+  // UnifiedBase fields
+  tsMs: z.number(),
+  height: z.number(),
+  txRef: z.string(),
+
+  // Transaction data
+  transactionFrom: z.string(),
+  transactionTo: z.string().nullable(),
+  value: z.string(),
+  input: z.string(),
+
+  // Position in block
+  transactionIndex: z.number(),
+
+  // Chain context
+  chainId: z.number(),
+
+  // Gas and status
+  gasUsed: z.string(),
+  effectiveGasPrice: z.string(),
+  status: z.number().optional(),
+});
+
+// Infer TypeScript types from Zod schemas
+export type UnifiedEvmLog = z.infer<typeof UnifiedEvmLogSchema>;
+export type UnifiedEvmTransaction = z.infer<typeof UnifiedEvmTransactionSchema>;
+
+// =============================================================================
+// FILTER FUNCTIONS - simple functions, no registry
+// =============================================================================
+
+/**
+ * Returns a filtered subset of UnifiedEvmLog suitable for compact storage/display.
+ * Includes UnifiedBase fields + key identifiers.
+ */
+export function filterEvmLog(data: UnifiedEvmLog) {
+  return {
+    tsMs: data.tsMs,
+    height: data.height,
+    txRef: data.txRef,
+    address: data.address,
+    logIndex: data.logIndex,
+    transactionFrom: data.transactionFrom,
+    transactionTo: data.transactionTo,
+  };
+}
+
+/**
+ * Returns a filtered subset of UnifiedEvmTransaction suitable for compact storage/display.
+ * Includes UnifiedBase fields + key transaction data.
+ */
+export function filterEvmTransaction(data: UnifiedEvmTransaction) {
+  return {
+    tsMs: data.tsMs,
+    height: data.height,
+    txRef: data.txRef,
+    transactionFrom: data.transactionFrom,
+    transactionTo: data.transactionTo,
+    value: data.value,
+    gasUsed: data.gasUsed,
+    effectiveGasPrice: data.effectiveGasPrice,
+    transactionIndex: data.transactionIndex,
+  };
+}
+
+// =============================================================================
+// SQD DATA VALIDATION SCHEMAS (for input validation only)
+// =============================================================================
+
 const BlockHeaderSchema = z.object({
   height: z.number(),
   hash: z.string(),
@@ -57,16 +163,6 @@ const TransactionSchema = z.object({
     .transform((val) => (typeof val === 'bigint' ? val.toString() : val)),
   status: z.number().optional(),
 });
-
-function formatZodError(error: z.ZodError, context: Record<string, unknown>): string {
-  const prettyError = z.prettifyError(error);
-  const contextStr = JSON.stringify(
-    context,
-    (key, value) => (typeof value === 'bigint' ? value.toString() : value),
-    2,
-  );
-  return `${prettyError}\n\nContext: ${contextStr}`;
-}
 
 export function transformSqdLogToUnified(block: Block, log: Log, chainId: number): UnifiedEvmLog {
   if (!log.transaction) {

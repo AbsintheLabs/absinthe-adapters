@@ -7,6 +7,9 @@
       {
         "sinkType": "csv",
         "path": "positions.csv"
+      },
+      {
+        "sinkType": "stdout"
       }
     ]
   },

@@ -1,62 +1,59 @@
-FROM node:24-slim AS base
+# Dockerfile (fixed - skip prestart hook in production)
+FROM node:20-slim AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
 
-# Copy workspace files needed for dependency resolution
+# Build argument for git commit hash
+ARG GIT_COMMIT_SHA_LONG
+ENV GIT_COMMIT_SHA_LONG=${GIT_COMMIT_SHA_LONG}
+
+# Dependencies stage
 FROM base AS deps
 WORKDIR /app
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
-COPY tsconfig.base.json ./
-COPY packages/common/package.json ./packages/common/
-COPY packages/common/tsconfig.json ./packages/common/
-COPY projects/ichi/package.json ./projects/ichi/
-COPY projects/ichi/tsconfig.json ./projects/ichi/
 
-# Install all dependencies (including workspace deps)
+# Copy only root package files
+COPY pnpm-lock.yaml package.json ./
+
+# Install dependencies
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --no-frozen-lockfile
 
-# Build stage - build common package and current project
+# Build stage
 FROM base AS build
 WORKDIR /app
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
-COPY tsconfig.base.json ./
-COPY packages/ ./packages/
-COPY projects/ichi/ ./projects/ichi/
 
-# Copy node_modules from deps stage
+# Copy source files
+COPY pnpm-lock.yaml package.json tsconfig.json ./
+COPY src/ ./src/
+COPY adapters/ ./adapters/
+
+# Copy node_modules
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/packages/common/node_modules ./packages/common/node_modules
-COPY --from=deps /app/projects/ichi/node_modules ./projects/ichi/node_modules
 
-# Build the common package first, then ichi
-WORKDIR /app
-RUN pnpm --filter @absinthe/common build
-RUN pnpm --filter @absinthe/ichi build
+# Build
+RUN pnpm build
 
 # Production stage
 FROM base AS production
 WORKDIR /app
 
-# Copy only production dependencies
+# Copy dependencies
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/packages/common/node_modules ./packages/common/node_modules
-COPY --from=deps /app/projects/ichi/node_modules ./projects/ichi/node_modules
 
-# Copy built artifacts
-COPY --from=build /app/packages/common/lib ./packages/common/lib
-COPY --from=build /app/packages/common/package.json ./packages/common/
-COPY --from=build /app/projects/ichi/lib ./projects/ichi/lib
-COPY --from=build /app/projects/ichi/package.json ./projects/ichi/
+# Copy built code
+COPY --from=build /app/dist ./dist
+COPY --from=build /app/package.json ./
 
-# Copy additional files needed at runtime
-COPY --from=build /app/projects/ichi/abi ./projects/ichi/abi
-COPY --from=build /app/projects/ichi/schema.graphql ./projects/ichi/schema.graphql
-COPY --from=build /app/projects/ichi/src ./projects/ichi/src
-COPY --from=build /app/projects/ichi/tsconfig.json ./projects/ichi/
-COPY --from=build /app/projects/ichi/db ./projects/ichi/db
+# Copy adapters (needed for configs)
+COPY --from=build /app/adapters ./adapters
 
-WORKDIR /app/projects/ichi
+# Copy src directory (needed for adapter imports at runtime)
+COPY --from=build /app/src ./src
 
-# Use exec form and proper exit handling
-CMD ["node", "lib/main.js"]
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD node --eval "process.exit(0)" || exit 1
+
+# Run directly with node (skip pnpm start to avoid prestart hook)
+# think of a better solution to this
+CMD ["node", "dist/src/main.js"]
