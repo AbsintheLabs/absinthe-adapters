@@ -5,7 +5,7 @@ import { addProtocolMetadata } from '../base/add-protocol-metadata.ts';
 import { addTWBEventType } from '../base/add-event-type.ts';
 import { addChainMetadata } from '../base/add-chain-metadata.ts';
 import { addRawPositionFields } from '../base/add-raw-window-fields.ts';
-import { addBaseEventIdForPosition } from '../base/add-base-event-id.ts';
+import { addEventIdForPosition } from '../base/add-base-event-id.ts';
 import { stringifyWindowCtx } from '../base/stringify-window-ctx.ts';
 import { enrichAssetMetadataForTokenBased } from '../pricing/asset-metadata.ts';
 import { Pipe, requireShape, validateAndPickShape } from '../core.ts';
@@ -34,7 +34,7 @@ export const positionsPipeline = () =>
     // windowing (start/end/before/after/delta)
     .pipe(addWindowing())
     // backwards compatibility: base_eventId
-    .pipe(addBaseEventIdForPosition())
+    .pipe(addEventIdForPosition())
     // stringify context for database compatibility
     .pipe(stringifyWindowCtx())
     // pricing

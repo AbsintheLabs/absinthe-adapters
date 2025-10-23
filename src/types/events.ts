@@ -1,9 +1,21 @@
 // Asset information interface
 import { z } from 'zod';
-import { ChainArchSchema } from '../config/schema.ts';
-import { DenominationSchema, MeasurementTypeSchema } from './manifest.ts';
-import { POSITION_REASONS } from './adapter.ts';
-import { AssetEnum } from './asset.ts';
+// import { ChainArchSchema } from '../config/schema.ts';
+// // import { DenominationSchema, MeasurementTypeSchema } from './manifest.ts';
+// // import { POSITION_REASONS } from './adapter.ts';
+// // import { AssetEnum } from './asset.ts';
+
+export const ChainArchSchema = z.enum(['evm', 'solana']);
+export const MeasurementTypeSchema = z.enum(['token_based', 'count', 'none']);
+export const DenominationSchema = z.enum(['usd', /*'raw_token',*/ 'scaled_token', 'none']); // 'raw_token' is deprecated
+export const POSITION_REASONS = [
+  'BALANCE_CHANGED',
+  'POSITION_REVALUED',
+  'POSITION_DEACTIVATED',
+  'PERIOD_ELAPSED',
+  'INDEXER_STOPPED',
+] as const;
+export const AssetEnum = z.enum(['erc20', 'erc721', 'spl', 'custom']);
 
 export const CommonFieldsSchema = z.object({
   runner_commit_sha: z.string(),
@@ -29,7 +41,7 @@ export const CommonFieldsSchema = z.object({
   trackable_instance_id: z.string(),
 
   // Added by addBaseEventId (backwards compatibility)
-  base_eventId: z.string(),
+  event_id: z.string(),
 });
 
 export const AssetFieldsSchema = z.object({

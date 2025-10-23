@@ -1,10 +1,9 @@
-// enrichers/base/add-base-event-id.ts
-import { Enricher } from '../core.ts';
 import { md5HashCanonical } from '../../utils/stable-hash.ts';
 import { getRuntime } from '../../runtime/context.ts';
+import { Enricher } from '../core.ts';
 
-type BaseEventIdField = {
-  base_eventId: string;
+type EventIdField = {
+  event_id: string;
 };
 
 /**
@@ -52,10 +51,7 @@ type WindowFields = {
  * Enricher for adding base_eventId to actions.
  * Hashes chainId, user, ts, txRef, logIndex (optional), apiKeyHash (optional), and trackableInstanceId.
  */
-export const addBaseEventIdForAction = <T extends ActionFields>(): Enricher<
-  T,
-  T & BaseEventIdField
-> => {
+export const addEventIdForAction = <T extends ActionFields>(): Enricher<T, T & EventIdField> => {
   return (item) => {
     const { chainId, apiKeyHash } = getRuntime();
 
@@ -77,11 +73,11 @@ export const addBaseEventIdForAction = <T extends ActionFields>(): Enricher<
       hashInput.absintheApiKeyHash = apiKeyHash;
     }
 
-    const base_eventId = md5HashCanonical(hashInput, 8);
+    const event_id = md5HashCanonical(hashInput, 8);
 
     return {
       ...item,
-      base_eventId,
+      event_id,
     };
   };
 };
@@ -90,10 +86,7 @@ export const addBaseEventIdForAction = <T extends ActionFields>(): Enricher<
  * Enricher for adding base_eventId to windows.
  * Hashes chainId, user, startTs, endTs, apiKeyHash (optional), and trackableInstanceId.
  */
-export const addBaseEventIdForPosition = <T extends WindowFields>(): Enricher<
-  T,
-  T & BaseEventIdField
-> => {
+export const addEventIdForPosition = <T extends WindowFields>(): Enricher<T, T & EventIdField> => {
   return (item) => {
     const { chainId, apiKeyHash } = getRuntime();
 
@@ -110,11 +103,11 @@ export const addBaseEventIdForPosition = <T extends WindowFields>(): Enricher<
       hashInput.absintheApiKeyHash = apiKeyHash;
     }
 
-    const base_eventId = md5HashCanonical(hashInput, 8);
+    const event_id = md5HashCanonical(hashInput, 8);
 
     return {
       ...item,
-      base_eventId,
+      event_id,
     };
   };
 };
