@@ -21,6 +21,7 @@ const envSchema = z.object({
   ABSINTHE_API_URL: z.string().url('ABSINTHE_API_URL must be a valid URL'),
   ABSINTHE_API_KEY: z.string().min(1, 'ABSINTHE_API_KEY is required'),
   COINGECKO_API_KEY: z.string().min(1, 'COINGECKO_API_KEY is required'),
+  VERSION: z.string().min(1, 'VERSION is required'),
 });
 
 const protocolConfigSchema = z.object({

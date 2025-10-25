@@ -21,8 +21,9 @@ import {
   ZebuClientConfigWithChain,
 } from '../../types/interfaces/protocols';
 import { ChainId, Currency, MessageType, ProtocolType, TimeWindowTrigger } from '../../types/enums';
-import { VERSION, ZERO_ADDRESS } from '../consts';
+import { ZERO_ADDRESS } from '../consts';
 import { logger } from '../logger';
+import { validateEnv } from '../validateEnv';
 
 function toTimeWeightedBalance(
   historyWindows: HistoryWindow[],
@@ -34,14 +35,15 @@ function toTimeWeightedBalance(
   env: ValidatedEnvBase,
   chainConfig: Chain,
 ): TimeWeightedBalanceEvent[] {
+  const validatedEnv = validateEnv();
   return historyWindows.map((e) => {
-    const eventIdComponents = `${chainConfig.networkId}-${e.userAddress}-${e.startTs}-${e.endTs}-${e.windowDurationMs}-${env.absintheApiKey}-${e.type || ''}`;
+    const eventIdComponents = `${chainConfig.networkId}-${e.userAddress}-${e.startTs}-${e.endTs}-${e.windowDurationMs}-${env.absintheApiKey}-${validatedEnv.version}-${e.type || ''}`;
     const hash = createHash('md5').update(eventIdComponents).digest('hex').slice(0, 8);
 
     const apiKeyHash = createHash('md5').update(env.absintheApiKey).digest('hex').slice(0, 8);
 
     const baseSchema = {
-      version: VERSION,
+      version: validatedEnv.version,
       eventId: hash,
       userId: e.userAddress,
       chain: chainConfig,
@@ -89,13 +91,14 @@ function toTransaction(
   env: ValidatedEnvBase,
   chainConfig: Chain,
 ): TransactionEvent[] {
+  const validatedEnv = validateEnv();
   return transactions.map((e) => {
-    const hashMessage = `${chainConfig.networkId}-${e.txHash}-${e.userId}-${e.logIndex}-${env.absintheApiKey}`;
+    const hashMessage = `${chainConfig.networkId}-${e.txHash}-${e.userId}-${e.logIndex}-${env.absintheApiKey}-${validatedEnv.version}`;
     const hash = createHash('md5').update(hashMessage).digest('hex').slice(0, 8);
 
     const apiKeyHash = createHash('md5').update(env.absintheApiKey).digest('hex').slice(0, 8);
     const baseSchema = {
-      version: VERSION,
+      version: validatedEnv.version,
       eventId: hash,
       userId: e.userId,
       chain: chainConfig,
