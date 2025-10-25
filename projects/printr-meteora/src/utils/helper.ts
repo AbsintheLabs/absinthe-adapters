@@ -1,5 +1,20 @@
 import { PublicKey } from '@solana/web3.js';
 import { TOKEN_MINT_DETAILS } from './consts';
+import {
+  Chain,
+  HelperProtocolConfig,
+  MessageType,
+  ProtocolConfig,
+  ProtocolType,
+  Transaction,
+  TransactionEvent,
+  ValidatedEnvBase,
+  ValidatedStakingProtocolConfig,
+  ValidatedTxnTrackingProtocolConfig,
+  ZebuClientConfigWithChain,
+} from '@absinthe/common';
+import { validateEnv } from './validateEnv';
+import { createHash } from 'crypto';
 
 async function getMintFromTokenAccount(
   tokenAccountAddress: string,
@@ -80,9 +95,64 @@ async function toBuffer(maybe: any): Promise<Buffer> {
   return Buffer.alloc(0);
 }
 
+function toTransaction(
+  transactions: Transaction[],
+  protocol:
+    | ProtocolConfig
+    | ValidatedTxnTrackingProtocolConfig
+    | ValidatedStakingProtocolConfig
+    | HelperProtocolConfig
+    | (ZebuClientConfigWithChain & { type: ProtocolType }),
+  env: ValidatedEnvBase,
+  chainConfig: Chain,
+): TransactionEvent[] {
+  const validatedEnv = validateEnv();
+  return transactions.map((e) => {
+    const hashMessage = `${chainConfig.networkId}-${e.txHash}-${e.userId}-${e.logIndex}-${env.absintheApiKey}-${validatedEnv.version}`;
+    const hash = createHash('md5').update(hashMessage).digest('hex').slice(0, 8);
+
+    const apiKeyHash = createHash('md5').update(env.absintheApiKey).digest('hex').slice(0, 8);
+    const baseSchema = {
+      version: validatedEnv.version,
+      eventId: hash,
+      userId: e.userId,
+      chain: chainConfig,
+      contractAddress: protocol.contractAddress.toLowerCase(),
+      protocolName: protocol.name.toLowerCase(),
+      protocolType: protocol.type.toLowerCase(),
+      runner: {
+        runnerId: 'uniswapv2_indexer_001', //todo: get the current PID/ docker-containerId
+        apiKeyHash,
+      },
+      protocolMetadata: e.tokens,
+      currency: e.currency,
+      valueUsd: e.valueUsd ?? 0.0,
+    };
+
+    const currentTime = Date.now();
+
+    return {
+      base: baseSchema,
+      eventType: MessageType.TRANSACTION,
+      indexedTimeMs: currentTime,
+      eventName: e.eventName,
+      rawAmount: e.rawAmount,
+      displayAmount: e.displayAmount ?? 0.0,
+      unixTimestampMs: e.unixTimestampMs,
+      txHash: e.txHash,
+      logIndex: e.logIndex,
+      blockNumber: e.blockNumber,
+      blockHash: e.blockHash,
+      gasUsed: e.gasUsed ?? 0.0,
+      gasFeeUsd: e.gasFeeUsd ?? 0.0,
+    };
+  });
+}
+
 export {
   getMintFromTokenAccount,
   fetchCoingeckoIdFromTokenMint,
   getOwnerFromTokenAccount,
   toBuffer,
+  toTransaction,
 };

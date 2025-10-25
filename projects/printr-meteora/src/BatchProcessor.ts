@@ -3,7 +3,6 @@ import {
   AbsintheApiClient,
   Chain,
   ValidatedEnvBase,
-  toTransaction,
   logger,
   PriceFeed,
   TokenPreference,
@@ -11,6 +10,7 @@ import {
   MessageType,
   Currency,
 } from '@absinthe/common';
+import { toTransaction } from './utils/helper';
 import * as printrAbi from './abi/T8HsGYv7sMk3kTnyaRqZrbRPuntYzdh12evXBkprint';
 import { processor } from './processor';
 import { createHash } from 'crypto';
@@ -21,7 +21,6 @@ import { augmentBlock } from '@subsquid/solana-objects';
 
 import { processSwapInstructions } from './mappings/swapInstructions';
 import { Connection } from '@solana/web3.js';
-import { CreatePrintrDbcEvent2 } from './utils/types';
 import { DAMM_PROGRAM_ID, DBC_PROGRAM_ID } from './utils/consts';
 import { Src } from '@subsquid/borsh';
 import { decodeDammV2SelfCpiLog } from './utils/decoder/damm';
@@ -350,7 +349,7 @@ export class PrintrMeteoraProcessor {
         this.chainConfig,
       );
 
-      console.log('transactions', JSON.stringify(transactions, null, 2));
+      logger.info('transactions', JSON.stringify(transactions, null, 2));
 
       await this.apiClient.send(transactions);
     }

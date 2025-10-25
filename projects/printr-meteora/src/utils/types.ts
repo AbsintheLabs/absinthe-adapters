@@ -60,6 +60,7 @@ interface PrintrMeteoraProtocol {
 interface ValidatedEnv {
   baseConfig: ValidatedEnvBase;
   printrMeteoraProtocol: PrintrMeteoraProtocol;
+  version: string;
 }
 
 // New types for the modular architecture

@@ -87,6 +87,7 @@ export function validateEnv(): ValidatedEnv {
     return {
       baseConfig,
       printrMeteoraProtocol,
+      version: envResult.data.VERSION,
     };
   } catch (error) {
     if (error instanceof Error) {
