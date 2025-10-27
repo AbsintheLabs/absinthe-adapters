@@ -360,7 +360,7 @@ export class Engine {
    * This allows multiple assets to share the same pricing strategy.
    */
   private async registerAssetForPricing(
-    // trackableInstanceId: string,
+    trackableInstanceId: string,
     asset: Asset,
     feedConfig: Feed,
   ): Promise<void> {
@@ -373,6 +373,11 @@ export class Engine {
     // Also add to the asset registry set for fast lookup
     const assetRegistrySet = 'pricing:assets:registry';
     await this.redis.sadd(assetRegistrySet, priceKey);
+
+    if (trackableInstanceId) {
+      const trackableRegistryKey = `pricing:assets:${trackableInstanceId}`;
+      await this.redis.hset(trackableRegistryKey, assetKey, priceKey);
+    }
   }
 
   private async applyAction<T extends UnifiedBase>(e: ActionEvent, d: T): Promise<void> {
@@ -392,7 +397,7 @@ export class Engine {
 
       // Register this specific asset for this trackable instance
       const priceFeed = e.trackableInstance.pricing;
-      await this.registerAssetForPricing(asset, priceFeed);
+      await this.registerAssetForPricing(trackableInstanceId, asset, priceFeed);
 
       // Compute pricing handler ID using the centralized helper
       pricingHandlerId = this.computePricingHandlerId(asset, e.trackableInstance) ?? undefined;
@@ -484,7 +489,7 @@ export class Engine {
     let pricingHandlerId: string | null = null;
     if (ti.pricing !== undefined) {
       const priceFeed = ti.pricing;
-      await this.registerAssetForPricing(e.asset, priceFeed);
+      await this.registerAssetForPricing(trackableInstanceId, e.asset, priceFeed);
 
       // Compute pricing handler ID using the centralized helper
       pricingHandlerId = this.computePricingHandlerId(e.asset, ti);
@@ -741,14 +746,15 @@ export class Engine {
     // Reprice each asset registered for this trackable instance
     for (const [assetKey, pricingHandlerId] of Object.entries(assetToPricingHandler)) {
       logger.debug(`applyReprice for asset ${assetKey}: handler ${pricingHandlerId}, ts ${ts}`);
-
       try {
         await pricePricingHandler(
           // pricingHandlerId,
           e.trackableInstance.pricing,
           getAssetFromKey(assetKey), // Pass the specific asset as Asset object
           ts,
-          d,
+          {
+            header: d,
+          },
           {
             redis: this.redis,
             appCfg: this.appCfg,
@@ -765,6 +771,7 @@ export class Engine {
           `Failed to reprice asset ${assetKey} with handler ${pricingHandlerId}:`,
           error,
         );
+        console.error(error);
       }
     }
   }

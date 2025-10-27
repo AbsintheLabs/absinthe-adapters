@@ -85,7 +85,14 @@ export const FeedSchema = z.object({
 });
 // .loose();
 
-export type Feed = z.infer<typeof FeedSchema> & Record<string, unknown>;
+export const FeedSchemaCoingecko = z.object({
+  kind: z.literal('coingecko'),
+  id: z.string().describe('CoinGecko coin ID (e.g., "ethereum", "solana")'),
+});
+
+export type Feed =
+  | z.infer<typeof FeedSchema>
+  | (z.infer<typeof FeedSchemaCoingecko> & Record<string, unknown>);
 
 /**
  * Feed handler definition with type constraints

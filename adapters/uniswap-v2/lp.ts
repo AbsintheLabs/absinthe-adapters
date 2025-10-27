@@ -17,20 +17,30 @@ export async function handleLpTransfer(
     data: log.data,
   });
 
-  // Emit balance deltas for LP token transfers
-  await emitFns.position.balanceDelta({
-    user: decoded.from.toLowerCase(),
-    asset: { type: 'erc20', address: poolAddress },
-    amount: -decoded.value,
-    activity: 'hold',
-    trackableInstance: instance,
-  });
+  const fromAddress = decoded.from.toLowerCase();
+  const toAddress = decoded.to.toLowerCase();
+  const zeroAddress = '0x0000000000000000000000000000000000000000';
 
-  await emitFns.position.balanceDelta({
-    user: decoded.to.toLowerCase(),
-    asset: { type: 'erc20', address: poolAddress },
-    amount: decoded.value,
-    activity: 'hold',
-    trackableInstance: instance,
-  });
+  // Only emit if from/to are not zero address and not the pool address
+  if (fromAddress !== zeroAddress && fromAddress !== poolAddress.toLowerCase()) {
+    await emitFns.position.balanceDelta({
+      user: fromAddress,
+      asset: { type: 'erc20', address: poolAddress },
+      amount: -decoded.value,
+      activity: 'hold',
+      trackableInstance: instance,
+    });
+    await emitFns.position.reprice({ trackableInstance: instance });
+  }
+
+  if (toAddress !== zeroAddress && toAddress !== poolAddress.toLowerCase()) {
+    await emitFns.position.balanceDelta({
+      user: toAddress,
+      asset: { type: 'erc20', address: poolAddress },
+      amount: decoded.value,
+      activity: 'hold',
+      trackableInstance: instance,
+    });
+    await emitFns.position.reprice({ trackableInstance: instance });
+  }
 }

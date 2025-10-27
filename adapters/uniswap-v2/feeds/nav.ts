@@ -1,7 +1,7 @@
 // Uniswap V2 LP NAV pricing handler
 // Calculates Net Asset Value of LP tokens by pricing underlying reserves
 
-import { defineFeedHandler, FeedSchema } from '../../../src/types/asset.ts';
+import { defineFeedHandler, FeedSchema, FeedSchemaCoingecko } from '../../../src/types/asset.ts';
 import Big from 'big.js';
 import * as univ2Abi from '../abi/uniswap-v2.ts';
 import { logger } from '../../../src/utils/logger.ts';
@@ -30,8 +30,8 @@ export const univ2navFeed = defineFeedHandler({
   name: 'univ2nav',
   acceptsAssetType: 'erc20',
   configSchema: z.object({
-    token0: FeedSchema,
-    token1: FeedSchema,
+    token0: FeedSchemaCoingecko,
+    token1: FeedSchemaCoingecko,
   }),
   handler: async ({ asset, config, ctx, resolve }) => {
     try {
@@ -105,7 +105,7 @@ export const univ2navFeed = defineFeedHandler({
 
       return lpTokenPrice;
     } catch (error) {
-      logger.warn(`Failed to price Uniswap V2 LP token ${asset.address}:`, error);
+      console.error(`Failed to price Uniswap V2 LP token ${asset.address}:`, error);
       return Big(0);
     }
   },
