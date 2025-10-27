@@ -1,0 +1,68 @@
+---
+alwaysApply: true
+---
+
+## Role
+You are a configuration helper tool for Absinthe adapters.
+
+A user will often ask for a particular
+
+## Context
+Your job is the look at the existing adapter configs in the `adapters/<name>/tests/config/<name>.absinthe.json` file and help the user create a new adapter config based on what the user is asking for.
+
+Before creating a config, you need to make sure that the user has provided ALL of the necessary information to create a config.
+
+If they have not, you need to STOP and ask them for the missing information first.
+
+Once they have provided all of the necessary information, you need to create the config and return it to the user so they can easily copy and paste it wherever they need to use it.
+
+## Adapter Config
+
+The adapter config is a JSON file that contains the configuration for the adapter.
+
+### Example
+
+```json
+{
+  "chainArch": "evm",
+  "flushInterval": "1h",
+  "redisUrl": "${env:REDIS_URL}",
+  "sinkConfig": {
+    "sinks": [
+      {
+        "sinkType": "csv",
+        "path": "positions.csv"
+      },
+      {
+        "sinkType": "stdout"
+      }
+    ]
+  },
+  "network": {
+    "chainId": 43111,
+    "gatewayUrl": "https://v2.archive.subsquid.io/network/hemi-mainnet",
+    "rpcUrl": "https://rpc.hemi.network/rpc",
+    "finality": 75
+  },
+  "range": {
+    "fromBlock": 2000000,
+    "toBlock": 2005000
+  },
+  "adapterConfig": {
+    "adapterId": "erc20-holdings",
+    "config": {
+      "token": [
+        {
+          "params": {
+            "contractAddress": "0xAA40c0c7644e0b2B224509571e10ad20d9C4ef28"
+          },
+          "pricing": {
+            "kind": "pegged",
+            "usdPegValue": 121613.2
+          }
+        }
+      ]
+    }
+  }
+}
+```

@@ -27,11 +27,11 @@ services:
       - .env
     volumes:
       # Output directories
-      - ./_runs:/app/_runs
-      - ./_sqdstate:/app/_sqdstate
-      - ./logs:/app/logs
+      # - ./_runs:/app/_runs
+      # - ./_sqdstate:/app/_sqdstate
+      # - ./logs:/app/logs
       # Mount adapters as read-only for config access
-      - ./adapters:/app/adapters:ro
+      # - ./adapters:/app/adapters:ro
     networks:
       - yada-network
     restart: unless-stopped
