@@ -19,6 +19,7 @@ export interface TrackableInstanceMetadata {
   full_config: unknown;
   adapter_id: string;
   trackable_name: string;
+  trackable_config: unknown;
 }
 
 export interface SinkInitMetadata {

@@ -15,7 +15,10 @@ export class AbsintheSink implements Sink {
   private batchSize: number;
   private url: string;
   private apiKey?: string;
-  private trackableMetadataMap: Map<string, { adapter_id: string; trackable_name: string }>;
+  private trackableMetadataMap: Map<
+    string,
+    { adapter_id: string; trackable_name: string; trackable_config: unknown }
+  >;
 
   constructor(config: AbsintheSinkConfig) {
     // URL defaults to https://adapters.absinthe.network (handled by schema)
@@ -53,11 +56,12 @@ export class AbsintheSink implements Sink {
         throw new Error('No trackable instances to register');
       }
 
-      // Build lookup map from trackableInstanceId to adapter_id and trackable_name
+      // Build lookup map from trackableInstanceId to adapter_id, trackable_name, and trackable_config
       for (const instance of metadata.trackableInstances) {
         this.trackableMetadataMap.set(instance.trackable_instance_id, {
           adapter_id: instance.adapter_id,
           trackable_name: instance.trackable_name,
+          trackable_config: instance.trackable_config,
         });
       }
 
@@ -80,7 +84,21 @@ export class AbsintheSink implements Sink {
 
       logger.info(`[AbsintheSink] Successfully registered all trackable instances`);
     } catch (error) {
-      logger.error(`[AbsintheSink] Failed to register trackable instances:`, error);
+      if (error instanceof HTTPError) {
+        // Try to get the response body for more details
+        try {
+          const errorBody = await error.response.text();
+          logger.error(
+            `[AbsintheSink] Failed to register trackable instances. Status: ${error.response.status}, Body: ${errorBody}`,
+          );
+        } catch {
+          logger.error(
+            `[AbsintheSink] Failed to register trackable instances. Status: ${error.response.status}`,
+          );
+        }
+      } else {
+        logger.error(`[AbsintheSink] Failed to register trackable instances:`, error);
+      }
       throw error;
     }
   }
@@ -126,7 +144,7 @@ export class AbsintheSink implements Sink {
   async write(batch: unknown[]): Promise<void> {
     if (!batch?.length) return;
 
-    // Augment each event with adapter_id and trackable_name
+    // Augment each event with adapter_id, trackable_name, and trackable_config
     const augmentedBatch = batch.map((event: any) => {
       // Look up metadata using trackableInstanceId
       const trackableInstanceId = event.trackableInstanceId;
@@ -134,11 +152,12 @@ export class AbsintheSink implements Sink {
         ? this.trackableMetadataMap.get(trackableInstanceId)
         : undefined;
 
-      // Add adapter_id and trackable_name to the event
+      // Add adapter_id, trackable_name, and trackable_config to the event
       return {
         ...event,
         adapter_id: metadata?.adapter_id,
         trackable_name: metadata?.trackable_name,
+        trackable_config: metadata?.trackable_config,
       };
     });
 

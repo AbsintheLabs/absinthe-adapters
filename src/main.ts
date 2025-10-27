@@ -175,12 +175,21 @@ async function main() {
         };
         const trackable_instance_id = md5HashCanonical(key, 16);
 
+        // Extract the trackable config (params + pricing if available)
+        const trackable_config: Record<string, unknown> = {
+          params: inst.params,
+        };
+        if (inst.pricing) {
+          trackable_config.pricing = inst.pricing;
+        }
+
         trackableInstanceMetadata.trackableInstances.push({
           trackable_instance_id,
           config_hash: configHash,
           full_config: rawConfig,
           adapter_id: adapterId,
           trackable_name: trackableId,
+          trackable_config,
         });
 
         logger.debug(
