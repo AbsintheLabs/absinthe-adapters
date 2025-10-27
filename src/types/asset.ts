@@ -85,7 +85,14 @@ export const FeedSchema = z.object({
 });
 // .loose();
 
-export type Feed = z.infer<typeof FeedSchema> & Record<string, unknown>;
+export const FeedSchemaCoingecko = z.object({
+  kind: z.literal('coingecko'),
+  id: z.string().describe('CoinGecko coin ID (e.g., "ethereum", "solana")'),
+});
+
+export type Feed =
+  | z.infer<typeof FeedSchema>
+  | (z.infer<typeof FeedSchemaCoingecko> & Record<string, unknown>);
 
 /**
  * Feed handler definition with type constraints
@@ -144,7 +151,7 @@ export interface FeedHandler<T extends Asset['type'] | 'any' = 'any', TConfig = 
 
 export type FeedHandlerFn<T extends Asset['type'] | 'any' = 'any', TConfig = unknown> = (
   args: FeedHandlerArgs<T, TConfig>,
-) => Promise<number>; // ✅ Returns just number
+) => Promise<Big>; // ✅ Always returns big
 
 export interface FeedHandlerArgs<T extends Asset['type'] | 'any' = 'any', TConfig = unknown> {
   /** The typed asset to price */
@@ -168,7 +175,7 @@ export type ResolveFn = (
   asset: Asset,
   config: Feed,
   ctx?: ResolveContext,
-) => Promise<{ price: number; metadata: AssetMetadata }>;
+) => Promise<{ price: Big; metadata: AssetMetadata }>;
 /**
  * Helper to define a feed handler with automatic type inference
  *

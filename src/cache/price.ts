@@ -4,6 +4,7 @@ import { Redis } from 'ioredis';
 import { PriceCacheTS } from '../types/pricing.ts';
 import { logger } from '../utils/logger.ts';
 import { withPrefix } from '../redis/ts-util.ts';
+import Big from 'big.js';
 
 export class RedisTSCache implements PriceCacheTS {
   constructor(
@@ -37,7 +38,7 @@ export class RedisTSCache implements PriceCacheTS {
     }
   }
 
-  async set(seriesKey: string, timestampMs: number, price: number) {
+  async set(seriesKey: string, timestampMs: number, price: Big) {
     logger.debug('setting price for', seriesKey, timestampMs, price);
     const key = this.key(seriesKey);
     await this.ensureSeries(key, seriesKey);
@@ -57,7 +58,7 @@ export class RedisTSCache implements PriceCacheTS {
     seriesKey: string,
     atMs: number, // any ts inside the bucket you care about
     bucketMs: number, // bucket width in ms
-  ): Promise<number | null> {
+  ): Promise<Big | null> {
     const key = withPrefix(this.redis, this.key(seriesKey));
 
     // 0. Series doesn't exist → no price
@@ -74,7 +75,7 @@ export class RedisTSCache implements PriceCacheTS {
       String(bucketStart),
       String(bucketStart),
     )) as Array<[number, string]> | null;
-    if (exact && exact.length) return Number((exact[0] as any)[1]);
+    if (exact && exact.length) return Big((exact[0] as any)[1]);
 
     // 3. Otherwise get the latest sample **up to atMs**
     const latest = (await this.redis.call(
@@ -92,6 +93,6 @@ export class RedisTSCache implements PriceCacheTS {
     const ts = Number(tsStr);
     if (ts < bucketStart) return null; // stale → treat as missing
 
-    return Number(valueStr);
+    return Big(valueStr);
   }
 }

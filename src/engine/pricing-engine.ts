@@ -85,7 +85,7 @@ export class PricingEngine {
     asset: Asset,
     feedConfig: Feed,
     ctx: ResolveContext,
-  ): Promise<{ price: number; metadata: AssetMetadata }> {
+  ): Promise<{ price: Big; metadata: AssetMetadata }> {
     const assetKey = getAssetKeyFromAsset(asset);
 
     // Step 1: Metadata resolution (using shared helper)
@@ -107,8 +107,8 @@ export class PricingEngine {
       logger.debug('PricingEngine: Bypassing cache for price resolution (reprice)');
     }
 
-    // Step 3: Compute price using handler
-    let result: number;
+    // Step 3: Call handler to compute price
+    let result: Big;
     try {
       logger.debug(`PricingEngine: Looking up handler for ${feedConfig.kind}`);
       const handler = this.registry.get(feedConfig.kind);
@@ -164,7 +164,7 @@ export class PricingEngine {
    * Price an asset using the provided feed configuration
    * This is the main entry point for pricing
    */
-  async priceAsset(asset: Asset, feedConfig: Feed, ctx: ResolveContext): Promise<number> {
+  async priceAsset(asset: Asset, feedConfig: Feed, ctx: ResolveContext): Promise<Big> {
     logger.debug(
       `PricingEngine: priceAsset called for asset=${JSON.stringify(asset)}, feedConfig=${JSON.stringify(feedConfig)}`,
     );

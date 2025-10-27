@@ -3,7 +3,8 @@ import Big from 'big.js';
 import { z } from 'zod';
 import { logger } from '../../../src/utils/logger.ts';
 import { SCALE } from '../consts.ts'; // e.g. 1e18 as a bigint
-
+Big.DP = 50;
+Big.RM = 1;
 // 1 whole share = 1e18 share units
 const SHARE_SCALE = new Big('1000000000000000000'); // 1e18
 
@@ -23,14 +24,14 @@ export const morphomarketsFeed = defineFeedHandler({
       const lastDashIndex = assetIdentifier.lastIndexOf('-');
       if (lastDashIndex <= 0) {
         logger.warn(`Malformed morpho asset key: ${assetIdentifier}`);
-        return 0;
+        return Big(0);
       }
 
       const marketId = assetIdentifier.slice(0, lastDashIndex);
       const side = assetIdentifier.slice(lastDashIndex + 1);
       if (side !== 'supply' && side !== 'borrow') {
         logger.warn(`Unknown morpho side '${side}' for ${assetIdentifier}`);
-        return 0;
+        return Big(0);
       }
 
       // Load market data (indexes & loan token)
@@ -38,7 +39,7 @@ export const morphomarketsFeed = defineFeedHandler({
       const marketDataStr = await ctx.redis.get(marketDataKey);
       if (!marketDataStr) {
         logger.warn(`Asset data not found for ${assetIdentifier} - skipping pricing`);
-        return 0;
+        return Big(0);
       }
 
       const { loanToken, supplyIndex, borrowIndex } = JSON.parse(marketDataStr);
@@ -55,40 +56,26 @@ export const morphomarketsFeed = defineFeedHandler({
         ctx,
       );
 
-      const underlyingPrice = new Big(underlyingPriceResult?.price ?? 0);
+      const underlyingPrice = new Big(underlyingPriceResult?.price.toString() ?? '0');
       if (underlyingPrice.lte(0)) {
         logger.warn(`Underlying price 0 for ${loanToken} (market ${marketId})`);
-        return 0;
+        return Big(0);
       }
 
       // tokensPerShare = index / SCALE
       // pricePerShare (USD per 1 share) = underlyingPrice * tokensPerShare
-      const pricePerShare = underlyingPrice
-        .mul(index)
-        .div(indexScale)
-        .div(10 ** 18);
-
+      const denom = indexScale.mul(SHARE_SCALE); // 1e36
+      const pricePerUnit = underlyingPrice.mul(index).div(denom);
       // IMPORTANT:
       // Your composite asset reports decimals = 0 (no normalization),
       // but amounts are in *share units* (1 share = 1e18 units).
       // Therefore return USD per *unit*, not per whole share:
       // pricePerUnit = pricePerShare / 1e18
 
-      console.log(
-        'pricePerShare',
-        pricePerShare.toString(),
-        pricePerShare.toNumber(),
-        pricePerShare,
-      );
-      console.log('underlyingPrice', underlyingPrice.toString());
-      console.log('index', index.toString());
-      console.log('indexScale', indexScale.toString());
-      console.log('underlyingPrice', underlyingPrice.toString());
-
-      return Number(pricePerShare.toString());
+      return pricePerUnit;
     } catch (error) {
       logger.warn(`Failed to price Morpho Markets asset ${asset.key}: ${String(error)}`);
-      return 0;
+      return Big(0);
     }
   },
 });

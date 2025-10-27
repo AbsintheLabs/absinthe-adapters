@@ -1,3 +1,4 @@
+import Big from 'big.js';
 import { defineFeedHandler } from '../types/asset.ts';
 import { z } from 'zod';
 
@@ -15,6 +16,6 @@ export const peggedFeed = defineFeedHandler({
     usdPegValue: z.number().describe('Fixed USD price (e.g., 1 for USDC/USDT)'),
   }),
   handler: async ({ config }) => {
-    return config.usdPegValue;
+    return Big(config.usdPegValue);
   },
 });

@@ -1,7 +1,7 @@
 // Uniswap V2 LP NAV pricing handler
 // Calculates Net Asset Value of LP tokens by pricing underlying reserves
 
-import { defineFeedHandler, FeedSchema } from '../../../src/types/asset.ts';
+import { defineFeedHandler, FeedSchema, FeedSchemaCoingecko } from '../../../src/types/asset.ts';
 import Big from 'big.js';
 import * as univ2Abi from '../abi/uniswap-v2.ts';
 import { logger } from '../../../src/utils/logger.ts';
@@ -30,8 +30,8 @@ export const univ2navFeed = defineFeedHandler({
   name: 'univ2nav',
   acceptsAssetType: 'erc20',
   configSchema: z.object({
-    token0: FeedSchema,
-    token1: FeedSchema,
+    token0: FeedSchemaCoingecko,
+    token1: FeedSchemaCoingecko,
   }),
   handler: async ({ asset, config, ctx, resolve }) => {
     try {
@@ -88,12 +88,12 @@ export const univ2navFeed = defineFeedHandler({
       // Value of token0 reserves in USD
       const token0Value = new Big(reserve0.toString())
         .div(Math.pow(10, price0Result.metadata.decimals))
-        .mul(price0Result.price);
+        .mul(price0Result.price.toString());
 
       // Value of token1 reserves in USD
       const token1Value = new Big(reserve1.toString())
         .div(Math.pow(10, price1Result.metadata.decimals))
-        .mul(price1Result.price);
+        .mul(price1Result.price.toString());
 
       // Total pool value in USD
       const totalPoolValue = token0Value.plus(token1Value);
@@ -103,10 +103,10 @@ export const univ2navFeed = defineFeedHandler({
         new Big(totalSupply.toString()).div(Math.pow(10, poolConfig.lpDecimals)),
       );
 
-      return Number(lpTokenPrice.toString());
+      return lpTokenPrice;
     } catch (error) {
-      logger.warn(`Failed to price Uniswap V2 LP token ${asset.address}:`, error);
-      return 0;
+      console.error(`Failed to price Uniswap V2 LP token ${asset.address}:`, error);
+      return Big(0);
     }
   },
 });

@@ -146,7 +146,7 @@ export async function pricePricingHandler(
   block: any,
   deps: PricingBackfillDeps,
   bypassTopLevelCache: boolean = false,
-): Promise<number> {
+): Promise<Big> {
   const ctx: ResolveContext = {
     priceCache: deps.priceCache,
     metadataCache: deps.metadataCache,

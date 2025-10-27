@@ -1,0 +1,72 @@
+{
+  "chainArch": "evm",
+  "flushInterval": "2h",
+  "redisUrl": "${env:REDIS_URL}",
+  "sinkConfig": {
+    "sinks": [
+      {
+        "sinkType": "csv",
+        "path": "uniswap-v2.csv"
+      }
+    ]
+  },
+  "network": {
+    "chainId": 43111,
+    "gatewayUrl": "https://v2.archive.subsquid.io/network/hemi-mainnet",
+    "rpcUrl": "https://rpc.hemi.network/rpc",
+    "finality": 75
+  },
+  "range": {
+    "fromBlock": 1451314,
+    "toBlock": 2524976
+  },
+  "adapterConfig": {
+    "adapterId": "uniswap-v2",
+    "config": {
+      "swap": [
+        {
+          "params": {
+            "poolAddress": "0x0621bae969de9c153835680f158f481424c0720a"
+          },
+          "assetSelectors": {
+            "swapLegAddress": "0xAA40c0c7644e0b2B224509571e10ad20d9C4ef28"
+          },
+          "pricing": {
+            "kind": "coingecko",
+            "id": "bitcoin"
+          }
+        },
+        {
+          "params": {
+            "poolAddress": "0x0621bae969de9c153835680f158f481424c0720a"
+          },
+          "assetSelectors": {
+            "swapLegAddress": "0xad11a8BEb98bbf61dbb1aa0F6d6F2ECD87b35afA"
+          },
+          "pricing": {
+            "kind": "coingecko",
+            "id": "usd-coin"
+          }
+        }
+      ],
+      "lp": [
+        {
+          "params": {
+            "poolAddress": "0x0621bae969de9c153835680f158f481424c0720a"
+          },
+          "pricing": {
+            "kind": "univ2nav",
+            "token0": {
+              "kind": "coingecko",
+              "id": "bitcoin"
+            },
+            "token1": {
+              "kind": "coingecko",
+              "id": "usd-coin"
+            }
+          }
+        }
+      ]
+    }
+  }
+}
