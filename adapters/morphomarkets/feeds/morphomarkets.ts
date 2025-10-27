@@ -72,14 +72,6 @@ export const morphomarketsFeed = defineFeedHandler({
       // Therefore return USD per *unit*, not per whole share:
       // pricePerUnit = pricePerShare / 1e18
 
-      console.log({
-        underlyingPrice: underlyingPrice.toString(),
-        index: index.toString(),
-        indexScale: indexScale.toString(),
-        pricePerUnit: pricePerUnit.toString(),
-        pricePerUnitNumber: pricePerUnit,
-      });
-
       return pricePerUnit;
     } catch (error) {
       logger.warn(`Failed to price Morpho Markets asset ${asset.key}: ${String(error)}`);

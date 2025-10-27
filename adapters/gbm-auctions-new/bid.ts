@@ -78,7 +78,6 @@ export async function handleBid(
   // Additional safety check - don't emit if currencyErc20Address is null/undefined
   if (!currencyErc20Address) {
     console.warn(`No valid currency address for auction ${saleID}, skipping bid`);
-    console.log(bidder, bidamount, saleID, bidIndex, log);
     return;
   }
 

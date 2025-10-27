@@ -67,22 +67,12 @@ export const morphov2vaultsFeed = defineFeedHandler({
 
       // Get conversion rate: 1 share (1e18) → X assets (dynamic data, not cached)
       const marketIndex = await vaultContract.convertToAssets(BigInt(1e18));
-
-      console.log(
-        'marketIndex',
-        marketIndex,
-        'vaultConfig.underlyingAssetAddress',
-        vaultConfig.underlyingAssetAddress,
-      );
       // Recursively price the underlying asset using the config
       const underlyingPriceResult = await resolve(
         { type: 'erc20', address: vaultConfig.underlyingAssetAddress },
         config.underlyingAsset,
         ctx,
       );
-
-      console.log('underlyingPriceResult', underlyingPriceResult);
-
       // Calculate vault share price
       // 1 share (1e18) = marketIndex assets (in underlying's decimals)
       // share_price = asset_price * (marketIndex / 10^underlyingDecimals)
@@ -90,8 +80,6 @@ export const morphov2vaultsFeed = defineFeedHandler({
         .mul(marketIndex.toString())
         .div(10 ** vaultConfig.underlyingDecimals)
         .div(10 ** 18);
-
-      console.log('sharePrice', sharePrice.toString());
 
       return sharePrice;
     } catch (error) {

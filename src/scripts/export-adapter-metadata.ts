@@ -25,7 +25,6 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 }
 
 // Convert schemas to JSON Schema format
-console.log('Converting Zod schemas to JSON Schema...\n');
 
 // Convert EnrichedPositionSchema
 const positionJsonSchema = z.toJSONSchema(EnrichedPositionSchema, {
@@ -45,10 +44,6 @@ const actionSchemaPath = path.join(OUTPUT_DIR, 'enriched-action-schema.json');
 
 fs.writeFileSync(positionSchemaPath, JSON.stringify(positionJsonSchema, null, 2));
 fs.writeFileSync(actionSchemaPath, JSON.stringify(actionJsonSchema, null, 2));
-
-console.log(`✅ EnrichedPositionSchema exported to: ${positionSchemaPath}`);
-console.log(`✅ EnrichedActionSchema exported to: ${actionSchemaPath}`);
-
 // Also export a combined file with both schemas
 const combinedSchemaPath = path.join(OUTPUT_DIR, 'event-schemas.json');
 const combinedSchemas = {
@@ -63,10 +58,3 @@ const combinedSchemas = {
 };
 
 fs.writeFileSync(combinedSchemaPath, JSON.stringify(combinedSchemas, null, 2));
-console.log(`✅ Combined schemas exported to: ${combinedSchemaPath}`);
-
-console.log('\n📦 Schema export complete!');
-console.log(`\nTo use these schemas in Kafka or other systems:`);
-console.log(`  - Position events: ${positionSchemaPath}`);
-console.log(`  - Action events: ${actionSchemaPath}`);
-console.log(`  - Combined: ${combinedSchemaPath}`);
