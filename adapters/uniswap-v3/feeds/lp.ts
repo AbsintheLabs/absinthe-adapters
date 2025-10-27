@@ -208,7 +208,7 @@ export const univ3lpFeed = defineFeedHandler({
               error,
             );
             // Return 0 for invalid/non-existent positions
-            return 0;
+            return Big(0);
           }
         } else {
           logger.debug('🔍 UNIV3LP: Using cached position metadata from handler cache');
@@ -243,7 +243,7 @@ export const univ3lpFeed = defineFeedHandler({
         logger.warn(
           `🔍 UNIV3LP: No liquidity found for ${assetKey} at height ${ctx.block.header.height}`,
         );
-        return 0;
+        return Big(0);
       }
 
       const L = new Big(fetchedL);
@@ -252,7 +252,7 @@ export const univ3lpFeed = defineFeedHandler({
       // If liquidity is 0, position has no value
       if (L.eq(0)) {
         logger.debug('🔍 UNIV3LP: Liquidity is 0, returning 0');
-        return 0;
+        return Big(0);
       }
 
       // 3) Read pool price state (slot0) - try Redis first, fallback to contract
@@ -324,19 +324,19 @@ export const univ3lpFeed = defineFeedHandler({
         );
         logger.debug('🔍 UNIV3LP: Known token resolved:', { price: knownResolved.price });
 
-        if (!knownResolved || knownResolved.price == null || !(knownResolved.price > 0)) {
+        if (!knownResolved || knownResolved.price == null || !knownResolved.price.gt(0)) {
           logger.error('🔍 UNIV3LP: Failed to resolve known token price');
-          return 0;
+          return Big(0);
         }
 
         // 7) Derive the missing token price from sqrtPriceX96
         const P01 = priceToken0InToken1(sqrtPriceX96, d0, d1); // token1 per token0
         let p0usd: Big, p1usd: Big;
         if (knownIs0) {
-          p0usd = Big(knownResolved.price);
+          p0usd = Big(knownResolved.price.toString());
           p1usd = p0usd.div(P01); // USD1 = USD0 / (token1 per token0)
         } else {
-          p1usd = Big(knownResolved.price);
+          p1usd = Big(knownResolved.price.toString());
           p0usd = p1usd.times(P01); // USD0 = USD1 * (token1 per token0)
         }
 
@@ -360,15 +360,15 @@ export const univ3lpFeed = defineFeedHandler({
         });
 
         logger.debug('🔍 UNIV3LP: Handler completed successfully, returning:', valueUsd.toNumber());
-        return valueUsd.toNumber();
+        return valueUsd;
       } catch (error) {
         logger.error(`🔍 UNIV3LP: Failed to price position ${tokenId}:`, error);
         logger.debug('🔍 UNIV3LP: Handler failed, returning 0');
-        return 0;
+        return Big(0);
       }
     } catch (error) {
       logger.error(`🔍 UNIV3LP: Outer error for asset ${asset.tokenId}:`, error);
-      return 0;
+      return Big(0);
     }
   },
 });

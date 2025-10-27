@@ -144,7 +144,7 @@ export interface FeedHandler<T extends Asset['type'] | 'any' = 'any', TConfig = 
 
 export type FeedHandlerFn<T extends Asset['type'] | 'any' = 'any', TConfig = unknown> = (
   args: FeedHandlerArgs<T, TConfig>,
-) => Promise<number>; // ✅ Returns just number
+) => Promise<Big>; // ✅ Always returns big
 
 export interface FeedHandlerArgs<T extends Asset['type'] | 'any' = 'any', TConfig = unknown> {
   /** The typed asset to price */
@@ -168,7 +168,7 @@ export type ResolveFn = (
   asset: Asset,
   config: Feed,
   ctx?: ResolveContext,
-) => Promise<{ price: number; metadata: AssetMetadata }>;
+) => Promise<{ price: Big; metadata: AssetMetadata }>;
 /**
  * Helper to define a feed handler with automatic type inference
  *

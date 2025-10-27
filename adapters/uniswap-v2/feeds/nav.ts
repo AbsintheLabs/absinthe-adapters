@@ -88,12 +88,12 @@ export const univ2navFeed = defineFeedHandler({
       // Value of token0 reserves in USD
       const token0Value = new Big(reserve0.toString())
         .div(Math.pow(10, price0Result.metadata.decimals))
-        .mul(price0Result.price);
+        .mul(price0Result.price.toString());
 
       // Value of token1 reserves in USD
       const token1Value = new Big(reserve1.toString())
         .div(Math.pow(10, price1Result.metadata.decimals))
-        .mul(price1Result.price);
+        .mul(price1Result.price.toString());
 
       // Total pool value in USD
       const totalPoolValue = token0Value.plus(token1Value);
@@ -103,10 +103,10 @@ export const univ2navFeed = defineFeedHandler({
         new Big(totalSupply.toString()).div(Math.pow(10, poolConfig.lpDecimals)),
       );
 
-      return Number(lpTokenPrice.toString());
+      return lpTokenPrice;
     } catch (error) {
       logger.warn(`Failed to price Uniswap V2 LP token ${asset.address}:`, error);
-      return 0;
+      return Big(0);
     }
   },
 });

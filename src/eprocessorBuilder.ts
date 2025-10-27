@@ -19,6 +19,9 @@ export function buildBaseSqdProcessor(cfg: AppConfig) {
   const p = new EvmBatchProcessor()
     .setGateway(cfg.network.gatewayUrl)
     .setFinalityConfirmation(cfg.network.finality)
+    .setRpcDataIngestionSettings({
+      disabled: true,
+    })
     //xxx: can we avoid this? it's slow, wasteful, and couples us to sqd mechanics
     // if there's a way where we are not tied to all the blocks, then we should do that
     .includeAllBlocks() // needed for proper price backfilling.

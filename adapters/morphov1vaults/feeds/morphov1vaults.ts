@@ -53,7 +53,7 @@ export const morphov1vaultsFeed = defineFeedHandler({
         const marketDataStr = await ctx.redis.get(marketDataKey);
         if (!marketDataStr) {
           logger.warn(`Vault ${vaultAddress} not found in Redis - skipping pricing`);
-          return 0;
+          return Big(0);
         }
 
         const marketData = JSON.parse(marketDataStr);
@@ -86,17 +86,24 @@ export const morphov1vaultsFeed = defineFeedHandler({
       // Calculate vault share price
       // 1 share (1e18) = marketIndex assets (in underlying's decimals)
       // share_price = asset_price * (marketIndex / 10^underlyingDecimals)
-      const sharePrice = new Big(underlyingPriceResult.price)
+      const sharePrice = new Big(underlyingPriceResult.price.toString())
         .mul(marketIndex.toString())
         .div(10 ** vaultConfig.underlyingDecimals)
         .div(10 ** 18);
 
-      console.log('sharePrice', sharePrice.toString());
+      console.log(
+        'sharePrice',
+        sharePrice.toString(),
+        underlyingPriceResult.price.toString(),
+        marketIndex.toString(),
+        vaultConfig.underlyingDecimals,
+        Number(sharePrice.toString()),
+      );
 
-      return Number(sharePrice.toString());
+      return sharePrice;
     } catch (error) {
       logger.warn(`Failed to price Morpho V1 Vault ${asset.key}:`, error);
-      return 0;
+      return Big(0);
     }
   },
 });

@@ -16,7 +16,7 @@
   "network": {
     "chainId": 1,
     "gatewayUrl": "https://v2.archive.subsquid.io/network/ethereum-mainnet",
-    "rpcUrl": "https://mainnet.infura.io/v3/e5b6ee7b35c3402a8fc12263c715a1f8",
+    "rpcUrl": "${env:RPC_URL}",
     "finality": 75
   },
   "range": {

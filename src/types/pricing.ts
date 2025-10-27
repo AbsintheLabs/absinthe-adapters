@@ -153,8 +153,8 @@ export interface MetadataCache {
 
 export interface PriceCacheTS {
   // bucketed insert and lookup
-  set(assetKey: string, atMs: number, price: number): Promise<void>;
-  get(assetKey: string, atMs: number, bucketMs: number): Promise<number | null>;
+  set(assetKey: string, atMs: number, price: Big): Promise<void>;
+  get(assetKey: string, atMs: number, bucketMs: number): Promise<Big | null>;
 }
 
 export interface HandlerMetadataCache {

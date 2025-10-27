@@ -5,6 +5,7 @@ import type { manifest } from './index.ts';
 import * as morphov1Abi from './abi/morphov1.ts';
 import { Redis } from 'ioredis';
 import { SCALE } from './consts.ts';
+import { logger } from '../../src/utils/logger.ts';
 
 function deriveIndexFromEvent(assets: bigint, shares: bigint): bigint {
   if (shares === 0n) return SCALE;
@@ -19,11 +20,6 @@ export async function handleMarket(
   redis: Redis,
   sqdRpcCtx: SqdRpcCtx,
 ): Promise<void> {
-  // DEBUG: Log all incoming events
-  console.log('handleMarket called with topic0:', log.topic0);
-  console.log('Supply topic:', morphov1Abi.events.Supply.topic);
-  console.log('Repay topic:', morphov1Abi.events.Repay.topic);
-
   const configuredMarketId = (instance as any).assetSelectors?.marketId?.toLowerCase();
 
   if (!configuredMarketId) {
@@ -33,19 +29,15 @@ export async function handleMarket(
 
   // Route to appropriate handler based on event type
   if (log.topic0 === morphov1Abi.events.Supply.topic) {
-    console.log('Processing SUPPLY event');
     await handleSupply(log, emitFns, instance, configuredMarketId, redis);
   } else if (log.topic0 === morphov1Abi.events.Withdraw.topic) {
-    console.log('Processing WITHDRAW event');
     await handleWithdraw(log, emitFns, instance, configuredMarketId, redis);
   } else if (log.topic0 === morphov1Abi.events.Borrow.topic) {
-    console.log('Processing BORROW event');
     await handleBorrow(log, emitFns, instance, configuredMarketId, redis);
   } else if (log.topic0 === morphov1Abi.events.Repay.topic) {
-    console.log('Processing REPAY event');
     await handleRepay(log, emitFns, instance, configuredMarketId, redis);
   } else {
-    console.log('UNKNOWN EVENT TYPE:', log.topic0);
+    logger.warn('UNKNOWN EVENT TYPE:', log.topic0);
   }
   await emitFns.position.reprice({ trackableInstance: instance });
 }
@@ -176,7 +168,7 @@ async function handleBorrow(
     return;
   }
 
-  console.log('onBehalf', onBehalf, log.height, 'borrow');
+  logger.debug('onBehalf', onBehalf, log.height, 'borrow');
 
   const marketDataKey = `morpho:market:${marketId.toLowerCase()}`;
   const marketDataStr = await redis.get(marketDataKey);
@@ -192,10 +184,6 @@ async function handleBorrow(
   marketData.borrowIndex = borrowIndex.toString();
   await redis.set(marketDataKey, JSON.stringify(marketData));
 
-  console.log('emitting borrow', onBehalf, log.height, 'borrow');
-  if (onBehalf.toLowerCase() === '0xcf01ceaf894a27025b241dd58cf4366b14a1f9f8') {
-    console.log('🚨 TARGET USER - about to emit balanceDelta');
-  }
   await emitFns.position.balanceDelta({
     activity: 'hold',
     user: onBehalf.toLowerCase(),
