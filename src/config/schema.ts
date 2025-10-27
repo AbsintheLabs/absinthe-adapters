@@ -37,10 +37,10 @@ export const AbsintheSinkSchema = z.object({
     .string()
     .url('Invalid URL for absinthe sink')
     .optional()
-    .default('https://adapters.absinthe.network'),
+    .default('https://v2.adapters.absinthe.network'),
   apiKey: z.string().optional(),
   rateLimit: z.number().int().positive().optional().default(10),
-  batchSize: z.number().int().positive().optional().default(1000),
+  batchSize: z.number().int().positive().optional().default(100),
 });
 
 // Single sink configuration (backwards compatibility)
@@ -71,6 +71,7 @@ const PricingRange = z.discriminatedUnion('type', [
 ]);
 
 const Common = z.object({
+  configVersion: z.int().gt(0).optional(),
   fullEventContext: z.boolean().optional().default(false),
   flushInterval: durationHumanToMs().describe(
     'Human duration: "1h", "90m", "1:30:00" NOT supported (only single-unit), "3600s", "1000ms". Min 1h.',

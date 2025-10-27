@@ -8,7 +8,7 @@ export interface ParsedCliArgs {
 /**
  * Known valid flags for the application
  */
-const KNOWN_FLAGS = new Set(['-r', '--reset-state']);
+const KNOWN_FLAGS = new Set(['--reset-state']);
 
 /**
  * Parse CLI arguments into flags and config file path.
@@ -18,8 +18,7 @@ const KNOWN_FLAGS = new Set(['-r', '--reset-state']);
  * Throws an error if an unknown flag is provided.
  *
  * Examples:
- *   parseCliArgs(['config.json', '-r']) => { configPath: 'config.json', flags: Set(['-r']) }
- *   parseCliArgs(['-r', 'config.json']) => { configPath: 'config.json', flags: Set(['-r']) }
+ *   parseCliArgs(['config.json', '--reset-state']) => { configPath: 'config.json', flags: Set(['--reset-state']) }
  *   parseCliArgs(['--reset-state', 'config.json']) => { configPath: 'config.json', flags: Set(['--reset-state']) }
  */
 export function parseCliArgs(args: string[]): ParsedCliArgs {

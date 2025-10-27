@@ -1,4 +1,4 @@
-import { Sink } from './sink-factory.ts';
+import { Sink, SinkInitMetadata } from './sink-factory.ts';
 
 /**
  * CompositeSink - A sink that writes to multiple sinks simultaneously
@@ -6,9 +6,9 @@ import { Sink } from './sink-factory.ts';
 export class CompositeSink implements Sink {
   constructor(private sinks: Sink[]) {}
 
-  async init?(): Promise<void> {
-    // Initialize all sinks that have an init method
-    const initPromises = this.sinks.filter((sink) => sink.init).map((sink) => sink.init!());
+  async init(metadata?: SinkInitMetadata): Promise<void> {
+    // Initialize all sinks that have an init method, passing metadata
+    const initPromises = this.sinks.filter((sink) => sink.init).map((sink) => sink.init!(metadata));
 
     await Promise.all(initPromises);
   }

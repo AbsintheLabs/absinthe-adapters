@@ -1,4 +1,4 @@
-# Dockerfile (fixed - skip prestart hook in production)
+# Dockerfile
 FROM node:20-slim AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
@@ -12,48 +12,52 @@ ENV GIT_COMMIT_SHA_LONG=${GIT_COMMIT_SHA_LONG}
 FROM base AS deps
 WORKDIR /app
 
-# Copy only root package files
+# Copy package files
 COPY pnpm-lock.yaml package.json ./
 
-# Install dependencies
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --no-frozen-lockfile
+# Install ALL dependencies (including dev deps needed for build)
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 
 # Build stage
 FROM base AS build
 WORKDIR /app
 
-# Copy source files
+# Copy package files and config
 COPY pnpm-lock.yaml package.json tsconfig.json ./
+
+# Copy node_modules from deps stage
+COPY --from=deps /app/node_modules ./node_modules
+
+# Copy source files (these layers will invalidate when files change)
 COPY src/ ./src/
 COPY adapters/ ./adapters/
 
-# Copy node_modules
-COPY --from=deps /app/node_modules ./node_modules
-
-# Build
+# Build (this will re-run if src/ or adapters/ changed)
 RUN pnpm build
 
 # Production stage
 FROM base AS production
 WORKDIR /app
 
-# Copy dependencies
+# Copy ONLY production dependencies
 COPY --from=deps /app/node_modules ./node_modules
 
-# Copy built code
+# Copy built artifacts (will be fresh from build stage)
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/package.json ./
 
-# Copy adapters (needed for configs)
+# Copy adapters (needed for runtime)
 COPY --from=build /app/adapters ./adapters
 
 # Copy src directory (needed for adapter imports at runtime)
 COPY --from=build /app/src ./src
 
+# Copy and make executable the entrypoint script
+COPY --from=build /app/src/docker-entrypoint.sh ./docker-entrypoint.sh
+RUN chmod +x ./docker-entrypoint.sh
+
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
   CMD node --eval "process.exit(0)" || exit 1
 
-# Run directly with node (skip pnpm start to avoid prestart hook)
-# think of a better solution to this
-CMD ["node", "dist/src/main.js"]
+ENTRYPOINT ["./docker-entrypoint.sh"]

@@ -8,14 +8,18 @@ process.env.SQD_FATAL = '*';
 
 import { loadConfig } from './config/load.ts';
 import { buildBaseSqdProcessor } from './eprocessorBuilder.ts';
-import { Sink, SinkFactory } from './sinks/index.ts';
+import { Sink, SinkFactory, SinkInitMetadata } from './sinks/index.ts';
 import { Redis } from 'ioredis';
 import { AppConfig } from './config/schema.ts';
 import { logger } from './utils/logger.ts';
 
 // New registry imports
 import { EngineIO, BuiltAdapter } from './adapter-core.ts';
-import { buildAdapter, getAdapterMeta as getAdapterManifest } from './adapter-registry.ts';
+import {
+  buildAdapter,
+  getAdapterMeta as getAdapterManifest,
+  getManifest as getFullManifest,
+} from './adapter-registry.ts';
 import { Engine } from './engine/engine.ts';
 
 import { loadAllAdapters } from './adapters/loader.ts';
@@ -30,6 +34,7 @@ import { getChainShortName } from './utils/chain-utils.ts';
 import { parseCliArgs, hasFlag } from './utils/cli-args.ts';
 import { loadAllFeeds } from './feeds/loader.ts';
 import { GIT_COMMIT_SHA_LONG } from './utils/git.ts';
+import { validateConfigAgainstManifest } from './config/validation.ts';
 
 // todo: move this somewhere else with typing definitions
 export interface EngineDeps {
@@ -51,10 +56,10 @@ async function main() {
   await loadAllFeeds();
 
   // Check for reset flag
-  const reset = hasFlag(flags, '--reset-state', '-r');
+  const reset = hasFlag(flags, '--reset-state');
 
-  // load runtime config
-  const appCfg = await loadConfig(configPath);
+  // load runtime config (returns both raw and interpolated versions)
+  const { raw: rawConfig, interpolated: appCfg } = await loadConfig(configPath);
 
   // initialize runtime context with config hash and other metadata
   const configHash = md5HashCanonical(appCfg, 8);
@@ -141,6 +146,67 @@ async function main() {
     chainArch: appCfg.chainArch,
     chainShortName: getChainShortName(appCfg.network.chainId),
   });
+
+  // Precompute all trackable instance hashes before starting the engine
+  const fullManifest = getFullManifest(adapterId);
+  if (!fullManifest) {
+    throw new Error(`Unable to load manifest for adapter: ${adapterId}`);
+  }
+
+  const validatedInstances = validateConfigAgainstManifest(
+    appCfg.adapterConfig.config,
+    fullManifest,
+  );
+
+  // Build trackable instance metadata for sink registration
+  const trackableInstanceMetadata: SinkInitMetadata = {
+    trackableInstances: [],
+  };
+
+  try {
+    for (const [trackableId, instances] of Object.entries(
+      validatedInstances as Record<string, any[]>,
+    )) {
+      instances.forEach((inst, idx) => {
+        const key = {
+          params: inst.params,
+          quantityType: inst.quantityType,
+          ...(inst.assetSelectors ? { assetSelectors: inst.assetSelectors } : {}),
+        };
+        const trackable_instance_id = md5HashCanonical(key, 16);
+
+        trackableInstanceMetadata.trackableInstances.push({
+          trackable_instance_id,
+          config_hash: configHash,
+          full_config: rawConfig,
+          adapter_id: adapterId,
+          trackable_name: trackableId,
+        });
+
+        logger.debug(
+          `Trackable instance: ${adapterId}.${trackableId}[${idx}] → ${trackable_instance_id}`,
+        );
+      });
+    }
+
+    if (trackableInstanceMetadata.trackableInstances.length > 0) {
+      logger.info(
+        `Precomputed ${trackableInstanceMetadata.trackableInstances.length} trackable_instance_id values`,
+      );
+    } else {
+      logger.info('No trackable instances configured');
+    }
+  } catch (err) {
+    logger.error('Failed to precompute trackable instance hashes:', err);
+    throw err;
+  }
+
+  // Initialize sink(s) with trackable instance metadata
+  logger.info('Initializing sink(s)...');
+  if (sink.init) {
+    await sink.init(trackableInstanceMetadata);
+  }
+  logger.info('Sink(s) initialized successfully');
 
   // construct the real sqd processor using the adapter
   const sqdProcessor = adapter.buildSqdProcessor(baseSqdProcessor);

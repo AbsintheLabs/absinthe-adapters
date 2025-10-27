@@ -13,8 +13,20 @@ import { AbsintheSink } from './absinthe-sink.ts';
 import { deriveRunDir } from '../utils/run-paths.ts';
 import { getRuntime } from '../runtime/context.ts';
 
+export interface TrackableInstanceMetadata {
+  trackable_instance_id: string;
+  config_hash: string;
+  full_config: unknown;
+  adapter_id: string;
+  trackable_name: string;
+}
+
+export interface SinkInitMetadata {
+  trackableInstances: TrackableInstanceMetadata[];
+}
+
 export interface Sink {
-  init?(): Promise<void>;
+  init?(metadata?: SinkInitMetadata): Promise<void>;
   write(batch: unknown[]): Promise<void>; // or writeOne(e: unknown)
   flush?(): Promise<void>;
   close?(): Promise<void>;

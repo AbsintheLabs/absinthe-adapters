@@ -5,11 +5,12 @@
   "sinkConfig": {
     "sinks": [
       {
-        "sinkType": "csv",
-        "path": "verifications.csv"
+        "sinkType": "stdout"
       },
       {
-        "sinkType": "stdout"
+        "sinkType": "absinthe",
+        "url": "${env:ABSINTHE_API_URL}",
+        "apiKey": "${env:ABSINTHE_API_KEY}"
       }
     ]
   },
@@ -20,8 +21,8 @@
     "finality": 75
   },
   "range": {
-    "fromBlock": 2770730,
-    "toBlock": 2870730
+    "fromBlock": 2300030,
+    "toBlock": 2930730
   },
   "adapterConfig": {
     "adapterId": "onlymeid",
