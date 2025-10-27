@@ -98,10 +98,10 @@ export async function loadConfig(
     }
   }
 
-  // Priority 3: process.env.INDEXER_CONFIG
+  // Priority 3: process.env.INDEXER_CONFIG (supports JSON or base64 encoded JSON)
   if (process.env.INDEXER_CONFIG) {
     try {
-      const configData = JSON.parse(process.env.INDEXER_CONFIG);
+      const configData = parseJsonOrBase64(process.env.INDEXER_CONFIG);
       return await resolveAndValidate(configData);
     } catch (error) {
       throw new Error(
