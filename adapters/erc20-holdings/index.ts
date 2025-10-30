@@ -27,6 +27,9 @@ export default defineAdapter({
         const instance = config.token?.find((t) => t.params.contractAddress === assetAddress);
         if (!instance) return;
 
+        //note - this is a temporary (not adding logger.info intentionally)
+        console.log('Indexer Updated in Railway');
+
         await emitFns.position.balanceDelta({
           user: from,
           asset: { type: 'erc20', address: assetAddress },
