@@ -342,7 +342,7 @@ export class PrintrProcessor {
       logIndex: log.logIndex,
       blockNumber: block.header.height,
       blockHash: block.header.hash,
-      userId: sender,
+      userId: log.transaction.from,
       currency: Currency.USD,
       valueUsd: swapValueUsd,
       gasUsed: gasUsedInEth,
