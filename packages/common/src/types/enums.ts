@@ -19,6 +19,7 @@ enum ChainId {
   SOLANA = 1000,
   BSC = 56,
   AVALANCHE = 43114,
+  MONAD = 143,
 }
 
 // coingecko chain platform
@@ -32,6 +33,7 @@ enum ChainName {
   SOLANA = 'solana',
   BSC = 'bsc',
   AVALANCHE = 'avalanche',
+  MONAD = 'monad',
 }
 
 enum ChainShortName {
@@ -44,6 +46,7 @@ enum ChainShortName {
   SOLANA = 'solana',
   BSC = 'bsc',
   AVALANCHE = 'avalanche',
+  MONAD = 'monad',
 }
 
 enum PriceFeed {
@@ -76,6 +79,7 @@ enum GatewayUrl {
   SOLANA = 'https://v2.archive.subsquid.io/network/solana-mainnet',
   BSC = 'https://v2.archive.subsquid.io/network/binance-mainnet',
   AVALANCHE = 'https://v2.archive.subsquid.io/network/avalanche-mainnet',
+  MONAD = 'https://v2.archive.subsquid.io/network/monad-mainnet',
 }
 
 enum ProtocolType {

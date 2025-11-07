@@ -403,6 +403,8 @@ export class PrintrProcessor {
     const coingeckoId = baseToken.coingeckoId;
     if (coingeckoId === 'ethereum') {
       valueInUsd = displayCost * ethPriceUsd;
+    } else if (coingeckoId === 'monad') {
+      valueInUsd = displayCost * 2;
     } else {
       try {
         valueInUsd =
@@ -413,7 +415,6 @@ export class PrintrProcessor {
         valueInUsd = 0;
       }
     }
-
     const transactionSchema = {
       eventType: MessageType.TRANSACTION,
       eventName: 'TokenTrade',
@@ -545,7 +546,10 @@ export class PrintrProcessor {
 
     let liquidityFee = LIQUIDITY_FEE;
     logger.info('Liquidity fee [GraduatedPoolCreated]', { liquidityFee });
-    if (this.chainConfig.networkId === ChainId.BSC) {
+    if (
+      this.chainConfig.networkId === ChainId.BSC ||
+      this.chainConfig.networkId === ChainId.MONAD
+    ) {
       liquidityFee = LIQUIDITY_FEE_BSC;
       logger.info('Liquidity fee BSC [GraduatedPoolCreated]', { liquidityFee });
     }
