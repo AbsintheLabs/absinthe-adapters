@@ -247,7 +247,7 @@ export class Engine {
         logger.error('Error while flushing/closing sink before exit', err);
       }
       // Exit immediately - SQD will persist state because setForceFlush was called
-      // Commented out because sqd will quit itself, this was cuasing issues when we were doing this prematurely
+      // Commented out because sqd was not able to save the state to the file in these cases
       // since sqd was not able to save the state to the file in these cases
       // process.exit(0);
     }
@@ -431,6 +431,36 @@ export class Engine {
     this.events.push(rawAction);
   }
 
+  /**
+   * Compare two events to determine if the current event comes after the previous one.
+   * Uses (timestamp, logIndex/transactionIndex, txHash) for ordering.
+   * Returns true if current event is after previous event, false otherwise.
+   */
+  private isEventAfterPrevious(
+    currentTs: number,
+    currentTxRef: string,
+    currentCtx: any,
+    previousTs: number,
+    previousTxRef: string,
+    previousCtx: any,
+  ): boolean {
+    // If timestamps differ, use timestamp comparison
+    if (currentTs !== previousTs) {
+      return currentTs > previousTs;
+    }
+
+    // Same timestamp - compare by logIndex/transactionIndex
+    const currentIndex = currentCtx?.logIndex ?? currentCtx?.transactionIndex ?? -1;
+    const previousIndex = previousCtx?.logIndex ?? previousCtx?.transactionIndex ?? -1;
+
+    if (currentIndex !== previousIndex) {
+      return currentIndex > previousIndex;
+    }
+
+    // Same timestamp and index - compare by txHash (should be unique)
+    return currentTxRef !== previousTxRef;
+  }
+
   private async applyBalanceDelta<T extends UnifiedBase>(
     e: BalanceDelta,
     d: T,
@@ -515,13 +545,14 @@ export class Engine {
       await this.redis.srem(Engine.BAL_SET_KEY, balanceKey);
     }
 
-    // ONLY emit window if position is ACTIVE
-    if (!isInactive && previousTsMs < d.tsMs && (newAmount.gt(0) || previousAmount.gt(0))) {
-      if (previousTxRef === null) {
-        logger.error(`previousTxRef is null for key: ${balanceKey}`);
-        throw new Error(`previousTxRef is null for key: ${balanceKey}`);
-      }
+    // ONLY emit window if position is ACTIVE and this is a new event
+    // Use composite key (timestamp, logIndex/transactionIndex, txHash) to determine if event is new
+    // Skip if previousTxRef is null (first balance update - no previous state to create window from)
+    const isNewEvent = previousTxRef !== null && 
+      this.isEventAfterPrevious(d.tsMs, d.txRef, d, previousTsMs, previousTxRef, lastUpdateCtx);
 
+    if (!isInactive && isNewEvent && (newAmount.gt(0) || previousAmount.gt(0))) {
+      // previousTxRef is guaranteed to be non-null here due to isNewEvent check above
       const position: RawPosition = {
         user: e.user,
         asset: e.asset,
@@ -611,13 +642,14 @@ export class Engine {
       const pricingHandlerId =
         pricingHandlerIdStr && pricingHandlerIdStr !== '' ? pricingHandlerIdStr : null;
 
-      // Emit closing window if there's a positive balance and time has elapsed
-      if (amount.gt(0) && lastUpdateTsMs < d.tsMs) {
-        if (prevTxRef === null) {
-          logger.error(`prevTxRef is null for key: ${balanceKey}`);
-          throw new Error(`prevTxRef is null for key: ${balanceKey}`);
-        }
+      // Emit closing window if there's a positive balance and this is a new event
+      // Use composite key to determine if event is new (allows same-block windows)
+      // Skip if prevTxRef is null (no previous state to create window from)
+      const isNewEvent = prevTxRef !== null && 
+        this.isEventAfterPrevious(d.tsMs, d.txRef, d, lastUpdateTsMs, prevTxRef, lastUpdateCtx);
 
+      if (amount.gt(0) && isNewEvent) {
+        // prevTxRef is guaranteed to be non-null here due to isNewEvent check above
         const position: RawPosition = {
           user,
           asset,
