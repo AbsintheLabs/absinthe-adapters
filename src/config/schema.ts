@@ -106,7 +106,7 @@ const EvmCfg = z.object({
   chainArch: z.literal('evm'),
   network: z.object({
     chainId: z.number().int().positive().refine(isValidChainId, { message: 'Invalid chain ID' }),
-    gatewayUrl: z.httpUrl(),
+    gatewayUrl: z.httpUrl().optional(),
     rpcUrl: z.httpUrl(),
     // 75 is a safe default for most chains, at the expense of latency
     finality: z.number().int().positive().optional().default(75),
