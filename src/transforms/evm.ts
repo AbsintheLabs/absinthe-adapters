@@ -35,13 +35,14 @@ export const UnifiedEvmLogSchema = UnifiedBaseSchema.extend({
  * UnifiedEvmTransaction schema - validates and transforms SQD transaction data to our unified format.
  * All fields are JSON-serializable (no BigInt, Date, etc).
  */
-//TODO: Generalize it with UnifiedBase (or not , confirm with team + think equivalent in solana, then generalize)
+
 export const UnifiedEvmTransactionSchema = UnifiedBaseSchema.extend({
   // Transaction data
   transactionFrom: z.string(),
   transactionTo: z.string().nullable(),
   value: z.string(),
   input: z.string(),
+
   // Chain context
   chainId: z.number(),
 

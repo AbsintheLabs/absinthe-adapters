@@ -430,10 +430,18 @@ export class Engine {
 
     this.events.push(rawAction);
   }
-
   /**
    * Compare two events to determine if the current event comes after the previous one.
-   * Uses (timestamp, logIndex/transactionIndex, txHash) for ordering.
+   *
+   * Ordering: Group by transaction (tx1, tx2, tx3...), then by event index within transaction
+   *
+   * Example:
+   * Block: tx1, tx2, tx3
+   * tx1: ev1, ev2, ev3
+   * tx2: ev1, ev2
+   *
+   * Final order: tx1:ev1, tx1:ev2, tx1:ev3, tx2:ev1, tx2:ev2
+   *
    * Returns true if current event is after previous event, false otherwise.
    */
   private isEventAfterPrevious(
@@ -444,21 +452,50 @@ export class Engine {
     previousTxRef: string,
     previousCtx: any,
   ): boolean {
-    // If timestamps differ, use timestamp comparison
+    // Step 1: Compare timestamps
     if (currentTs !== previousTs) {
       return currentTs > previousTs;
     }
 
-    // Same timestamp - compare by txRef FIRST (to group by transaction)
-    if (currentTxRef !== previousTxRef) {
-      // Different transactions - compare lexicographically for deterministic ordering
-      return currentTxRef > previousTxRef;
+    // Step 2: Compare transactionIndex (position in block) to group by transaction
+    // For transactions: index IS transactionIndex
+    // For logs: we need transactionIndex (should be stored in context)
+    const getTransactionIndex = (ctx: any): number => {
+      // Transactions have 'input' field and their index IS transactionIndex
+      if ('input' in ctx && ctx.input !== undefined) {
+        return ctx.index ?? -1;
+      }
+      return -1;
+    };
+
+    const currentTxIndex = getTransactionIndex(currentCtx);
+    const previousTxIndex = getTransactionIndex(previousCtx);
+    // If both have transactionIndex and they differ, compare by transactionIndex
+    if (currentTxIndex !== -1 && previousTxIndex !== -1 && currentTxIndex !== previousTxIndex) {
+      return currentTxIndex > previousTxIndex;
     }
 
-    // Same timestamp and same transaction - compare by logIndex
+    // Step 4: Same transaction (same transactionIndex and same txRef)
+    // Now compare by event index (logIndex for logs, transactionIndex for transactions)
     const currentIndex = currentCtx?.index ?? -1;
     const previousIndex = previousCtx?.index ?? -1;
-    return currentIndex > previousIndex;
+
+    // Determine event types:
+    // - Logs have 'address' field
+    // - Transactions don't have 'address' (they have 'input' or are filtered)
+    const currentIsLog = 'address' in currentCtx && currentCtx.address !== undefined;
+    const previousIsLog = 'address' in previousCtx && previousCtx.address !== undefined;
+
+    // If both are same type, compare by index directly
+    if (currentIsLog === previousIsLog) {
+      // Both logs: compare logIndex values
+      // Both transactions: compare transactionIndex values (shouldn't happen in same tx, but handle it)
+      return currentIndex > previousIndex;
+    }
+
+    // Different types: logs come before transactions (logs are emitted during tx execution)
+    // So if current is transaction and previous is log, current comes after
+    return !currentIsLog && previousIsLog;
   }
 
   private async applyBalanceDelta<T extends UnifiedBase>(
