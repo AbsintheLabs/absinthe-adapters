@@ -742,24 +742,26 @@ export class Engine {
       logger.debug('Reprice called on trackable without pricing config, skipping');
       return;
     }
-
+    // BUGFIX: fromPricing (pricingRange) is currently buggy and not well supported
+    // Temporarily disabled until we can properly implement this feature
+    // TODO: Re-enable and fix in future iteration
     // Check pricing range - skip repricing if before the specified range
-    if (this.appCfg.pricingRange) {
-      let shouldPrice = false;
+    // if (this.appCfg.pricingRange) {
+    //   let shouldPrice = false;
 
-      if (this.appCfg.pricingRange.type === 'block') {
-        shouldPrice = height >= this.appCfg.pricingRange.fromBlock;
-      } else if (this.appCfg.pricingRange.type === 'timestamp') {
-        shouldPrice = ts >= this.appCfg.pricingRange.fromTimestamp;
-      }
+    //   if (this.appCfg.pricingRange.type === 'block') {
+    //     shouldPrice = height >= this.appCfg.pricingRange.fromBlock;
+    //   } else if (this.appCfg.pricingRange.type === 'timestamp') {
+    //     shouldPrice = ts >= this.appCfg.pricingRange.fromTimestamp;
+    //   }
 
-      if (!shouldPrice) {
-        logger.debug(
-          `💰 Skipping repricing at block ${height} (${new Date(ts).toISOString()}) - before pricing range`,
-        );
-        return;
-      }
-    }
+    //   if (!shouldPrice) {
+    //     logger.debug(
+    //       `💰 Skipping repricing at block ${height} (${new Date(ts).toISOString()}) - before pricing range`,
+    //     );
+    //     return;
+    //   }
+    // }
 
     // Get trackable instance ID and all registered assets for this trackable
     const trackableInstanceId = this.generateTrackableInstanceId(e.trackableInstance);

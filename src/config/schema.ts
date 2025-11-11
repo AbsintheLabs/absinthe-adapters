@@ -58,17 +58,20 @@ export const MultipleSinksSchema = z.object({
 // Combined sink configuration schema - supports both single and multiple sinks
 const SinkConfigSchema = z.union([SingleSinkSchema, MultipleSinksSchema]);
 
+// BUGFIX: fromPricing (pricingRange) is currently buggy and not well supported
+// Temporarily disabled until we can properly implement this feature
+// TODO: Re-enable and fix in future iteration
 // Pricing range configuration - defines when to apply pricing
-const PricingRange = z.discriminatedUnion('type', [
-  z.object({
-    type: z.literal('block'),
-    fromBlock: z.number().int().nonnegative(),
-  }),
-  z.object({
-    type: z.literal('timestamp'),
-    fromTimestamp: z.number().int().nonnegative(),
-  }),
-]);
+// const PricingRange = z.discriminatedUnion('type', [
+//   z.object({
+//     type: z.literal('block'),
+//     fromBlock: z.number().int().nonnegative(),
+//   }),
+//   z.object({
+//     type: z.literal('timestamp'),
+//     fromTimestamp: z.number().int().nonnegative(),
+//   }),
+// ]);
 
 const Common = z.object({
   configVersion: z.int().gt(0).optional(),
@@ -90,7 +93,10 @@ const Common = z.object({
     adapterId: z.string(), // "uniswap-v3", "compound-v2", etc.
     config: z.unknown(), // Will be validated against the adapter's manifest
   }),
-  pricingRange: PricingRange.optional(), // Optional pricing range - defines when to apply pricing
+  // BUGFIX: fromPricing (pricingRange) is currently buggy and not well supported
+  // Temporarily disabled until we can properly implement this feature
+  // TODO: Re-enable and fix in future iteration
+  // pricingRange: PricingRange.optional(), // Optional pricing range - defines when to apply pricing
   excludeContractAccounts: z
     .boolean()
     .optional()
@@ -173,7 +179,7 @@ const SolanaCfg = z.object({
 //   }),
 // ]);
 
-export const AppConfig = EvmCfg.merge(Common);
+export const AppConfig = EvmCfg.merge(Common).strict();
 // .extend(AssetFeedConfig);
 export type AppConfig = z.infer<typeof AppConfig>;
 
@@ -186,4 +192,7 @@ export type MultipleSinksConfig = z.infer<typeof MultipleSinksSchema>;
 
 // export type AssetConfig = z.infer<typeof AssetConfig>;
 export type SinkConfig = z.infer<typeof SinkConfigSchema>;
-export type PricingRange = z.infer<typeof PricingRange>;
+// BUGFIX: fromPricing (pricingRange) is currently buggy and not well supported
+// Temporarily disabled until we can properly implement this feature
+// TODO: Re-enable and fix in future iteration
+// export type PricingRange = z.infer<typeof PricingRange>;

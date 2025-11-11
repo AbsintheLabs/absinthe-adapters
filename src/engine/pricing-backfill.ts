@@ -79,23 +79,26 @@ export async function backfillPriceDataForBatch(
     const ts = block.header.timestamp;
     const height = block.header.height;
 
+    // BUGFIX: fromPricing (pricingRange) is currently buggy and not well supported
+    // Temporarily disabled until we can properly implement this feature
+    // TODO: Re-enable and fix in future iteration
     // Check pricing range - skip pricing if before the specified range
-    if (deps.appCfg.pricingRange) {
-      let shouldPrice = false;
+    // if (deps.appCfg.pricingRange) {
+    //   let shouldPrice = false;
 
-      if (deps.appCfg.pricingRange.type === 'block') {
-        shouldPrice = height >= deps.appCfg.pricingRange.fromBlock;
-      } else if (deps.appCfg.pricingRange.type === 'timestamp') {
-        shouldPrice = ts >= deps.appCfg.pricingRange.fromTimestamp;
-      }
+    //   if (deps.appCfg.pricingRange.type === 'block') {
+    //     shouldPrice = height >= deps.appCfg.pricingRange.fromBlock;
+    //   } else if (deps.appCfg.pricingRange.type === 'timestamp') {
+    //     shouldPrice = ts >= deps.appCfg.pricingRange.fromTimestamp;
+    //   }
 
-      if (!shouldPrice) {
-        logger.debug(
-          `💰 Skipping pricing for block ${height} (${new Date(ts).toISOString()}) - before pricing range`,
-        );
-        continue;
-      }
-    }
+    //   if (!shouldPrice) {
+    //     logger.debug(
+    //       `💰 Skipping pricing for block ${height} (${new Date(ts).toISOString()}) - before pricing range`,
+    //     );
+    //     continue;
+    //   }
+    // }
 
     // Price each (asset, handler) pair once per window
     for (const assetWithFeedConfig of assetsWithFeedConfig) {
