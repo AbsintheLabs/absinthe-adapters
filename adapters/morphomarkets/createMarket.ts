@@ -53,7 +53,7 @@ export async function handleCreateMetaMorphoFactory(
 
   // Emit the bid action
   await emitFns.action.action({
-    key: md5Hash(`${log.txRef}${log.logIndex}`),
+    key: md5Hash(`${log.txRef}${log.index}`),
     activity: 'CreateMarket',
     user: log.address.toLowerCase(),
     trackableInstance: instance,

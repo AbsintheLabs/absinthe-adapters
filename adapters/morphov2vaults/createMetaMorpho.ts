@@ -41,7 +41,7 @@ export async function handleCreateMetaMorphoFactory(
   console.info(`Market created and stored in Redis: ${newVaultV2}`, marketData);
 
   await emitFns.action.action({
-    key: md5Hash(`${log.txRef}${log.logIndex}`),
+    key: md5Hash(`${log.txRef}${log.index}`),
     activity: 'createVaultsV2',
     user: owner.toLowerCase(),
     trackableInstance: instance,

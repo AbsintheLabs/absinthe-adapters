@@ -449,16 +449,16 @@ export class Engine {
       return currentTs > previousTs;
     }
 
-    // Same timestamp - compare by logIndex
-    const currentIndex = currentCtx?.logIndex;
-    const previousIndex = previousCtx?.logIndex;
-
-    if (currentIndex !== previousIndex) {
-      return currentIndex > previousIndex;
+    // Same timestamp - compare by txRef FIRST (to group by transaction)
+    if (currentTxRef !== previousTxRef) {
+      // Different transactions - compare lexicographically for deterministic ordering
+      return currentTxRef > previousTxRef;
     }
 
-    // Same timestamp and index - compare by txHash (should be unique)
-    return currentTxRef !== previousTxRef;
+    // Same timestamp and same transaction - compare by logIndex
+    const currentIndex = currentCtx?.index ?? -1;
+    const previousIndex = previousCtx?.index ?? -1;
+    return currentIndex > previousIndex;
   }
 
   private async applyBalanceDelta<T extends UnifiedBase>(

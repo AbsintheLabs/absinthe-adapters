@@ -2,6 +2,7 @@ import { Block, Log, Transaction } from '../eprocessorBuilder.ts';
 import { logger } from '../utils/logger.ts';
 import * as z from 'zod';
 import { formatZodError } from '../utils/zod-error.ts';
+import { UnifiedBaseSchema } from '../types/unified-chain-events.ts';
 
 // =============================================================================
 // UNIFIED EVM TYPES (defined once in Zod)
@@ -11,20 +12,14 @@ import { formatZodError } from '../utils/zod-error.ts';
  * UnifiedEvmLog schema - validates and transforms SQD log data to our unified format.
  * All fields are JSON-serializable (no BigInt, Date, etc).
  */
-export const UnifiedEvmLogSchema = z.object({
-  // UnifiedBase fields
-  tsMs: z.number(),
-  height: z.number(),
-  txRef: z.string(),
 
+// TODO: Generalize it with UnifiedBase
+export const UnifiedEvmLogSchema = UnifiedBaseSchema.extend({
   // Event identification
   address: z.string(),
   topic0: z.string(),
   topics: z.array(z.string()),
   data: z.string(),
-
-  // Position in block
-  logIndex: z.number(),
 
   // Chain context
   chainId: z.number(),
@@ -40,21 +35,13 @@ export const UnifiedEvmLogSchema = z.object({
  * UnifiedEvmTransaction schema - validates and transforms SQD transaction data to our unified format.
  * All fields are JSON-serializable (no BigInt, Date, etc).
  */
-export const UnifiedEvmTransactionSchema = z.object({
-  // UnifiedBase fields
-  tsMs: z.number(),
-  height: z.number(),
-  txRef: z.string(),
-
+//TODO: Generalize it with UnifiedBase (or not , confirm with team + think equivalent in solana, then generalize)
+export const UnifiedEvmTransactionSchema = UnifiedBaseSchema.extend({
   // Transaction data
   transactionFrom: z.string(),
   transactionTo: z.string().nullable(),
   value: z.string(),
   input: z.string(),
-
-  // Position in block
-  transactionIndex: z.number(),
-
   // Chain context
   chainId: z.number(),
 
@@ -82,7 +69,7 @@ export function filterEvmLog(data: UnifiedEvmLog) {
     height: data.height,
     txRef: data.txRef,
     address: data.address,
-    logIndex: data.logIndex,
+    index: data.index,
     transactionFrom: data.transactionFrom,
     transactionTo: data.transactionTo,
   };
@@ -102,7 +89,7 @@ export function filterEvmTransaction(data: UnifiedEvmTransaction) {
     value: data.value,
     gasUsed: data.gasUsed,
     effectiveGasPrice: data.effectiveGasPrice,
-    transactionIndex: data.transactionIndex,
+    index: data.index,
   };
 }
 
@@ -202,7 +189,7 @@ export function transformSqdLogToUnified(block: Block, log: Log, chainId: number
     height: block.header.height,
     tsMs: block.header.timestamp,
     txRef: log.transactionHash,
-    logIndex: log.logIndex,
+    index: log.logIndex,
 
     chainId,
 
@@ -246,7 +233,7 @@ export function transformSqdTransactionToUnified(
         gasUsed: tx.gasUsed,
         effectiveGasPrice: tx.effectiveGasPrice,
         status: tx.status,
-        transactionIndex: tx.transactionIndex,
+        index: tx.transactionIndex,
       },
       chainId,
     });
@@ -263,7 +250,7 @@ export function transformSqdTransactionToUnified(
     value: tx.value.toString(),
     input: tx.input,
 
-    transactionIndex: tx.transactionIndex,
+    index: tx.transactionIndex,
 
     chainId,
 

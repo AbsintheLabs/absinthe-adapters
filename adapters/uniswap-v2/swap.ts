@@ -57,7 +57,7 @@ export async function handleSwap(
   // Helper to emit a single swap side
   const emitSwapSide = async (asset: string, amount: bigint) => {
     await emitFns.action.swap({
-      key: md5Hash(`${log.txRef}${log.logIndex}`),
+      key: md5Hash(`${log.txRef}${log.index}`),
       activity: 'swap',
       user,
       asset: { type: 'erc20', address: asset },
