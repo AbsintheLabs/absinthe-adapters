@@ -449,9 +449,9 @@ export class Engine {
       return currentTs > previousTs;
     }
 
-    // Same timestamp - compare by logIndex/transactionIndex
-    const currentIndex = currentCtx?.logIndex ?? currentCtx?.transactionIndex ?? -1;
-    const previousIndex = previousCtx?.logIndex ?? previousCtx?.transactionIndex ?? -1;
+    // Same timestamp - compare by logIndex
+    const currentIndex = currentCtx?.logIndex;
+    const previousIndex = previousCtx?.logIndex;
 
     if (currentIndex !== previousIndex) {
       return currentIndex > previousIndex;
@@ -548,7 +548,8 @@ export class Engine {
     // ONLY emit window if position is ACTIVE and this is a new event
     // Use composite key (timestamp, logIndex/transactionIndex, txHash) to determine if event is new
     // Skip if previousTxRef is null (first balance update - no previous state to create window from)
-    const isNewEvent = previousTxRef !== null && 
+    const isNewEvent =
+      previousTxRef !== null &&
       this.isEventAfterPrevious(d.tsMs, d.txRef, d, previousTsMs, previousTxRef, lastUpdateCtx);
 
     if (!isInactive && isNewEvent && (newAmount.gt(0) || previousAmount.gt(0))) {
@@ -645,7 +646,8 @@ export class Engine {
       // Emit closing window if there's a positive balance and this is a new event
       // Use composite key to determine if event is new (allows same-block windows)
       // Skip if prevTxRef is null (no previous state to create window from)
-      const isNewEvent = prevTxRef !== null && 
+      const isNewEvent =
+        prevTxRef !== null &&
         this.isEventAfterPrevious(d.tsMs, d.txRef, d, lastUpdateTsMs, prevTxRef, lastUpdateCtx);
 
       if (amount.gt(0) && isNewEvent) {
