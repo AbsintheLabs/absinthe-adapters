@@ -14,4 +14,10 @@ export {
   EnrichedPositionSchema as PositionSchema,
   type EnrichedAction as Action,
   type EnrichedPosition as Position,
+  EnrichedPositionSchema,
+  EnrichedActionSchema,
+  ChainArchSchema,
+  MeasurementTypeSchema,
+  DenominationSchema,
+  AssetEnum,
 } from '../types/events.ts';
