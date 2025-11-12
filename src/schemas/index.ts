@@ -20,4 +20,6 @@ export {
   MeasurementTypeSchema,
   DenominationSchema,
   AssetEnum,
+  RegisterConfigSchema,
+  type RegisterConfig,
 } from '../types/events.ts';
