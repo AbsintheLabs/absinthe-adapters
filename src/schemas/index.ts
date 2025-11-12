@@ -16,6 +16,8 @@ export {
   type EnrichedPosition as Position,
   EnrichedPositionSchema,
   EnrichedActionSchema,
+  type EnrichedAction,
+  type EnrichedPosition,
   ChainArchSchema,
   MeasurementTypeSchema,
   DenominationSchema,
