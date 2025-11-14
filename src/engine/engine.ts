@@ -589,7 +589,7 @@ export class Engine {
       previousTxRef !== null &&
       this.isEventAfterPrevious(d.tsMs, d.txRef, d, previousTsMs, previousTxRef, lastUpdateCtx);
 
-    if (!isInactive && isNewEvent && (newAmount.gt(0) || previousAmount.gt(0))) {
+    if (!isInactive && isNewEvent && previousAmount.gt(0)) {
       // previousTxRef is guaranteed to be non-null here due to isNewEvent check above
       const position: RawPosition = {
         user: e.user,
