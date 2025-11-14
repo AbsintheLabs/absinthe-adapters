@@ -7,6 +7,7 @@ import { PricingEngine } from './pricing-engine.ts';
 import { RedisTSCache, RedisMetadataCache, RedisHandlerMetadataCache } from '../cache/index.ts';
 import { Asset, Feed, getAssetFromKey } from '../types/asset.ts';
 import { extractAssetKeyFromPricingKey } from '../utils/pricing-keys.ts';
+import Big from 'big.js';
 
 export interface PricingBackfillDeps {
   redis: Redis;
@@ -16,6 +17,45 @@ export interface PricingBackfillDeps {
   handlerMetadataCache: RedisHandlerMetadataCache;
   pricingEngine: PricingEngine;
   sqdCtx: any;
+}
+
+/**
+ * Retry a pricing call with exponential backoff
+ * Blocks until success or max retries exceeded
+ */
+async function retryPricingCall<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 15,
+  feedConfig: Feed,
+  asset: Asset,
+  atMs: number,
+): Promise<T> {
+  let lastError: Error | unknown;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      const delayMs = Math.min(1000 * Math.pow(2, attempt - 1), 60000); // Cap at 60s
+
+      if (attempt < maxRetries) {
+        logger.warn(
+          `Pricing call failed for asset ${asset.type} with feed ${feedConfig.kind} @ ${new Date(atMs).toISOString()} (attempt ${attempt}/${maxRetries}). Retrying in ${delayMs}ms...`,
+          error,
+        );
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      } else {
+        // Max retries exceeded - throw error with clear message
+        const errorMessage = `Pricing API failed after ${maxRetries} retries for asset ${asset.type} with feed config ${JSON.stringify(feedConfig)} @ ${new Date(atMs).toISOString()}. Final error: ${error instanceof Error ? error.message : String(error)}`;
+        logger.error(errorMessage, error);
+        throw new Error(errorMessage);
+      }
+    }
+  }
+
+  // This should never be reached, but TypeScript needs it
+  throw lastError;
 }
 
 /**
@@ -122,14 +162,14 @@ export async function backfillPriceDataForBatch(
     while (idx < tasks.length) {
       const i = idx++;
       const t = tasks[i];
-      try {
-        await pricePricingHandler(t.feedConfig, t.asset, t.ts, t.block, deps, false);
-      } catch (err) {
-        logger.error(
-          `priceAsset failed for asset ${t.asset} with feed config ${JSON.stringify(t.feedConfig)} @ ${t.ts}`,
-          err,
-        );
-      }
+      // Retry with exponential backoff - blocks until success or max retries exceeded
+      await retryPricingCall(
+        () => pricePricingHandler(t.feedConfig, t.asset, t.ts, t.block, deps, false),
+        15, // max retries
+        t.feedConfig,
+        t.asset,
+        t.ts,
+      );
     }
   };
 

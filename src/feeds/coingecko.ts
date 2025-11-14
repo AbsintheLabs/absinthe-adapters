@@ -47,14 +47,13 @@ export const coingeckoFeed = defineFeedHandler({
         .json<any>();
 
       if (!r?.market_data?.current_price?.usd) {
-        logger.warn(`No market data found for ${coingeckoId} on ${date}`);
-        return 0;
+        throw new Error(`No market data found for ${coingeckoId} on ${date}`);
       }
 
       return r.market_data.current_price.usd;
     } catch (error) {
       logger.warn(`Failed to fetch historical USD price for ${coingeckoId}:`, error);
-      return 0;
+      throw new Error(`Failed to fetch historical USD price for ${coingeckoId}`);
     }
   },
 });
