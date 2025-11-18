@@ -35,11 +35,8 @@
             "bidTokenAddress": "0x4200000000000000000000000000000000000006"
           },
           "pricing": {
-            "assetType": "erc20",
-            "priceFeed": {
-              "kind": "coingecko",
-              "id": "ethereum"
-            }
+            "kind": "coingecko",
+            "id": "ethereum"
           }
         },
         {
@@ -50,11 +47,8 @@
             "bidTokenAddress": "0xCD2F22236DD9DFE2356D7C543161D4D260FD9BCB"
           },
           "pricing": {
-            "assetType": "erc20",
-            "priceFeed": {
-              "kind": "coingecko",
-              "id": "aavegotchi"
-            }
+            "kind": "coingecko",
+            "id": "aavegotchi"
           }
         }
       ],
