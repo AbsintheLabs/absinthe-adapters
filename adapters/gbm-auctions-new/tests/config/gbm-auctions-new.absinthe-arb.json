@@ -5,15 +5,19 @@
   "sinkConfig": {
     "sinks": [
       {
-        "sinkType": "csv",
-        "path": "gbm-auctions-new-arb.csv"
+        "sinkType": "stdout"
+      },
+      {
+        "sinkType": "absinthe",
+        "url": "${env:ABSINTHE_API_URL}",
+        "apiKey": "${env:ABSINTHE_API_KEY}"
       }
     ]
   },
   "network": {
     "chainId": 42161,
     "gatewayUrl": "https://v2.archive.subsquid.io/network/arbitrum-mainnet",
-    "rpcUrl": "https://arbitrum-mainnet.infura.io/v3/e5b6ee7b35c3402a8fc12263c715a1f8",
+    "rpcUrl": "${env:RPC_URL}",
     "finality": 75
   },
   "range": {

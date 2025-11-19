@@ -21,7 +21,7 @@
     "finality": 75
   },
   "range": {
-    "fromBlock": 15286409
+    "fromBlock": 34196308
   },
   "adapterConfig": {
     "adapterId": "gbm-auctions-new",
@@ -29,7 +29,7 @@
       "bid": [
         {
           "params": {
-            "auctionContractAddress": "0x5859Ff44A3BDCD00c7047E68B94e93d34aF0fd71"
+            "auctionContractAddress": "0x506900b4be61dcdcd11c5ce90dcf16d8fdec600d"
           },
           "assetSelectors": {
             "bidTokenAddress": "0x833589fCD6eDb6E08f4c7C32D4f71b54bDA02913"
@@ -44,7 +44,7 @@
         },
         {
           "params": {
-            "auctionContractAddress": "0x5859Ff44A3BDCD00c7047E68B94e93d34aF0fd71"
+            "auctionContractAddress": "0x506900b4be61dcdcd11c5ce90dcf16d8fdec600d"
           },
           "assetSelectors": {
             "bidTokenAddress": "0x4200000000000000000000000000000000000006"
@@ -59,7 +59,7 @@
         },
         {
           "params": {
-            "auctionContractAddress": "0x5859Ff44A3BDCD00c7047E68B94e93d34aF0fd71"
+            "auctionContractAddress": "0x506900b4be61dcdcd11c5ce90dcf16d8fdec600d"
           },
           "assetSelectors": {
             "bidTokenAddress": "0xcD2F22236DD9Dfe2356D7C543161D4d260FD9BcB"
@@ -76,7 +76,7 @@
       "claim": [
         {
           "params": {
-            "auctionContractAddress": "0x5859Ff44A3BDCD00c7047E68B94e93d34aF0fd71"
+            "auctionContractAddress": "0x506900b4be61dcdcd11c5ce90dcf16d8fdec600d"
           }
         }
       ]
