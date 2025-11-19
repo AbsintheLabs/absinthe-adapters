@@ -19,9 +19,9 @@ export async function handleClaim(
     data: log.data,
   });
 
-  const { winner, saleID } = decoded;
+  const { winner, saleID, beneficiary } = decoded;
 
-  if (winner.toLowerCase() === ZERO_ADDRESS.toLowerCase()) {
+  if (beneficiary.toLowerCase() === ZERO_ADDRESS.toLowerCase()) {
     logger.warn('Auction_Claimed event with winner ZERO_ADDRESS', {
       saleID: saleID.toString(),
       log: log,
@@ -33,7 +33,7 @@ export async function handleClaim(
   await emitFns.action.action({
     key: md5Hash(`${log.txRef}${log.logIndex}`),
     activity: 'claim',
-    user: winner.toLowerCase(),
+    user: beneficiary.toLowerCase(),
     trackableInstance: instance,
     amount: 0n,
     meta: {
