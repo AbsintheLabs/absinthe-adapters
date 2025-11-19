@@ -193,7 +193,7 @@ export class PrintrProcessor {
       logger.warn('Unknown Swap event signature:', log.topics[0]);
       return;
     }
-    const { sender, amount0, amount1 } = swapData;
+    const { recipient, amount0, amount1 } = swapData;
     const { gasPrice, gasUsed, hash } = log.transaction;
     logger.info('Gas used [Swap]', { blockNumber: block.header.height });
     const gasUsedInEth = Number(gasUsed) / 10 ** 18;
@@ -342,7 +342,7 @@ export class PrintrProcessor {
       logIndex: log.logIndex,
       blockNumber: block.header.height,
       blockHash: block.header.hash,
-      userId: log.transaction.from,
+      userId: recipient,
       currency: Currency.USD,
       valueUsd: swapValueUsd,
       gasUsed: gasUsedInEth,
