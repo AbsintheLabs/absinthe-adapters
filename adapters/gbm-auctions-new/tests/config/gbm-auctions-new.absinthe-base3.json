@@ -5,15 +5,19 @@
   "sinkConfig": {
     "sinks": [
       {
-        "sinkType": "csv",
-        "path": "gbm-auctions-new-base3.csv"
+        "sinkType": "stdout"
+      },
+      {
+        "sinkType": "absinthe",
+        "url": "${env:ABSINTHE_API_URL}",
+        "apiKey": "${env:ABSINTHE_API_KEY}"
       }
     ]
   },
   "network": {
     "chainId": 8453,
     "gatewayUrl": "https://v2.archive.subsquid.io/network/base-mainnet",
-    "rpcUrl": "https://base-mainnet.infura.io/v3/e5b6ee7b35c3402a8fc12263c715a1f8",
+    "rpcUrl": "${env:RPC_URL}",
     "finality": 75
   },
   "range": {
@@ -31,7 +35,6 @@
             "bidTokenAddress": "0x833589fCD6eDb6E08f4c7C32D4f71b54bDA02913"
           },
           "pricing": {
-            "assetType": "erc20",
             "priceFeed": {
               "kind": "coingecko",
               "id": "usd-coin"

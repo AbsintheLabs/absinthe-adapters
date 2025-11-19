@@ -15,14 +15,13 @@
     ]
   },
   "network": {
-    "chainId": 42161,
-    "gatewayUrl": "https://v2.archive.subsquid.io/network/arbitrum-mainnet",
+    "chainId": 8453,
+    "gatewayUrl": "https://v2.archive.subsquid.io/network/base-mainnet",
     "rpcUrl": "${env:RPC_URL}",
     "finality": 75
   },
   "range": {
-    "fromBlock": 370444915,
-    "toBlock": 0
+    "fromBlock": 38351465
   },
   "adapterConfig": {
     "adapterId": "gbm-auctions-new",
@@ -30,10 +29,10 @@
       "bid": [
         {
           "params": {
-            "auctionContractAddress": "0x7cED531Bb384dE4e70C0A543dBC5707bDB67632a"
+            "auctionContractAddress": "0x44d7b4b0C0c277AA7A62fe33875f17245Dbe48d6"
           },
           "assetSelectors": {
-            "bidTokenAddress": "0xaf88d065e77c8cc2239327c5edb3a432268e5831"
+            "bidTokenAddress": "0x833589fCD6eDb6E08f4c7C32D4f71b54bDA02913"
           },
           "pricing": {
             "kind": "coingecko",
@@ -42,21 +41,33 @@
         },
         {
           "params": {
-            "auctionContractAddress": "0x7cED531Bb384dE4e70C0A543dBC5707bDB67632a"
+            "auctionContractAddress": "0x44d7b4b0C0c277AA7A62fe33875f17245Dbe48d6"
           },
           "assetSelectors": {
-            "bidTokenAddress": "0x82af49447d8a07e3bd95bd0d56f35241523fbab1"
+            "bidTokenAddress": "0x4200000000000000000000000000000000000006"
           },
           "pricing": {
             "kind": "coingecko",
             "id": "ethereum"
+          }
+        },
+        {
+          "params": {
+            "auctionContractAddress": "0x44d7b4b0C0c277AA7A62fe33875f17245Dbe48d6"
+          },
+          "assetSelectors": {
+            "bidTokenAddress": "0xcD2F22236DD9Dfe2356D7C543161D4d260FD9BcB"
+          },
+          "pricing": {
+            "kind": "coingecko",
+            "id": "aavegotchi"
           }
         }
       ],
       "claim": [
         {
           "params": {
-            "auctionContractAddress": "0x7cED531Bb384dE4e70C0A543dBC5707bDB67632a"
+            "auctionContractAddress": "0x44d7b4b0C0c277AA7A62fe33875f17245Dbe48d6"
           }
         }
       ]
