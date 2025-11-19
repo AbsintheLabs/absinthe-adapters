@@ -117,3 +117,21 @@ ts_ms: 'not-a-number' // Should be number
 });
 // Error: Expected number, received string---
 ```
+
+### Unknown Fields
+
+```escript
+// ✅ Extra fields are automatically stripped
+const action = ActionSchema.parse({
+user: '0x123',
+ts_ms: Date.now(),
+height: 12345,
+tx_ref: '0xabc',
+extraField: 'will be removed', // Automatically stripped
+// ... all required fields
+});
+// Result: action.extraField is undefined
+
+```
+
+**Note:** The schema uses `.strip()` which automatically removes any fields not defined in the schema definition. This ensures data consistency across all consumers.

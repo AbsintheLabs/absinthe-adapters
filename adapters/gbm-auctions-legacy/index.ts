@@ -47,15 +47,10 @@ export default defineAdapter({
 
     return {
       buildSqdProcessor: (base) =>
-        base
-          .addLog({
-            address: Array.from(addressToTrack[0]),
-            topic0: [transferTopic],
-          })
-          .addLog({
-            address: Array.from(addressToTrack[1]),
-            topic0: [transferTopic, claimedTopic],
-          }),
+        base.addLog({
+          address: Array.from(addressToTrack),
+          topic0: [transferTopic, claimedTopic],
+        }),
       onLog: async ({ log, emitFns, sqdRpcCtx, redis }) => {
         const address = log.address;
 
