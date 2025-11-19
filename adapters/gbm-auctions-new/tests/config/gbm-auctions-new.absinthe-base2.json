@@ -35,11 +35,8 @@
             "bidTokenAddress": "0x833589fCD6eDb6E08f4c7C32D4f71b54bDA02913"
           },
           "pricing": {
-            "assetType": "erc20",
-            "priceFeed": {
-              "kind": "coingecko",
-              "id": "usd-coin"
-            }
+            "kind": "coingecko",
+            "id": "usd-coin"
           }
         },
         {
