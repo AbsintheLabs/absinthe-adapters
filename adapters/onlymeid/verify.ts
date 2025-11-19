@@ -14,12 +14,12 @@ export async function handleVerify(
   emitFns: EmitFunctions,
   instance: InstanceFrom<typeof manifest.trackables.verify>,
 ): Promise<void> {
-  const { transactionFrom: user, txRef, transactionIndex } = transaction;
+  const { transactionFrom: user, txRef, index } = transaction;
 
   // Emit the verification action
   // Since quantityType is 'none', we don't need to provide asset or amount
   await emitFns.action.action({
-    key: md5Hash(`${txRef}${transactionIndex}`),
+    key: md5Hash(`${txRef}${index}`),
     user,
     activity: 'verify',
     trackableInstance: instance,

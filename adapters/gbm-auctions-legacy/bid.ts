@@ -22,7 +22,7 @@ export async function handleBid(
 
   // Emit the bid action with the token asset
   await emitFns.action.action({
-    key: md5Hash(`${log.txRef}${log.logIndex}`),
+    key: md5Hash(`${log.txRef}${log.index}`),
     activity: 'bid',
     user: _bidder.toLowerCase(),
     asset: bidTokenAddress.toLowerCase(),

@@ -11,7 +11,7 @@ export type Log = {
   topics: string[];
   data?: string;
   transactionHash: string;
-  logIndex: number;
+  index: number;
   transaction?: Tx;
 };
 export type Block = {

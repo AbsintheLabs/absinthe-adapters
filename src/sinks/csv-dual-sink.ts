@@ -98,7 +98,9 @@ export class CsvDualSink implements Sink {
 
   private isWindowRow(row: any): boolean {
     return (
-      row && ('startTs' in row || 'startHeight' in row) && ('endTs' in row || 'endHeight' in row)
+      row &&
+      ('start_ts' in row || 'start_height' in row) &&
+      ('end_ts' in row || 'end_height' in row)
     );
   }
 

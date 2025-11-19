@@ -133,3 +133,24 @@ export const EnrichedActionSchema = z
  * Inferred directly from the Zod schema - single source of truth.
  */
 export type EnrichedAction = z.infer<typeof EnrichedActionSchema>;
+
+export const RegisterConfigSchema = z.object({
+  trackable_instance_id: z.string(),
+  config_hash: z.string(),
+  full_config: z.record(z.string(), z.any()),
+  adapter_id: z.string(),
+  trackable_name: z.string(),
+  trackable_config: z
+    .object({
+      params: z.record(z.string(), z.any()).optional(),
+      pricing: z
+        .object({
+          kind: z.string(),
+          usdPegValue: z.number().optional(),
+        })
+        .optional(),
+    })
+    .optional(),
+});
+
+export type RegisterConfig = z.infer<typeof RegisterConfigSchema>;
