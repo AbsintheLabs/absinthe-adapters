@@ -28,7 +28,7 @@ export async function handleClaim(
   // Emit event for beneficiary if not zero address
   if (beneficiaryLower !== zeroAddressLower) {
     await emitFns.action.action({
-      key: md5Hash(`${log.txRef}${log.logIndex}:beneficiary`),
+      key: md5Hash(`${log.txRef}${log.index}:beneficiary`),
       activity: 'claim',
       user: beneficiaryLower,
       trackableInstance: instance,
@@ -49,7 +49,7 @@ export async function handleClaim(
   // Emit event for winner if not zero address
   if (winnerLower !== zeroAddressLower) {
     await emitFns.action.action({
-      key: md5Hash(`${log.txRef}${log.logIndex}:winner`),
+      key: md5Hash(`${log.txRef}${log.index}:winner`),
       activity: 'claim',
       user: winnerLower,
       trackableInstance: instance,
