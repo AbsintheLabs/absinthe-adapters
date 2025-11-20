@@ -364,8 +364,27 @@ export class Engine {
     asset: Asset,
     feedConfig: Feed,
   ): Promise<void> {
+    // Validate asset before processing to prevent corrupted keys
+    if (!asset || !asset.type) {
+      logger.error(`❌ Invalid asset passed to registerAssetForPricing: ${JSON.stringify(asset)}`);
+      throw new Error(
+        `Cannot register asset for pricing: asset type is missing or undefined. Asset: ${JSON.stringify(asset)}`,
+      );
+    }
+
     // the unique tuple that we use to lookup config is: (assetkey, feedconfig)
     const assetKey = getKeyFromAsset(asset);
+
+    // Validate assetKey is valid (not undefined, null, or empty)
+    if (!assetKey || assetKey === 'undefined' || assetKey.trim() === '') {
+      logger.error(
+        `❌ Invalid assetKey generated from asset: ${JSON.stringify(asset)} -> assetKey: ${assetKey}`,
+      );
+      throw new Error(
+        `Cannot register asset for pricing: invalid assetKey generated. Asset: ${JSON.stringify(asset)}, assetKey: ${assetKey}`,
+      );
+    }
+
     const feedHash = md5HashCanonical(feedConfig, 8);
     const priceKey = buildPricingKey(assetKey, feedHash);
 
@@ -425,7 +444,15 @@ export class Engine {
 
     if (quantityType === 'token_based') {
       // fixme: this is hacky
-      rawAction.asset = (e as any).asset;
+      const asset = (e as any).asset;
+      // Validate asset before adding to RawAction
+      if (!asset || !asset.type) {
+        logger.error(
+          `Invalid asset in applyAction: ${JSON.stringify(asset)}, key: ${e.key}, user: ${e.user}`,
+        );
+        throw new Error(`Invalid asset: asset type is missing or undefined for action ${e.key}`);
+      }
+      rawAction.asset = asset;
     }
 
     this.events.push(rawAction);

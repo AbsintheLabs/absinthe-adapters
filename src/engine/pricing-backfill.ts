@@ -92,15 +92,53 @@ export async function backfillPriceDataForBatch(
   const assetsWithFeedConfig: AssetsWithFeedConfig[] = [];
 
   for (const pricingKey of assetKeys) {
-    const feedConfigJson = await deps.redis.get(pricingKey);
-    if (!feedConfigJson) {
-      throw new Error(`No feed config JSON found for pricing key ${pricingKey}`);
+    // Skip invalid pricing keys (undefined, null, empty string)
+    if (!pricingKey || typeof pricingKey !== 'string' || pricingKey.trim() === '') {
+      logger.warn(`⚠️ Skipping invalid pricing key: ${JSON.stringify(pricingKey)}`);
+      continue;
     }
 
-    const feedConfig = JSON.parse(feedConfigJson) as Feed;
-    const assetKey = extractAssetKeyFromPricingKey(pricingKey);
-    const asset = getAssetFromKey(assetKey);
-    assetsWithFeedConfig.push({ asset, feedConfig });
+    // Validate pricing key format before processing
+    if (!pricingKey.startsWith('pricing:')) {
+      logger.warn(
+        `⚠️ Skipping pricing key with invalid format (must start with 'pricing:'): ${pricingKey}`,
+      );
+      continue;
+    }
+
+    // Check for corrupted keys containing "undefined" as the asset key
+    if (pricingKey.includes(':undefined:')) {
+      logger.warn(`⚠️ Skipping corrupted pricing key with undefined asset key: ${pricingKey}`);
+      continue;
+    }
+
+    try {
+      const feedConfigJson = await deps.redis.get(pricingKey);
+      if (!feedConfigJson) {
+        logger.warn(`⚠️ No feed config JSON found for pricing key: ${pricingKey}`);
+        continue;
+      }
+
+      const feedConfig = JSON.parse(feedConfigJson) as Feed;
+      const assetKey = extractAssetKeyFromPricingKey(pricingKey);
+
+      // Validate assetKey is not empty and not the string "undefined"
+      if (!assetKey || assetKey.trim() === '' || assetKey === 'undefined') {
+        logger.error(
+          `❌ Invalid asset key extracted from pricing key: ${pricingKey} (assetKey: ${assetKey})`,
+        );
+        continue;
+      }
+
+      const asset = getAssetFromKey(assetKey);
+      assetsWithFeedConfig.push({ asset, feedConfig });
+    } catch (error) {
+      logger.error(
+        `❌ Error processing pricing key ${pricingKey}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      // Continue processing other keys instead of crashing
+      continue;
+    }
   }
 
   logger.debug(`💰 Collected ${assetsWithFeedConfig.length} assets with feed config to backfill`);

@@ -21,25 +21,49 @@ export async function handleClaim(
 
   const { winner, saleID, beneficiary } = decoded;
 
-  if (beneficiary.toLowerCase() === ZERO_ADDRESS.toLowerCase()) {
+  const beneficiaryLower = beneficiary.toLowerCase();
+  const winnerLower = winner.toLowerCase();
+  const zeroAddressLower = ZERO_ADDRESS.toLowerCase();
+
+  // Emit event for beneficiary if not zero address
+  if (beneficiaryLower !== zeroAddressLower) {
+    await emitFns.action.action({
+      key: md5Hash(`${log.txRef}${log.logIndex}:beneficiary`),
+      activity: 'claim',
+      user: beneficiaryLower,
+      trackableInstance: instance,
+      amount: 0n,
+      meta: {
+        saleID: saleID.toString(),
+        winner: 'false',
+        bidIndex: 'null',
+      },
+    });
+  } else {
+    logger.warn('Auction_Claimed event with beneficiary ZERO_ADDRESS', {
+      saleID: saleID.toString(),
+      log: log,
+    });
+  }
+
+  // Emit event for winner if not zero address
+  if (winnerLower !== zeroAddressLower) {
+    await emitFns.action.action({
+      key: md5Hash(`${log.txRef}${log.logIndex}:winner`),
+      activity: 'claim',
+      user: winnerLower,
+      trackableInstance: instance,
+      amount: 0n,
+      meta: {
+        saleID: saleID.toString(),
+        winner: 'true',
+        bidIndex: 'null',
+      },
+    });
+  } else {
     logger.warn('Auction_Claimed event with winner ZERO_ADDRESS', {
       saleID: saleID.toString(),
       log: log,
     });
-    return;
   }
-
-  // Emit the bid action
-  await emitFns.action.action({
-    key: md5Hash(`${log.txRef}${log.index}`),
-    activity: 'claim',
-    user: beneficiary.toLowerCase(),
-    trackableInstance: instance,
-    amount: 0n,
-    meta: {
-      saleID: saleID.toString(),
-      winner: 'true',
-      bidIndex: 'null',
-    },
-  });
 }

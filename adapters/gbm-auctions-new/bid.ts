@@ -86,7 +86,7 @@ export async function handleBid(
     key: md5Hash(`${log.txRef}${log.index}`),
     activity: 'bid',
     user: bidder.toLowerCase(),
-    asset: { type: 'erc20', address: currencyErc20Address.toLowerCase() }, // Now safe - we checked it's not null
+    asset: { type: 'erc20', address: currencyErc20Address.toLowerCase() },
     amount: bidamount,
     trackableInstance: instance,
     meta: {
