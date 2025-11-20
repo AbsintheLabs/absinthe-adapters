@@ -94,6 +94,9 @@ export const EnrichedPositionSchema = z
     // Context fields (stringified JSON, always present but nullable)
     start_ctx_json: z.string().nullable(),
     end_ctx_json: z.string().nullable(),
+
+    // Added by addProcessedTimestamp
+    processed_at_ms: z.number(),
   })
   .extend(CommonFieldsSchema.shape)
   .extend(AssetFieldsSchema.shape); // required bc window is always a token_based
@@ -123,6 +126,9 @@ export const EnrichedActionSchema = z
 
     // Added by addProtocolMetadata
     metadata_json: z.string().nullable(),
+
+    // Added by addProcessedTimestamp
+    processed_at_ms: z.number(),
   })
   .extend(CommonFieldsSchema.shape)
   .extend(AssetFieldsSchemaOptional.shape) // optional bc action can be non token-based
