@@ -46,6 +46,13 @@ export async function resolveAssetMetadata(
   assetKey: string,
   context: MetadataResolveContext,
 ): Promise<AssetMetadata> {
+  // Validate asset and assetKey before processing
+  if (!asset || !asset.type || assetKey === 'undefined' || assetKey.trim() === '') {
+    const errorMsg = `Invalid asset or assetKey provided to resolveAssetMetadata: asset=${JSON.stringify(asset)}, assetKey=${assetKey}`;
+    logger.error(errorMsg);
+    throw new Error(errorMsg);
+  }
+
   // Step 1: Check cache first
   logger.debug(`Checking cache for metadata: ${assetKey}`);
   let metadata = await context.metadataCache.get(assetKey);
@@ -94,6 +101,14 @@ export const enrichAssetMetadataForTokenBased = <
   T extends { asset: Asset; measurement_type: 'token_based' },
 >(): Enricher<T, T & EnrichedAssetMetadata> => {
   return async (item, context) => {
+    // Validate asset before processing
+    if (!item.asset || !item.asset.type) {
+      logger.error(
+        `Invalid asset in enrichAssetMetadataForTokenBased: ${JSON.stringify(item.asset)}`,
+      );
+      throw new Error(`Invalid asset: asset type is missing or undefined`);
+    }
+
     const assetKey = getAssetKeyFromAsset(item.asset);
 
     // Resolve metadata (cache-first, then fetch from chain)
@@ -131,6 +146,14 @@ export const enrichAssetMetadataConditional = <
     }
 
     // Token based: resolve metadata (cache-first, then fetch from chain)
+    // Validate asset before processing
+    if (!item.asset || !item.asset.type) {
+      logger.error(
+        `Invalid asset in enrichAssetMetadataConditional: ${JSON.stringify(item.asset)}`,
+      );
+      throw new Error(`Invalid asset: asset type is missing or undefined`);
+    }
+
     const assetKey = getAssetKeyFromAsset(item.asset);
     const metadata = await resolveAssetMetadata(item.asset, assetKey, context);
 

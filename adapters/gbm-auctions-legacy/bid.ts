@@ -25,7 +25,7 @@ export async function handleBid(
     key: md5Hash(`${log.txRef}${log.logIndex}`),
     activity: 'bid',
     user: _bidder.toLowerCase(),
-    asset: bidTokenAddress.toLowerCase(),
+    asset: { type: 'erc20', address: bidTokenAddress.toLowerCase() },
     amount: _bidAmount,
     trackableInstance: instance,
     meta: {
