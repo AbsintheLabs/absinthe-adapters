@@ -14,6 +14,7 @@ import { EnrichedPositionSchema } from '../../types/events.ts';
 import { excludeContractAccounts } from '../filters/exclude-contracts.ts';
 import { addDenomination } from '../pricing/quantity-basis.ts';
 import { calculatePositionQuantity } from '../pricing/quantity-calculator.ts';
+import { addProcessedTimestamp } from '../base/add-processed-timestamp.ts';
 /**
  * Window enrichment pipeline.
  *
@@ -41,5 +42,7 @@ export const positionsPipeline = () =>
     .pipe(enrichAssetMetadataForTokenBased())
     .pipe(addDenomination())
     .pipe(calculatePositionQuantity())
+    // processing timestamp (must be before validation)
+    .pipe(addProcessedTimestamp())
     // validate and pick shape
     .pipe(validateAndPickShape(EnrichedPositionSchema));

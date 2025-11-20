@@ -10,6 +10,7 @@ import { enrichAssetMetadataConditional } from '../pricing/asset-metadata.ts';
 import { addDenomination } from '../pricing/quantity-basis.ts';
 import { calculateActionQuantity } from '../pricing/quantity-calculator.ts';
 import { excludeContractAccounts } from '../filters/exclude-contracts.ts';
+import { addProcessedTimestamp } from '../base/add-processed-timestamp.ts';
 
 import { Pipe, requireShape, validateAndPickShape } from '../core.ts';
 import { RawAction } from '../../types/enrichment.ts';
@@ -52,6 +53,8 @@ export const actionPipeline = () =>
     .pipe(enrichAssetMetadataConditional())
     .pipe(addDenomination())
     .pipe(calculateActionQuantity())
+    // processing timestamp (must be before validation)
+    .pipe(addProcessedTimestamp())
     // assert, validate, and pick shape
     // DO NOT REMOVE THESE 2 STEPS! THEY ARE ESSENTIAL FOR TYPE SAFETY!
     .pipe(validateAndPickShape(EnrichedActionSchema));
