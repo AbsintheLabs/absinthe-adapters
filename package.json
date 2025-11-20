@@ -1,16 +1,22 @@
 {
   "name": "@absinthelabs/adapters",
-  "version": "0.0.1",
+  "version": "0.1.2",
   "private": false,
   "type": "module",
   "exports": {
-    "./schemas": {
+    ".": {
       "types": "./dist/src/schemas/index.d.ts",
       "default": "./dist/src/schemas/index.js"
+    },
+    "./types": {
+      "types": "./dist/src/types/events.d.ts",
+      "default": "./dist/src/types/events.js"
     }
   },
   "files": [
-    "dist/src/schemas"
+    "dist/src/schemas",
+    "dist/src/types/events.js",
+    "dist/src/types/events.d.ts"
   ],
   "scripts": {
     "build": "tsc",

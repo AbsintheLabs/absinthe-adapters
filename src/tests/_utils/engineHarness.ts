@@ -15,7 +15,10 @@ export async function runEngineOnce(opts: {
     range: { toBlock?: number | null };
     flushMs: number;
     assetFeedConfig: any;
-    pricingRange?: any;
+    // BUGFIX: fromPricing (pricingRange) is currently buggy and not well supported
+    // Temporarily disabled until we can properly implement this feature
+    // TODO: Re-enable and fix in future iteration
+    // pricingRange?: any;
   }>;
 }) {
   const redis = new FakeRedis();

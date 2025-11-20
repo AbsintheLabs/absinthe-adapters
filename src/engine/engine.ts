@@ -247,7 +247,7 @@ export class Engine {
         logger.error('Error while flushing/closing sink before exit', err);
       }
       // Exit immediately - SQD will persist state because setForceFlush was called
-      // Commented out because sqd will quit itself, this was cuasing issues when we were doing this prematurely
+      // Commented out because sqd was not able to save the state to the file in these cases
       // since sqd was not able to save the state to the file in these cases
       // process.exit(0);
     }
@@ -457,6 +457,73 @@ export class Engine {
 
     this.events.push(rawAction);
   }
+  /**
+   * Compare two events to determine if the current event comes after the previous one.
+   *
+   * Ordering: Group by transaction (tx1, tx2, tx3...), then by event index within transaction
+   *
+   * Example:
+   * Block: tx1, tx2, tx3
+   * tx1: ev1, ev2, ev3
+   * tx2: ev1, ev2
+   *
+   * Final order: tx1:ev1, tx1:ev2, tx1:ev3, tx2:ev1, tx2:ev2
+   *
+   * Returns true if current event is after previous event, false otherwise.
+   */
+  private isEventAfterPrevious(
+    currentTs: number,
+    currentTxRef: string,
+    currentCtx: any,
+    previousTs: number,
+    previousTxRef: string,
+    previousCtx: any,
+  ): boolean {
+    // Step 1: Compare timestamps
+    if (currentTs !== previousTs) {
+      return currentTs > previousTs;
+    }
+
+    // Step 2: Compare transactionIndex (position in block) to group by transaction
+    // For transactions: index IS transactionIndex
+    // For logs: we need transactionIndex (should be stored in context)
+    const getTransactionIndex = (ctx: any): number => {
+      // Transactions have 'input' field and their index IS transactionIndex
+      if ('input' in ctx && ctx.input !== undefined) {
+        return ctx.index ?? -1;
+      }
+      return -1;
+    };
+
+    const currentTxIndex = getTransactionIndex(currentCtx);
+    const previousTxIndex = getTransactionIndex(previousCtx);
+    // If both have transactionIndex and they differ, compare by transactionIndex
+    if (currentTxIndex !== -1 && previousTxIndex !== -1 && currentTxIndex !== previousTxIndex) {
+      return currentTxIndex > previousTxIndex;
+    }
+
+    // Step 4: Same transaction (same transactionIndex and same txRef)
+    // Now compare by event index (logIndex for logs, transactionIndex for transactions)
+    const currentIndex = currentCtx?.index ?? -1;
+    const previousIndex = previousCtx?.index ?? -1;
+
+    // Determine event types:
+    // - Logs have 'address' field
+    // - Transactions don't have 'address' (they have 'input' or are filtered)
+    const currentIsLog = 'address' in currentCtx && currentCtx.address !== undefined;
+    const previousIsLog = 'address' in previousCtx && previousCtx.address !== undefined;
+
+    // If both are same type, compare by index directly
+    if (currentIsLog === previousIsLog) {
+      // Both logs: compare logIndex values
+      // Both transactions: compare transactionIndex values (shouldn't happen in same tx, but handle it)
+      return currentIndex > previousIndex;
+    }
+
+    // Different types: logs come before transactions (logs are emitted during tx execution)
+    // So if current is transaction and previous is log, current comes after
+    return !currentIsLog && previousIsLog;
+  }
 
   private async applyBalanceDelta<T extends UnifiedBase>(
     e: BalanceDelta,
@@ -542,13 +609,15 @@ export class Engine {
       await this.redis.srem(Engine.BAL_SET_KEY, balanceKey);
     }
 
-    // ONLY emit window if position is ACTIVE
-    if (!isInactive && previousTsMs < d.tsMs && (newAmount.gt(0) || previousAmount.gt(0))) {
-      if (previousTxRef === null) {
-        logger.error(`previousTxRef is null for key: ${balanceKey}`);
-        throw new Error(`previousTxRef is null for key: ${balanceKey}`);
-      }
+    // ONLY emit window if position is ACTIVE and this is a new event
+    // Use composite key (timestamp, logIndex/transactionIndex, txHash) to determine if event is new
+    // Skip if previousTxRef is null (first balance update - no previous state to create window from)
+    const isNewEvent =
+      previousTxRef !== null &&
+      this.isEventAfterPrevious(d.tsMs, d.txRef, d, previousTsMs, previousTxRef, lastUpdateCtx);
 
+    if (!isInactive && isNewEvent && previousAmount.gt(0)) {
+      // previousTxRef is guaranteed to be non-null here due to isNewEvent check above
       const position: RawPosition = {
         user: e.user,
         asset: e.asset,
@@ -638,13 +707,15 @@ export class Engine {
       const pricingHandlerId =
         pricingHandlerIdStr && pricingHandlerIdStr !== '' ? pricingHandlerIdStr : null;
 
-      // Emit closing window if there's a positive balance and time has elapsed
-      if (amount.gt(0) && lastUpdateTsMs < d.tsMs) {
-        if (prevTxRef === null) {
-          logger.error(`prevTxRef is null for key: ${balanceKey}`);
-          throw new Error(`prevTxRef is null for key: ${balanceKey}`);
-        }
+      // Emit closing window if there's a positive balance and this is a new event
+      // Use composite key to determine if event is new (allows same-block windows)
+      // Skip if prevTxRef is null (no previous state to create window from)
+      const isNewEvent =
+        prevTxRef !== null &&
+        this.isEventAfterPrevious(d.tsMs, d.txRef, d, lastUpdateTsMs, prevTxRef, lastUpdateCtx);
 
+      if (amount.gt(0) && isNewEvent) {
+        // prevTxRef is guaranteed to be non-null here due to isNewEvent check above
         const position: RawPosition = {
           user,
           asset,
@@ -735,24 +806,26 @@ export class Engine {
       logger.debug('Reprice called on trackable without pricing config, skipping');
       return;
     }
-
+    // BUGFIX: fromPricing (pricingRange) is currently buggy and not well supported
+    // Temporarily disabled until we can properly implement this feature
+    // TODO: Re-enable and fix in future iteration
     // Check pricing range - skip repricing if before the specified range
-    if (this.appCfg.pricingRange) {
-      let shouldPrice = false;
+    // if (this.appCfg.pricingRange) {
+    //   let shouldPrice = false;
 
-      if (this.appCfg.pricingRange.type === 'block') {
-        shouldPrice = height >= this.appCfg.pricingRange.fromBlock;
-      } else if (this.appCfg.pricingRange.type === 'timestamp') {
-        shouldPrice = ts >= this.appCfg.pricingRange.fromTimestamp;
-      }
+    //   if (this.appCfg.pricingRange.type === 'block') {
+    //     shouldPrice = height >= this.appCfg.pricingRange.fromBlock;
+    //   } else if (this.appCfg.pricingRange.type === 'timestamp') {
+    //     shouldPrice = ts >= this.appCfg.pricingRange.fromTimestamp;
+    //   }
 
-      if (!shouldPrice) {
-        logger.debug(
-          `💰 Skipping repricing at block ${height} (${new Date(ts).toISOString()}) - before pricing range`,
-        );
-        return;
-      }
-    }
+    //   if (!shouldPrice) {
+    //     logger.debug(
+    //       `💰 Skipping repricing at block ${height} (${new Date(ts).toISOString()}) - before pricing range`,
+    //     );
+    //     return;
+    //   }
+    // }
 
     // Get trackable instance ID and all registered assets for this trackable
     const trackableInstanceId = this.generateTrackableInstanceId(e.trackableInstance);

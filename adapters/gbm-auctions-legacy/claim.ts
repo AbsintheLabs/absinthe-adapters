@@ -23,7 +23,7 @@ export async function handleClaim(
 
   // Emit the bid action
   await emitFns.action.action({
-    key: md5Hash(`${log.txRef}${log.logIndex}`),
+    key: md5Hash(`${log.txRef}${log.index}`),
     activity: 'claim',
     user: user.toLowerCase(),
     trackableInstance: instance,

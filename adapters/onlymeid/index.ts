@@ -27,11 +27,11 @@ export default defineAdapter({
         }),
 
       onTransaction: async ({ transaction, emitFns }) => {
-        const { transactionTo: to, transactionFrom: user, txRef, transactionIndex } = transaction;
+        const { transactionTo: to, transactionFrom: user, txRef, index } = transaction;
         // Safety check - ensure transaction is to our tracked contract
         if (!to || to !== onlyMeIdAddress) return;
         await emitFns.action.action({
-          key: md5Hash(`${txRef}${transactionIndex}`),
+          key: md5Hash(`${txRef}${index}`),
           user,
           activity: 'verify',
           trackableInstance: config.verify[0],

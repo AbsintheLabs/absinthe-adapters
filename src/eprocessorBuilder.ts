@@ -16,15 +16,26 @@ export type BaseProcessor = EvmBatchProcessor;
 // export type BaseProcessor = EvmBatchProcessor | SolanaBatchProcessor; // Future: support both
 
 export function buildBaseSqdProcessor(cfg: AppConfig) {
-  const p = new EvmBatchProcessor()
-    .setGateway(cfg.network.gatewayUrl)
-    .setFinalityConfirmation(cfg.network.finality)
-    .setRpcDataIngestionSettings({
+  const p = new EvmBatchProcessor();
+
+  if (cfg.network.gatewayUrl) {
+    p.setGateway(cfg.network.gatewayUrl);
+    p.setRpcDataIngestionSettings({
       disabled: true,
-    })
+    });
+  } else {
+    // Enable RPC data ingestion when no gateway is provided
+    p.setRpcDataIngestionSettings({
+      disabled: false,
+      // Optional: add rate limiting settings if needed
+      // headPollInterval: 5000, // poll every 5 seconds
+      // newHeadPollInterval: 1000, // poll more frequently for new heads
+    });
+  }
+  p.setFinalityConfirmation(cfg.network.finality);
     //xxx: can we avoid this? it's slow, wasteful, and couples us to sqd mechanics
     // if there's a way where we are not tied to all the blocks, then we should do that
-    .includeAllBlocks() // needed for proper price backfilling.
+    p.includeAllBlocks() // needed for proper price backfilling.
     .setBlockRange({
       from: cfg.range.fromBlock,
       ...(cfg.range.toBlock ? { to: cfg.range.toBlock } : {}),

@@ -83,7 +83,7 @@ export async function handleBid(
 
   // Emit the bid action
   await emitFns.action.action({
-    key: md5Hash(`${log.txRef}${log.logIndex}`),
+    key: md5Hash(`${log.txRef}${log.index}`),
     activity: 'bid',
     user: bidder.toLowerCase(),
     asset: { type: 'erc20', address: currencyErc20Address.toLowerCase() },
