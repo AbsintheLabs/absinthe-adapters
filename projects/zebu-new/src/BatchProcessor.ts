@@ -413,25 +413,21 @@ export class ZebuNewProcessor {
     protocolState: ZebuNewProtocolState,
     contractAddress: string,
   ): Promise<void> {
-    const { winner, saleID } = mainAbi.events.Auction_Claimed.decode(log);
+    const { winner, saleID, beneficiary } = mainAbi.events.Auction_Claimed.decode(log);
+
+    const beneficiaryLower = beneficiary.toLowerCase();
+    const winnerLower = winner.toLowerCase();
+    const zeroAddressLower = ZERO_ADDRESS.toLowerCase();
 
     logger.info('Processing Auction_Claimed event', {
       winner,
+      beneficiary,
       saleID: saleID.toString(),
       txHash: log.transactionHash,
       blockNumber: block.header.height,
       contractAddress,
       chainId: this.chainId,
     });
-
-    if (winner.toLowerCase() === ZERO_ADDRESS.toLowerCase()) {
-      logger.warn('Auction_Claimed event with winner ZERO_ADDRESS', {
-        saleID: saleID.toString(),
-        txHash: log.transactionHash,
-        blockNumber: block.header.height,
-      });
-      return;
-    }
 
     const { gasPrice, gasUsed } = log.transaction;
     const gasFee = Number(gasUsed) * Number(gasPrice);
@@ -464,45 +460,103 @@ export class ZebuNewProcessor {
     }
     const gasFeeUsd = displayGasFee * ethPriceUsd;
 
-    const transactionSchema = {
-      eventType: MessageType.TRANSACTION,
-      eventName: 'Auction_Claimed',
-      tokens: {
-        saleId: {
-          value: saleID.toString(),
-          type: 'string',
+    // Emit transaction for beneficiary if not zero address
+    if (beneficiaryLower !== zeroAddressLower) {
+      const beneficiaryTransactionSchema = {
+        eventType: MessageType.TRANSACTION,
+        eventName: 'Auction_Claimed',
+        tokens: {
+          saleId: {
+            value: saleID.toString(),
+            type: 'string',
+          },
+          bidIndex: {
+            value: 'null',
+            type: 'string',
+          },
+          winner: {
+            value: 'false',
+            type: 'boolean',
+          },
         },
-        bidIndex: {
-          value: 'null',
-          type: 'string',
-        },
-        winner: {
-          value: 'true',
-          type: 'boolean',
-        },
-      },
-      rawAmount: '0',
-      displayAmount: 0,
-      unixTimestampMs: block.header.timestamp,
-      txHash: log.transactionHash,
-      logIndex: log.logIndex,
-      blockNumber: block.header.height,
-      blockHash: block.header.hash,
-      userId: winner,
-      currency: Currency.USD,
-      valueUsd: 0,
-      gasUsed: gasUsedInEth,
-      gasFeeUsd: gasFeeUsd,
-    };
+        rawAmount: '0',
+        displayAmount: 0,
+        unixTimestampMs: block.header.timestamp,
+        txHash: log.transactionHash,
+        logIndex: log.logIndex,
+        blockNumber: block.header.height,
+        blockHash: block.header.hash,
+        userId: beneficiaryLower,
+        currency: Currency.USD,
+        valueUsd: 0,
+        gasUsed: gasUsedInEth,
+        gasFeeUsd: gasFeeUsd,
+      };
 
-    protocolState.transactions.push(transactionSchema);
+      protocolState.transactions.push(beneficiaryTransactionSchema);
 
-    logger.info('Auction_Claimed transaction added to protocol state', {
-      winner,
-      saleID: saleID.toString(),
-      gasFeeUsd,
-      totalTransactions: protocolState.transactions.length,
-    });
+      logger.info('Auction_Claimed transaction added for beneficiary', {
+        beneficiary: beneficiaryLower,
+        saleID: saleID.toString(),
+        gasFeeUsd,
+        totalTransactions: protocolState.transactions.length,
+      });
+    } else {
+      logger.warn('Auction_Claimed event with beneficiary ZERO_ADDRESS', {
+        saleID: saleID.toString(),
+        txHash: log.transactionHash,
+        blockNumber: block.header.height,
+      });
+    }
+
+    // Emit transaction for winner if not zero address
+    if (winnerLower !== zeroAddressLower) {
+      const winnerTransactionSchema = {
+        eventType: MessageType.TRANSACTION,
+        eventName: 'Auction_Claimed_Sell',
+        tokens: {
+          saleId: {
+            value: saleID.toString(),
+            type: 'string',
+          },
+          bidIndex: {
+            value: 'null',
+            type: 'string',
+          },
+          winner: {
+            value: 'true',
+            type: 'boolean',
+          },
+        },
+        rawAmount: '0',
+        displayAmount: 0,
+        unixTimestampMs: block.header.timestamp,
+        txHash: log.transactionHash,
+        logIndex: log.logIndex,
+        blockNumber: block.header.height,
+        blockHash: block.header.hash,
+        userId: winnerLower,
+        currency: Currency.USD,
+        valueUsd: 0,
+        gasUsed: gasUsedInEth,
+        gasFeeUsd: gasFeeUsd,
+      };
+
+      protocolState.transactions.push(winnerTransactionSchema);
+
+      logger.info('Auction_Claimed transaction added for winner', {
+        winner: winnerLower,
+        saleID: saleID.toString(),
+        gasFeeUsd,
+        totalTransactions: protocolState.transactions.length,
+      });
+    } else {
+      logger.warn('Auction_Claimed event with winner ZERO_ADDRESS', {
+        saleID: saleID.toString(),
+        txHash: log.transactionHash,
+        blockNumber: block.header.height,
+      });
+    }
   }
 
   private async finalizeBatch(
