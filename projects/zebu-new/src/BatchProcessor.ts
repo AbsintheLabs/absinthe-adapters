@@ -62,12 +62,20 @@ export class ZebuNewProcessor {
         try {
           await this.processBatch(ctx);
         } catch (error) {
-          logger.error('Error processing batch', {
-            error: error,
-            stack: error,
-            chainId: this.chainId,
-            schemaName: this.schemaName,
-          });
+          if (error instanceof Error) {
+            logger.error('Error processing batch', {
+              message: error.message,
+              stack: error.stack,
+              chainId: this.chainId,
+              schemaName: this.schemaName,
+            });
+          } else {
+            logger.error('Error processing batch', {
+              error: String(error),
+              chainId: this.chainId,
+              schemaName: this.schemaName,
+            });
+          }
           throw error;
         }
       },
