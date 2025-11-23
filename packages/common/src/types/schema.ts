@@ -18,6 +18,7 @@ const envSchema = z.object({
   RPC_URL_SOLANA: z.string().url('RPC_URL_SOLANA must be a valid URL').optional(),
   RPC_URL_BSC: z.string().url('RPC_URL_BSC must be a valid URL').optional(),
   RPC_URL_AVALANCHE: z.string().url('RPC_URL_AVALANCHE must be a valid URL').optional(),
+  RPC_URL_MONAD: z.string().url('RPC_URL_MONAD must be a valid URL').optional(),
   ABSINTHE_API_URL: z.string().url('ABSINTHE_API_URL must be a valid URL'),
   ABSINTHE_API_KEY: z.string().min(1, 'ABSINTHE_API_KEY is required'),
   COINGECKO_API_KEY: z.string().min(1, 'COINGECKO_API_KEY is required'),
