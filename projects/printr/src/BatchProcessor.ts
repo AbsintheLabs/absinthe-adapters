@@ -262,7 +262,11 @@ export class PrintrProcessor {
             ));
         } catch (error) {
           console.warn(`Could not fetch price for ${coingeckoId}, using 0:`, error);
-          swapValueUsd = 0;
+          if (coingeckoId === 'monad') {
+            swapValueUsd = amount0Abs * 0.025;
+          } else {
+            swapValueUsd = 0;
+          }
         }
       }
       finalAmountDecAdjusted = amount0Abs;
@@ -282,7 +286,11 @@ export class PrintrProcessor {
             ));
         } catch (error) {
           console.warn(`Could not fetch price for ${coingeckoId}, using 0:`, error);
-          swapValueUsd = 0;
+          if (coingeckoId === 'monad') {
+            swapValueUsd = amount1Abs * 0.025;
+          } else {
+            swapValueUsd = 0;
+          }
         }
       }
       finalAmountDecAdjusted = amount1Abs;
@@ -410,7 +418,11 @@ export class PrintrProcessor {
           (await fetchHistoricalUsd(coingeckoId, block.header.timestamp, this.env.coingeckoApiKey));
       } catch (error) {
         console.warn(`Could not fetch price for ${coingeckoId}, using 0:`, error);
-        valueInUsd = 0;
+        if (coingeckoId === 'monad') {
+          valueInUsd = displayCost * 0.025;
+        } else {
+          valueInUsd = 0;
+        }
       }
     }
     const transactionSchema = {
