@@ -376,13 +376,21 @@ async function fetchHistoricalUsd(
     const j = await res.json();
     if (!j.market_data?.current_price?.[Currency.USD]) {
       console.warn(`No market data found for ${id} on ${date}`);
-      return 0;
+      if (id === 'monad') {
+        return 0.025;
+      } else {
+        return 0;
+      }
     }
 
     return j.market_data.current_price[Currency.USD];
   } catch (error) {
     console.warn(`Failed to fetch historical USD price for ${id}:`, error);
-    return 0;
+    if (id === 'monad') {
+      return 0.025;
+    } else {
+      return 0;
+    }
   }
 }
 
