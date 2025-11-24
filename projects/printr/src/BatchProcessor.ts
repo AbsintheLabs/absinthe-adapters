@@ -410,7 +410,11 @@ export class PrintrProcessor {
           (await fetchHistoricalUsd(coingeckoId, block.header.timestamp, this.env.coingeckoApiKey));
       } catch (error) {
         console.warn(`Could not fetch price for ${coingeckoId}, using 0:`, error);
-        valueInUsd = 0;
+        if (coingeckoId === 'monad') {
+          valueInUsd = displayCost * 0.025;
+        } else {
+          valueInUsd = 0;
+        }
       }
     }
     const transactionSchema = {
