@@ -403,8 +403,6 @@ export class PrintrProcessor {
     const coingeckoId = baseToken.coingeckoId;
     if (coingeckoId === 'ethereum') {
       valueInUsd = displayCost * ethPriceUsd;
-    } else if (coingeckoId === 'monad') {
-      valueInUsd = displayCost * 2;
     } else {
       try {
         valueInUsd =
