@@ -100,6 +100,7 @@ export class Engine {
   private appCfg: AppConfig;
   // fixme: sqd type magic, not really sure what's happening here, using any for now
   private sqdProcessor: any;
+  private onInitCalled = false; // Track if onInit has been called
 
   constructor(deps: EngineDeps) {
     this.db = createStateDatabase();
@@ -144,6 +145,25 @@ export class Engine {
   async run() {
     // main loop - note: run() never returns, it calls process.exit() internally
     this.sqdProcessor.run(this.db, async (ctx: ProcessorContext) => {
+      // Call onInit once before processing the first batch
+      if (!this.onInitCalled && this.adapter.onInit) {
+        this.onInitCalled = true;
+        logger.info('Calling adapter onInit hook...');
+        try {
+          await this.adapter.onInit({
+            rpcCtx: {
+              _chain: ctx._chain,
+              block: { height: ctx.blocks[0]?.header.height ?? 0 },
+            },
+            redis: this.redis,
+          });
+          logger.info('Adapter onInit hook completed successfully');
+        } catch (error) {
+          logger.error('Adapter onInit hook failed:', error);
+          throw error; // Fail fast if initialization fails
+        }
+      }
+
       logger.debug(`🏁 START BATCH. Blocks: ${ctx.blocks.length}.`);
       logger.debug(`Starting block: ${ctx.blocks[0].header.height}.`);
       logger.debug(`Ending block: ${ctx.blocks[ctx.blocks.length - 1].header.height}.`);
