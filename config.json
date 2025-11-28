@@ -7,11 +7,6 @@
       {
         "sinkType": "csv",
         "path": "concrete.csv"
-      },
-      {
-        "sinkType": "absinthe",
-        "url": "${env:ABSINTHE_API_URL}",
-        "apiKey": "${env:ABSINTHE_API_KEY}"
       }
     ]
   },
@@ -27,6 +22,20 @@
   "adapterConfig": {
     "adapterId": "concrete",
     "config": {
+      "vaultDeposits": [
+        {
+          "params": {
+            "vaultAddress": "0xc50303ECA7e02feAe434F37C88C43AAc368C60C1"
+          },
+          "pricing": {
+            "kind": "concrete",
+            "underlyingAsset": {
+              "kind": "coingecko",
+              "id": "eigenlayer"
+            }
+          }
+        }
+      ],
       "vaults": [
         {
           "params": {
