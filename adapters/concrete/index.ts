@@ -6,6 +6,7 @@ import * as concreteAbi from './abi/concrete.ts';
 
 // Handlers
 import { handleVault } from './vault.ts';
+import { handleVaultDeposit } from './deposit.ts';
 import { AdapterDef, defineAdapter } from '../_shared/index.ts';
 
 // Feed handlers
@@ -19,6 +20,14 @@ export const manifest: Manifest = {
   version: '0.0.1',
   chainArch: 'evm',
   trackables: {
+    vaultDeposits: {
+      kind: 'action',
+      quantityType: 'token_based',
+      params: {
+        vaultAddress: evmAddress('The vault contract address to track'),
+      },
+      requiredPricer: concreteFeed,
+    },
     vaults: {
       kind: 'position',
       quantityType: 'token_based',
@@ -34,9 +43,10 @@ export default defineAdapter({
   manifest,
   metadata,
   build: ({ config }) => {
-    // Collect all vault addresses from the config into a single array
+    // Collect all vault addresses from both vaultDeposits and vaults configs
     const vaultAddress = new Set([
-      ...config.vaults.map((vault) => vault.params.vaultAddress as string),
+      ...(config.vaultDeposits?.map((vault) => vault.params.vaultAddress as string) || []),
+      ...(config.vaults?.map((vault) => vault.params.vaultAddress as string) || []),
     ]);
 
     // define topics
@@ -56,6 +66,14 @@ export default defineAdapter({
         const address = log.address;
 
         if (log.topic0 === transferTopic) {
+          const depositInstances =
+            config.vaultDeposits?.filter((s) => s.params.vaultAddress === address) || [];
+
+          for (const instance of depositInstances) {
+            await handleVaultDeposit(log, emitFns, instance, address, redis, sqdRpcCtx);
+          }
+
+          // Handle vault positions (ongoing balance tracking)
           const vaultInstances =
             config.vaults?.filter((s) => s.params.vaultAddress === address) || [];
 
