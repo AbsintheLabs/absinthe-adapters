@@ -24,7 +24,7 @@ export const manifest: Manifest = {
       kind: 'action',
       quantityType: 'token_based',
       params: {
-        vaultAddress: evmAddress('The vault contract address to track'),
+        vaultDepositAddress: evmAddress('The vault contract address to track'),
       },
       requiredPricer: concreteFeed,
     },
@@ -67,7 +67,7 @@ export default defineAdapter({
 
         if (log.topic0 === transferTopic) {
           const depositInstances =
-            config.vaultDeposits?.filter((s) => s.params.vaultAddress === address) || [];
+            config.vaultDeposits?.filter((s) => s.params.vaultDepositAddress === address) || [];
 
           for (const instance of depositInstances) {
             await handleVaultDeposit(log, emitFns, instance, address, redis, sqdRpcCtx);
