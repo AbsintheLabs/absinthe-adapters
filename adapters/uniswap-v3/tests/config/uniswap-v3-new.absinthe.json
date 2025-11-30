@@ -10,11 +10,6 @@
       },
       {
         "sinkType": "stdout"
-      },
-      {
-        "sinkType": "absinthe",
-        "url": "${env:ABSINTHE_API_URL}",
-        "apiKey": "${env:ABSINTHE_API_KEY}"
       }
     ]
   },

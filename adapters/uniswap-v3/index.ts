@@ -26,6 +26,7 @@ export const manifest = {
       kind: 'action',
       quantityType: 'token_based',
       params: {
+        poolAddress: evmAddress('The Uniswap V3 pool address'),
         factoryAddress: evmAddress('The Uniswap V3 factory address'),
         nonFungiblePositionManagerAddress: evmAddress(
           'The Uniswap V3 NonFungiblePositionManager address',
@@ -78,6 +79,13 @@ export default defineAdapter({
     // Redis keys for indexing
     const POOL_INDEX_KEY = 'factory:pools';
 
+    // Collect configured pool addresses (if specified)
+    const configuredPoolAddrs = new Set(
+      config.swap
+        .map((swap) => (swap.params as any).poolAddress?.toLowerCase())
+        .filter((addr): addr is string => addr != null),
+    );
+
     return {
       buildSqdProcessor: (base) => {
         let processor = base;
@@ -112,34 +120,50 @@ export default defineAdapter({
         if (log.topic0 === poolCreatedTopic) {
           const { pool, token0, token1 } = univ3factoryAbi.events.PoolCreated.decode(log);
           const poolAddress = pool.toLowerCase();
-          await redis.sadd(POOL_INDEX_KEY, poolAddress);
 
-          // Store token addresses for the pool
-          const poolTokenKey = `pool:${poolAddress}:tokens`;
-          await redis.hset(poolTokenKey, {
-            token0: token0.toLowerCase(),
-            token1: token1.toLowerCase(),
-          } as any);
+          // Only add to Redis if this pool is in our configured list
+          // If no pools are configured, track all pools (backward compatibility)
+          if (configuredPoolAddrs.size === 0 || configuredPoolAddrs.has(poolAddress)) {
+            await redis.sadd(POOL_INDEX_KEY, poolAddress);
+
+            // Store token addresses for the pool
+            const poolTokenKey = `pool:${poolAddress}:tokens`;
+            await redis.hset(poolTokenKey, {
+              token0: token0.toLowerCase(),
+              token1: token1.toLowerCase(),
+            } as any);
+          }
         }
 
         // SWAP EVENT
         if (log.topic0 === swapTopic) {
-          // First check if the pool is one created by our factory contract
-          const isPoolCreatedByFactory = await redis.sismember(
-            POOL_INDEX_KEY,
-            log.address.toLowerCase(),
-          );
-          if (!isPoolCreatedByFactory) {
-            // Not a pool created by our factory contract, so we shouldn't track it
-            return;
+          const pool = log.address.toLowerCase();
+
+          // If specific pools are configured, only track those
+          if (configuredPoolAddrs.size > 0) {
+            if (!configuredPoolAddrs.has(pool)) {
+              // Not a configured pool, skip it
+              return;
+            }
+          } else {
+            // No specific pools configured, check if pool is in our index (backward compatibility)
+            const isPoolCreatedByFactory = await redis.sismember(POOL_INDEX_KEY, pool);
+            if (!isPoolCreatedByFactory) {
+              // Not a pool created by our factory contract, so we shouldn't track it
+              return;
+            }
           }
 
           const decoded = univ3poolAbi.events.Swap.decode(log);
-          const pool = log.address.toLowerCase();
 
-          // Get swap instances for this factory
+          // Get swap instances for this specific pool
           const swapInstances = config.swap.filter((s) => {
-            // Check if any of our tracked factories created this pool
+            const instancePoolAddr = (s.params as any).poolAddress?.toLowerCase();
+            // If poolAddress is specified in config, match exactly
+            // Otherwise, match by factory (backward compatibility)
+            if (instancePoolAddr) {
+              return instancePoolAddr === pool;
+            }
             return factoryAddrs.has(s.params.factoryAddress);
           });
 
