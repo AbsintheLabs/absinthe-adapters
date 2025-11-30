@@ -44,10 +44,12 @@ export default defineAdapter({
   metadata,
   build: ({ config }) => {
     // Collect all vault addresses from both vaultDeposits and vaults configs
-    const vaultAddress = new Set([
-      ...(config.vaultDeposits?.map((vault) => vault.params.vaultAddress as string) || []),
-      ...(config.vaults?.map((vault) => vault.params.vaultAddress as string) || []),
-    ]);
+    const vaultAddress = new Set(
+      [
+        ...(config.vaultDeposits?.map((vault) => vault.params.vaultDepositAddress as string) || []),
+        ...(config.vaults?.map((vault) => vault.params.vaultAddress as string) || []),
+      ].filter((addr): addr is string => addr != null),
+    );
 
     // define topics
     const transferTopic = concreteAbi.events.Transfer.topic;
