@@ -422,6 +422,8 @@ function getRpcUrlForChain(chainId: number, envData: any): string {
       return envData.RPC_URL_AVALANCHE as string;
     case ChainId.MONAD:
       return envData.RPC_URL_MONAD as string;
+    case ChainId.MANTLE:
+      return envData.RPC_URL_MANTLE as string;
     default:
       throw new Error(`Unsupported chain ID: ${chainId}`);
   }

@@ -288,6 +288,8 @@ export class PrintrProcessor {
           console.warn(`Could not fetch price for ${coingeckoId}, using 0:`, error);
           if (coingeckoId === 'monad') {
             swapValueUsd = amount1Abs * 0.025;
+          } else if (coingeckoId === 'mantle') {
+            swapValueUsd = amount1Abs * 1;
           } else {
             swapValueUsd = 0;
           }
