@@ -20,6 +20,7 @@ enum ChainId {
   BSC = 56,
   AVALANCHE = 43114,
   MONAD = 143,
+  MANTLE = 5000,
 }
 
 // coingecko chain platform
@@ -34,6 +35,7 @@ enum ChainName {
   BSC = 'bsc',
   AVALANCHE = 'avalanche',
   MONAD = 'monad',
+  MANTLE = 'mantle',
 }
 
 enum ChainShortName {
@@ -47,6 +49,7 @@ enum ChainShortName {
   BSC = 'bsc',
   AVALANCHE = 'avalanche',
   MONAD = 'monad',
+  MANTLE = 'mantle',
 }
 
 enum PriceFeed {
@@ -80,6 +83,7 @@ enum GatewayUrl {
   BSC = 'https://v2.archive.subsquid.io/network/binance-mainnet',
   AVALANCHE = 'https://v2.archive.subsquid.io/network/avalanche-mainnet',
   MONAD = 'https://v2.archive.subsquid.io/network/monad-mainnet',
+  MANTLE = 'https://v2.archive.subsquid.io/network/mantle-mainnet',
 }
 
 enum ProtocolType {
