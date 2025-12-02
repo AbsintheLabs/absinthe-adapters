@@ -566,8 +566,21 @@ export class PrintrProcessor {
       logger.info('Liquidity fee BSC [GraduatedPoolCreated]', { liquidityFee });
     }
 
-    let poolAddress = await univ3Factory.getPool(token, baseToken.basePair, liquidityFee);
-    logger.info('Pool with fee [GraduatedPoolCreated]', { poolAddress });
+    let poolAddress: string;
+    try {
+      poolAddress = await univ3Factory.getPool(token, baseToken.basePair, liquidityFee);
+      logger.info('Pool with fee [GraduatedPoolCreated]', { poolAddress });
+    } catch (error: any) {
+      // Handle case where getPool returns 0x (pool doesn't exist) which can't be decoded
+      if (
+        error.message?.includes('Offset is outside the bounds') ||
+        error.message?.includes('0x')
+      ) {
+        logger.warn(`Pool does not exist with fee ${liquidityFee}, returning early`);
+        return;
+      }
+      throw error;
+    }
 
     if (poolAddress.toLowerCase() === ZERO_ADDRESS.toLowerCase()) {
       // poolAddress = await univ3Factory.getPool(token, baseToken.basePair, LIQUIDITY_FEE);
