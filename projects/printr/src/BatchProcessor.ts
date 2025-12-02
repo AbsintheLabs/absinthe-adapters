@@ -140,13 +140,13 @@ export class PrintrProcessor {
     log: any,
     protocolState: ProtocolState,
   ): Promise<void> {
-    // if (log.topics[0] === printrAbi.events.TokenTrade.topic) {
-    //   await this.processTokenTradeEvent(ctx, block, log, protocolState);
-    // }
+    if (log.topics[0] === printrAbi.events.TokenTrade.topic) {
+      await this.processTokenTradeEvent(ctx, block, log, protocolState);
+    }
 
-    // if (log.topics[0] === printrAbi.events.CurveCreated.topic) {
-    //   await this.processCurveCreatedEvent(ctx, block, log, protocolState);
-    // }
+    if (log.topics[0] === printrAbi.events.CurveCreated.topic) {
+      await this.processCurveCreatedEvent(ctx, block, log, protocolState);
+    }
     if (log.topics[0] === printrAbi.events.LiquidityDeployed.topic) {
       await this.processGraduatedPoolCreatedEvent(ctx, block, log, protocolState);
     }
