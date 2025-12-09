@@ -194,7 +194,20 @@ export class PrintrProcessor {
       return;
     }
     const { recipient, amount0, amount1 } = swapData;
-    const { gasPrice, gasUsed, hash } = log.transaction;
+    const { gasPrice, gasUsed, hash, from } = log.transaction;
+
+    // Only process SELL swaps where recipient is the Printr contract.
+    // For SELL swaps, Uniswap sends wrapped token to Printr contract, which unwraps and sends native token to user.
+    // In this case, recipient is the Printr contract, so we use tx.sender as the actual user.
+    // Ignore BUY swaps (where recipient is not the Printr contract).
+    const printrContractAddress = this.bondingCurveProtocol.contractAddress.toLowerCase();
+    if (recipient.toLowerCase() !== printrContractAddress) {
+      // This is a BUY swap, ignore it
+      return;
+    }
+    // This is a SELL swap, use tx.sender as the actual user
+    const userId = from;
+
     logger.info('Gas used [Swap]', { blockNumber: block.header.height });
     const gasUsedInEth = Number(gasUsed) / 10 ** 18;
     const gasFee = Number(gasUsed) * Number(gasPrice);
@@ -352,7 +365,7 @@ export class PrintrProcessor {
       logIndex: log.logIndex,
       blockNumber: block.header.height,
       blockHash: block.header.hash,
-      userId: recipient,
+      userId: userId,
       currency: Currency.USD,
       valueUsd: swapValueUsd,
       gasUsed: gasUsedInEth,
