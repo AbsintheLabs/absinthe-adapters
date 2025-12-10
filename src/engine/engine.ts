@@ -337,16 +337,18 @@ export class Engine {
   }
 
   /**
-   * Generate a stable ID for a trackable instance based on its configuration.
-   * This ID uniquely identifies a pricing strategy scope.
+   * Generate a stable ID for a trackable instance based on chainId and trackable name.
+   * This groups all instances of the same trackable type (e.g., all "bid" configs) under one ID.
+   * Different chains get different IDs. Different trackable types get different IDs.
+   * But all config variants within the same trackable type on the same chain share the same ID.
    */
   private generateTrackableInstanceId(ti: InstanceFrom<TrackableDef>): string {
-    // Hash the trackable instance's identifying properties
+    const { chainId } = getRuntime();
+    // Hash chainId + trackableName only (not params/assetSelectors)
+    // This allows filtering by event type (bid, claim, swap) and by chain
     const key = {
-      params: ti.params,
-      quantityType: ti.quantityType,
-      // Include assetSelectors if present (for swaps)
-      ...('assetSelectors' in ti && ti.assetSelectors ? { assetSelectors: ti.assetSelectors } : {}),
+      chainId,
+      trackableName: ti.trackableName, // e.g., "bid", "claim", "swap"
     };
     return md5HashCanonical(key, 16);
   }

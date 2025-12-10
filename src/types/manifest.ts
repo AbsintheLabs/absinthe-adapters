@@ -218,6 +218,7 @@ type PricingFrom<T extends TrackableDef> = {
 };
 
 export type InstanceFrom<T extends TrackableDef> = {
+  trackableName: string;
   params: ParamsFrom<T>;
   quantityType: T['quantityType'];
 } & (T extends { assetSelectors: Record<string, AssetSelectorDef<any>> }

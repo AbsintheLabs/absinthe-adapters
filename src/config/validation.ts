@@ -164,6 +164,7 @@ function validateInstance(
   instanceIdx: number,
 ): any {
   const validated: Record<string, any> = {
+    trackableName: trackableId, // Include trackable name for ID generation and filtering
     quantityType: trackableDef.quantityType,
   };
 

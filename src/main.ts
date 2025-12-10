@@ -26,7 +26,7 @@ import { loadAllAdapters } from './adapters/loader.ts';
 
 import { BaseProcessor } from './eprocessorBuilder.ts';
 import { md5HashCanonical } from './utils/stable-hash.ts';
-import { setRuntime } from './runtime/context.ts';
+import { getRuntime, setRuntime } from './runtime/context.ts';
 import { ABSINTHE_VERSION } from './constants.ts';
 import os from 'os';
 import { clearStateDir, clearRedisNamespace, deriveStateDirFromHash } from './utils/state-reset.ts';
@@ -167,11 +167,11 @@ async function main() {
     for (const [trackableId, instances] of Object.entries(
       validatedInstances as Record<string, any[]>,
     )) {
+      const { chainId } = getRuntime();
       instances.forEach((inst, idx) => {
         const key = {
-          params: inst.params,
-          quantityType: inst.quantityType,
-          ...(inst.assetSelectors ? { assetSelectors: inst.assetSelectors } : {}),
+          chainId,
+          trackableName: trackableId,
         };
         const trackable_instance_id = md5HashCanonical(key, 16);
 
