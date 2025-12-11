@@ -28,48 +28,115 @@ jobs:
                   registry-url: "https://registry.npmjs.org"
                   cache: "pnpm"
 
-            - run: pnpm install --frozen-lockfile
+            - name: Install dependencies
+              run: |
+                  echo "📦 Installing dependencies..."
+                  pnpm install --frozen-lockfile
+                  echo "✅ Dependencies installed"
 
             - name: Check for adapter changes
               id: changes
               run: |
+                  echo "🔍 Checking for adapter metadata changes..."
+                  echo "   Event: ${{ github.event_name }}"
+                  echo "   Branch: ${{ github.ref_name }}"
+
                   if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+                    echo "   ⚡ Manual trigger detected - proceeding with publish"
                     echo "HAS_CHANGES=true" >> $GITHUB_OUTPUT
                   else
-                    if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -E '^adapters/[^/]+/metadata\.ts$'; then
+                    echo "   📝 Checking git diff for metadata.ts changes..."
+                    CHANGED_FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -E '^adapters/[^/]+/metadata\.ts$' || true)
+                    
+                    if [ -n "$CHANGED_FILES" ]; then
+                      echo "   ✅ Found changes in adapter metadata files:"
+                      echo "$CHANGED_FILES" | sed 's/^/      - /'
                       echo "HAS_CHANGES=true" >> $GITHUB_OUTPUT
                     else
+                      echo "   ⏭️  No adapter metadata files changed"
                       echo "HAS_CHANGES=false" >> $GITHUB_OUTPUT
                     fi
                   fi
 
             - name: Skip if no changes
               if: steps.changes.outputs.HAS_CHANGES != 'true'
-              run: exit 0
+              run: |
+                  echo "⏭️  Skipping publish - no adapter metadata changes detected"
+                  echo "   Workflow will exit without publishing"
+                  exit 0
 
             - name: Bump minor version
               id: bump
               run: |
+                  echo "📈 Bumping version..."
                   CURRENT=$(node -p "require('./package.json').version")
+                  echo "   Current version: $CURRENT"
+
                   IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
                   NEW_VERSION="$MAJOR.$((MINOR + 1)).0"
-                  echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_OUTPUT
-                  npm version $NEW_VERSION --no-git-tag-version
 
-            - run: pnpm build
-            - run: pnpm generate-catalog
+                  echo "   New version: $NEW_VERSION (minor bump)"
+                  echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+                  echo "   Updating package.json..."
+                  npm version $NEW_VERSION --no-git-tag-version
+                  echo "✅ Version bumped to $NEW_VERSION"
+
+            - name: Build project
+              run: |
+                  echo "🔨 Building project..."
+                  pnpm build
+                  echo "✅ Build completed"
+
+            - name: Generate adapter catalog
+              run: |
+                  echo "📋 Generating adapter catalog..."
+                  pnpm generate-catalog
+
+                  if [ -f "_generated/adapter-catalog.json" ]; then
+                    CATALOG_VERSION=$(node -p "require('./_generated/adapter-catalog.json').version")
+                    ADAPTER_COUNT=$(node -p "Object.keys(require('./_generated/adapter-catalog.json').adapters).length")
+                    echo "✅ Catalog generated successfully"
+                    echo "   Version: $CATALOG_VERSION"
+                    echo "   Adapters: $ADAPTER_COUNT"
+                  else
+                    echo "❌ Catalog file not found!"
+                    exit 1
+                  fi
 
             - name: Commit and tag
               run: |
+                  echo "📝 Committing changes..."
                   git config user.name "github-actions[bot]"
                   git config user.email "github-actions[bot]@users.noreply.github.com"
+
                   git add package.json _generated/adapter-catalog.json
-                  git commit -m "chore: bump catalog version to ${{ steps.bump.outputs.NEW_VERSION }} [skip ci]" || true
-                  git push origin ${{ github.ref_name }} || true
+
+                  if git diff --staged --quiet; then
+                    echo "   ⚠️  No changes to commit"
+                  else
+                    git commit -m "chore: bump catalog version to ${{ steps.bump.outputs.NEW_VERSION }} [skip ci]" || true
+                    echo "   ✅ Committed version bump"
+                    
+                    echo "   📤 Pushing to ${{ github.ref_name }}..."
+                    git push origin ${{ github.ref_name }} || echo "   ⚠️  Nothing to push"
+                  fi
+
+                  echo "🏷️  Creating git tag v${{ steps.bump.outputs.NEW_VERSION }}..."
                   git tag -a "v${{ steps.bump.outputs.NEW_VERSION }}" -m "Catalog v${{ steps.bump.outputs.NEW_VERSION }}"
                   git push origin "v${{ steps.bump.outputs.NEW_VERSION }}"
+                  echo "✅ Tag created and pushed"
 
             - name: Publish to npm
-              run: pnpm publish --access public --no-git-checks
+              run: |
+                  echo "🚀 Publishing to npm..."
+                  echo "   Package: @absinthelabs/adapters"
+                  echo "   Version: ${{ steps.bump.outputs.NEW_VERSION }}"
+                  echo "   Registry: https://registry.npmjs.org"
+
+                  pnpm publish --access public --no-git-checks
+
+                  echo "✅ Successfully published to npm!"
+                  echo "   📦 https://www.npmjs.com/package/@absinthelabs/adapters/v/${{ steps.bump.outputs.NEW_VERSION }}"
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
