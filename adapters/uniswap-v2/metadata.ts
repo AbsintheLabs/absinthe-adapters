@@ -20,4 +20,14 @@ export const metadata = {
   status: 'beta',
   compatibleWith: 'uniswap-v2',
   createdAt: '2025-10-02',
+  trackables: {
+    swap: {
+      displayName: 'Swap',
+      description: 'Track swaps on Uniswap V2.',
+    },
+    lp: {
+      displayName: 'Liquidity Position',
+      description: 'Track liquidity positions on Uniswap V2.',
+    },
+  },
 } as const satisfies AdapterMetadata;

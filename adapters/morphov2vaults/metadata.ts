@@ -19,4 +19,14 @@ export const metadata = {
   status: 'beta',
   compatibleWith: 'uniswap-v2',
   createdAt: '2025-10-11',
+  trackables: {
+    createMetaMorphoFactory: {
+      displayName: 'Create Meta Morpho Factory',
+      description: 'Track create meta morpho factory on Morpho V2 vaults.',
+    },
+    vaults: {
+      displayName: 'Vaults',
+      description: 'Track Morpho V2 vaults positions.',
+    },
+  },
 } as const satisfies AdapterMetadata;

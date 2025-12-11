@@ -18,4 +18,12 @@ export const metadata = {
   adapterIcon: '',
   status: 'beta', // 'stable', 'beta', or 'deprecated'
   createdAt: '2025-10-07',
+  // Human-readable descriptions for each trackable (must match trackable IDs in manifest)
+  trackables: {
+    token: {
+      displayName: 'Token Balance',
+      description:
+        'Track wallet balances for an ERC20 token contract. Monitors transfers to and from wallets, providing real-time balance updates.',
+    },
+  },
 } as const satisfies AdapterMetadata;

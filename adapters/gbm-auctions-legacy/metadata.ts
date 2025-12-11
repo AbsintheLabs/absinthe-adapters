@@ -20,4 +20,14 @@ export const metadata = {
   status: 'beta',
   compatibleWith: 'uniswap-v2',
   createdAt: '2025-10-11',
+  trackables: {
+    bid: {
+      displayName: 'Bid',
+      description: 'Track bids on GBM Auctions Legacy.',
+    },
+    claim: {
+      displayName: 'Claim',
+      description: 'Track claims on GBM Auctions Legacy.',
+    },
+  },
 } as const satisfies AdapterMetadata;

@@ -11,12 +11,16 @@
     "./types": {
       "types": "./dist/src/types/events.d.ts",
       "default": "./dist/src/types/events.js"
+    },
+    "./catalog": {
+      "default": "./_generated/adapter-catalog.json"
     }
   },
   "files": [
     "dist/src/schemas",
     "dist/src/types/events.js",
-    "dist/src/types/events.d.ts"
+    "dist/src/types/events.d.ts",
+    "_generated/adapter-catalog.json"
   ],
   "scripts": {
     "build": "tsc",
@@ -25,7 +29,7 @@
     "build:docker:no-cache": "docker build --no-cache --rm --build-arg GIT_COMMIT_SHA_LONG=$(git rev-parse HEAD) -f src/Dockerfile -t yada:latest .",
     "prepare": "pnpm --filter @absinthe/schemas build",
     "pretest": "pnpm build",
-    "prepublishOnly": "pnpm build",
+    "prepublishOnly": "pnpm build && pnpm generate-catalog",
     "test": "vitest run",
     "test:watch": "vitest",
     "prestart": "pnpm build",
@@ -38,7 +42,8 @@
     "migration:apply": "squid-typeorm-migration apply",
     "lint-staged": "lint-staged",
     "migration": "pnpm build && pnpm migration:clean && pnpm migration:generate && pnpm migration:apply",
-    "export-schemas": "pnpm build && node dist/src/scripts/export-adapter-metadata.js"
+    "export-schemas": "pnpm build && node dist/src/scripts/export-adapter-metadata.js",
+    "generate-catalog": "pnpm build && node dist/src/scripts/generate-adapter-catalog.js"
   },
   "packageManager": "pnpm@10.19.0+sha512.c9fc7236e92adf5c8af42fd5bf1612df99c2ceb62f27047032f4720b33f8eacdde311865e91c411f2774f618d82f320808ecb51718bfa82c060c4ba7c76a32b8",
   "dependencies": {

@@ -240,6 +240,14 @@ export const ManifestZ = z
   })
   .strict();
 
+// Trackable metadata - human-readable info about each trackable for UI display
+export const TrackableMetadataZ = z.object({
+  displayName: z.string().min(1).max(60),
+  description: z.string().min(1).max(500),
+});
+
+export type TrackableMetadata = z.infer<typeof TrackableMetadataZ>;
+
 // Optional validation schema for metadata
 export const AdapterMetadataZ = z
   .object({
@@ -259,6 +267,8 @@ export const AdapterMetadataZ = z
     adapterIcon: z.httpUrl().optional(),
     status: z.enum(['stable', 'beta', 'alpha', 'deprecated']).optional(),
     createdAt: z.string().date(),
+    // Human-readable descriptions for each trackable (keyed by trackable ID)
+    trackables: z.record(z.string(), TrackableMetadataZ).optional(),
   })
   .strict();
 

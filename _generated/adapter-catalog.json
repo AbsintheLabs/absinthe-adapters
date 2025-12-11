@@ -1,0 +1,281 @@
+{
+  "generatedAt": "2025-12-11T16:22:28.352Z",
+  "adapters": {
+    "protocol-name": {
+      "displayName": "Protocol Name",
+      "description": "Brief description of what this protocol does and what this adapter tracks.",
+      "category": "trading",
+      "tags": [
+        "protocol",
+        "category",
+        "keywords"
+      ],
+      "author": "Absinthe",
+      "authorUrl": "https://absinthe.network",
+      "authorIcon": "https://app.absinthe.network/images/absinthefavicon.png",
+      "adapterIcon": "",
+      "status": "beta",
+      "createdAt": "2025-10-07",
+      "trackables": []
+    },
+    "concrete": {
+      "displayName": "Concrete vaults",
+      "description": "Concrete vaults",
+      "category": "lending",
+      "tags": [
+        "concrete",
+        "vaults",
+        "evm"
+      ],
+      "author": "Absinthe",
+      "authorUrl": "https://absinthe.network",
+      "authorIcon": "https://app.absinthe.network/images/absinthefavicon.png",
+      "adapterIcon": "https://raw.githubusercontent.com/0xa3k5/web3icons/refs/heads/main/raw-svgs/exchanges/branded/uniswap.svg",
+      "status": "beta",
+      "compatibleWith": "uniswap-v2",
+      "createdAt": "2025-11-26",
+      "trackables": [
+        {
+          "name": "Vault Deposits",
+          "description": "Track vault deposits on Concrete."
+        },
+        {
+          "name": "Vaults",
+          "description": "Track Concrete vaults positions."
+        }
+      ]
+    },
+    "erc20-holdings": {
+      "displayName": "ERC20 Holdings",
+      "description": "Tracks the holdings of an ERC20 token.",
+      "category": "tokens",
+      "tags": [
+        "erc20",
+        "holdings"
+      ],
+      "author": "Absinthe",
+      "authorUrl": "https://absinthe.network",
+      "authorIcon": "https://app.absinthe.network/images/absinthefavicon.png",
+      "adapterIcon": "",
+      "status": "beta",
+      "createdAt": "2025-10-07",
+      "trackables": [
+        {
+          "name": "Token Balance",
+          "description": "Track wallet balances for an ERC20 token contract. Monitors transfers to and from wallets, providing real-time balance updates."
+        }
+      ]
+    },
+    "gbm-auctions-legacy": {
+      "displayName": "GBM Auctions Legacy",
+      "description": "GBM Auctions Legacy is a decentralized auction protocol that allows users to bid on ERC20 tokens.",
+      "category": "auctions",
+      "tags": [
+        "gbm",
+        "auctions",
+        "legacy",
+        "evm"
+      ],
+      "author": "Absinthe",
+      "authorUrl": "https://absinthe.network",
+      "authorIcon": "https://app.absinthe.network/images/absinthefavicon.png",
+      "adapterIcon": "https://raw.githubusercontent.com/0xa3k5/web3icons/refs/heads/main/raw-svgs/exchanges/branded/uniswap.svg",
+      "status": "beta",
+      "compatibleWith": "uniswap-v2",
+      "createdAt": "2025-10-11",
+      "trackables": [
+        {
+          "name": "Bid",
+          "description": "Track bids on GBM Auctions Legacy."
+        },
+        {
+          "name": "Claim",
+          "description": "Track claims on GBM Auctions Legacy."
+        }
+      ]
+    },
+    "gbm-auctions-new": {
+      "displayName": "GBM Auctions New",
+      "description": "GBM Auctions New is a decentralized auction protocol that allows users to bid on ERC20 tokens.",
+      "category": "auctions",
+      "tags": [
+        "gbm",
+        "auctions",
+        "new",
+        "evm"
+      ],
+      "author": "Absinthe",
+      "authorUrl": "https://absinthe.network",
+      "authorIcon": "https://app.absinthe.network/images/absinthefavicon.png",
+      "adapterIcon": "https://raw.githubusercontent.com/0xa3k5/web3icons/refs/heads/main/raw-svgs/exchanges/branded/uniswap.svg",
+      "status": "beta",
+      "compatibleWith": "uniswap-v2",
+      "createdAt": "2025-10-11",
+      "trackables": [
+        {
+          "name": "Bid",
+          "description": "Track bids on GBM Auctions New."
+        },
+        {
+          "name": "Claim",
+          "description": "Track claims on GBM Auctions New."
+        }
+      ]
+    },
+    "morpho-markets": {
+      "displayName": "Morpho markets",
+      "description": "Morpho markets",
+      "category": "lending",
+      "tags": [
+        "morpho",
+        "markets",
+        "evm"
+      ],
+      "author": "Absinthe",
+      "authorUrl": "https://absinthe.network",
+      "authorIcon": "https://app.absinthe.network/images/absinthefavicon.png",
+      "adapterIcon": "https://raw.githubusercontent.com/0xa3k5/web3icons/refs/heads/main/raw-svgs/exchanges/branded/uniswap.svg",
+      "status": "beta",
+      "compatibleWith": "uniswap-v2",
+      "createdAt": "2025-10-11",
+      "trackables": [
+        {
+          "name": "Morpho Blue",
+          "description": "Track Morpho Blue positions on Morpho markets."
+        }
+      ]
+    },
+    "morpho-vaultsv1": {
+      "displayName": "Morpho V1 vaults",
+      "description": "Morpho v1 vaults",
+      "category": "lending",
+      "tags": [
+        "gbm",
+        "auctions",
+        "legacy",
+        "evm"
+      ],
+      "author": "Absinthe",
+      "authorUrl": "https://absinthe.network",
+      "authorIcon": "https://app.absinthe.network/images/absinthefavicon.png",
+      "adapterIcon": "https://raw.githubusercontent.com/0xa3k5/web3icons/refs/heads/main/raw-svgs/exchanges/branded/uniswap.svg",
+      "status": "beta",
+      "compatibleWith": "uniswap-v2",
+      "createdAt": "2025-10-11",
+      "trackables": [
+        {
+          "name": "Create Meta Morpho Factory",
+          "description": "Track create meta morpho factory on Morpho V1 vaults."
+        },
+        {
+          "name": "Vaults",
+          "description": "Track Morpho V1 vaults positions."
+        }
+      ]
+    },
+    "morpho-vaultsv2": {
+      "displayName": "Morpho V1 vaults",
+      "description": "Morpho v1 vaults",
+      "category": "lending",
+      "tags": [
+        "gbm",
+        "auctions",
+        "legacy",
+        "evm"
+      ],
+      "author": "Absinthe",
+      "authorUrl": "https://absinthe.network",
+      "authorIcon": "https://app.absinthe.network/images/absinthefavicon.png",
+      "adapterIcon": "https://raw.githubusercontent.com/0xa3k5/web3icons/refs/heads/main/raw-svgs/exchanges/branded/uniswap.svg",
+      "status": "beta",
+      "compatibleWith": "uniswap-v2",
+      "createdAt": "2025-10-11",
+      "trackables": [
+        {
+          "name": "Create Meta Morpho Factory",
+          "description": "Track create meta morpho factory on Morpho V2 vaults."
+        },
+        {
+          "name": "Vaults",
+          "description": "Track Morpho V2 vaults positions."
+        }
+      ]
+    },
+    "onlymeid": {
+      "displayName": "OnlyMeID",
+      "description": "Track user verification actions on the OnlyMeID protocol.",
+      "category": "identity",
+      "tags": [
+        "identity",
+        "verification",
+        "onlymeid"
+      ],
+      "author": "Absinthe",
+      "authorUrl": "https://absinthe.network",
+      "authorIcon": "https://app.absinthe.network/images/absinthefavicon.png",
+      "adapterIcon": "",
+      "status": "beta",
+      "createdAt": "2025-10-16",
+      "trackables": []
+    },
+    "uniswap-v2": {
+      "displayName": "Uniswap V2",
+      "description": "Uniswap V2 is a decentralized exchange protocol that allows users to swap ERC20 tokens.",
+      "category": "trading",
+      "tags": [
+        "uniswap",
+        "v2",
+        "dex",
+        "amm",
+        "evm"
+      ],
+      "author": "Absinthe",
+      "authorUrl": "https://absinthe.network",
+      "authorIcon": "https://app.absinthe.network/images/absinthefavicon.png",
+      "adapterIcon": "https://raw.githubusercontent.com/0xa3k5/web3icons/refs/heads/main/raw-svgs/exchanges/branded/uniswap.svg",
+      "status": "beta",
+      "compatibleWith": "uniswap-v2",
+      "createdAt": "2025-10-02",
+      "trackables": [
+        {
+          "name": "Swap",
+          "description": "Track swaps on Uniswap V2."
+        },
+        {
+          "name": "Liquidity Position",
+          "description": "Track liquidity positions on Uniswap V2."
+        }
+      ]
+    },
+    "uniswap-v3": {
+      "displayName": "Uniswap V3",
+      "description": "Uniswap V3 is a decentralized exchange protocol with concentrated liquidity and multiple fee tiers. Track swaps and liquidity positions.",
+      "category": "trading",
+      "tags": [
+        "uniswap",
+        "v3",
+        "dex",
+        "amm",
+        "evm",
+        "concentrated-liquidity"
+      ],
+      "author": "Absinthe",
+      "authorUrl": "https://absinthe.network",
+      "authorIcon": "https://app.absinthe.network/images/absinthefavicon.png",
+      "adapterIcon": "https://raw.githubusercontent.com/0xa3k5/web3icons/refs/heads/main/raw-svgs/exchanges/branded/uniswap.svg",
+      "status": "beta",
+      "compatibleWith": "uniswap-v3",
+      "createdAt": "2025-10-11",
+      "trackables": [
+        {
+          "name": "Swap",
+          "description": "Track token swaps on Uniswap V3 pools. Each swap event captures the trade between token0 and token1, including the amount swapped and price impact."
+        },
+        {
+          "name": "Liquidity Position",
+          "description": "Track NFT-based concentrated liquidity positions. Captures mints, burns, increases, decreases, and transfers of liquidity positions with specific price ranges."
+        }
+      ]
+    }
+  }
+}
