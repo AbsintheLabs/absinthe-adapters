@@ -20,14 +20,6 @@ export const manifest: Manifest = {
   version: '0.0.1',
   chainArch: 'evm',
   trackables: {
-    vaultDeposits: {
-      kind: 'action',
-      quantityType: 'token_based',
-      params: {
-        vaultDepositAddress: evmAddress('The vault contract address to track'),
-      },
-      requiredPricer: concreteFeed,
-    },
     vaults: {
       kind: 'position',
       quantityType: 'token_based',
@@ -68,12 +60,12 @@ export default defineAdapter({
         const address = log.address;
 
         if (log.topic0 === transferTopic) {
-          const depositInstances =
-            config.vaultDeposits?.filter((s) => s.params.vaultDepositAddress === address) || [];
+          // const depositInstances =
+          //   config.vaultDeposits?.filter((s) => s.params.vaultDepositAddress === address) || [];
 
-          for (const instance of depositInstances) {
-            await handleVaultDeposit(log, emitFns, instance, address, redis, sqdRpcCtx);
-          }
+          // for (const instance of depositInstances) {
+          //   await handleVaultDeposit(log, emitFns, instance, address, redis, sqdRpcCtx);
+          // }
 
           // Handle vault positions (ongoing balance tracking)
           const vaultInstances =

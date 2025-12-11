@@ -20,10 +20,6 @@ export const metadata = {
   compatibleWith: 'uniswap-v2',
   createdAt: '2025-11-26',
   trackables: {
-    vaultDeposits: {
-      displayName: 'Vault Deposits',
-      description: 'Track vault deposits on Concrete.',
-    },
     vaults: {
       displayName: 'Vaults',
       description: 'Track Concrete vaults positions.',
