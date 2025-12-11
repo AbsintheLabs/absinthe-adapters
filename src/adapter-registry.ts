@@ -13,6 +13,7 @@ const registry = new Map<string, AdapterDef<Manifest>>();
 /** Adapter definition combining manifest with build function */
 export type AdapterDef<M extends Manifest> = {
   manifest: M;
+  metadata: AdapterMetadata;
   feedHandlers?: CustomFeedHandlers;
   build: (opts: { config: ConfigFromManifest<M>; io: EngineIO }) => BuiltAdapter;
 };
@@ -22,7 +23,11 @@ export function defineAdapter<const M extends Manifest>(def: {
   metadata: AdapterMetadata;
   build: (opts: { config: ConfigFromManifest<M>; io: EngineIO }) => BuiltAdapter;
 }): AdapterDef<M> {
-  const adapterDef = def as AdapterDef<M>;
+  const adapterDef: AdapterDef<M> = {
+    manifest: def.manifest,
+    metadata: def.metadata,
+    build: def.build,
+  };
 
   // Register immediately as side effect
   registerAdapter(adapterDef);
@@ -102,4 +107,14 @@ export function getAdapterMeta(adapterId: string): { name: string; semver: strin
 // Get full manifest if needed elsewhere
 export function getManifest(adapterId: string): Manifest | null {
   return registry.get(adapterId)?.manifest ?? null;
+}
+
+// Get adapter metadata
+export function getAdapterMetadata(adapterId: string): AdapterMetadata | null {
+  return registry.get(adapterId)?.metadata ?? null;
+}
+
+// Get all registered adapters (for catalog generation)
+export function getAllAdapters(): Map<string, AdapterDef<Manifest>> {
+  return new Map(registry);
 }

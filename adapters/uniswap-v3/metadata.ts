@@ -20,4 +20,17 @@ export const metadata = {
   status: 'beta',
   compatibleWith: 'uniswap-v3',
   createdAt: '2025-10-11',
+  // Human-readable descriptions for each trackable (must match trackable IDs in manifest)
+  trackables: {
+    swap: {
+      displayName: 'Swap',
+      description:
+        'Track token swaps on Uniswap V3 pools. Each swap event captures the trade between token0 and token1, including the amount swapped and price impact.',
+    },
+    lp: {
+      displayName: 'Liquidity Position',
+      description:
+        'Track NFT-based concentrated liquidity positions. Captures mints, burns, increases, decreases, and transfers of liquidity positions with specific price ranges.',
+    },
+  },
 } as const satisfies AdapterMetadata;

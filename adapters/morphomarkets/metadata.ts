@@ -19,4 +19,10 @@ export const metadata = {
   status: 'beta',
   compatibleWith: 'uniswap-v2',
   createdAt: '2025-10-11',
+  trackables: {
+    morphoblue: {
+      displayName: 'Morpho Blue',
+      description: 'Track Morpho Blue positions on Morpho markets.',
+    },
+  },
 } as const satisfies AdapterMetadata;
