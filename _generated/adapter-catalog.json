@@ -1,6 +1,6 @@
 {
-  "version": "1.1.0",
-  "generatedAt": "2025-12-11T17:30:00.360Z",
+  "version": "1.2.0",
+  "generatedAt": "2025-12-11T18:34:58.699Z",
   "adapters": {
     "protocol-name": {
       "displayName": "Protocol Name",
