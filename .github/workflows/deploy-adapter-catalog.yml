@@ -37,25 +37,17 @@ jobs:
             - name: Check for adapter changes
               id: changes
               run: |
-                  echo "🔍 Checking for adapter metadata changes..."
-                  echo "   Event: ${{ github.event_name }}"
-                  echo "   Branch: ${{ github.ref_name }}"
-
-                  if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-                    echo "   ⚡ Manual trigger detected - proceeding with publish"
+                  echo "🔍 Checking for adapter manifest changes..."
+                  # Detect ONLY manifest changes (the real source of truth)
+                  CHANGED_FILES=$(git diff --name-only ${{ github.event.before }}{{ github.sha }} \
+                    | grep -E '^adapters/[^/]+/manifest\.(json|ts)$' || true)
+                  if [ -n "$CHANGED_FILES" ]; then
+                    echo "   ✅ Found changes in manifest files:"
+                    echo "$CHANGED_FILES" | sed 's/^/      - /'
                     echo "HAS_CHANGES=true" >> $GITHUB_OUTPUT
                   else
-                    echo "   📝 Checking git diff for metadata.ts changes..."
-                    CHANGED_FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -E '^adapters/[^/]+/metadata\.ts$' || true)
-                    
-                    if [ -n "$CHANGED_FILES" ]; then
-                      echo "   ✅ Found changes in adapter metadata files:"
-                      echo "$CHANGED_FILES" | sed 's/^/      - /'
-                      echo "HAS_CHANGES=true" >> $GITHUB_OUTPUT
-                    else
-                      echo "   ⏭️  No adapter metadata files changed"
-                      echo "HAS_CHANGES=false" >> $GITHUB_OUTPUT
-                    fi
+                    echo "   ⏭️  No manifest changes detected"
+                    echo "HAS_CHANGES=false" >> $GITHUB_OUTPUT
                   fi
 
             - name: Skip if no changes
