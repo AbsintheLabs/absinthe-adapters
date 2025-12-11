@@ -32,3 +32,4 @@ out*.txt
 _sqdstate/
 _runs/
 _schemas/
+_generated/

@@ -1,0 +1,77 @@
+name: Publish Adapter Catalog to npm
+
+on:
+    push:
+        branches:
+            - develop-next
+    workflow_dispatch:
+
+jobs:
+    check-and-publish:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+            packages: write
+            id-token: write
+
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+                  token: ${{ secrets.GITHUB_TOKEN }}
+
+            - uses: pnpm/action-setup@v4
+              with:
+                  version: 10
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: "20"
+                  registry-url: "https://registry.npmjs.org"
+                  cache: "pnpm"
+
+            - run: pnpm install --frozen-lockfile
+
+            - name: Check for adapter changes
+              id: changes
+              run: |
+                  if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+                    echo "HAS_CHANGES=true" >> $GITHUB_OUTPUT
+                  else
+                    if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -E '^adapters/[^/]+/metadata\.ts$'; then
+                      echo "HAS_CHANGES=true" >> $GITHUB_OUTPUT
+                    else
+                      echo "HAS_CHANGES=false" >> $GITHUB_OUTPUT
+                    fi
+                  fi
+
+            - name: Skip if no changes
+              if: steps.changes.outputs.HAS_CHANGES != 'true'
+              run: exit 0
+
+            - name: Bump minor version
+              id: bump
+              run: |
+                  CURRENT=$(node -p "require('./package.json').version")
+                  IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+                  NEW_VERSION="$MAJOR.$((MINOR + 1)).0"
+                  echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_OUTPUT
+                  npm version $NEW_VERSION --no-git-tag-version
+
+            - run: pnpm build
+            - run: pnpm generate-catalog
+
+            - name: Commit and tag
+              run: |
+                  git config user.name "github-actions[bot]"
+                  git config user.email "github-actions[bot]@users.noreply.github.com"
+                  git add package.json _generated/adapter-catalog.json
+                  git commit -m "chore: bump catalog version to ${{ steps.bump.outputs.NEW_VERSION }} [skip ci]" || true
+                  git push origin ${{ github.ref_name }} || true
+                  git tag -a "v${{ steps.bump.outputs.NEW_VERSION }}" -m "Catalog v${{ steps.bump.outputs.NEW_VERSION }}"
+                  git push origin "v${{ steps.bump.outputs.NEW_VERSION }}"
+
+            - name: Publish to npm
+              run: pnpm publish --access public --no-git-checks
+              env:
+                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
