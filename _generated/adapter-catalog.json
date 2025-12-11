@@ -1,6 +1,6 @@
 {
-  "version": "1.2.0",
-  "generatedAt": "2025-12-11T18:34:58.699Z",
+  "version": "1.3.0",
+  "generatedAt": "2025-12-11T18:45:54.770Z",
   "adapters": {
     "protocol-name": {
       "displayName": "Protocol Name",
@@ -36,10 +36,6 @@
       "compatibleWith": "uniswap-v2",
       "createdAt": "2025-11-26",
       "trackables": [
-        {
-          "name": "Vault Deposits",
-          "description": "Track vault deposits on Concrete."
-        },
         {
           "name": "Vaults",
           "description": "Track Concrete vaults positions."
