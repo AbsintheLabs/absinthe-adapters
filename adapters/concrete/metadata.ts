@@ -8,7 +8,7 @@ import { AdapterMetadata } from '../../src/types/manifest.ts';
 // Metadata for the Uniswap V2 adapter
 export const metadata = {
   displayName: 'Concrete vaults',
-  description: 'Concrete vaults',
+  description: 'Concrete is a lending protocol that allows users to lend and borrow assets.',
   category: 'lending',
   tags: ['concrete', 'vaults', 'evm'],
   author: ABSINTHE_CORE_TEAM,
