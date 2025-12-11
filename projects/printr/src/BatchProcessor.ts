@@ -140,42 +140,42 @@ export class PrintrProcessor {
     log: any,
     protocolState: ProtocolState,
   ): Promise<void> {
-    // if (log.topics[0] === printrAbi.events.TokenTrade.topic) {
-    //   await this.processTokenTradeEvent(ctx, block, log, protocolState);
+    if (log.topics[0] === printrAbi.events.TokenTrade.topic) {
+      await this.processTokenTradeEvent(ctx, block, log, protocolState);
+    }
+
+    if (log.topics[0] === printrAbi.events.CurveCreated.topic) {
+      await this.processCurveCreatedEvent(ctx, block, log, protocolState);
+    }
+    // if (log.topics[0] === printrAbi.events.LiquidityDeployed.topic) {
+    //   await this.processGraduatedPoolCreatedEvent(ctx, block, log, protocolState);
     // }
 
-    // if (log.topics[0] === printrAbi.events.CurveCreated.topic) {
-    //   await this.processCurveCreatedEvent(ctx, block, log, protocolState);
+    // if (log.topics[0] === pool2Abi.events.Swap.topic) {
+    //   logger.info('Swap event [ProcessLog]', {
+    //     logAddress: log.address.toLowerCase(),
+    //     poolState: this.poolState,
+    //   });
+    //   const poolAddresses = Array.from(this.poolState.keys());
+    //   if (poolAddresses.some((key) => key.toLowerCase() === log.address.toLowerCase())) {
+    //     await this.processSwapEvent(ctx, block, log, protocolState);
+    //   } else {
+    //     logger.warn('Pool not found:', log.address);
+    //   }
     // }
-    if (log.topics[0] === printrAbi.events.LiquidityDeployed.topic) {
-      await this.processGraduatedPoolCreatedEvent(ctx, block, log, protocolState);
-    }
 
-    if (log.topics[0] === pool2Abi.events.Swap.topic) {
-      logger.info('Swap event [ProcessLog]', {
-        logAddress: log.address.toLowerCase(),
-        poolState: this.poolState,
-      });
-      const poolAddresses = Array.from(this.poolState.keys());
-      if (poolAddresses.some((key) => key.toLowerCase() === log.address.toLowerCase())) {
-        await this.processSwapEvent(ctx, block, log, protocolState);
-      } else {
-        logger.warn('Pool not found:', log.address);
-      }
-    }
-
-    if (log.topics[0] === poolAbi.events.Swap.topic) {
-      logger.info('Swap event [ProcessLog]', {
-        logAddress: log.address.toLowerCase(),
-        poolState: this.poolState,
-      });
-      const poolAddresses = Array.from(this.poolState.keys());
-      if (poolAddresses.some((key) => key.toLowerCase() === log.address.toLowerCase())) {
-        await this.processSwapEvent(ctx, block, log, protocolState);
-      } else {
-        logger.warn('Pool not found:', log.address);
-      }
-    }
+    // if (log.topics[0] === poolAbi.events.Swap.topic) {
+    //   logger.info('Swap event [ProcessLog]', {
+    //     logAddress: log.address.toLowerCase(),
+    //     poolState: this.poolState,
+    //   });
+    //   const poolAddresses = Array.from(this.poolState.keys());
+    //   if (poolAddresses.some((key) => key.toLowerCase() === log.address.toLowerCase())) {
+    //     await this.processSwapEvent(ctx, block, log, protocolState);
+    //   } else {
+    //     logger.warn('Pool not found:', log.address);
+    //   }
+    // }
   }
 
   private async processSwapEvent(
