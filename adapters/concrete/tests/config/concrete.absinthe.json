@@ -78,7 +78,7 @@
         },
         {
           "params": {
-            "vaultAddress": "0xCAcd6fd266aF91b8AeD52aCCc382b4e165586E29"
+            "vaultAddress": "0x4def5abcfba7babe04472ee4835f459daf4bd45f"
           },
           "pricing": {
             "kind": "concrete",

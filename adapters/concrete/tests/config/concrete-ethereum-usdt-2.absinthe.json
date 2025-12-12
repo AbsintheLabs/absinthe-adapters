@@ -6,7 +6,7 @@
     "sinks": [
       {
         "sinkType": "csv",
-        "path": "concrete-frax.csv"
+        "path": "concrete-usdt-2.csv"
       },
       {
         "sinkType": "absinthe",
@@ -22,7 +22,7 @@
     "finality": 75
   },
   "range": {
-    "fromBlock": 23632931
+    "fromBlock": 23828295
   },
   "adapterConfig": {
     "adapterId": "concrete",
@@ -30,13 +30,13 @@
       "vaults": [
         {
           "params": {
-            "vaultAddress": "0x4def5abcfba7babe04472ee4835f459daf4bd45f"
+            "vaultAddress": "0x0e609b710da5e0aa476224b6c0e5445ccc21251e"
           },
           "pricing": {
             "kind": "concrete",
             "underlyingAsset": {
               "kind": "coingecko",
-              "id": "frax-usd"
+              "id": "tether"
             }
           }
         }
