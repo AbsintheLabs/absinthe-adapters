@@ -118,7 +118,7 @@ const twapBasisModifiers: Record<Denomination, TWAPBasisModifier> = {
     const windowSamples = await getSamplesIn(ctx.redis, priceKey, startTs, endTs);
     if (windowSamples.length === 0) {
       logger.warn(
-        `No price data for TWAP calculation: asset ${asset}, window [${startTs}, ${endTs}], user: ${user}`,
+        `No price data for TWAP calculation: asset ${assetKey}, window [${startTs}, ${endTs}], user: ${user}`,
       );
     }
 
@@ -127,7 +127,7 @@ const twapBasisModifiers: Record<Denomination, TWAPBasisModifier> = {
 
     if (twapPrice === null || coveredMs === 0) {
       logger.error(
-        `No price data for TWAP calculation: asset ${asset}, window [${startTs}, ${endTs}], user: ${user}, defaulting to 0`,
+        `No price data for TWAP calculation: asset ${assetKey}, window [${startTs}, ${endTs}], user: ${user}, defaulting to 0`,
       );
       return new Big(0);
     }

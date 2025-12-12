@@ -6,7 +6,7 @@
     "sinks": [
       {
         "sinkType": "csv",
-        "path": "concrete-frax.csv"
+        "path": "concrete.csv"
       },
       {
         "sinkType": "absinthe",
@@ -16,13 +16,12 @@
     ]
   },
   "network": {
-    "chainId": 1,
-    "gatewayUrl": "https://v2.archive.subsquid.io/network/ethereum-mainnet",
-    "rpcUrl": "${env:RPC_URL}",
+    "chainId": 101010,
+    "rpcUrl": "https://rpc.stabilityprotocol.com/zgt/nvn3hestrv9d",
     "finality": 75
   },
   "range": {
-    "fromBlock": 23632931
+    "fromBlock": 2593897
   },
   "adapterConfig": {
     "adapterId": "concrete",
@@ -30,13 +29,13 @@
       "vaults": [
         {
           "params": {
-            "vaultAddress": "0x4def5abcfba7babe04472ee4835f459daf4bd45f"
+            "vaultAddress": "0x8650e04a882c78e9ebc74be501fc0312c526d0db"
           },
           "pricing": {
             "kind": "concrete",
             "underlyingAsset": {
               "kind": "coingecko",
-              "id": "frax-usd"
+              "id": "usd-coin"
             }
           }
         }
