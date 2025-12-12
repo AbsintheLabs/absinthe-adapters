@@ -22,7 +22,7 @@
     "finality": 75
   },
   "range": {
-    "fromBlock": 23469505
+    "fromBlock": 23034372
   },
   "adapterConfig": {
     "adapterId": "concrete",
@@ -37,6 +37,66 @@
             "underlyingAsset": {
               "kind": "coingecko",
               "id": "eigenlayer"
+            }
+          }
+        },
+        {
+          "params": {
+            "vaultAddress": "0x0e609b710da5e0aa476224b6c0e5445ccc21251e"
+          },
+          "pricing": {
+            "kind": "concrete",
+            "underlyingAsset": {
+              "kind": "coingecko",
+              "id": "tether"
+            }
+          }
+        },
+        {
+          "params": {
+            "vaultAddress": "0xacce65b9db4810125addea9797baaaaad2b73788"
+          },
+          "pricing": {
+            "kind": "concrete",
+            "underlyingAsset": {
+              "kind": "coingecko",
+              "id": "wrapped-bitcoin"
+            }
+          }
+        },
+        {
+          "params": {
+            "vaultAddress": "0x359152bec5B2D8011dbef0618dF4a136E1dE1244"
+          },
+          "pricing": {
+            "kind": "concrete",
+            "underlyingAsset": {
+              "kind": "coingecko",
+              "id": "usd-coin"
+            }
+          }
+        },
+        {
+          "params": {
+            "vaultAddress": "0xCAcd6fd266aF91b8AeD52aCCc382b4e165586E29"
+          },
+          "pricing": {
+            "kind": "concrete",
+            "underlyingAsset": {
+              "kind": "coingecko",
+              "id": "frax-usd"
+            }
+          }
+        },
+        {
+          "params": {
+            "vaultAddress": "0x6503de9fe77d256d9d823f2d335ce83ece9e153f"
+          },
+          "pricing": {
+            "kind": "concrete",
+            "underlyingAsset": {
+              "kind": "coingecko",
+              "id": "tether"
             }
           }
         }
