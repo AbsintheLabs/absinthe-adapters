@@ -17,7 +17,7 @@
   },
   "network": {
     "chainId": 101010,
-    "rpcUrl": "https://rpc.stabilityprotocol.com/zgt/nvn3hestrv9d",
+    "rpcUrl": "${env:RPC_URL}",
     "finality": 75
   },
   "range": {
@@ -29,13 +29,13 @@
       "vaults": [
         {
           "params": {
-            "vaultAddress": "0x8650e04a882c78e9ebc74be501fc0312c526d0db"
+            "vaultAddress": "0x8650e04a882c78e9eBc74be501FC0312c526d0dB"
           },
           "pricing": {
             "kind": "concrete",
             "underlyingAsset": {
               "kind": "coingecko",
-              "id": "usd-coin"
+              "id": "frax-usd"
             }
           }
         }
