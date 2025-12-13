@@ -47,13 +47,29 @@ export const coingeckoFeed = defineFeedHandler({
         .json<any>();
 
       if (!r?.market_data?.current_price?.usd) {
-        throw new Error(`No market data found for ${coingeckoId} on ${date}`);
+        // Historical data not available - fallback to current price
+        logger.warn(
+          `No historical data for ${coingeckoId} on ${date}, falling back to current price`,
+        );
+        const currentPriceUrl = `https://pro-api.coingecko.com/api/v3/simple/price`;
+        const currentPriceResponse = await ky
+          .get(currentPriceUrl, {
+            searchParams: { ids: coingeckoId, vs_currencies: 'usd' },
+            headers,
+          })
+          .json<Record<string, { usd?: number }>>();
+
+        const currentPrice = currentPriceResponse[coingeckoId]?.usd;
+        if (!currentPrice) {
+          throw new Error(`No current price found for ${coingeckoId}`);
+        }
+        return currentPrice;
       }
 
       return r.market_data.current_price.usd;
     } catch (error) {
-      logger.warn(`Failed to fetch historical USD price for ${coingeckoId}:`, error);
-      throw new Error(`Failed to fetch historical USD price for ${coingeckoId}`);
+      logger.warn(`Failed to fetch USD price for ${coingeckoId}:`, error);
+      throw new Error(`Failed to fetch USD price for ${coingeckoId}`);
     }
   },
 });
