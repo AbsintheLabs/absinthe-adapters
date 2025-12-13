@@ -17,7 +17,7 @@
   },
   "network": {
     "chainId": 101010,
-    "rpcUrl": "https://stable.gateway.tenderly.co/14SGvZrMWNccfyBe3eVepy",
+    "rpcUrl": "${env:RPC_URL}",
     "finality": 75
   },
   "range": {

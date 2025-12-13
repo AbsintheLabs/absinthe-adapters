@@ -1,134 +1,132 @@
 name: Publish Adapter Catalog to npm
 
 on:
-    push:
-        branches:
-            - develop-next
-    workflow_dispatch:
+  push:
+    branches:
+      - develop-next
+  workflow_dispatch:
 
 jobs:
-    check-and-publish:
-        runs-on: ubuntu-latest
-        permissions:
-            contents: write
-            packages: write
-            id-token: write
+  check-and-publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
 
-        steps:
-            - uses: actions/checkout@v4
-              with:
-                  fetch-depth: 0
-                  token: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-            - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v4
 
-            - uses: actions/setup-node@v4
-              with:
-                  node-version: "20"
-                  registry-url: "https://registry.npmjs.org"
-                  cache: "pnpm"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+          cache: "pnpm"
 
-            - name: Install dependencies
-              run: |
-                  echo "📦 Installing dependencies..."
-                  pnpm install --frozen-lockfile
-                  echo "✅ Dependencies installed"
+      - name: Install dependencies
+        run: |
+          echo "📦 Installing dependencies..."
+          pnpm install --frozen-lockfile
+          echo "✅ Dependencies installed"
 
-            - name: Check for adapter changes
-              id: changes
-              run: |
-                  echo "🔍 Checking for adapter manifest changes..."
-                  # Detect ONLY manifest changes (the real source of truth)
-                  CHANGED_FILES=$(git diff --name-only ${{ github.event.before }}{{ github.sha }} \
-                    | grep -E '^adapters/[^/]+/manifest\.(json|ts)$' || true)
-                  if [ -n "$CHANGED_FILES" ]; then
-                    echo "   ✅ Found changes in manifest files:"
-                    echo "$CHANGED_FILES" | sed 's/^/      - /'
-                    echo "HAS_CHANGES=true" >> $GITHUB_OUTPUT
-                  else
-                    echo "   ⏭️  No manifest changes detected"
-                    echo "HAS_CHANGES=false" >> $GITHUB_OUTPUT
-                  fi
+      - name: Check for adapter changes
+        id: changes
+        run: |
+          echo "🔍 Checking for adapter manifest changes..."
+          # Detect ONLY manifest changes (the real source of truth)
+          CHANGED_FILES=$(git diff --name-only ${{ github.event.before }}{{ github.sha }} \
+            | grep -E '^adapters/[^/]+/manifest\.(json|ts)$' || true)
+          if [ -n "$CHANGED_FILES" ]; then
+            echo "   ✅ Found changes in manifest files:"
+            echo "$CHANGED_FILES" | sed 's/^/      - /'
+            echo "HAS_CHANGES=true" >> $GITHUB_OUTPUT
+          else
+            echo "   ⏭️  No manifest changes detected"
+            echo "HAS_CHANGES=false" >> $GITHUB_OUTPUT
+          fi
 
-            - name: Skip if no changes
-              if: steps.changes.outputs.HAS_CHANGES != 'true'
-              run: |
-                  echo "⏭️  Skipping publish - no adapter metadata changes detected"
-                  echo "   Workflow will exit without publishing"
-                  exit 0
+      - name: Bump minor version
+        if: steps.changes.outputs.HAS_CHANGES == 'true'
+        id: bump
+        run: |
+          echo "📈 Bumping version..."
+          CURRENT=$(node -p "require('./package.json').version")
+          echo "   Current version: $CURRENT"
 
-            - name: Bump minor version
-              id: bump
-              run: |
-                  echo "📈 Bumping version..."
-                  CURRENT=$(node -p "require('./package.json').version")
-                  echo "   Current version: $CURRENT"
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+          NEW_VERSION="$MAJOR.$((MINOR + 1)).0"
 
-                  IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
-                  NEW_VERSION="$MAJOR.$((MINOR + 1)).0"
+          echo "   New version: $NEW_VERSION (minor bump)"
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_OUTPUT
 
-                  echo "   New version: $NEW_VERSION (minor bump)"
-                  echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "   Updating package.json..."
+          npm version $NEW_VERSION --no-git-tag-version
+          echo "✅ Version bumped to $NEW_VERSION"
 
-                  echo "   Updating package.json..."
-                  npm version $NEW_VERSION --no-git-tag-version
-                  echo "✅ Version bumped to $NEW_VERSION"
+      - name: Build project
+        if: steps.changes.outputs.HAS_CHANGES == 'true'
+        run: |
+          echo "🔨 Building project..."
+          pnpm build
+          echo "✅ Build completed"
 
-            - name: Build project
-              run: |
-                  echo "🔨 Building project..."
-                  pnpm build
-                  echo "✅ Build completed"
+      - name: Generate adapter catalog
+        if: steps.changes.outputs.HAS_CHANGES == 'true'
+        run: |
+          echo "📋 Generating adapter catalog..."
+          pnpm generate-catalog
 
-            - name: Generate adapter catalog
-              run: |
-                  echo "📋 Generating adapter catalog..."
-                  pnpm generate-catalog
+          if [ -f "_generated/adapter-catalog.json" ]; then
+            CATALOG_VERSION=$(node -p "require('./_generated/adapter-catalog.json').version")
+            ADAPTER_COUNT=$(node -p "Object.keys(require('./_generated/adapter-catalog.json').adapters).length")
+            echo "✅ Catalog generated successfully"
+            echo "   Version: $CATALOG_VERSION"
+            echo "   Adapters: $ADAPTER_COUNT"
+          else
+            echo "❌ Catalog file not found!"
+            exit 1
+          fi
 
-                  if [ -f "_generated/adapter-catalog.json" ]; then
-                    CATALOG_VERSION=$(node -p "require('./_generated/adapter-catalog.json').version")
-                    ADAPTER_COUNT=$(node -p "Object.keys(require('./_generated/adapter-catalog.json').adapters).length")
-                    echo "✅ Catalog generated successfully"
-                    echo "   Version: $CATALOG_VERSION"
-                    echo "   Adapters: $ADAPTER_COUNT"
-                  else
-                    echo "❌ Catalog file not found!"
-                    exit 1
-                  fi
+      - name: Commit and tag
+        if: steps.changes.outputs.HAS_CHANGES == 'true'
+        run: |
+          echo "📝 Committing changes..."
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
-            - name: Commit and tag
-              run: |
-                  echo "📝 Committing changes..."
-                  git config user.name "github-actions[bot]"
-                  git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json _generated/adapter-catalog.json
 
-                  git add package.json _generated/adapter-catalog.json
+          if git diff --staged --quiet; then
+            echo "   ⚠️  No changes to commit"
+          else
+            git commit -m "chore: bump catalog version to ${{ steps.bump.outputs.NEW_VERSION }} [skip ci]" || true
+            echo "   ✅ Committed version bump"
+            
+            echo "   📤 Pushing to ${{ github.ref_name }}..."
+            git push origin ${{ github.ref_name }} || echo "   ⚠️  Nothing to push"
+          fi
 
-                  if git diff --staged --quiet; then
-                    echo "   ⚠️  No changes to commit"
-                  else
-                    git commit -m "chore: bump catalog version to ${{ steps.bump.outputs.NEW_VERSION }} [skip ci]" || true
-                    echo "   ✅ Committed version bump"
-                    
-                    echo "   📤 Pushing to ${{ github.ref_name }}..."
-                    git push origin ${{ github.ref_name }} || echo "   ⚠️  Nothing to push"
-                  fi
+          echo "🏷️  Creating git tag v${{ steps.bump.outputs.NEW_VERSION }}..."
+          git tag -a "v${{ steps.bump.outputs.NEW_VERSION }}" -m "Catalog v${{ steps.bump.outputs.NEW_VERSION }}"
+          git push origin "v${{ steps.bump.outputs.NEW_VERSION }}"
+          echo "✅ Tag created and pushed"
 
-                  echo "🏷️  Creating git tag v${{ steps.bump.outputs.NEW_VERSION }}..."
-                  git tag -a "v${{ steps.bump.outputs.NEW_VERSION }}" -m "Catalog v${{ steps.bump.outputs.NEW_VERSION }}"
-                  git push origin "v${{ steps.bump.outputs.NEW_VERSION }}"
-                  echo "✅ Tag created and pushed"
+      - name: Publish to npm
+        if: steps.changes.outputs.HAS_CHANGES == 'true'
+        run: |
+          echo "🚀 Publishing to npm..."
+          echo "   Package: @absinthelabs/adapters"
+          echo "   Version: ${{ steps.bump.outputs.NEW_VERSION }}"
+          echo "   Registry: https://registry.npmjs.org"
 
-            - name: Publish to npm
-              run: |
-                  echo "🚀 Publishing to npm..."
-                  echo "   Package: @absinthelabs/adapters"
-                  echo "   Version: ${{ steps.bump.outputs.NEW_VERSION }}"
-                  echo "   Registry: https://registry.npmjs.org"
+          pnpm publish --access public --no-git-checks
 
-                  pnpm publish --access public --no-git-checks
-
-                  echo "✅ Successfully published to npm!"
-                  echo "   📦 https://www.npmjs.com/package/@absinthelabs/adapters/v/${{ steps.bump.outputs.NEW_VERSION }}"
-              env:
-                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          echo "✅ Successfully published to npm!"
+          echo "   📦 https://www.npmjs.com/package/@absinthelabs/adapters/v/${{ steps.bump.outputs.NEW_VERSION }}"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
