@@ -10,6 +10,11 @@
       },
       {
         "sinkType": "stdout"
+      },
+      {
+        "sinkType": "absinthe",
+        "url": "${env:ABSINTHE_API_URL}",
+        "apiKey": "${env:ABSINTHE_API_KEY}"
       }
     ]
   },
@@ -52,6 +57,23 @@
           "pricing": {
             "kind": "coingecko",
             "id": "usd-coin"
+          }
+        }
+      ],
+      "lp": [
+        {
+          "params": {
+            "factoryAddress": "0xCdBCd51a5E8728E0AF4895ce5771b7d17fF71959",
+            "nonFungiblePositionManagerAddress": "0xe43ca1dee3f0fc1e2df73a0745674545f11a59f5"
+          },
+          "pricing": {
+            "kind": "univ3lp",
+            "nonfungiblepositionmanager": "0xe43ca1dee3f0fc1e2df73a0745674545f11a59f5",
+            "tokenSelector": "token0",
+            "token": {
+              "kind": "coingecko",
+              "id": "bitcoin"
+            }
           }
         }
       ]
