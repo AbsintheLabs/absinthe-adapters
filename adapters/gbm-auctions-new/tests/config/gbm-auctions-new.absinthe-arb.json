@@ -21,8 +21,7 @@
     "finality": 75
   },
   "range": {
-    "fromBlock": 370444915,
-    "toBlock": 0
+    "fromBlock": 370444915
   },
   "adapterConfig": {
     "adapterId": "gbm-auctions-new",
