@@ -47,13 +47,50 @@ export const manifest = {
         printrHoldContractAddress: evmAddress('The Printr protocol contract address'),
       },
     },
-    mcap_holders: {
+    // Threshold-specific holder rewards (pro-rata distribution)
+    mcap_holders_250000: {
       kind: 'action',
       quantityType: 'token_based',
       params: {
         printrMcapHoldersContractAddress: evmAddress('The Printr protocol contract address'),
       },
     },
+    mcap_holders_500000: {
+      kind: 'action',
+      quantityType: 'token_based',
+      params: {
+        printrMcapHoldersContractAddress: evmAddress('The Printr protocol contract address'),
+      },
+    },
+    mcap_holders_1000000: {
+      kind: 'action',
+      quantityType: 'token_based',
+      params: {
+        printrMcapHoldersContractAddress: evmAddress('The Printr protocol contract address'),
+      },
+    },
+    mcap_holders_10000000: {
+      kind: 'action',
+      quantityType: 'token_based',
+      params: {
+        printrMcapHoldersContractAddress: evmAddress('The Printr protocol contract address'),
+      },
+    },
+    mcap_holders_100000000: {
+      kind: 'action',
+      quantityType: 'token_based',
+      params: {
+        printrMcapHoldersContractAddress: evmAddress('The Printr protocol contract address'),
+      },
+    },
+    mcap_holders_1000000000: {
+      kind: 'action',
+      quantityType: 'token_based',
+      params: {
+        printrMcapHoldersContractAddress: evmAddress('The Printr protocol contract address'),
+      },
+    },
+    // Creator rewards (single config, full points per threshold - no pro-rata)
     mcap_creators: {
       kind: 'action',
       quantityType: 'token_based',
