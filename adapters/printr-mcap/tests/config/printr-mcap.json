@@ -19,7 +19,7 @@
     ]
   },
   "network": {
-    "chainId": 43111,
+    "chainId": 143,
     "gatewayUrl": "https://v2.archive.subsquid.io/network/monad-mainnet",
     "rpcUrl": "${env:RPC_URL}",
     "finality": 75
@@ -80,10 +80,45 @@
           }
         }
       ],
-      "mcap_holders": [
+      "mcap_holders_250000": [
         {
           "params": {
-            "printrMcapHoldersContractAddress": "0xb77726291b125515d0a7affeea2b04f2ff243172"
+            "printrMcapHolders250000ContractAddress": "0xb77726291b125515d0a7affeea2b04f2ff243172"
+          }
+        }
+      ],
+      "mcap_holders_500000": [
+        {
+          "params": {
+            "printrMcapHolders500000ContractAddress": "0xb77726291b125515d0a7affeea2b04f2ff243172"
+          }
+        }
+      ],
+      "mcap_holders_1000000": [
+        {
+          "params": {
+            "printrMcapHolders1000000ContractAddress": "0xb77726291b125515d0a7affeea2b04f2ff243172"
+          }
+        }
+      ],
+      "mcap_holders_10000000": [
+        {
+          "params": {
+            "printrMcapHolders10000000ContractAddress": "0xb77726291b125515d0a7affeea2b04f2ff243172"
+          }
+        }
+      ],
+      "mcap_holders_100000000": [
+        {
+          "params": {
+            "printrMcapHolders100000000ContractAddress": "0xb77726291b125515d0a7affeea2b04f2ff243172"
+          }
+        }
+      ],
+      "mcap_holders_1000000000": [
+        {
+          "params": {
+            "printrMcapHolders1000000000ContractAddress": "0xb77726291b125515d0a7affeea2b04f2ff243172"
           }
         }
       ],

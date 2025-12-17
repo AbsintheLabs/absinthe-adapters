@@ -19,7 +19,7 @@
     ]
   },
   "network": {
-    "chainId": 143,
+    "chainId": 43111,
     "gatewayUrl": "https://v2.archive.subsquid.io/network/monad-mainnet",
     "rpcUrl": "${env:RPC_URL}",
     "finality": 75
