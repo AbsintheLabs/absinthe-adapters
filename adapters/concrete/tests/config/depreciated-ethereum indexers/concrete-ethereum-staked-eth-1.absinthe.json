@@ -6,7 +6,7 @@
     "sinks": [
       {
         "sinkType": "csv",
-        "path": "concrete-usdc-3.csv"
+        "path": "concrete-ethereum-staked-eth-1.csv"
       },
       {
         "sinkType": "absinthe",
@@ -16,14 +16,14 @@
     ]
   },
   "network": {
-    "chainId": 80094,
-    "gatewayUrl": "https://v2.archive.subsquid.io/network/berachain-bartio",
+    "chainId": 1,
+    "gatewayUrl": "https://v2.archive.subsquid.io/network/ethereum-mainnet",
     "rpcUrl": "${env:RPC_URL}",
     "finality": 75
   },
   "range": {
-    "fromBlock": 473747,
-    "toBlock": 7761734
+    "fromBlock": 21545397,
+    "toBlock": 21760709
   },
   "adapterConfig": {
     "adapterId": "concrete",
@@ -31,13 +31,13 @@
       "vaults": [
         {
           "params": {
-            "vaultAddress": "0x59E24F42caE1B82c8b2Dc79Ea898F2F8b4986dfC"
+            "vaultAddress": "0x61e2de83bbab5a7a5bb2c5d40a5f737135eeaa13"
           },
           "pricing": {
             "kind": "concrete",
             "underlyingAsset": {
               "kind": "coingecko",
-              "id": "usd-coin"
+              "id": "berachain-staked-eth"
             }
           }
         }

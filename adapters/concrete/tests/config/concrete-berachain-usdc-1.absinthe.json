@@ -6,7 +6,7 @@
     "sinks": [
       {
         "sinkType": "csv",
-        "path": "concrete-usdc-3.csv"
+        "path": "concrete-usdc-1.csv"
       },
       {
         "sinkType": "absinthe",
@@ -22,8 +22,8 @@
     "finality": 75
   },
   "range": {
-    "fromBlock": 473747,
-    "toBlock": 7761734
+    "fromBlock": 4052936,
+    "toBlock": 14475383
   },
   "adapterConfig": {
     "adapterId": "concrete",
@@ -31,7 +31,7 @@
       "vaults": [
         {
           "params": {
-            "vaultAddress": "0x59E24F42caE1B82c8b2Dc79Ea898F2F8b4986dfC"
+            "vaultAddress": "0x585934afbf1fa9f563b80283f8b916dd8f66a9b6"
           },
           "pricing": {
             "kind": "concrete",

@@ -6,7 +6,7 @@
     "sinks": [
       {
         "sinkType": "csv",
-        "path": "concrete-usdc-3.csv"
+        "path": "concrete-staked-eth.csv"
       },
       {
         "sinkType": "absinthe",
@@ -22,8 +22,8 @@
     "finality": 75
   },
   "range": {
-    "fromBlock": 473747,
-    "toBlock": 7761734
+    "fromBlock": 4053014,
+    "toBlock": 14475383
   },
   "adapterConfig": {
     "adapterId": "concrete",
@@ -31,13 +31,13 @@
       "vaults": [
         {
           "params": {
-            "vaultAddress": "0x59E24F42caE1B82c8b2Dc79Ea898F2F8b4986dfC"
+            "vaultAddress": "0x49bee393825bbac404fefe6e24f34854f30905d2"
           },
           "pricing": {
             "kind": "concrete",
             "underlyingAsset": {
               "kind": "coingecko",
-              "id": "usd-coin"
+              "id": "berachain-staked-eth"
             }
           }
         }
