@@ -1,0 +1,46 @@
+{
+  "chainArch": "evm",
+  "flushInterval": "48h",
+  "redisUrl": "${env:REDIS_URL}",
+  "sinkConfig": {
+    "sinks": [
+      {
+        "sinkType": "csv",
+        "path": "concrete-katana-usdc.csv"
+      },
+      {
+        "sinkType": "absinthe",
+        "url": "${env:ABSINTHE_API_URL}",
+        "apiKey": "${env:ABSINTHE_API_KEY}"
+      }
+    ]
+  },
+  "network": {
+    "chainId": 747474,
+    "rpcUrl": "${env:RPC_URL}",
+    "finality": 75
+  },
+  "range": {
+    "fromBlock": 7047891,
+    "toBlock": 19232089
+  },
+  "adapterConfig": {
+    "adapterId": "concrete",
+    "config": {
+      "vaults": [
+        {
+          "params": {
+            "vaultAddress": "0xca2470f04945dad24989ec6ef2c41ee808e51039"
+          },
+          "pricing": {
+            "kind": "concrete",
+            "underlyingAsset": {
+              "kind": "coingecko",
+              "id": "usd-coin"
+            }
+          }
+        }
+      ]
+    }
+  }
+}
