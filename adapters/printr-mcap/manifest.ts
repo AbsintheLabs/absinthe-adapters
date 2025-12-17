@@ -52,42 +52,54 @@ export const manifest = {
       kind: 'action',
       quantityType: 'token_based',
       params: {
-        printrMcapHoldersContractAddress: evmAddress('The Printr protocol contract address'),
+        printrMcapHolders250000ContractAddress: evmAddress(
+          'The Printr protocol contract address for 250k threshold',
+        ),
       },
     },
     mcap_holders_500000: {
       kind: 'action',
       quantityType: 'token_based',
       params: {
-        printrMcapHoldersContractAddress: evmAddress('The Printr protocol contract address'),
+        printrMcapHolders500000ContractAddress: evmAddress(
+          'The Printr protocol contract address for 500k threshold',
+        ),
       },
     },
     mcap_holders_1000000: {
       kind: 'action',
       quantityType: 'token_based',
       params: {
-        printrMcapHoldersContractAddress: evmAddress('The Printr protocol contract address'),
+        printrMcapHolders1000000ContractAddress: evmAddress(
+          'The Printr protocol contract address for 1M threshold',
+        ),
       },
     },
     mcap_holders_10000000: {
       kind: 'action',
       quantityType: 'token_based',
       params: {
-        printrMcapHoldersContractAddress: evmAddress('The Printr protocol contract address'),
+        printrMcapHolders10000000ContractAddress: evmAddress(
+          'The Printr protocol contract address for 10M threshold',
+        ),
       },
     },
     mcap_holders_100000000: {
       kind: 'action',
       quantityType: 'token_based',
       params: {
-        printrMcapHoldersContractAddress: evmAddress('The Printr protocol contract address'),
+        printrMcapHolders100000000ContractAddress: evmAddress(
+          'The Printr protocol contract address for 100M threshold',
+        ),
       },
     },
     mcap_holders_1000000000: {
       kind: 'action',
       quantityType: 'token_based',
       params: {
-        printrMcapHoldersContractAddress: evmAddress('The Printr protocol contract address'),
+        printrMcapHolders1000000000ContractAddress: evmAddress(
+          'The Printr protocol contract address for 1B threshold',
+        ),
       },
     },
     // Creator rewards (single config, full points per threshold - no pro-rata)

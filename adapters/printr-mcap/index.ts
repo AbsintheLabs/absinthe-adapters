@@ -1056,18 +1056,12 @@ async function rewardAllHolders(
     const holdersConfigKey = getThresholdConfigKey(threshold, 'holders');
 
     // Check if threshold-specific mcap_holders trackable is configured
-    const mcapHoldersInstances =
-      config[holdersConfigKey]?.filter(
-        (m: any) =>
-          m.params.printrMcapHoldersContractAddress?.toLowerCase() === printrContractAddress,
-      ) || [];
+    // Note: We don't filter by address - just use all instances from the config key
+    const mcapHoldersInstances = config[holdersConfigKey] || [];
 
     // Check if mcap_creators trackable is configured (single config for all thresholds)
-    const mcapCreatorsInstances =
-      config.mcap_creators?.filter(
-        (m: any) =>
-          m.params.printrMcapCreatorsContractAddress?.toLowerCase() === printrContractAddress,
-      ) || [];
+    // Note: We don't filter by address - just use all instances from the config
+    const mcapCreatorsInstances = config.mcap_creators || [];
 
     // Only proceed if at least one of the trackables is configured
     if (mcapHoldersInstances.length === 0 && mcapCreatorsInstances.length === 0) {
