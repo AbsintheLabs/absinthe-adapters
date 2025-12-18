@@ -27,6 +27,111 @@ const LIQUIDITY_FEE = 3000;
 const LIQUIDITY_FEE_BSC = 2500;
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
+// -------------------------
+// Performance caches (in-memory)
+// -------------------------
+// NOTE: We subscribe to ALL swaps + ALL ERC20 Transfers at the SQD layer.
+// The only way to keep this adapter fast is to *early-return* for non-Printr pools/tokens
+// and avoid Redis roundtrips on every event.
+type PoolData = {
+  token0: string;
+  token1: string;
+  token: string;
+  baseToken: string;
+  printrContractAddress: string;
+  factoryAddress: string;
+  fee: string;
+  discoveredAt: string;
+};
+
+type ChainCache = {
+  printrTokens: Set<string>;
+  nonPrintrTokens: Set<string>;
+  poolInfo: Map<string, PoolData>;
+  nonPrintrPools: Set<string>;
+  tokenDecimals: Map<string, number>;
+  hourlyPriceUsd: Map<string, number>; // key: `${coingeckoId}:${hourBucket}`
+};
+
+const CHAIN_CACHES = new Map<number, ChainCache>();
+const NEGATIVE_TOKEN_CACHE_CAP = 50_000;
+const NEGATIVE_POOL_CACHE_CAP = 50_000;
+
+function getChainCache(chainId: number): ChainCache {
+  const existing = CHAIN_CACHES.get(chainId);
+  if (existing) return existing;
+  const created: ChainCache = {
+    printrTokens: new Set(),
+    nonPrintrTokens: new Set(),
+    poolInfo: new Map(),
+    nonPrintrPools: new Set(),
+    tokenDecimals: new Map(),
+    hourlyPriceUsd: new Map(),
+  };
+  CHAIN_CACHES.set(chainId, created);
+  return created;
+}
+
+async function isPrintrToken(
+  chainId: number,
+  tokenAddress: string,
+  redis: Redis,
+): Promise<boolean> {
+  const addr = tokenAddress.toLowerCase();
+  const cache = getChainCache(chainId);
+  if (cache.printrTokens.has(addr)) return true;
+  if (cache.nonPrintrTokens.has(addr)) return false;
+
+  // Bounded negative caching to avoid unbounded memory growth on long-running indexers.
+  if (cache.nonPrintrTokens.size > NEGATIVE_TOKEN_CACHE_CAP) {
+    cache.nonPrintrTokens.clear();
+  }
+
+  // Redis-backed discovery for mid-range starts (fromBlock after CurveCreated).
+  // We persist tokens into this set when CurveCreated/LiquidityDeployed is seen.
+  const isMember = (await redis.sismember(`printr:tokens:${chainId}`, addr)) === 1;
+  if (isMember) {
+    cache.printrTokens.add(addr);
+    return true;
+  }
+  cache.nonPrintrTokens.add(addr);
+  return false;
+}
+
+function rememberPool(chainId: number, poolAddress: string, poolData: PoolData) {
+  const addr = poolAddress.toLowerCase();
+  const cache = getChainCache(chainId);
+  cache.poolInfo.set(addr, poolData);
+  cache.nonPrintrPools.delete(addr);
+}
+
+async function getKnownPoolData(
+  chainId: number,
+  poolAddress: string,
+  redis: Redis,
+): Promise<PoolData | null> {
+  const addr = poolAddress.toLowerCase();
+  const cache = getChainCache(chainId);
+
+  const cached = cache.poolInfo.get(addr);
+  if (cached) return cached;
+  if (cache.nonPrintrPools.has(addr)) return null;
+
+  if (cache.nonPrintrPools.size > NEGATIVE_POOL_CACHE_CAP) {
+    cache.nonPrintrPools.clear();
+  }
+
+  const poolKey = `printr:pool:${addr}`;
+  const poolDataStr = await redis.get(poolKey);
+  if (!poolDataStr) {
+    cache.nonPrintrPools.add(addr);
+    return null;
+  }
+  const poolData = JSON.parse(poolDataStr) as PoolData;
+  rememberPool(chainId, addr, poolData);
+  return poolData;
+}
+
 // Chain IDs (for fee determination)
 const ChainId = {
   BSC: 56,
@@ -112,6 +217,7 @@ async function calculateSwapValueUsd(
   baseTokenAddress: string,
   assetSelectorTokenAddress: string, // The token selected in assetSelector
   timestampMs: number,
+  chainId: number,
   redis: Redis,
   instance: any, // Trackable instance to get pricing config
 ): Promise<{ swapValueUsd: number; otherTokenPriceInUsd: number }> {
@@ -137,9 +243,16 @@ async function calculateSwapValueUsd(
     assetSelectorTokenAmount < 0n ? -assetSelectorTokenAmount : assetSelectorTokenAmount;
 
   // Get assetSelector token decimals (cached during LiquidityDeployed)
+  const cache = getChainCache(chainId);
   const assetSelectorTokenDecimalsKey = `token:${assetSelectorTokenAddress_actual.toLowerCase()}:decimals`;
-  const assetSelectorTokenDecimals = await redis.get(assetSelectorTokenDecimalsKey);
-  const assetSelectorDecimals = parseInt(assetSelectorTokenDecimals ?? '18', 10);
+  let assetSelectorDecimals = cache.tokenDecimals.get(
+    assetSelectorTokenAddress_actual.toLowerCase(),
+  );
+  if (assetSelectorDecimals == null) {
+    const assetSelectorTokenDecimals = await redis.get(assetSelectorTokenDecimalsKey);
+    assetSelectorDecimals = parseInt(assetSelectorTokenDecimals ?? '18', 10);
+    cache.tokenDecimals.set(assetSelectorTokenAddress_actual.toLowerCase(), assetSelectorDecimals);
+  }
   const assetSelectorTokenAmountScaled =
     Number(assetSelectorTokenAmountAbs) / Math.pow(10, assetSelectorDecimals);
 
@@ -152,24 +265,31 @@ async function calculateSwapValueUsd(
 
   const coingeckoId = pricing.id;
 
-  // Cache assetSelector token price in Redis (TTL 1 hour)
-  const priceCacheKey = `price:${coingeckoId}:${Math.floor(timestampMs / 3600000)}`; // Hourly cache
-  let assetSelectorTokenPriceUsd = await redis.get(priceCacheKey);
-
-  if (!assetSelectorTokenPriceUsd) {
-    const apiKey = process.env.COINGECKO_API_KEY;
-    const price = await fetchHistoricalUsd(coingeckoId, timestampMs, apiKey);
-    if (price > 0) {
-      assetSelectorTokenPriceUsd = price.toString();
-      await redis.set(priceCacheKey, assetSelectorTokenPriceUsd, 'EX', 3600); // Cache for 1 hour
+  // Cache assetSelector token price in Redis (TTL 1 hour) + in-memory per process
+  const hourBucket = Math.floor(timestampMs / 3600000);
+  const localPriceKey = `${coingeckoId}:${hourBucket}`;
+  let assetSelectorTokenPriceUsdNum = cache.hourlyPriceUsd.get(localPriceKey);
+  if (assetSelectorTokenPriceUsdNum == null) {
+    const priceCacheKey = `price:${coingeckoId}:${hourBucket}`; // Hourly cache
+    const assetSelectorTokenPriceUsd = await redis.get(priceCacheKey);
+    if (!assetSelectorTokenPriceUsd) {
+      const apiKey = process.env.COINGECKO_API_KEY;
+      const price = await fetchHistoricalUsd(coingeckoId, timestampMs, apiKey);
+      if (price > 0) {
+        await redis.set(priceCacheKey, price.toString(), 'EX', 3600); // Cache for 1 hour
+        assetSelectorTokenPriceUsdNum = price;
+      } else {
+        return { swapValueUsd: 0, otherTokenPriceInUsd: 0 };
+      }
     } else {
-      return { swapValueUsd: 0, otherTokenPriceInUsd: 0 };
+      assetSelectorTokenPriceUsdNum = parseFloat(assetSelectorTokenPriceUsd);
     }
+    cache.hourlyPriceUsd.set(localPriceKey, assetSelectorTokenPriceUsdNum);
   }
 
   // Step 1: Calculate swap value in USD from assetSelector token
   // swapValueUsd = assetSelectorTokenAmount * assetSelectorTokenPrice
-  const swapValueUsd = assetSelectorTokenAmountScaled * parseFloat(assetSelectorTokenPriceUsd);
+  const swapValueUsd = assetSelectorTokenAmountScaled * assetSelectorTokenPriceUsdNum;
 
   // Step 2: Get the OTHER token amount to derive its price
   const otherTokenIsToken0 = token1IsAssetSelector; // If token1 is assetSelector, then token0 is the other
@@ -179,9 +299,14 @@ async function calculateSwapValueUsd(
   const otherTokenAmountAbs = otherTokenAmount < 0n ? -otherTokenAmount : otherTokenAmount;
 
   // Get other token decimals
-  const otherTokenDecimalsKey = `token:${otherTokenAddress.toLowerCase()}:decimals`;
-  const otherTokenDecimals = await redis.get(otherTokenDecimalsKey);
-  const otherDecimals = parseInt(otherTokenDecimals ?? '18', 10);
+  const otherTokenAddressLower = otherTokenAddress.toLowerCase();
+  let otherDecimals = cache.tokenDecimals.get(otherTokenAddressLower);
+  if (otherDecimals == null) {
+    const otherTokenDecimalsKey = `token:${otherTokenAddressLower}:decimals`;
+    const otherTokenDecimals = await redis.get(otherTokenDecimalsKey);
+    otherDecimals = parseInt(otherTokenDecimals ?? '18', 10);
+    cache.tokenDecimals.set(otherTokenAddressLower, otherDecimals);
+  }
   const otherTokenAmountScaled = Number(otherTokenAmountAbs) / Math.pow(10, otherDecimals);
 
   // Step 3: Derive other token price in USD
@@ -243,6 +368,7 @@ export default defineAdapter({
 
       onLog: async ({ log, emitFns, sqdRpcCtx, redis }) => {
         const logAddress = log.address.toLowerCase();
+        const chainId = log.chainId;
 
         // Handle Printr protocol events
         if (log.topic0 === tokenTradeTopic) {
@@ -266,15 +392,15 @@ export default defineAdapter({
 
         // Handle pool swap events (check if pool was discovered)
         if (log.topic0 === swapTopicPool || log.topic0 === swapTopicPool2) {
-          logger.debug(
-            `[onLog] Received Swap event from pool ${logAddress} at block ${log.height}`,
-          );
+          // Fast path: ignore swaps from non-Printr pools without hitting Redis every time.
           await handlePoolSwap(log, emitFns, config, logAddress, sqdRpcCtx, redis);
         }
 
         // Handle generic ERC-20 Transfer events
         if (log.topic0 === transferTopic) {
-          await handleTransfer(log, emitFns, config, redis);
+          // We *only* process transfers for tokens known to be Printr tokens.
+          // This is critical for performance because we subscribe to all ERC20 transfers globally.
+          await handleTransfer(log, emitFns, config, redis, chainId);
         }
       },
     };
@@ -380,6 +506,10 @@ async function handleCurveCreated(
     lastTradeTs: '0',
   });
 
+  // Persist + cache token membership for fast Transfer filtering
+  await redis.sadd(`printr:tokens:${chainId}`, tokenAddress);
+  getChainCache(chainId).printrTokens.add(tokenAddress);
+
   const instances =
     config.curveCreated?.filter(
       (c: any) => c.params.printrccContractAddress?.toLowerCase() === printrContractAddress,
@@ -418,6 +548,10 @@ async function handleLiquidityDeployed(
   const { token, tokenAmount, baseAmount } = decoded;
   const tokenAddress = token.toLowerCase();
   const chainId = log.chainId;
+
+  // Persist + cache token membership for fast Transfer filtering (supports mid-range starts).
+  await redis.sadd(`printr:tokens:${chainId}`, tokenAddress);
+  getChainCache(chainId).printrTokens.add(tokenAddress);
 
   // Get final supply from last TokenTrade before this event
   const supplyKey = `printr:token:${tokenAddress}:finalSupply`;
@@ -484,19 +618,18 @@ async function handleLiquidityDeployed(
 
     // Store pool info in Redis
     const poolKey = `printr:pool:${poolAddressLower}`;
-    await redis.set(
-      poolKey,
-      JSON.stringify({
-        token0,
-        token1,
-        token: tokenAddress,
-        baseToken: baseTokenAddress,
-        printrContractAddress: printrContractAddress.toLowerCase(),
-        factoryAddress: factoryAddress.toLowerCase(),
-        fee: liquidityFee.toString(),
-        discoveredAt: log.height.toString(),
-      }),
-    );
+    const poolData: PoolData = {
+      token0,
+      token1,
+      token: tokenAddress,
+      baseToken: baseTokenAddress,
+      printrContractAddress: printrContractAddress.toLowerCase(),
+      factoryAddress: factoryAddress.toLowerCase(),
+      fee: liquidityFee.toString(),
+      discoveredAt: log.height.toString(),
+    };
+    await redis.set(poolKey, JSON.stringify(poolData));
+    rememberPool(chainId, poolAddressLower, poolData);
 
     // Store graduation info with pool address
     const graduationKey = `printr:token:${tokenAddress}:graduated`;
@@ -573,17 +706,9 @@ async function handlePoolSwap(
   sqdRpcCtx: SqdRpcCtx,
   redis: Redis,
 ): Promise<void> {
-  // Check if this pool was discovered (stored in Redis)
-  const poolKey = `printr:pool:${poolAddress}`;
-  const poolDataStr = await redis.get(poolKey);
-
-  if (!poolDataStr) {
-    // Pool not discovered yet, skip this swap
-    logger.debug(`[handlePoolSwap] Pool ${poolAddress} not discovered yet, skipping swap event`);
-    return;
-  }
-
-  const poolData = JSON.parse(poolDataStr);
+  const chainId = log.chainId;
+  const poolData = await getKnownPoolData(chainId, poolAddress, redis);
+  if (!poolData) return;
 
   // Use token addresses already stored during LiquidityDeployed
   const token0Addr = poolData.token0.toLowerCase();
@@ -637,9 +762,6 @@ async function handlePoolSwap(
     const shouldEmitToken1 = token1Addr === printrTokenAddr;
 
     if (shouldEmitToken0 && amount0Abs > 0n) {
-      logger.debug(
-        `[handlePoolSwap] Emitting swap event for token0: ${token0Addr}, amount: ${amount0Abs.toString()}, pool: ${poolAddress}`,
-      );
       await emitFns.action.swap({
         key: md5Hash(`${log.txRef}${log.index}`),
         user: recipient.toLowerCase(),
@@ -660,12 +782,8 @@ async function handlePoolSwap(
       // Always calculate price for Printr tokens (token0 is the Printr token)
       if (token0Addr === printrTokenAddr) {
         // Use base token (token1) as pricing reference since Printr token is token0
-        const baseTokenAddr = poolData.baseToken.toLowerCase();
         const pricingReferenceToken = token1Addr; // Base token is token1 when Printr token is token0
 
-        logger.debug(
-          `[handlePoolSwap] Calculating swap value for token0 (Printr token): ${token0Addr}, pricing reference (base token): ${pricingReferenceToken}`,
-        );
         // Calculate swap value in USD from base token, then derive Printr token price
         const { otherTokenPriceInUsd: otherTokenPriceInUsd0 } = await calculateSwapValueUsd(
           amount0,
@@ -675,11 +793,9 @@ async function handlePoolSwap(
           poolData.baseToken,
           pricingReferenceToken, // assetSelector token (base token for pricing)
           log.tsMs,
+          log.chainId,
           redis,
           instance,
-        );
-        logger.debug(
-          `[handlePoolSwap] Calculated otherTokenPriceInUsd: ${otherTokenPriceInUsd0} for Printr token ${token0Addr}`,
         );
         await checkMarketCapThresholds(
           token0Addr,
@@ -697,9 +813,6 @@ async function handlePoolSwap(
     }
 
     if (shouldEmitToken1 && amount1Abs > 0n) {
-      logger.debug(
-        `[handlePoolSwap] Emitting swap event for token1: ${token1Addr}, amount: ${amount1Abs.toString()}, pool: ${poolAddress}`,
-      );
       await emitFns.action.swap({
         key: md5Hash(`${log.txRef}${log.index}`),
         user: recipient.toLowerCase(),
@@ -720,12 +833,8 @@ async function handlePoolSwap(
       // Always calculate price for Printr tokens (token1 is the Printr token)
       if (token1Addr === printrTokenAddr) {
         // Use base token (token0) as pricing reference since Printr token is token1
-        const baseTokenAddr = poolData.baseToken.toLowerCase();
         const pricingReferenceToken = token0Addr; // Base token is token0 when Printr token is token1
 
-        logger.debug(
-          `[handlePoolSwap] Calculating swap value for token1 (Printr token): ${token1Addr}, pricing reference (base token): ${pricingReferenceToken}`,
-        );
         // Calculate swap value in USD from base token, then derive Printr token price
         const { otherTokenPriceInUsd: otherTokenPriceInUsd1 } = await calculateSwapValueUsd(
           amount0,
@@ -735,11 +844,9 @@ async function handlePoolSwap(
           poolData.baseToken,
           pricingReferenceToken, // assetSelector token (base token for pricing)
           log.tsMs,
+          log.chainId,
           redis,
           instance,
-        );
-        logger.debug(
-          `[handlePoolSwap] Calculated otherTokenPriceInUsd: ${otherTokenPriceInUsd1} for Printr token ${token1Addr}`,
         );
         await checkMarketCapThresholds(
           token1Addr,
@@ -759,12 +866,12 @@ async function handlePoolSwap(
 }
 
 // Handler for generic ERC-20 Transfer events
-// Automatically tracks all ERC-20 tokens - no config needed!
 async function handleTransfer(
   log: UnifiedEvmLog,
   emitFns: EmitFunctions,
   config: any,
   redis: Redis,
+  chainId: number,
 ): Promise<void> {
   // Skip ERC-721 (NFT) Transfer events - they have 4 topics (tokenId is indexed)
   // ERC-20 Transfer events have 3 topics (from, to, value in data)
@@ -778,6 +885,12 @@ async function handleTransfer(
   }
 
   const tokenAddress = log.address.toLowerCase();
+
+  // HARD GATE: only process Printr tokens. This adapter is subscribed to *all* ERC20 transfers,
+  // so skipping irrelevant tokens early is the biggest performance win.
+  const relevant = await isPrintrToken(chainId, tokenAddress, redis);
+  if (!relevant) return;
+
   const { from, to, value } = erc20Abi.events.Transfer.decode({
     topics: log.topics,
     data: log.data,
@@ -790,32 +903,49 @@ async function handleTransfer(
     return; // No hold trackable configured
   }
 
-  // Emit balance deltas for each instance
-  // All instances track the same token (dynamic discovery)
-  // Note: We don't maintain a separate holder set - we'll query the engine's balance tracking
-  // when MCAP thresholds are crossed (see rewardAllHolders function)
-  for (const instance of instances) {
-    // From address balance decreases
-    if (from !== '0x0000000000000000000000000000000000000000') {
-      await emitFns.position.balanceDelta({
-        user: from.toLowerCase(),
-        asset: { type: 'erc20', address: tokenAddress },
-        amount: -BigInt(value),
-        activity: 'hold',
-        trackableInstance: instance,
-      });
-    }
+  // Maintain a per-token holder candidate set so reward fanout doesn't need to scan global balances.
+  // (We keep a superset and filter to current balances at reward time.)
+  const holdersKey = `printr:holders:${chainId}:${tokenAddress}`;
+  const fromLower = from.toLowerCase();
+  const toLower = to.toLowerCase();
+  const sadd: string[] = [];
+  if (fromLower !== ZERO_ADDRESS) sadd.push(fromLower);
+  if (toLower !== ZERO_ADDRESS) sadd.push(toLower);
+  if (sadd.length) {
+    await redis.sadd(holdersKey, ...sadd);
+  }
 
-    // To address balance increases
-    if (to !== '0x0000000000000000000000000000000000000000') {
-      await emitFns.position.balanceDelta({
-        user: to.toLowerCase(),
-        asset: { type: 'erc20', address: tokenAddress },
-        amount: BigInt(value),
-        activity: 'hold',
-        trackableInstance: instance,
-      });
+  // Emit balance deltas for each configured hold instance
+  // NOTE: this is still expensive (engine writes Redis per delta), but we're now doing it only
+  // for Printr tokens instead of every ERC20 on the chain.
+  const delta = BigInt(value);
+  const promises: Array<Promise<void>> = [];
+  for (const instance of instances) {
+    if (fromLower !== ZERO_ADDRESS) {
+      promises.push(
+        emitFns.position.balanceDelta({
+          user: fromLower,
+          asset: { type: 'erc20', address: tokenAddress },
+          amount: -delta,
+          activity: 'hold',
+          trackableInstance: instance,
+        }),
+      );
     }
+    if (toLower !== ZERO_ADDRESS) {
+      promises.push(
+        emitFns.position.balanceDelta({
+          user: toLower,
+          asset: { type: 'erc20', address: tokenAddress },
+          amount: delta,
+          activity: 'hold',
+          trackableInstance: instance,
+        }),
+      );
+    }
+  }
+  if (promises.length) {
+    await Promise.all(promises);
   }
 }
 
@@ -1076,31 +1206,34 @@ async function rewardAllHolders(
     let totalHoldings = 0n;
 
     if (mcapHoldersInstances.length > 0) {
-      // Balance key format: bal:erc20:{tokenAddress}:{userAddress}
-      const assetKey = `erc20:${tokenAddress.toLowerCase()}`;
-      const balancePrefix = `bal:${assetKey}:`;
+      // Use per-token holder candidate set (maintained in handleTransfer) to avoid scanning global
+      // balances:gt0 which gets huge on mainnets.
+      const holdersKey = `printr:holders:${chainId}:${tokenAddress.toLowerCase()}`;
+      const candidateHolders = await redis.smembers(holdersKey);
+      if (candidateHolders.length === 0) {
+        logger.debug(`No candidate holders recorded for token ${tokenAddress}, skipping`);
+        return;
+      }
 
-      // Get all balance keys for this token from the engine's active balances set
-      const allBalanceKeys = await redis.smembers('balances:gt0');
-      const inactiveBalanceKeys = await redis.smembers('inactivebalances');
+      const tokenLower = tokenAddress.toLowerCase();
+      const assetKey = `erc20:${tokenLower}`;
 
-      // Filter to only balance keys for this specific token (excluding inactive)
-      const tokenBalanceKeys = allBalanceKeys.filter(
-        (key) => key.startsWith(balancePrefix) && !inactiveBalanceKeys.includes(key),
-      );
+      // Fetch balances in parallel, then filter to (a) active, (b) >0, (c) not inactive.
+      const balancePromises = candidateHolders.map(async (holder) => {
+        const holderLower = holder.toLowerCase();
+        if (holderLower === ZERO_ADDRESS) return;
+        const balanceKey = `bal:${assetKey}:${holderLower}`;
 
-      // Fetch all balances in parallel
-      const balancePromises = tokenBalanceKeys.map(async (balanceKey) => {
-        const balanceData = await redis.hget(balanceKey, 'amount');
-        if (balanceData) {
-          const balance = BigInt(balanceData);
-          if (balance > 0n) {
-            // Extract user address from balance key: bal:erc20:{tokenAddress}:{userAddress}
-            const userAddress = balanceKey.substring(balancePrefix.length).toLowerCase();
-            holderBalances.set(userAddress, balance);
-            totalHoldings += balance;
-          }
-        }
+        const amountStr = await redis.hget(balanceKey, 'amount');
+        if (!amountStr) return;
+        const bal = BigInt(amountStr);
+        if (bal <= 0n) return;
+
+        const isInactive = (await redis.sismember('inactivebalances', balanceKey)) === 1;
+        if (isInactive) return;
+
+        holderBalances.set(holderLower, bal);
+        totalHoldings += bal;
       });
 
       await Promise.all(balancePromises);
@@ -1112,19 +1245,54 @@ async function rewardAllHolders(
 
     // Reward each holder with pro-rata distribution (if mcap_holders is configured)
     if (mcapHoldersInstances.length > 0 && holderBalances.size > 0 && totalHoldings > 0n) {
+      const holdersPointsBig = BigInt(holdersPoints);
+      const rewardPromises: Array<Promise<void>> = [];
       for (const [holderAddress, balance] of holderBalances.entries()) {
-        // Calculate pro-rata share: (holderBalance / totalHoldings) * holdersPoints
-        const balanceRatio = Number(balance) / Number(totalHoldings);
-        const proRataPoints = holdersPoints * balanceRatio;
+        // Integer pro-rata (no floats, no precision loss): points * balance / total
+        const proRataPoints = (holdersPointsBig * balance) / totalHoldings;
+        if (proRataPoints <= 0n) continue;
 
-        // Fan out: emit for each configured mcap_holders instance
         for (const instance of mcapHoldersInstances) {
-          await emitFns.action.action({
-            key: md5Hash(`mcap-holders:${chainId}:${tokenAddress}:${threshold}:${holderAddress}`),
-            user: holderAddress,
-            activity: holdersConfigKey, // Use threshold-specific activity name
+          rewardPromises.push(
+            emitFns.action.action({
+              key: md5Hash(`mcap-holders:${chainId}:${tokenAddress}:${threshold}:${holderAddress}`),
+              user: holderAddress,
+              activity: holdersConfigKey,
+              trackableInstance: instance,
+              amount: proRataPoints,
+              meta: {
+                token: tokenAddress,
+                chainId: chainId.toString(),
+                block: blockNumber.toString(),
+                timestamp: timestamp.toString(),
+                threshold: threshold.toString(),
+                mcapUsd: currentMcapUsd.toString(),
+                holdersPoints: holdersPoints.toString(),
+                holderBalance: balance.toString(),
+                totalHoldings: totalHoldings.toString(),
+                proRataPoints: proRataPoints.toString(),
+                rewardType: 'mcapThreshold',
+              },
+            }),
+          );
+        }
+      }
+      if (rewardPromises.length) {
+        await Promise.all(rewardPromises);
+      }
+    }
+
+    // Reward creator with full creator points (no pro-rata, if mcap_creators is configured)
+    if (mcapCreatorsInstances.length > 0 && creatorPoints > 0) {
+      const creatorPromises: Array<Promise<void>> = [];
+      for (const instance of mcapCreatorsInstances) {
+        creatorPromises.push(
+          emitFns.action.action({
+            key: md5Hash(`mcap-creators:${chainId}:${tokenAddress}:${threshold}:${creator}`),
+            user: creator,
+            activity: 'mcap_creators',
             trackableInstance: instance,
-            amount: BigInt(Math.floor(proRataPoints)),
+            amount: BigInt(creatorPoints),
             meta: {
               token: tokenAddress,
               chainId: chainId.toString(),
@@ -1132,40 +1300,13 @@ async function rewardAllHolders(
               timestamp: timestamp.toString(),
               threshold: threshold.toString(),
               mcapUsd: currentMcapUsd.toString(),
-              holdersPoints: holdersPoints.toString(),
-              holderBalance: balance.toString(),
-              totalHoldings: totalHoldings.toString(),
-              proRataPoints: proRataPoints.toString(),
-              balanceRatio: balanceRatio.toString(),
+              creatorPoints: creatorPoints.toString(),
               rewardType: 'mcapThreshold',
             },
-          });
-        }
+          }),
+        );
       }
-    }
-
-    // Reward creator with full creator points (no pro-rata, if mcap_creators is configured)
-    if (mcapCreatorsInstances.length > 0 && creatorPoints > 0) {
-      // Fan out: emit for each configured mcap_creators instance
-      for (const instance of mcapCreatorsInstances) {
-        await emitFns.action.action({
-          key: md5Hash(`mcap-creators:${chainId}:${tokenAddress}:${threshold}:${creator}`),
-          user: creator,
-          activity: 'mcap_creators', // Single activity name for all thresholds
-          trackableInstance: instance,
-          amount: BigInt(Math.floor(creatorPoints)), // Full points amount (no pro-rata)
-          meta: {
-            token: tokenAddress,
-            chainId: chainId.toString(),
-            block: blockNumber.toString(),
-            timestamp: timestamp.toString(),
-            threshold: threshold.toString(),
-            mcapUsd: currentMcapUsd.toString(),
-            creatorPoints: creatorPoints.toString(),
-            rewardType: 'mcapThreshold',
-          },
-        });
-      }
+      await Promise.all(creatorPromises);
     }
 
     // Mark this threshold as rewarded
