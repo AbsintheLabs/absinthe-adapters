@@ -1,15 +1,12 @@
 {
   "chainArch": "evm",
-  "flushInterval": "1h",
+  "flushInterval": "48h",
   "redisUrl": "${env:REDIS_URL}",
   "sinkConfig": {
     "sinks": [
       {
         "sinkType": "csv",
-        "path": "positions.csv"
-      },
-      {
-        "sinkType": "stdout"
+        "path": "concrete-ethereum-bitcoin-2.csv"
       },
       {
         "sinkType": "absinthe",
@@ -19,78 +16,29 @@
     ]
   },
   "network": {
-    "chainId": 43111,
-    "gatewayUrl": "https://v2.archive.subsquid.io/network/monad-mainnet",
+    "chainId": 1,
+    "gatewayUrl": "https://v2.archive.subsquid.io/network/ethereum-mainnet",
     "rpcUrl": "${env:RPC_URL}",
     "finality": 75
   },
   "range": {
-    "fromBlock": 35566866
+    "fromBlock": 21267158,
+    "toBlock": 21761032
   },
   "adapterConfig": {
-    "adapterId": "printr-mcap",
+    "adapterId": "concrete",
     "config": {
-      "tokenTrade": [
+      "vaults": [
         {
           "params": {
-            "printrContractAddress": "0xb77726291b125515d0a7affeea2b04f2ff243172"
-          },
-          "assetSelectors": {
-            "tokenAddress": "0x3bd359c1119da7da1d913d1c4d2b7c461115433a"
+            "vaultAddress": "0x34bdbA9b3D8E3073Eb4470cd4C031C2e39C32DA8"
           },
           "pricing": {
-            "kind": "coingecko",
-            "id": "monad"
-          }
-        }
-      ],
-      "curveCreated": [
-        {
-          "params": {
-            "printrccContractAddress": "0xb77726291b125515d0a7affeea2b04f2ff243172"
-          }
-        }
-      ],
-      "liquidityDeployed": [
-        {
-          "params": {
-            "printrldContractAddress": "0xb77726291b125515d0a7affeea2b04f2ff243172"
-          }
-        }
-      ],
-      "swap": [
-        {
-          "params": {
-            "printrContractAddress": "0xb77726291b125515d0a7affeea2b04f2ff243172",
-            "factoryAddress": "0x0bfbcf9fa4f9c56b0f40a671ad40e0805a091865"
-          },
-          "assetSelectors": {
-            "swapLegAddress": "0x3bd359c1119da7da1d913d1c4d2b7c461115433a"
-          },
-          "pricing": {
-            "kind": "coingecko",
-            "id": "monad"
-          }
-        }
-      ],
-      "hold": [
-        {
-          "params": {
-            "printrHoldContractAddress": "0xb77776291b125515d0a7affeea2b04f2ff243172"
-          }
-        }
-      ],
-      "mcap_holders": [
-        {
-          "params": {
-            "printrMcapHoldersContractAddress": "0xb77726291b125515d0a7affeea2b04f2ff243172"
-          }
-        }
-      ],
-      "mcap_creators": [
-        {
-          "params": {
-            "printrMcapCreatorsContractAddress": "0xb77726291b125515d0a7affeea2b04f2ff243172"
+            "kind": "concrete",
+            "underlyingAsset": {
+              "kind": "coingecko",
+              "id": "bitcoin"
+            }
           }
         }
       ]
