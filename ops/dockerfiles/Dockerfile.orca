@@ -34,6 +34,9 @@ WORKDIR /app/projects/orca
 RUN pnpm dlx @subsquid/solana-typegen src/abi TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
 RUN pnpm dlx @subsquid/solana-typegen src/abi whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc
 
+# Fix generated abi.support.ts: export InstructionRecord interface to resolve TS4023 errors
+RUN sed -i 's/^interface InstructionRecord/export interface InstructionRecord/' src/abi/abi.support.ts
+
 # Build the common package first, then uniswapv2
 WORKDIR /app
 RUN pnpm --filter @absinthe/common build
