@@ -42,7 +42,6 @@ const WHIRLPOOL_ADDRESSES = [
   // 'AvVeFoEokqbosw9UWkYEnwpWhTQd96GeWwV48WjFCEMw',
   // 'HWzqj2vg581nwvAryFKoeB3DaNqtNhtxY98wbb8EjLpC',
   'H3TyEdmcRPqU5zHR1cXgp7dD61fsyxPGPRUUgDG6wpR3',
-  // '36wzzrLB33yEeMbHrYCY2dkwtK3ob5AyYn6rncEFBLgN',
 ];
 
 const TOKEN_DETAILS = [
@@ -121,7 +120,3 @@ export {
   TOKEN_EXTENSION_PROGRAM_ID,
   TOKEN_MINT,
 };
-
-//362407532
-// 356958812 - init
-// 356962718 - current length in 30 mins
