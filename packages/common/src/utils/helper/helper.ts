@@ -106,7 +106,7 @@ function toTransaction(
       protocolName: protocol.name.toLowerCase(),
       protocolType: protocol.type.toLowerCase(),
       runner: {
-        runnerId: 'uniswapv2_indexer_001', //todo: get the current PID/ docker-containerId
+        runnerId: 'uniswapv2_indexer_001',
         apiKeyHash,
       },
       protocolMetadata: e.tokens,
