@@ -34,6 +34,9 @@ WORKDIR /app/projects/printr-meteora
 RUN pnpm dlx @subsquid/solana-typegen src/abi TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
 RUN pnpm dlx @subsquid/solana-typegen src/abi T8HsGYv7sMk3kTnyaRqZrbRPuntYzdh12evXBkprint
 
+# Fix generated abi.support.ts: export InstructionRecord interface to resolve TS4023 errors
+RUN sed -i 's/^interface InstructionRecord/export interface InstructionRecord/' src/abi/abi.support.ts
+
 # Build the common package first, then uniswapv2
 WORKDIR /app
 RUN pnpm --filter @absinthe/common build
