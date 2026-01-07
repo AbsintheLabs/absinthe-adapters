@@ -111,11 +111,11 @@ const zebuProtocolSchema = z.object({
 
 const configSchema = z.object({
   balanceFlushIntervalHours: z.number(),
-  dexProtocols: z.array(dexProtocolSchema),
-  txnTrackingProtocols: z.array(txnTrackingProtocolSchema),
-  stakingProtocols: z.array(stakingProtocolSchema),
-  univ3Protocols: z.array(univ3ProtocolSchema),
-  zebuProtocols: z.array(zebuProtocolSchema),
+  dexProtocols: z.array(dexProtocolSchema).default([]),
+  txnTrackingProtocols: z.array(txnTrackingProtocolSchema).default([]),
+  stakingProtocols: z.array(stakingProtocolSchema).default([]),
+  univ3Protocols: z.array(univ3ProtocolSchema).default([]),
+  zebuProtocols: z.array(zebuProtocolSchema).default([]),
 });
 
 export { configSchema, dexProtocolSchema, protocolConfigSchema, envSchema };
