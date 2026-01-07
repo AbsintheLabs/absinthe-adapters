@@ -17,7 +17,7 @@ async function getMintFromTokenAccount(
 }
 
 export async function getTickPriceOffChain(whirlpoolAddress: string, slot: number): Promise<any> {
-  const url = `http://18.189.19.77/proxy/${whirlpoolAddress}/slot/${slot}`;
+  const url = `https://proxy-api-production-654b.up.railway.app/proxy/${whirlpoolAddress}/slot/${slot}`;
 
   let attempt = 1;
   const maxRetryDelay = 30000; // 30 seconds max delay
