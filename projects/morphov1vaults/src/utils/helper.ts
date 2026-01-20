@@ -1,0 +1,165 @@
+import {
+  ActiveBalance,
+  BaseProcessValueChangeParams,
+  Currency,
+  HistoryWindow,
+  pricePosition,
+  TimeWindowTrigger,
+  ZERO_ADDRESS,
+} from '@absinthe/common';
+import { TOKEN_METADATA } from './conts';
+import { MarketDataType, TokenMetadata } from './types';
+
+interface ProcessValueChangeBalancesParams extends BaseProcessValueChangeParams {
+  vaultAddress: string;
+  tokenAddress: string;
+}
+
+function flattenNestedMap(
+  nestedMap: Map<string, Map<string, ActiveBalance>>,
+): Map<string, ActiveBalance> {
+  const flatMap = new Map<string, ActiveBalance>();
+  for (const [tokenAddress, userBalances] of nestedMap.entries()) {
+    for (const [userAddress, balance] of userBalances.entries()) {
+      flatMap.set(`${tokenAddress}-${userAddress}`, balance);
+    }
+  }
+  return flatMap;
+}
+
+function flattenNestedMapMarketData(
+  nestedMap: Map<string, Map<string, MarketDataType>>,
+): Map<string, MarketDataType> {
+  const flatMap = new Map<string, MarketDataType>();
+  for (const [marketId, userBalances] of nestedMap.entries()) {
+    for (const [userAddress, balance] of userBalances.entries()) {
+      flatMap.set(`${marketId}-${userAddress}`, balance);
+    }
+  }
+  return flatMap;
+}
+
+function mapToJsonMarketData(map: Map<string, MarketDataType>): Record<string, any> {
+  const result: Record<string, any> = {};
+  for (const [key, value] of map.entries()) {
+    result[key] = {
+      asset: value.asset,
+      name: value.name,
+      symbol: value.symbol,
+      salt: value.salt,
+    };
+  }
+  return result;
+}
+
+function checkToken(token: string): TokenMetadata | null {
+  let tokenMetadata = TOKEN_METADATA.find((t) => t.address.toLowerCase() === token.toLowerCase());
+  if (!tokenMetadata) {
+    console.warn(`Ignoring deposit for unsupported token: ${token}`);
+    return null;
+  }
+
+  return tokenMetadata;
+}
+
+function processValueChangeBalances({
+  from,
+  to,
+  amount,
+  usdValue,
+  blockTimestamp,
+  blockHeight,
+  txHash,
+  activeBalances,
+  windowDurationMs,
+  tokenPrice,
+  tokenDecimals,
+  tokenAddress,
+  tokens,
+  vaultAddress,
+}: ProcessValueChangeBalancesParams): HistoryWindow[] {
+  const historyWindows: HistoryWindow[] = [];
+
+  function snapshotAndUpdate(userAddress: string, updatedAmount: bigint) {
+    let marketBalances = activeBalances.get(vaultAddress);
+    if (!marketBalances) {
+      marketBalances = new Map();
+      activeBalances.set(vaultAddress, marketBalances);
+    }
+
+    let activeUserBalance = marketBalances.get(userAddress);
+    if (!activeUserBalance) {
+      activeUserBalance = {
+        balance: 0n,
+        updatedBlockTs: blockTimestamp,
+        updatedBlockHeight: blockHeight,
+      };
+      marketBalances.set(userAddress, activeUserBalance);
+    }
+
+    if (activeUserBalance.balance > 0n) {
+      const balanceBeforeInUSD = pricePosition(
+        tokenPrice,
+        activeUserBalance.balance,
+        tokenDecimals,
+      );
+      historyWindows.push({
+        userAddress: userAddress,
+        deltaAmount: usdValue,
+        trigger: TimeWindowTrigger.TRANSFER,
+        startTs: activeUserBalance.updatedBlockTs,
+        endTs: blockTimestamp,
+        startBlockNumber: activeUserBalance.updatedBlockHeight,
+        endBlockNumber: blockHeight,
+        txHash: txHash,
+        windowDurationMs: windowDurationMs,
+        tokenPrice: tokenPrice,
+        tokenDecimals: tokenDecimals,
+        valueUsd: balanceBeforeInUSD,
+        balanceBefore: activeUserBalance.balance.toString(),
+        balanceAfter: (activeUserBalance.balance + updatedAmount).toString(),
+        currency: Currency.USD,
+        tokens: tokens,
+      });
+    } else if (updatedAmount > 0n) {
+      historyWindows.push({
+        userAddress: userAddress,
+        deltaAmount: usdValue,
+        trigger: TimeWindowTrigger.TRANSFER,
+        startTs: blockTimestamp, // Same as end timestamp for first time
+        endTs: blockTimestamp,
+        startBlockNumber: blockHeight, // Same as end block for first time
+        endBlockNumber: blockHeight,
+        txHash: txHash,
+        windowDurationMs: windowDurationMs,
+        tokenPrice: tokenPrice,
+        tokenDecimals: tokenDecimals,
+        valueUsd: 0,
+        balanceBefore: '0', // Previous balance was 0
+        balanceAfter: updatedAmount.toString(),
+        currency: Currency.USD,
+        tokens: tokens,
+      });
+    }
+    activeUserBalance.balance += updatedAmount;
+    activeUserBalance.updatedBlockTs = blockTimestamp;
+    activeUserBalance.updatedBlockHeight = blockHeight;
+  }
+
+  function processAddress(address: string, amount: bigint) {
+    if (address && address !== ZERO_ADDRESS) {
+      snapshotAndUpdate(address, amount);
+    }
+  }
+  processAddress(from, BigInt(-amount)); // from address loses amount
+  processAddress(to, amount); // to address gains amount
+  return historyWindows;
+}
+
+export {
+  flattenNestedMap,
+  checkToken,
+  flattenNestedMapMarketData,
+  mapToJsonMarketData,
+  processValueChangeBalances,
+};

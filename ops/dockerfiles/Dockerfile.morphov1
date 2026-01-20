@@ -1,0 +1,65 @@
+FROM node:20-slim AS base
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
+
+# Copy workspace files needed for dependency resolution
+FROM base AS deps
+WORKDIR /app
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY tsconfig.base.json ./
+COPY packages/common/package.json ./packages/common/
+COPY packages/common/tsconfig.json ./packages/common/
+COPY projects/morphov1/package.json ./projects/morphov1/
+COPY projects/morphov1/tsconfig.json ./projects/morphov1/
+
+# Install all dependencies (including workspace deps)
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --no-frozen-lockfile
+
+# Build stage - build common package and current project
+FROM base AS build
+WORKDIR /app
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY tsconfig.base.json ./
+COPY packages/ ./packages/
+COPY projects/morphov1/ ./projects/morphov1/
+
+# Copy node_modules from deps stage
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/packages/common/node_modules ./packages/common/node_modules
+COPY --from=deps /app/projects/morphov1/node_modules ./projects/morphov1/node_modules
+
+# Generate TypeScript clients for morphov1 project ABIs and codegen
+WORKDIR /app/projects/morphov1
+RUN pnpm squid-evm-typegen ./src/abi/ abi/*.json
+RUN pnpm squid-typeorm-codegen
+
+# Build the common package first, then morphov1
+WORKDIR /app
+RUN pnpm --filter @absinthe/common build
+RUN pnpm --filter @absinthe/morphov1 build
+
+# Production stage
+FROM base AS production
+WORKDIR /app
+
+# Copy only production dependencies
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/packages/common/node_modules ./packages/common/node_modules
+COPY --from=deps /app/projects/morphov1/node_modules ./projects/morphov1/node_modules
+
+# Copy built artifacts
+COPY --from=build /app/packages/common/lib ./packages/common/lib
+COPY --from=build /app/packages/common/package.json ./packages/common/
+COPY --from=build /app/projects/morphov1/lib ./projects/morphov1/lib
+COPY --from=build /app/projects/morphov1/package.json ./projects/morphov1/
+
+# Copy source files needed for migrations
+COPY --from=build /app/projects/morphov1/src ./projects/morphov1/src
+COPY --from=build /app/projects/morphov1/schema.graphql ./projects/morphov1/
+COPY --from=build /app/projects/morphov1/tsconfig.json ./projects/morphov1/
+
+WORKDIR /app/projects/morphov1
+
+# Use exec form and proper exit handling
+CMD ["sh", "-c", "set -e; (pnpm migration:generate || echo 'No migration changes found'); pnpm migration:apply; exec node lib/main.js"]

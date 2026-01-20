@@ -8,6 +8,7 @@ import {
 } from '@subsquid/evm-processor';
 import * as printrAbi from './abi/printr';
 import * as poolAbi from './abi/pool';
+import * as pool2Abi from './abi/pool2';
 import { TxnTrackingProtocol, validateEnv } from '@absinthe/common';
 
 const env = validateEnv();
@@ -29,6 +30,9 @@ export const processor = new EvmBatchProcessor()
       ? { to: Number(printrBondingCurveProtocol.toBlock) }
       : {}),
   })
+  .setRpcDataIngestionSettings({
+    disabled: true,
+  })
   .setFinalityConfirmation(75)
   .addLog({
     address: [printrBondingCurveProtocol.contractAddress],
@@ -41,7 +45,7 @@ export const processor = new EvmBatchProcessor()
   })
 
   .addLog({
-    topic0: [poolAbi.events.Swap.topic],
+    topic0: [poolAbi.events.Swap.topic, pool2Abi.events.Swap.topic],
     transaction: true,
   })
   .setFields({

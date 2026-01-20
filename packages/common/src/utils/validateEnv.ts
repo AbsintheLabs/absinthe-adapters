@@ -233,6 +233,7 @@ export function validateEnv(): ValidatedEnv {
       stakingProtocols,
       univ3Protocols,
       zebuProtocols,
+      version: envResult.data.VERSION,
     };
   } catch (error) {
     if (error instanceof Error) {

@@ -7,6 +7,8 @@ import {
   ValidatedTxnTrackingProtocolConfig,
   ValidatedEnvBase,
   ZERO_ADDRESS,
+  ChainId,
+  logger,
 } from '@absinthe/common';
 import { BigDecimal } from '@subsquid/big-decimal';
 import { createHash } from 'crypto';
@@ -19,8 +21,9 @@ import { PoolInfo, TokenInfo } from './utils/types';
 import * as factoryAbi from './abi/factory';
 import * as printr2Abi from './abi/printr2';
 import * as poolAbi from './abi/pool';
-import { LIQUIDITY_FEE_OLD, WETH_BASE_ADDRESS } from './utils/consts';
+import { LIQUIDITY_FEE_BSC, CHAIN_BASE_TOKENS, LIQUIDITY_FEE } from './utils/consts';
 import { loadTokensFromDb, loadPoolsFromDb, saveTokensToDb, savePoolsToDb } from './utils/database';
+import * as pool2Abi from './abi/pool2';
 export class PrintrProcessor {
   private readonly bondingCurveProtocol: ValidatedTxnTrackingProtocolConfig;
   private readonly schemaName: string;
@@ -29,7 +32,6 @@ export class PrintrProcessor {
   private readonly chainConfig: Chain;
   private tokenState: Map<string, TokenInfo>;
   private poolState: Map<string, PoolInfo>;
-  private stateLoaded: boolean;
 
   constructor(
     bondingCurveProtocol: ValidatedTxnTrackingProtocolConfig,
@@ -44,7 +46,6 @@ export class PrintrProcessor {
     this.chainConfig = chainConfig;
     this.tokenState = new Map();
     this.poolState = new Map();
-    this.stateLoaded = false;
 
     // Add this after loading from DB, or in the constructor for testing
   }
@@ -74,14 +75,16 @@ export class PrintrProcessor {
   }
 
   private async processBatch(ctx: any): Promise<void> {
-    if (!this.stateLoaded) {
-      this.tokenState = await loadTokensFromDb(ctx);
-      this.poolState = await loadPoolsFromDb(ctx);
-      this.stateLoaded = true;
-    }
+    logger.info('Loading tokens and pools from database...');
+    this.tokenState = await loadTokensFromDb(ctx);
+    this.poolState = await loadPoolsFromDb(ctx);
+
+    logger.info('Loaded tokens:', this.tokenState.size);
+    logger.info('Loaded pools:', this.poolState.size);
+    logger.info('Pool addresses:', Array.from(this.poolState.keys()));
 
     const protocolStates = await this.initializeProtocolStates(ctx);
-
+    logger.info('Protocol states [PoolState]', { poolState: this.poolState });
     for (const block of ctx.blocks) {
       await this.processBlock({ ctx, block }, protocolStates);
     }
@@ -117,9 +120,14 @@ export class PrintrProcessor {
     contractAddress: string,
     protocolState: ProtocolState,
   ): Promise<void> {
+    const poolAddresses = Array.from(this.poolState.keys());
     const relevantLogs = block.logs.filter((log: any) => {
       const logAddress = log.address.toLowerCase();
-      return logAddress === contractAddress || this.poolState.has(logAddress);
+
+      return (
+        logAddress === contractAddress ||
+        poolAddresses.some((key) => key.toLowerCase() === logAddress)
+      );
     });
     for (const log of relevantLogs) {
       await this.processLog(ctx, block, log, protocolState);
@@ -137,17 +145,37 @@ export class PrintrProcessor {
     }
 
     if (log.topics[0] === printrAbi.events.CurveCreated.topic) {
-      this.processCurveCreatedEvent(ctx, block, log, protocolState);
+      await this.processCurveCreatedEvent(ctx, block, log, protocolState);
     }
-    if (log.topics[0] === printrAbi.events.LiquidityDeployed.topic) {
-      await this.processGraduatedPoolCreatedEvent(ctx, block, log, protocolState);
-    }
+    // if (log.topics[0] === printrAbi.events.LiquidityDeployed.topic) {
+    //   await this.processGraduatedPoolCreatedEvent(ctx, block, log, protocolState);
+    // }
 
-    if (log.topics[0] === poolAbi.events.Swap.topic) {
-      if (this.poolState.has(log.address.toLowerCase())) {
-        await this.processSwapEvent(ctx, block, log, protocolState);
-      }
-    }
+    // if (log.topics[0] === pool2Abi.events.Swap.topic) {
+    //   logger.info('Swap event [ProcessLog]', {
+    //     logAddress: log.address.toLowerCase(),
+    //     poolState: this.poolState,
+    //   });
+    //   const poolAddresses = Array.from(this.poolState.keys());
+    //   if (poolAddresses.some((key) => key.toLowerCase() === log.address.toLowerCase())) {
+    //     await this.processSwapEvent(ctx, block, log, protocolState);
+    //   } else {
+    //     logger.warn('Pool not found:', log.address);
+    //   }
+    // }
+
+    // if (log.topics[0] === poolAbi.events.Swap.topic) {
+    //   logger.info('Swap event [ProcessLog]', {
+    //     logAddress: log.address.toLowerCase(),
+    //     poolState: this.poolState,
+    //   });
+    //   const poolAddresses = Array.from(this.poolState.keys());
+    //   if (poolAddresses.some((key) => key.toLowerCase() === log.address.toLowerCase())) {
+    //     await this.processSwapEvent(ctx, block, log, protocolState);
+    //   } else {
+    //     logger.warn('Pool not found:', log.address);
+    //   }
+    // }
   }
 
   private async processSwapEvent(
@@ -156,8 +184,31 @@ export class PrintrProcessor {
     log: any,
     protocolState: ProtocolState,
   ): Promise<void> {
-    const { sender, amount0, amount1 } = poolAbi.events.Swap.decode(log);
-    const { gasPrice, gasUsed, hash } = log.transaction;
+    let swapData: any;
+    if (log.topics[0] === poolAbi.events.Swap.topic) {
+      swapData = poolAbi.events.Swap.decode(log);
+    } else if (log.topics[0] === pool2Abi.events.Swap.topic) {
+      swapData = pool2Abi.events.Swap.decode(log);
+    } else {
+      logger.warn('Unknown Swap event signature:', log.topics[0]);
+      return;
+    }
+    const { recipient, amount0, amount1 } = swapData;
+    const { gasPrice, gasUsed, hash, from } = log.transaction;
+
+    // Only process SELL swaps where recipient is the Printr contract.
+    // For SELL swaps, Uniswap sends wrapped token to Printr contract, which unwraps and sends native token to user.
+    // In this case, recipient is the Printr contract, so we use tx.sender as the actual user.
+    // Ignore BUY swaps (where recipient is not the Printr contract).
+    const printrContractAddress = this.bondingCurveProtocol.contractAddress.toLowerCase();
+    if (recipient.toLowerCase() !== printrContractAddress) {
+      // This is a BUY swap, ignore it
+      return;
+    }
+    // This is a SELL swap, use tx.sender as the actual user
+    const userId = from;
+
+    logger.info('Gas used [Swap]', { blockNumber: block.header.height });
     const gasUsedInEth = Number(gasUsed) / 10 ** 18;
     const gasFee = Number(gasUsed) * Number(gasPrice);
     const displayGasFee = gasFee / 10 ** 18;
@@ -189,7 +240,6 @@ export class PrintrProcessor {
 
     const amount0Exact = BigDecimal(amount0, token0!.decimals).toNumber();
     const amount1Exact = BigDecimal(amount1, token1!.decimals).toNumber();
-    const wethAddressLower = WETH_BASE_ADDRESS.toLowerCase();
 
     // need absolute amounts for volume
     const amount0Abs = Math.abs(amount0Exact);
@@ -198,18 +248,70 @@ export class PrintrProcessor {
     let swapValueUsd = 0;
     let finalAmount = 0;
     let finalAmountDecAdjusted = 0;
+    let coingeckoId = '';
 
-    console.log(token0Address, token1Address, wethAddressLower);
-    if (token0Address.toLowerCase() === wethAddressLower) {
-      swapValueUsd = amount0Abs * ethPriceUsd;
+    logger.info('Token addresses [Swap]', { token0Address, token1Address });
+
+    const token0Match = CHAIN_BASE_TOKENS.find(
+      (token) => token.address.toLowerCase() === token0Address.toLowerCase(),
+    );
+    const token1Match = CHAIN_BASE_TOKENS.find(
+      (token) => token.address.toLowerCase() === token1Address.toLowerCase(),
+    );
+
+    logger.info('Token matches [Swap]', { token0Match, token1Match });
+    if (token0Match) {
+      const coingeckoId = token0Match.coingeckoId;
+      if (coingeckoId === 'ethereum') {
+        swapValueUsd = amount0Abs * ethPriceUsd;
+      } else {
+        try {
+          swapValueUsd =
+            amount0Abs *
+            (await fetchHistoricalUsd(
+              coingeckoId,
+              block.header.timestamp,
+              this.env.coingeckoApiKey,
+            ));
+        } catch (error) {
+          console.warn(`Could not fetch price for ${coingeckoId}, using 0:`, error);
+          if (coingeckoId === 'monad') {
+            swapValueUsd = amount0Abs * 0.025;
+          } else {
+            swapValueUsd = 0;
+          }
+        }
+      }
       finalAmountDecAdjusted = amount0Abs;
       finalAmount = Math.abs(amount0Exact);
-    } else if (token1Address.toLowerCase() === wethAddressLower) {
-      swapValueUsd = amount1Abs * ethPriceUsd;
+    } else if (token1Match) {
+      const coingeckoId = token1Match.coingeckoId;
+      if (coingeckoId === 'ethereum') {
+        swapValueUsd = amount1Abs * ethPriceUsd;
+      } else {
+        try {
+          swapValueUsd =
+            amount1Abs *
+            (await fetchHistoricalUsd(
+              coingeckoId,
+              block.header.timestamp,
+              this.env.coingeckoApiKey,
+            ));
+        } catch (error) {
+          console.warn(`Could not fetch price for ${coingeckoId}, using 0:`, error);
+          if (coingeckoId === 'monad') {
+            swapValueUsd = amount1Abs * 0.025;
+          } else if (coingeckoId === 'mantle') {
+            swapValueUsd = amount1Abs * 1;
+          } else {
+            swapValueUsd = 0;
+          }
+        }
+      }
       finalAmountDecAdjusted = amount1Abs;
       finalAmount = Math.abs(amount1Exact);
     } else {
-      console.warn('Neither token in the pool is WETH, cannot convert to WETH equivalent');
+      console.warn('Neither token in the pool is a base token, cannot convert to USD equivalent');
       return;
     }
 
@@ -263,7 +365,7 @@ export class PrintrProcessor {
       logIndex: log.logIndex,
       blockNumber: block.header.height,
       blockHash: block.header.hash,
-      userId: sender,
+      userId: userId,
       currency: Currency.USD,
       valueUsd: swapValueUsd,
       gasUsed: gasUsedInEth,
@@ -303,6 +405,8 @@ export class PrintrProcessor {
       this.bondingCurveProtocol.contractAddress,
     );
     const baseCurrencyAddress = await printrContract.wrappedNativeToken();
+    logger.info('Base currency address [TokenTrade]', { baseCurrencyAddress });
+    let valueInUsd = 0;
 
     // Get base currency details (WETH) - not the traded token
     const baseCurrencyContract = new erc20Abi.Contract(ctx, block.header, baseCurrencyAddress);
@@ -310,9 +414,32 @@ export class PrintrProcessor {
     const baseCurrencyDecimals = await baseCurrencyContract.decimals();
     //for now we assume the base currency is ETH
     const displayCost = Number(cost) / 10 ** baseCurrencyDecimals;
+    const baseToken = CHAIN_BASE_TOKENS.find(
+      (token) => token.address.toLowerCase() === baseCurrencyAddress.toLowerCase(),
+    );
 
-    const valueInUsd = displayCost * ethPriceUsd;
+    if (!baseToken) {
+      console.warn('Base currency not found in CHAIN_BASE_TOKENS:', baseCurrencyAddress);
+      return;
+    }
 
+    const coingeckoId = baseToken.coingeckoId;
+    if (coingeckoId === 'ethereum') {
+      valueInUsd = displayCost * ethPriceUsd;
+    } else {
+      try {
+        valueInUsd =
+          displayCost *
+          (await fetchHistoricalUsd(coingeckoId, block.header.timestamp, this.env.coingeckoApiKey));
+      } catch (error) {
+        console.warn(`Could not fetch price for ${coingeckoId}, using 0:`, error);
+        if (coingeckoId === 'monad') {
+          valueInUsd = displayCost * 0.025;
+        } else {
+          valueInUsd = 0;
+        }
+      }
+    }
     const transactionSchema = {
       eventType: MessageType.TRANSACTION,
       eventName: 'TokenTrade',
@@ -365,11 +492,18 @@ export class PrintrProcessor {
     const gasUsedInEth = Number(gasUsed) / 10 ** 18;
     const gasFee = Number(gasUsed) * Number(gasPrice);
     const displayGasFee = gasFee / 10 ** 18;
-    const ethPriceUsd = await fetchHistoricalUsd(
-      'ethereum',
-      block.header.timestamp,
-      this.env.coingeckoApiKey,
-    );
+
+    let ethPriceUsd = 0;
+    try {
+      ethPriceUsd = await fetchHistoricalUsd(
+        'ethereum',
+        block.header.timestamp,
+        this.env.coingeckoApiKey,
+      );
+    } catch (error) {
+      console.warn('Could not fetch historical USD price, using 0:', error);
+    }
+
     const gasFeeUsd = displayGasFee * ethPriceUsd;
     const transactionSchema = {
       eventType: MessageType.TRANSACTION,
@@ -404,7 +538,7 @@ export class PrintrProcessor {
     protocolState: ProtocolState,
   ): Promise<void> {
     const { token, tokenAmount, baseAmount } = printrAbi.events.LiquidityDeployed.decode(log);
-
+    logger.info('Liquidity deployed [GraduatedPoolCreated]', { token, tokenAmount, baseAmount });
     const printr2Contract = new printr2Abi.Contract(
       ctx,
       block.header,
@@ -412,12 +546,17 @@ export class PrintrProcessor {
     );
 
     const baseToken = await printr2Contract.getCurve(token);
+    logger.info('Base token [GraduatedPoolCreated]', { baseToken });
+    logger.info('BlockNumber [GraduatedPoolCreated]', { blockNumber: block.header.height });
     const univ3Factory = new factoryAbi.Contract(
       ctx,
       block.header,
       this.bondingCurveProtocol.factoryAddress as string,
     );
-    console.log(token, baseToken.basePair);
+    logger.info('Token and base token [GraduatedPoolCreated]', {
+      token,
+      baseToken: baseToken.basePair,
+    });
 
     const [token0, token1] =
       token.toLowerCase() < baseToken.basePair.toLowerCase()
@@ -430,12 +569,35 @@ export class PrintrProcessor {
     const token0Decimals = await token0Erc20.decimals();
     const token1Decimals = await token1Erc20.decimals();
 
-    let poolAddress = await univ3Factory.getPool(token, baseToken.basePair, LIQUIDITY_FEE_OLD);
-    console.log(`Pool with fee ${LIQUIDITY_FEE_OLD}:`, poolAddress);
+    let liquidityFee = LIQUIDITY_FEE;
+    logger.info('Liquidity fee [GraduatedPoolCreated]', { liquidityFee });
+    if (
+      this.chainConfig.networkId === ChainId.BSC ||
+      this.chainConfig.networkId === ChainId.MONAD
+    ) {
+      liquidityFee = LIQUIDITY_FEE_BSC;
+      logger.info('Liquidity fee BSC [GraduatedPoolCreated]', { liquidityFee });
+    }
+
+    let poolAddress: string;
+    try {
+      poolAddress = await univ3Factory.getPool(token, baseToken.basePair, liquidityFee);
+      logger.info('Pool with fee [GraduatedPoolCreated]', { poolAddress });
+    } catch (error: any) {
+      // Handle case where getPool returns 0x (pool doesn't exist) which can't be decoded
+      if (
+        error.message?.includes('Offset is outside the bounds') ||
+        error.message?.includes('0x')
+      ) {
+        logger.warn(`Pool does not exist with fee ${liquidityFee}, returning early`);
+        return;
+      }
+      throw error;
+    }
 
     if (poolAddress.toLowerCase() === ZERO_ADDRESS.toLowerCase()) {
       // poolAddress = await univ3Factory.getPool(token, baseToken.basePair, LIQUIDITY_FEE);
-      console.log(`Invalid pool with fee ${LIQUIDITY_FEE_OLD}:`, poolAddress);
+      console.log(`Invalid pool with fee ${liquidityFee}:`, poolAddress);
       return;
     }
 
@@ -459,11 +621,12 @@ export class PrintrProcessor {
       address: poolAddress.toLowerCase(),
       token0Address: token0,
       token1Address: token1,
-      fee: LIQUIDITY_FEE_OLD,
+      fee: liquidityFee,
       isActive: true,
     };
 
     this.poolState.set(poolAddress.toLowerCase(), poolInfo);
+    console.log('Pool info [GraduatedPoolCreated]', { poolInfo });
     return;
   }
 
@@ -477,8 +640,10 @@ export class PrintrProcessor {
       this.chainConfig,
     );
 
-    // console.log(Array.from(this.tokenState.keys()));
-    // console.log(Array.from(this.poolState.keys()));
+    logger.info('Transactions [FinalizeBatch]', {
+      transactions: JSON.stringify(transactions, null, 2),
+    });
+
     await this.apiClient.send(transactions);
     await saveTokensToDb(ctx, this.tokenState);
     await savePoolsToDb(ctx, this.poolState);

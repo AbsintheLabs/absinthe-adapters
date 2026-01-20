@@ -73,11 +73,46 @@ export class Logger {
     if (typeof obj === 'bigint') return obj.toString();
     if (Array.isArray(obj)) return obj.map((item) => this.sanitize(item));
     if (typeof obj === 'object') {
-      const result: any = {};
-      for (const key in obj) {
-        result[key] = this.sanitize(obj[key]);
+      // Handle special objects that can't be iterated with for...in
+      if (obj instanceof Headers) {
+        const headersObj: any = {};
+        obj.forEach((value, key) => {
+          headersObj[key] = value;
+        });
+        return headersObj;
       }
-      return result;
+      if (obj instanceof URLSearchParams) {
+        return Object.fromEntries(obj);
+      }
+      if (obj instanceof Map) {
+        return Object.fromEntries(obj);
+      }
+      if (obj instanceof Set) {
+        return Array.from(obj);
+      }
+      // Check if it's a plain object (not a class instance)
+      if (Object.getPrototypeOf(obj) === null || Object.getPrototypeOf(obj) === Object.prototype) {
+        const result: any = {};
+        for (const key in obj) {
+          try {
+            result[key] = this.sanitize(obj[key]);
+          } catch (e) {
+            // If accessing the property fails, skip it
+            result[key] = '[Unable to serialize]';
+          }
+        }
+        return result;
+      }
+      // For other objects (class instances), try to convert to string or get basic info
+      if (
+        obj.toString &&
+        typeof obj.toString === 'function' &&
+        obj.toString !== Object.prototype.toString
+      ) {
+        return obj.toString();
+      }
+      // Fallback: return a simple representation
+      return '[Object]';
     }
     return obj;
   }

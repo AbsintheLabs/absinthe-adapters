@@ -1,5 +1,6 @@
 import tseslint from 'typescript-eslint';
 import prettier from 'eslint-plugin-prettier';
+import path from 'path';
 
 export default [
   // First, the ignore config
@@ -25,7 +26,7 @@ export default [
           './packages/*/tsconfig.json', // Package-specific tsconfigs
           './abs-app/tsconfig.json', // App-specific tsconfig
         ],
-        tsconfigRootDir: '.',
+        tsconfigRootDir: path.resolve(process.cwd()), // Use absolute path
         ecmaVersion: 'latest',
         sourceType: 'module',
       },

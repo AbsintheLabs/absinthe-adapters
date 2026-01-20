@@ -19,6 +19,8 @@ enum ChainId {
   SOLANA = 1000,
   BSC = 56,
   AVALANCHE = 43114,
+  MONAD = 143,
+  MANTLE = 5000,
 }
 
 // coingecko chain platform
@@ -32,6 +34,8 @@ enum ChainName {
   SOLANA = 'solana',
   BSC = 'bsc',
   AVALANCHE = 'avalanche',
+  MONAD = 'monad',
+  MANTLE = 'mantle',
 }
 
 enum ChainShortName {
@@ -44,6 +48,8 @@ enum ChainShortName {
   SOLANA = 'solana',
   BSC = 'bsc',
   AVALANCHE = 'avalanche',
+  MONAD = 'monad',
+  MANTLE = 'mantle',
 }
 
 enum PriceFeed {
@@ -63,6 +69,7 @@ enum TxnTrackingProtocol {
 enum StakingProtocol {
   HEMI = 'hemi',
   VUSDBRIDGE = 'vusd-bridge',
+  MORPHO = 'morpho',
 }
 
 enum GatewayUrl {
@@ -75,6 +82,8 @@ enum GatewayUrl {
   SOLANA = 'https://v2.archive.subsquid.io/network/solana-mainnet',
   BSC = 'https://v2.archive.subsquid.io/network/binance-mainnet',
   AVALANCHE = 'https://v2.archive.subsquid.io/network/avalanche-mainnet',
+  MONAD = 'https://v2.archive.subsquid.io/network/monad-mainnet',
+  MANTLE = 'https://v2.archive.subsquid.io/network/mantle-mainnet',
 }
 
 enum ProtocolType {

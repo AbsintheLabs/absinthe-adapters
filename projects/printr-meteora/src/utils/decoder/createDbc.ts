@@ -13,24 +13,24 @@ export function decodePrintrInit(base58Data: string) {
   const protocolVersion = readU8(payload, o);
   o += 1;
 
-  // 2) printrTokenId: variable-length bytes (whatever remains before the 2 pubkeys)
+  // 2) telecoinId: variable-length bytes (whatever remains before the 2 pubkeys)
   //    Two trailing pubkeys = 64 bytes total.
   const tokenIdLen = payload.length - o - 64;
   if (tokenIdLen < 0) throw new Error('Malformed payload (too short for two pubkeys)');
-  const printrTokenIdBytes = payload.subarray(o, o + tokenIdLen);
-  const printrTokenId = toHex(printrTokenIdBytes);
+  const telecoinIdBytes = payload.subarray(o, o + tokenIdLen);
+  const telecoinId = toHex(telecoinIdBytes);
   o += tokenIdLen;
 
-  // 3) quoteMint (Pubkey), 4) creatorOnSolana (Pubkey)
+  // 3) quoteMint (Pubkey), 4) devOnSolana (Pubkey)
   const quoteMint = readPk(payload, o);
   o += 32;
-  const creatorOnSolana = readPk(payload, o);
+  const devOnSolana = readPk(payload, o);
   o += 32;
 
   return {
     protocolVersion,
-    printrTokenIdHex: printrTokenId, // hex string of the raw token id bytes
+    telecoinIdHex: telecoinId, // hex string of the raw token id bytes
     quoteMint,
-    creatorOnSolana,
+    devOnSolana,
   };
 }

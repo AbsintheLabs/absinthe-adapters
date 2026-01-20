@@ -114,12 +114,12 @@
   ],
   "stakingProtocols": [
     {
-      "type": "hemi",
-      "name": "hemi-staking",
-      "contractAddress": "0x4f5e928763cbfaf5ffd8907ebbb0dabd5f78ba83",
-      "chainId": 43111,
+      "type": "morpho",
+      "name": "morpho-staking",
+      "contractAddress": "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
+      "chainId": 1,
       "toBlock": 0,
-      "fromBlock": 1226394
+      "fromBlock": 22487156
     }
   ],
   "univ3Protocols": [

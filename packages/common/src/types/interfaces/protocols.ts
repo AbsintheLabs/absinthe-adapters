@@ -134,6 +134,7 @@ interface ValidatedEnv {
   stakingProtocols: ValidatedStakingProtocolConfig[];
   univ3Protocols: ValidatedUniv3ProtocolConfig[];
   zebuProtocols: ValidatedZebuProtocolConfig[];
+  version: string;
 }
 
 interface HelperProtocolConfig extends Univ3PoolConfig {

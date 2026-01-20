@@ -18,9 +18,12 @@ const envSchema = z.object({
   RPC_URL_SOLANA: z.string().url('RPC_URL_SOLANA must be a valid URL').optional(),
   RPC_URL_BSC: z.string().url('RPC_URL_BSC must be a valid URL').optional(),
   RPC_URL_AVALANCHE: z.string().url('RPC_URL_AVALANCHE must be a valid URL').optional(),
+  RPC_URL_MONAD: z.string().url('RPC_URL_MONAD must be a valid URL').optional(),
+  RPC_URL_MANTLE: z.string().url('RPC_URL_MANTLE must be a valid URL').optional(),
   ABSINTHE_API_URL: z.string().url('ABSINTHE_API_URL must be a valid URL'),
   ABSINTHE_API_KEY: z.string().min(1, 'ABSINTHE_API_KEY is required'),
   COINGECKO_API_KEY: z.string().min(1, 'COINGECKO_API_KEY is required'),
+  VERSION: z.string().min(1, 'VERSION is required'),
 });
 
 const protocolConfigSchema = z.object({
@@ -108,11 +111,11 @@ const zebuProtocolSchema = z.object({
 
 const configSchema = z.object({
   balanceFlushIntervalHours: z.number(),
-  dexProtocols: z.array(dexProtocolSchema),
-  txnTrackingProtocols: z.array(txnTrackingProtocolSchema),
-  stakingProtocols: z.array(stakingProtocolSchema),
-  univ3Protocols: z.array(univ3ProtocolSchema),
-  zebuProtocols: z.array(zebuProtocolSchema),
+  dexProtocols: z.array(dexProtocolSchema).default([]),
+  txnTrackingProtocols: z.array(txnTrackingProtocolSchema).default([]),
+  stakingProtocols: z.array(stakingProtocolSchema).default([]),
+  univ3Protocols: z.array(univ3ProtocolSchema).default([]),
+  zebuProtocols: z.array(zebuProtocolSchema).default([]),
 });
 
 export { configSchema, dexProtocolSchema, protocolConfigSchema, envSchema };
