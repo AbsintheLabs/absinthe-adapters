@@ -25,15 +25,6 @@ import { LIQUIDITY_FEE_BSC, CHAIN_BASE_TOKENS, LIQUIDITY_FEE } from './utils/con
 import { loadTokensFromDb, loadPoolsFromDb, saveTokensToDb, savePoolsToDb } from './utils/database';
 import * as pool2Abi from './abi/pool2';
 
-/** For now: only send these tx hashes to the API (testing). Remove or empty to send all. */
-const ALLOWED_TX_HASHES = new Set(
-  [
-    '0xe5c138352bdc4c171d08cd5bac8f169e5c7045fb4ace65eae584323e99fc1d3f',
-    '0x9acc340af948cecd8fcad54c648989c182f29c1b0d803d6f5e83af8efb1ad17d',
-    '0x253152b4caaf25584d3bba24eff47b803f4914985dd08a56b7529fed95a53e5a',
-  ].map((h) => h.toLowerCase()),
-);
-
 export class PrintrProcessor {
   private readonly bondingCurveProtocol: ValidatedTxnTrackingProtocolConfig;
   private readonly schemaName: string;
@@ -382,10 +373,6 @@ export class PrintrProcessor {
       gasFeeUsd: gasFeeUsd,
     };
 
-    // For now: only send if tx hash is in allowlist (remove check to send all)
-    if (ALLOWED_TX_HASHES.size > 0 && !ALLOWED_TX_HASHES.has((hash as string).toLowerCase())) {
-      return;
-    }
     protocolState.transactions.push(transactionSchema);
   }
 
