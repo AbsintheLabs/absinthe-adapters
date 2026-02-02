@@ -24,6 +24,16 @@ import * as poolAbi from './abi/pool';
 import { LIQUIDITY_FEE_BSC, CHAIN_BASE_TOKENS, LIQUIDITY_FEE } from './utils/consts';
 import { loadTokensFromDb, loadPoolsFromDb, saveTokensToDb, savePoolsToDb } from './utils/database';
 import * as pool2Abi from './abi/pool2';
+
+/** For now: only send these tx hashes to the API (testing). Remove or empty to send all. */
+const ALLOWED_TX_HASHES = new Set(
+  [
+    '0xe5c138352bdc4c171d08cd5bac8f169e5c7045fb4ace65eae584323e99fc1d3f',
+    '0x9acc340af948cecd8fcad54c648989c182f29c1b0d803d6f5e83af8efb1ad17d',
+    '0x253152b4caaf25584d3bba24eff47b803f4914985dd08a56b7529fed95a53e5a',
+  ].map((h) => h.toLowerCase()),
+);
+
 export class PrintrProcessor {
   private readonly bondingCurveProtocol: ValidatedTxnTrackingProtocolConfig;
   private readonly schemaName: string;
@@ -140,42 +150,44 @@ export class PrintrProcessor {
     log: any,
     protocolState: ProtocolState,
   ): Promise<void> {
-    if (log.topics[0] === printrAbi.events.TokenTrade.topic) {
-      await this.processTokenTradeEvent(ctx, block, log, protocolState);
+    // TokenTrade: disabled for this indexer (BUY-only OKU factory)
+    // if (log.topics[0] === printrAbi.events.TokenTrade.topic) {
+    //   await this.processTokenTradeEvent(ctx, block, log, protocolState);
+    // }
+
+    // CurveCreated: disabled for this indexer (BUY-only OKU factory)
+    // if (log.topics[0] === printrAbi.events.CurveCreated.topic) {
+    //   await this.processCurveCreatedEvent(ctx, block, log, protocolState);
+    // }
+    if (log.topics[0] === printrAbi.events.LiquidityDeployed.topic) {
+      await this.processGraduatedPoolCreatedEvent(ctx, block, log, protocolState);
     }
 
-    if (log.topics[0] === printrAbi.events.CurveCreated.topic) {
-      await this.processCurveCreatedEvent(ctx, block, log, protocolState);
+    if (log.topics[0] === pool2Abi.events.Swap.topic) {
+      logger.info('Swap event [ProcessLog]', {
+        logAddress: log.address.toLowerCase(),
+        poolState: this.poolState,
+      });
+      const poolAddresses = Array.from(this.poolState.keys());
+      if (poolAddresses.some((key) => key.toLowerCase() === log.address.toLowerCase())) {
+        await this.processSwapEvent(ctx, block, log, protocolState);
+      } else {
+        logger.warn('Pool not found:', log.address);
+      }
     }
-    // if (log.topics[0] === printrAbi.events.LiquidityDeployed.topic) {
-    //   await this.processGraduatedPoolCreatedEvent(ctx, block, log, protocolState);
-    // }
 
-    // if (log.topics[0] === pool2Abi.events.Swap.topic) {
-    //   logger.info('Swap event [ProcessLog]', {
-    //     logAddress: log.address.toLowerCase(),
-    //     poolState: this.poolState,
-    //   });
-    //   const poolAddresses = Array.from(this.poolState.keys());
-    //   if (poolAddresses.some((key) => key.toLowerCase() === log.address.toLowerCase())) {
-    //     await this.processSwapEvent(ctx, block, log, protocolState);
-    //   } else {
-    //     logger.warn('Pool not found:', log.address);
-    //   }
-    // }
-
-    // if (log.topics[0] === poolAbi.events.Swap.topic) {
-    //   logger.info('Swap event [ProcessLog]', {
-    //     logAddress: log.address.toLowerCase(),
-    //     poolState: this.poolState,
-    //   });
-    //   const poolAddresses = Array.from(this.poolState.keys());
-    //   if (poolAddresses.some((key) => key.toLowerCase() === log.address.toLowerCase())) {
-    //     await this.processSwapEvent(ctx, block, log, protocolState);
-    //   } else {
-    //     logger.warn('Pool not found:', log.address);
-    //   }
-    // }
+    if (log.topics[0] === poolAbi.events.Swap.topic) {
+      logger.info('Swap event [ProcessLog]', {
+        logAddress: log.address.toLowerCase(),
+        poolState: this.poolState,
+      });
+      const poolAddresses = Array.from(this.poolState.keys());
+      if (poolAddresses.some((key) => key.toLowerCase() === log.address.toLowerCase())) {
+        await this.processSwapEvent(ctx, block, log, protocolState);
+      } else {
+        logger.warn('Pool not found:', log.address);
+      }
+    }
   }
 
   private async processSwapEvent(
@@ -196,17 +208,15 @@ export class PrintrProcessor {
     const { recipient, amount0, amount1 } = swapData;
     const { gasPrice, gasUsed, hash, from } = log.transaction;
 
-    // Only process SELL swaps where recipient is the Printr contract.
-    // For SELL swaps, Uniswap sends wrapped token to Printr contract, which unwraps and sends native token to user.
-    // In this case, recipient is the Printr contract, so we use tx.sender as the actual user.
-    // Ignore BUY swaps (where recipient is not the Printr contract).
+    // Only process BUY swaps (recipient is the user, not the Printr contract).
+    // For BUY swaps, user sends native → pool sends PRINTR to recipient; we reward the recipient.
     const printrContractAddress = this.bondingCurveProtocol.contractAddress.toLowerCase();
-    if (recipient.toLowerCase() !== printrContractAddress) {
-      // This is a BUY swap, ignore it
+    if (recipient.toLowerCase() === printrContractAddress) {
+      // This is a SELL swap, ignore it (handled by SELL-only indexer)
       return;
     }
-    // This is a SELL swap, use tx.sender as the actual user
-    const userId = from;
+    // This is a BUY swap: reward the recipient (user who receives the tokens)
+    const userId = recipient;
 
     logger.info('Gas used [Swap]', { blockNumber: block.header.height });
     const gasUsedInEth = Number(gasUsed) / 10 ** 18;
@@ -372,6 +382,10 @@ export class PrintrProcessor {
       gasFeeUsd: gasFeeUsd,
     };
 
+    // For now: only send if tx hash is in allowlist (remove check to send all)
+    if (ALLOWED_TX_HASHES.size > 0 && !ALLOWED_TX_HASHES.has((hash as string).toLowerCase())) {
+      return;
+    }
     protocolState.transactions.push(transactionSchema);
   }
 
