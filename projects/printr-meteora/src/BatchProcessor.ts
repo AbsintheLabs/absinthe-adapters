@@ -22,7 +22,6 @@ import { augmentBlock } from '@subsquid/solana-objects';
 import { processSwapInstructions } from './mappings/swapInstructions';
 import { Connection } from '@solana/web3.js';
 import { DAMM_PROGRAM_ID, DBC_PROGRAM_ID } from './utils/consts';
-import { Src } from '@subsquid/borsh';
 import { decodeDammV2SelfCpiLog } from './utils/decoder/damm';
 import { decodeDbcSwapEvent } from './utils/decoder/dbc';
 import { decodePrintrInit } from './utils/decoder/createDbc';
@@ -155,39 +154,41 @@ export class PrintrMeteoraProcessor {
 
           // Process ALL inner instructions, not just the first one
           for (const innerIns of innerSwap) {
-            if (innerIns.programId === DBC_PROGRAM_ID) {
-              try {
-                const hexData = '0x' + Buffer.from(innerIns.data, 'base64').toString('hex');
-                const discriminator = hexData.substring(0, 18);
+            // if (innerIns.programId === DBC_PROGRAM_ID) {
+            //   try {
+            //     const hexData = '0x' + Buffer.from(innerIns.data, 'base64').toString('hex');
+            //     const discriminator = hexData.substring(0, 18);
 
-                logger.info(` [DecodeInstructionDbc] Raw data:`, {
-                  discriminator,
-                  dataLength: innerIns.data.length,
-                });
+            //     logger.info(` [DecodeInstructionDbc] Raw data:`, {
+            //       discriminator,
+            //       dataLength: innerIns.data.length,
+            //     });
 
-                if (discriminator === '0xda2a17a3d9e402dd') {
-                  const event = decodeDbcSwapEvent(innerIns.data);
+            //     if (discriminator === '0xda2a17a3d9e402dd') {
+            //       const event = decodeDbcSwapEvent(innerIns.data);
 
-                  logger.info(` [DecodeInstructionDbc] Decoded event:`, { event });
+            //       logger.info(` [DecodeInstructionDbc] Decoded event:`, { event });
 
-                  return {
-                    ...baseData,
-                    type: 'SwapMeteoraDbc',
-                    decodedInstruction,
-                    event,
-                  } as any;
-                }
-              } catch (e) {
-                logger.warn(`⚠️ [DecodeInstruction] DBC decode failed:`, { error: e as Error });
-              }
-            } else if (innerIns.programId === DAMM_PROGRAM_ID) {
+            //       return {
+            //         ...baseData,
+            //         type: 'SwapMeteoraDbc',
+            //         decodedInstruction,
+            //         event,
+            //       } as any;
+            //     }
+            //   } catch (e) {
+            //     logger.warn(`⚠️ [DecodeInstruction] DBC decode failed:`, { error: e as Error });
+            //   }
+            // } else
+
+            if (innerIns.programId === DAMM_PROGRAM_ID) {
               try {
                 const hexData = '0x' + Buffer.from(innerIns.data, 'base64').toString('hex');
                 const discriminator = hexData.substring(0, 18);
 
                 logger.info(`�� [DecodeInstructionDamm] Discriminator:`, { discriminator });
 
-                if (discriminator === '0xea7c70e30c9e25d9') {
+                if (discriminator === '0x11533dc0b9dabaef') {
                   const event = decodeDammV2SelfCpiLog(innerIns.data);
 
                   logger.info(` [DecodeInstructionDamm] Decoded event:`, { event });
@@ -206,38 +207,38 @@ export class PrintrMeteoraProcessor {
           }
         }
 
-        case printrAbi.instructions.printTelecoin.d8: {
-          const decodedCreateInstruction = printrAbi.instructions.printTelecoin.decode(ins);
-          const inner = ins.inner || [];
+        // case printrAbi.instructions.printTelecoin.d8: {
+        //   const decodedCreateInstruction = printrAbi.instructions.printTelecoin.decode(ins);
+        //   const inner = ins.inner || [];
 
-          for (const innerIns of inner) {
-            if (innerIns.programId === printrAbi.programId) {
-              try {
-                const hexData = '0x' + Buffer.from(innerIns.data, 'base64').toString('hex');
-                const discriminator = hexData.substring(0, 18);
+        //   for (const innerIns of inner) {
+        //     if (innerIns.programId === printrAbi.programId) {
+        //       try {
+        //         const hexData = '0x' + Buffer.from(innerIns.data, 'base64').toString('hex');
+        //         const discriminator = hexData.substring(0, 18);
 
-                logger.info(`�� [DecodeInstruction] Discriminator:`, { discriminator });
+        //         logger.info(`�� [DecodeInstruction] Discriminator:`, { discriminator });
 
-                if (discriminator === '0xe06021507f14dbcb') {
-                  const event = decodePrintrInit(innerIns.data);
+        //         if (discriminator === '0xe06021507f14dbcb') {
+        //           const event = decodePrintrInit(innerIns.data);
 
-                  logger.info(` [DecodeInstruction] Decoded CreatePrintrDbcEvent:`, { event });
+        //           logger.info(` [DecodeInstruction] Decoded CreatePrintrDbcEvent:`, { event });
 
-                  return {
-                    ...baseData,
-                    type: 'CreatePrintrDbcEvent',
-                    decodedInstruction: decodedCreateInstruction,
-                    event,
-                  } as any;
-                }
-              } catch (e) {
-                logger.warn(`⚠️ [DecodeInstruction] CreatePrintrDbc decode failed:`, {
-                  error: e as Error,
-                });
-              }
-            }
-          }
-        }
+        //           return {
+        //             ...baseData,
+        //             type: 'CreatePrintrDbcEvent',
+        //             decodedInstruction: decodedCreateInstruction,
+        //             event,
+        //           } as any;
+        //         }
+        //       } catch (e) {
+        //         logger.warn(`⚠️ [DecodeInstruction] CreatePrintrDbc decode failed:`, {
+        //           error: e as Error,
+        //         });
+        //       }
+        //     }
+        //   }
+        // }
 
         default:
           return null;
