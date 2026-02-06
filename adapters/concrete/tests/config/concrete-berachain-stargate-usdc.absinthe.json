@@ -22,8 +22,7 @@
     "finality": 75
   },
   "range": {
-    "fromBlock": 142953,
-    "toBlock": 14475383
+    "fromBlock": 4052829
   },
   "adapterConfig": {
     "adapterId": "concrete",

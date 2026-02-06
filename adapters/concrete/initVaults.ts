@@ -50,7 +50,10 @@ export async function initializeVaults(
       logger.info(`Initialized vault ${vaultAddr}: asset=${assetAddress}, decimals=${decimals}`);
     } catch (error) {
       logger.error(`Failed to initialize vault ${vaultAddr}:`, error);
-      // Continue with other vaults even if one fails
+      const msg =
+        `Vault init failed for ${vaultAddr}. Please check: (1) fromBlock is not before the contract was deployed, ` +
+        `(2) contract address is correct for this chain, (3) RPC has archival support for the block you are querying.`;
+      throw new Error(msg);
     }
   }
 
