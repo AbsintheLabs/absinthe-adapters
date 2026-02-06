@@ -17,7 +17,7 @@
   },
   "network": {
     "chainId": 80094,
-    "gatewayUrl": "https://v2.archive.subsquid.io/network/berachain-bartio",
+    "gatewayUrl": "https://v2.archive.subsquid.io/network/berachain-mainnet",
     "rpcUrl": "${env:RPC_URL}",
     "finality": 75
   },

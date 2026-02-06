@@ -17,13 +17,12 @@
   },
   "network": {
     "chainId": 80094,
-    "gatewayUrl": "https://v2.archive.subsquid.io/network/berachain-bartio",
+    "gatewayUrl": "https://v2.archive.subsquid.io/network/berachain-mainnet",
     "rpcUrl": "${env:RPC_URL}",
     "finality": 75
   },
   "range": {
-    "fromBlock": 142953,
-    "toBlock": 14475383
+    "fromBlock": 4052829
   },
   "adapterConfig": {
     "adapterId": "concrete",

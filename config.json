@@ -6,7 +6,7 @@
     "sinks": [
       {
         "sinkType": "csv",
-        "path": "concrete-ethereum-bitcoin-2.csv"
+        "path": "concrete-stargate-usdc.csv"
       },
       {
         "sinkType": "absinthe",
@@ -16,14 +16,13 @@
     ]
   },
   "network": {
-    "chainId": 1,
-    "gatewayUrl": "https://v2.archive.subsquid.io/network/ethereum-mainnet",
+    "chainId": 80094,
+    "gatewayUrl": "https://v2.archive.subsquid.io/network/berachain-mainnet",
     "rpcUrl": "${env:RPC_URL}",
     "finality": 75
   },
   "range": {
-    "fromBlock": 21267158,
-    "toBlock": 21761032
+    "fromBlock": 4052829
   },
   "adapterConfig": {
     "adapterId": "concrete",
@@ -31,13 +30,13 @@
       "vaults": [
         {
           "params": {
-            "vaultAddress": "0x34bdbA9b3D8E3073Eb4470cd4C031C2e39C32DA8"
+            "vaultAddress": "0xc3cac88fd629652bbe0c3454d5d3049368a73849"
           },
           "pricing": {
             "kind": "concrete",
             "underlyingAsset": {
               "kind": "coingecko",
-              "id": "bitcoin"
+              "id": "stargate-bridged-usdc"
             }
           }
         }
