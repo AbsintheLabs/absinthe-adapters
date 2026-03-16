@@ -238,7 +238,11 @@ interface CreatePrintrDbcEvent extends BaseInstructionData {
   type: 'CreatePrintrDbcEvent';
 }
 
-type PrintrInstructionData = SwapData | CreatePrintrDbcEvent;
+interface CreateStakePositionData extends BaseInstructionData {
+  type: 'CreateStakePosition';
+}
+
+type PrintrInstructionData = SwapData | CreatePrintrDbcEvent | CreateStakePositionData;
 
 export type {
   TokenBalance,
@@ -247,6 +251,7 @@ export type {
   ProtocolStateOrca,
   PrintrInstructionData,
   SwapData,
+  CreateStakePositionData,
   BaseInstructionData,
   Token,
   PositionDetails,
