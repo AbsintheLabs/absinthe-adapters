@@ -118,9 +118,9 @@ async function getJupPrice(
     }
   }
 
-  // Fetch new price from Jupiter API
+  // Fetch new price from Jupiter API (free tier, no key needed)
   const url = `https://lite-api.jup.ag/price/v3?ids=${mintAddress}`;
-  const baseRetryInterval = 5000; // 5 seconds
+  const baseRetryInterval = 10000; // 10 seconds
   const maxRetryInterval = 420000; // 7 minutes
   const maxRetries = -1; // -1 means retry indefinitely
 

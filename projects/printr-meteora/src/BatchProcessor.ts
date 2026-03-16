@@ -25,6 +25,7 @@ import { DAMM_PROGRAM_ID, DBC_PROGRAM_ID } from './utils/consts';
 import { decodeDammV2SelfCpiLog } from './utils/decoder/damm';
 import { decodeDbcSwapEvent } from './utils/decoder/dbc';
 import { decodePrintrInit } from './utils/decoder/createDbc';
+import { getJupPrice } from './utils/pricing';
 export class PrintrMeteoraProcessor {
   private readonly protocol: PrintrMeteoraProtocol;
   private readonly schemaName: string;
@@ -148,63 +149,42 @@ export class PrintrMeteoraProcessor {
       };
 
       switch (ins.d8) {
-        case printrAbi.instructions.swap.d8: {
-          const decodedInstruction = printrAbi.instructions.swap.decode(ins);
-          const innerSwap = ins.inner || [];
+        // case printrAbi.instructions.swap.d8: {
+        //   const decodedInstruction = printrAbi.instructions.swap.decode(ins);
+        //   const innerSwap = ins.inner || [];
 
-          // Process ALL inner instructions, not just the first one
-          for (const innerIns of innerSwap) {
-            // if (innerIns.programId === DBC_PROGRAM_ID) {
-            //   try {
-            //     const hexData = '0x' + Buffer.from(innerIns.data, 'base64').toString('hex');
-            //     const discriminator = hexData.substring(0, 18);
+        //   // Process ALL inner instructions, not just the first one
+        //   for (const innerIns of innerSwap) {
+        //     if (innerIns.programId === DAMM_PROGRAM_ID) {
+        //       try {
+        //         const hexData = '0x' + Buffer.from(innerIns.data, 'base64').toString('hex');
+        //         const discriminator = hexData.substring(0, 18);
 
-            //     logger.info(` [DecodeInstructionDbc] Raw data:`, {
-            //       discriminator,
-            //       dataLength: innerIns.data.length,
-            //     });
+        //         if (discriminator === '0x11533dc0b9dabaef') {
+        //           const event = decodeDammV2SelfCpiLog(innerIns.data);
+        //           return {
+        //             ...baseData,
+        //             type: 'SwapMeteoraDamm',
+        //             decodedInstruction,
+        //             event,
+        //           } as any;
+        //         }
+        //       } catch (e) {
+        //         logger.warn(`⚠️ [DecodeInstruction] DAMM decode failed:`, { error: e as Error });
+        //       }
+        //     }
+        //   }
+        //   return null;
+        // }
 
-            //     if (discriminator === '0xda2a17a3d9e402dd') {
-            //       const event = decodeDbcSwapEvent(innerIns.data);
-
-            //       logger.info(` [DecodeInstructionDbc] Decoded event:`, { event });
-
-            //       return {
-            //         ...baseData,
-            //         type: 'SwapMeteoraDbc',
-            //         decodedInstruction,
-            //         event,
-            //       } as any;
-            //     }
-            //   } catch (e) {
-            //     logger.warn(`⚠️ [DecodeInstruction] DBC decode failed:`, { error: e as Error });
-            //   }
-            // } else
-
-            if (innerIns.programId === DAMM_PROGRAM_ID) {
-              try {
-                const hexData = '0x' + Buffer.from(innerIns.data, 'base64').toString('hex');
-                const discriminator = hexData.substring(0, 18);
-
-                logger.info(`�� [DecodeInstructionDamm] Discriminator:`, { discriminator });
-
-                if (discriminator === '0x11533dc0b9dabaef') {
-                  const event = decodeDammV2SelfCpiLog(innerIns.data);
-
-                  logger.info(` [DecodeInstructionDamm] Decoded event:`, { event });
-
-                  return {
-                    ...baseData,
-                    type: 'SwapMeteoraDamm',
-                    decodedInstruction,
-                    event,
-                  } as any;
-                }
-              } catch (e) {
-                logger.warn(`⚠️ [DecodeInstruction] DAMM decode failed:`, { error: e as Error });
-              }
-            }
-          }
+        case printrAbi.instructions.createStakePosition.d8: {
+          const decodedInstruction = printrAbi.instructions.createStakePosition.decode(ins);
+          return {
+            ...baseData,
+            type: 'CreateStakePosition',
+            decodedInstruction,
+            event: null,
+          } as any;
         }
 
         // case printrAbi.instructions.printTelecoin.d8: {
@@ -257,20 +237,28 @@ export class PrintrMeteoraProcessor {
     blockInstructions: PrintrInstructionData[],
     protocolStates: Map<string, ProtocolStateOrca>,
   ): Promise<void> {
-    const swapInstructions = blockInstructions.filter((data) =>
-      ['SwapMeteoraDbc', 'SwapMeteoraDamm'].includes(data.type),
+    // const swapInstructions = blockInstructions.filter((data) =>
+    //   ['SwapMeteoraDbc', 'SwapMeteoraDamm'].includes(data.type),
+    // );
+
+    // const createPrintrDbcEvent = blockInstructions.filter((data) =>
+    //   ['CreatePrintrDbcEvent'].includes(data.type),
+    // );
+
+    const createStakePositionInstructions = blockInstructions.filter(
+      (data) => data.type === 'CreateStakePosition',
     );
 
-    const createPrintrDbcEvent = blockInstructions.filter((data) =>
-      ['CreatePrintrDbcEvent'].includes(data.type),
-    );
+    // if (swapInstructions.length > 0) {
+    //   await processSwapInstructions(swapInstructions, protocolStates, this.env, this.connection);
+    // }
 
-    if (swapInstructions.length > 0) {
-      await processSwapInstructions(swapInstructions, protocolStates, this.env, this.connection);
-    }
+    // if (createPrintrDbcEvent.length > 0) {
+    //   await this.processCreatePrintrDbcEvents(createPrintrDbcEvent, protocolStates);
+    // }
 
-    if (createPrintrDbcEvent.length > 0) {
-      await this.processCreatePrintrDbcEvents(createPrintrDbcEvent, protocolStates);
+    if (createStakePositionInstructions.length > 0) {
+      await this.processCreateStakePositionEvents(createStakePositionInstructions, protocolStates);
     }
   }
 
@@ -303,6 +291,74 @@ export class PrintrMeteoraProcessor {
 
       const protocolState = protocolStates.get(this.protocol.contractAddress);
 
+      if (protocolState) {
+        protocolState.transactions.push(transactionSchema);
+      } else {
+        protocolStates.set(this.protocol.contractAddress, {
+          balanceWindows: [],
+          transactions: [transactionSchema],
+        });
+      }
+    }
+  }
+
+  private async processCreateStakePositionEvents(
+    instructions: PrintrInstructionData[],
+    protocolStates: Map<string, ProtocolStateOrca>,
+  ): Promise<void> {
+    for (const data of instructions) {
+      const { accounts, data: ixData } = data.decodedInstruction;
+
+      const telecoinMint = accounts.telecoinMint;
+      const stakedRaw = ixData.toStake.amount;
+
+      let valueUsd = 0;
+      let telecoinPriceUsd = 0;
+      let telecoinDecimals = 6;
+
+      try {
+        const jupPrice = await getJupPrice(telecoinMint, data.timestamp * 1000);
+        telecoinPriceUsd = jupPrice.usdPrice ?? 0;
+        telecoinDecimals = jupPrice.decimals ?? 6;
+        const stakedHuman = Number(stakedRaw) / Math.pow(10, telecoinDecimals);
+        valueUsd = stakedHuman * telecoinPriceUsd;
+      } catch (error) {
+        logger.warn(`[ProcessCreateStakePosition] Jupiter price fetch failed for ${telecoinMint}:`, {
+          error: error as Error,
+        });
+      }
+
+      const displayAmount = Number(stakedRaw) / Math.pow(10, telecoinDecimals);
+
+      const transactionSchema = {
+        eventType: MessageType.TRANSACTION,
+        eventName: 'CreateStakePosition',
+        tokens: {},
+        rawAmount: stakedRaw.toString(),
+        displayAmount,
+        unixTimestampMs: data.timestamp * 1000,
+        txHash: data.txHash,
+        logIndex: data.logIndex,
+        blockNumber: data.slot,
+        blockHash: data.blockHash,
+        userId: accounts.positionOwner,
+        currency: Currency.USD,
+        valueUsd,
+        gasUsed: 0,
+        gasFeeUsd: 0,
+        meta: {
+          telecoinMint,
+          telecoinPriceUsd,
+          positionNonce: ixData.positionNonce,
+          lockPeriod: ixData.lockPeriod,
+        },
+      };
+
+      logger.info(`[ProcessCreateStakePosition] Transaction schema:`, {
+        transactionSchema,
+      });
+
+      const protocolState = protocolStates.get(this.protocol.contractAddress);
       if (protocolState) {
         protocolState.transactions.push(transactionSchema);
       } else {
