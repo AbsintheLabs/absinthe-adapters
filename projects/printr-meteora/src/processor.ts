@@ -41,9 +41,9 @@ export const processor = new DataSourceBuilder()
     where: {
       programId: [printrAbi.programId], // where executed by Whirlpool program
       d8: [
-        // printrAbi.instructions.swap.d8,
+        printrAbi.instructions.swap.d8,
         // printrAbi.instructions.printTelecoin.d8,
-        printrAbi.instructions.createStakePosition.d8,
+        // printrAbi.instructions.createStakePosition.d8,
       ],
 
       //note: not including closePosition as it wouldn't work.
